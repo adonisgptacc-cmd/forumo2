@@ -1,0 +1,11 @@
+node_modules
+pnpm-debug.log*
+.env*
+!.env.example
+dist
+coverage
+apps/web/.next
+apps/**/dist
+apps/**/.expo
+apps/**/build
+artifacts
