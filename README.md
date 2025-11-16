@@ -26,10 +26,6 @@ npm install -g pnpm
 # install all dependencies for the workspace
 pnpm install
 
-# bootstrap the backend environment
-cp .env.example .env                  # customize DATABASE_URL, JWT secret, etc.
-pnpm prisma:generate                  # generate the typed Prisma client
-
 # run the NestJS API on http://localhost:4000
 pnpm backend:dev
 
@@ -38,14 +34,6 @@ pnpm web:dev
 ```
 
 > **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/`.
-
-### Implemented API surface (alpha)
-
-- `POST /api/v1/auth/register` and `POST /api/v1/auth/login` provide hashed-password registration and JWT-based authentication.
-- `GET /api/v1/auth/me` returns the caller profile (requires `Authorization: Bearer <token>`).
-- `GET /api/v1/users`, `GET /api/v1/users/:id`, `PATCH /api/v1/users/:id`, and `DELETE /api/v1/users/:id` offer initial admin-style user management backed by Prisma + PostgreSQL.
-
-The Nest app exposes Swagger docs at `/docs` so any additional routes will surface automatically.
 
 ## Documentation
 

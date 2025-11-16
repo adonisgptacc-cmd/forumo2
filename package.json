@@ -7,12 +7,9 @@
     "web:dev": "pnpm --filter web dev",
     "backend:dev": "pnpm --filter backend start:dev",
     "lint": "pnpm --parallel lint",
-    "typecheck": "pnpm --parallel typecheck",
-    "prisma:generate": "cd apps/backend && pnpm exec prisma generate --schema prisma/schema.prisma",
-    "prisma:migrate": "cd apps/backend && pnpm exec prisma migrate dev --schema prisma/schema.prisma"
+    "typecheck": "pnpm --parallel typecheck"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "turbo": "^2.0.4"
   }
 }
