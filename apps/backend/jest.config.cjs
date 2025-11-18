@@ -6,6 +6,7 @@ module.exports = {
   rootDir: '.',
   modulePaths: ['<rootDir>/src'],
   moduleNameMapper: {
+    '^ipaddr\\.js$': 'ipaddr.js',
     '^(.*)\\.js$': '$1',
   },
   transform: {
