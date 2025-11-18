@@ -43,12 +43,20 @@ export default function HomePage() {
           <span className="rounded-full border border-slate-700 px-4 py-1">React Native</span>
           <span className="rounded-full border border-slate-700 px-4 py-1">AI Moderation</span>
         </div>
-        <Link
-          className="inline-flex items-center gap-2 rounded-full border border-amber-400 px-4 py-2 text-sm text-amber-200"
-          href="/listings"
-        >
-          Browse sample listings →
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            className="inline-flex items-center gap-2 rounded-full border border-amber-400 px-4 py-2 text-sm text-amber-200"
+            href="/listings"
+          >
+            Browse sample listings →
+          </Link>
+          <Link
+            className="inline-flex items-center gap-2 rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:border-amber-300"
+            href="/listings/new"
+          >
+            Launch a new listing
+          </Link>
+        </div>
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
