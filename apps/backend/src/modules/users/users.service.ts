@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { SafeUser, sanitizeUser } from './user.serializer.js';
 
@@ -39,6 +40,17 @@ export class UsersService {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  async updateProfile(id: string, dto: UpdateProfileDto): Promise<SafeUser> {
+    await this.ensureExists(id);
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...dto,
+      },
+    });
+    return sanitizeUser(updated)!;
   }
 
   private async ensureExists(id: string): Promise<void> {
