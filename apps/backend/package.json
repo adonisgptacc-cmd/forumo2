@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "typecheck": "tsc --noEmit",
+    "pretest": "pnpm run prisma:generate",
     "test": "jest --runInBand",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma"
   },
