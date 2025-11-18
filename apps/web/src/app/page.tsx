@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const modules = [
   {
     title: 'Escrow & Orders',
@@ -41,6 +43,12 @@ export default function HomePage() {
           <span className="rounded-full border border-slate-700 px-4 py-1">React Native</span>
           <span className="rounded-full border border-slate-700 px-4 py-1">AI Moderation</span>
         </div>
+        <Link
+          className="inline-flex items-center gap-2 rounded-full border border-amber-400 px-4 py-2 text-sm text-amber-200"
+          href="/listings"
+        >
+          Browse sample listings →
+        </Link>
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
