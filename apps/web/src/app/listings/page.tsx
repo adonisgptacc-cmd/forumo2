@@ -36,14 +36,27 @@ export default async function ListingsIndex() {
 
   return (
     <main className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Marketplace</p>
-        <h1 className="text-3xl font-semibold">Listings</h1>
-        <p className="text-slate-300">Fresh inventory flowing through the NestJS API.</p>
+      <header className="items-start justify-between gap-4 space-y-2 md:flex md:space-y-0">
+        <div className="space-y-2">
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Marketplace</p>
+          <h1 className="text-3xl font-semibold">Listings</h1>
+          <p className="text-slate-300">Fresh inventory flowing through the NestJS API.</p>
+        </div>
+        <Link
+          className="inline-flex items-center justify-center rounded-md border border-amber-400 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-400/10"
+          href="/listings/new"
+        >
+          + New listing
+        </Link>
       </header>
 
       {listings.length === 0 ? (
-        <div className="grid-card text-slate-300">No listings yet. Use the API to create one.</div>
+        <div className="grid-card space-y-2 text-slate-300">
+          <p>No listings yet. Use the API or the form to create one.</p>
+          <Link className="text-sm text-amber-300" href="/listings/new">
+            Create the first listing →
+          </Link>
+        </div>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2">
           {listings.map((listing) => (

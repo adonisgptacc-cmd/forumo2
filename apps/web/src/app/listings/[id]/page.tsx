@@ -50,9 +50,17 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
 
   return (
     <main className="space-y-6">
-      <Link className="text-sm text-amber-300" href="/listings">
-        ← Back to listings
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link className="text-sm text-amber-300" href="/listings">
+          ← Back to listings
+        </Link>
+        <Link
+          className="text-sm text-amber-200 underline decoration-dotted underline-offset-4"
+          href={`/listings/${listing.id}/edit`}
+        >
+          Edit listing
+        </Link>
+      </div>
       <section className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{listing.status}</p>
         <h1 className="text-4xl font-semibold">{listing.title}</h1>
@@ -72,6 +80,24 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {listing.images && listing.images.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-2xl">Images</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {listing.images.map((image) => (
+              <div key={image.id} className="rounded-xl border border-slate-800 p-2">
+                {image.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={image.url} alt={listing.title} className="h-48 w-full rounded-lg object-cover" />
+                ) : (
+                  <p className="text-xs text-slate-500">Image ready once uploaded.</p>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
     </main>
