@@ -97,6 +97,11 @@ enum DisputeStatus {
   ESCALATED
 }
 
+enum EscrowTransactionType {
+  RELEASE
+  REFUND
+}
+
 enum MessageParticipantRole {
   BUYER
   SELLER
@@ -200,6 +205,7 @@ model User {
   disputesOpened  EscrowDispute[]      @relation("EscrowDisputeOpener")
   disputeMessages DisputeMessage[]     @relation("DisputeMessageAuthor")
   trustSeeds      TrustScoreSeed[]
+  escrowTransactions EscrowTransaction[] @relation("EscrowTransactionActor")
 }
 
 model UserProfile {
@@ -527,6 +533,7 @@ model PaymentTransaction {
   orderId        String
   provider       PaymentProvider @default(STRIPE)
   status         PaymentStatus   @default(PENDING)
+  providerStatus String?
   amountCents    Int
   currency       String          @default("USD")
   providerRef    String?
@@ -555,6 +562,7 @@ model EscrowHolding {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   disputes EscrowDispute[]
+  transactions EscrowTransaction[]
 }
 
 model EscrowDispute {
@@ -574,6 +582,23 @@ model EscrowDispute {
 
   @@index([escrowId])
   @@index([status])
+}
+
+model EscrowTransaction {
+  id          String                @id @default(uuid())
+  escrowId    String
+  type        EscrowTransactionType
+  amountCents Int
+  currency    String                @default("USD")
+  note        String?
+  metadata    Json?
+  actorId     String?
+  createdAt   DateTime              @default(now())
+
+  escrow EscrowHolding @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  actor  User?         @relation("EscrowTransactionActor", fields: [actorId], references: [id])
+
+  @@index([escrowId, type])
 }
 
 model DisputeMessage {
