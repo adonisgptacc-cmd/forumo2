@@ -27,6 +27,21 @@ const modules = [
   },
 ];
 
+const pipelinePriorities = [
+  {
+    title: 'Database wiring',
+    body: 'Prisma models are being locked to PostgreSQL + Redis so the API gateway can hydrate listings, chats, and bids without manual overrides.',
+  },
+  {
+    title: 'MVP endpoints',
+    body: 'Auth, Listings, Orders, and Messaging routes are being finished in NestJS so every client—web, mobile, admin—can hit the same contract.',
+  },
+  {
+    title: 'Real-time auctions + escrow',
+    body: 'Socket.IO bidding paired with Trustap + Stripe escrow keeps payments, release timers, and dispute states synchronized for launch markets.',
+  },
+];
+
 export default function HomePage() {
   return (
     <main className="space-y-12">
@@ -66,6 +81,25 @@ export default function HomePage() {
             <p className="text-slate-300">{module.body}</p>
           </article>
         ))}
+      </section>
+
+      <section className="grid-card space-y-4">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Pipeline Reminders</p>
+          <h2 className="text-2xl">Same priorities across the org</h2>
+          <p className="text-slate-300">
+            Product, engineering, and marketing are aligned on the current sprint: wiring the databases, finishing the MVP
+            endpoints, and shipping the real-time auctions + escrow combo that anchors V1 revenue.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {pipelinePriorities.map((priority) => (
+            <article key={priority.title} className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+              <h3 className="text-lg">{priority.title}</h3>
+              <p className="text-sm text-slate-400">{priority.body}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="grid-card space-y-4">
