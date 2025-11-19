@@ -13,7 +13,7 @@ import {
   serializeListingImage,
 } from './listing.serializer.js';
 import { ModerationQueueService } from './moderation-queue.service.js';
-import { StorageService } from './storage.service.js';
+import { StorageService } from '../storage/storage.service.js';
 
 export interface ListingSearchParams {
   keyword?: string;

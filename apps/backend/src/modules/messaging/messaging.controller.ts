@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import type { Express } from 'express';
+import { Body, Controller, Get, Param, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 import { CreateThreadDto } from './dto/create-thread.dto.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
@@ -26,7 +28,12 @@ export class MessagingController {
   }
 
   @Post('threads/:id/messages')
-  sendMessage(@Param('id') id: string, @Body() dto: SendMessageDto): Promise<SafeMessageThread> {
-    return this.messagingService.addMessage(id, dto);
+  @UseInterceptors(FilesInterceptor('attachments'))
+  sendMessage(
+    @Param('id') id: string,
+    @Body() dto: SendMessageDto,
+    @UploadedFiles() attachments?: Express.Multer.File[],
+  ): Promise<SafeMessageThread> {
+    return this.messagingService.addMessage(id, dto, attachments ?? []);
   }
 }
