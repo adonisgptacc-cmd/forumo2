@@ -1,7 +1,7 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, User } from '@prisma/client';
+import { NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomInt } from 'crypto';
 
@@ -11,7 +11,16 @@ import { UsersService } from '../users/users.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { RequestOtpDto } from './dto/request-otp.dto.js';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto.js';
+import { OtpDeliveryService } from './otp-delivery.service.js';
+
+interface OtpIssueResponse {
+  message: string;
+  channel: NotificationChannel;
+  deliveredAt: Date;
+}
 
 interface AuthResponse {
   user: SafeUser;
@@ -27,6 +36,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly otpDeliveryService: OtpDeliveryService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -70,16 +80,19 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async requestOtp(dto: RequestOtpDto): Promise<{ message: string }> {
+  async requestOtp(dto: RequestOtpDto): Promise<OtpIssueResponse> {
     const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Account not found');
     }
 
+    await this.enforceDeviceRateLimit(user.id, dto.deviceFingerprint);
+
     const code = this.generateOtpCode();
     const secret = this.generateOtpSecret();
     const codeHash = await bcrypt.hash(code, this.saltRounds);
     const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(user, dto, code);
 
     await this.prisma.otpCode.create({
       data: {
@@ -88,12 +101,18 @@ export class AuthService {
         secret,
         codeHash,
         expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint: dto.deviceFingerprint,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
       },
     });
 
     await this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastIssuedAt: new Date() });
 
-    return { message: 'OTP issued' };
+    return { message: 'OTP issued', channel: delivery.channel, deliveredAt: delivery.deliveredAt };
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<AuthResponse> {
@@ -102,35 +121,57 @@ export class AuthService {
       throw new UnauthorizedException('Invalid code');
     }
 
-    const otpRecord = await this.prisma.otpCode.findFirst({
-      where: {
-        userId: user.id,
-        purpose: dto.purpose,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
+    const consumedAt = await this.consumeOtp(user, dto);
+
+    await this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastVerifiedAt: consumedAt });
+
+    return this.buildAuthResponse(user);
+  }
+
+  async requestPasswordReset(dto: RequestPasswordResetDto): Promise<OtpIssueResponse> {
+    const payload: RequestOtpDto = {
+      ...dto,
+      purpose: OtpPurpose.PASSWORD_RESET,
+    } as RequestOtpDto;
+
+    return this.requestOtp(payload);
+  }
+
+  async confirmPasswordReset(dto: PasswordResetConfirmDto): Promise<{ message: string }> {
+    const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
+    if (!user) {
+      throw new UnauthorizedException('Invalid code');
+    }
+
+    const consumedAt = await this.consumeOtp(
+      user,
+      {
+        email: dto.email,
+        code: dto.code,
+        deviceFingerprint: dto.deviceFingerprint,
+        ipAddress: dto.ipAddress,
+        metadata: dto.metadata,
+        purpose: OtpPurpose.PASSWORD_RESET,
+        userAgent: dto.userAgent,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    );
 
-    if (!otpRecord) {
-      throw new UnauthorizedException('Invalid code');
-    }
+    const passwordHash = await bcrypt.hash(dto.newPassword, this.saltRounds);
 
-    const matches = await bcrypt.compare(dto.code, otpRecord.codeHash);
-    if (!matches) {
-      throw new UnauthorizedException('Invalid code');
-    }
-
-    const consumedAt = new Date();
     await this.prisma.$transaction([
-      this.prisma.otpCode.update({
-        where: { id: otpRecord.id },
-        data: { consumedAt },
-      }),
+      this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
       this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastVerifiedAt: consumedAt }),
     ]);
 
-    return this.buildAuthResponse(user);
+    return { message: 'Password reset successful' };
+  }
+
+  async listDeviceSessions(userId: string) {
+    await this.ensureExists(userId);
+    return this.prisma.deviceSession.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    });
   }
 
   private async buildAuthResponse(user: SafeUser | { passwordHash: string } & SafeUser): Promise<AuthResponse> {
@@ -203,5 +244,65 @@ export class AuthService {
       return undefined;
     }
     return metadata as Prisma.JsonObject;
+  }
+
+  private async consumeOtp(user: User, dto: VerifyOtpDto): Promise<Date> {
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: dto.purpose,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRecord) {
+      throw new UnauthorizedException('Invalid code');
+    }
+
+    const matches = await bcrypt.compare(dto.code, otpRecord.codeHash);
+    if (!matches) {
+      throw new UnauthorizedException('Invalid code');
+    }
+
+    const consumedAt = new Date();
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { consumedAt },
+    });
+
+    return consumedAt;
+  }
+
+  private async enforceDeviceRateLimit(userId: string, fingerprint: string): Promise<void> {
+    const limitValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_LIMIT') ?? 5);
+    const windowSecondsValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_WINDOW') ?? 300);
+    const limit = Number.isNaN(limitValue) ? 5 : limitValue;
+    const windowSeconds = Number.isNaN(windowSecondsValue) ? 300 : windowSecondsValue;
+
+    if (!fingerprint) {
+      return;
+    }
+
+    const windowStart = new Date(Date.now() - windowSeconds * 1000);
+    const recentCount = await this.prisma.otpCode.count({
+      where: {
+        userId,
+        deviceFingerprint: fingerprint,
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    if (recentCount >= limit) {
+      throw new HttpException('Too many OTP requests for this device', HttpStatus.TOO_MANY_REQUESTS);
+    }
+  }
+
+  private async ensureExists(id: string): Promise<void> {
+    const exists = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
+    if (!exists) {
+      throw new UnauthorizedException('Account not found');
+    }
   }
 }
