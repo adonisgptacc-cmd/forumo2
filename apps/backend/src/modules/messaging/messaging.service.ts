@@ -1,15 +1,35 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { Express } from 'express';
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { CreateThreadDto } from './dto/create-thread.dto.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 import { ThreadQueryDto } from './dto/thread-query.dto.js';
 import { MessageThreadWithRelations, SafeMessageThread, serializeThread } from './message.serializer.js';
+import { MessagingGateway } from './messaging.gateway.js';
+import { MessageModerationService } from './moderation.service.js';
+
+interface AttachmentInput {
+  bucket: string;
+  storageKey: string;
+  url: string;
+  fileName: string;
+  mimeType: string | null;
+  fileSize: number;
+  metadata?: Record<string, unknown> | null;
+}
 
 @Injectable()
 export class MessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+    private readonly moderation: MessageModerationService,
+    @Inject(forwardRef(() => MessagingGateway))
+    private readonly messagingGateway: MessagingGateway,
+  ) {}
 
   async listThreads(query: ThreadQueryDto): Promise<SafeMessageThread[]> {
     const threads = await this.prisma.messageThread.findMany({
@@ -52,51 +72,144 @@ export class MessagingService {
         listingId: dto.listingId ?? null,
         subject: dto.subject ?? null,
         metadata: this.toJsonInput(dto.metadata),
-        participants: {
-          create: dto.participants.map((participant) => ({
-            userId: participant.userId,
-            role: participant.role,
-          })),
-        },
-        messages: dto.initialMessage
-          ? {
-              create: [
-                {
-                  authorId: dto.initialMessage.authorId,
-                  body: dto.initialMessage.body,
-                  attachments: this.toJsonInput(dto.initialMessage.attachments),
-                  metadata: this.toJsonInput(dto.initialMessage.metadata),
-                },
-              ],
-            }
-          : undefined,
       },
-      include: this.defaultInclude,
     });
 
-    return serializeThread(thread);
+    await this.prisma.messageThreadParticipant.createMany({
+      data: dto.participants.map((participant) => ({
+        threadId: thread.id,
+        userId: participant.userId,
+        role: participant.role,
+      })),
+    });
+
+    if (dto.initialMessage) {
+      await this.addMessage(thread.id, dto.initialMessage);
+    }
+
+    return this.getThread(thread.id);
   }
 
-  async addMessage(id: string, dto: SendMessageDto): Promise<SafeMessageThread> {
-    await this.ensureThreadExists(id);
+  async addMessage(id: string, dto: SendMessageDto, attachments: Express.Multer.File[] = []): Promise<SafeMessageThread> {
+    const thread = await this.ensureThreadExists(id);
     await this.ensureParticipantInThread(id, dto.authorId);
 
-    const updated = await this.prisma.messageThread.update({
-      where: { id },
-      data: {
-        messages: {
-          create: {
-            authorId: dto.authorId,
-            body: dto.body,
-            attachments: this.toJsonInput(dto.attachments),
-            metadata: this.toJsonInput(dto.metadata),
-          },
-        },
-      },
-      include: this.defaultInclude,
+    const storedAttachments = await this.persistUploadedAttachments(id, attachments);
+    const moderationDecision = await this.moderation.scanMessage({
+      threadId: id,
+      authorId: dto.authorId,
+      body: dto.body,
+      attachments: storedAttachments.map((attachment) => ({
+        url: attachment.url,
+        mimeType: attachment.mimeType,
+        fileSize: attachment.fileSize,
+      })),
     });
 
-    return serializeThread(updated);
+    const message = await this.prisma.message.create({
+      data: {
+        threadId: id,
+        authorId: dto.authorId,
+        body: dto.body,
+        status: MessageStatus.SENT,
+        metadata: this.toJsonInput(dto.metadata),
+        moderationStatus: moderationDecision.status,
+        moderationNotes: moderationDecision.notes ?? null,
+        attachments: storedAttachments.length
+          ? {
+              create: storedAttachments.map((attachment) => ({
+                bucket: attachment.bucket,
+                storageKey: attachment.storageKey,
+                url: attachment.url,
+                fileName: attachment.fileName,
+                mimeType: attachment.mimeType,
+                fileSize: attachment.fileSize,
+                metadata: this.toJsonInput(attachment.metadata),
+              })),
+            }
+          : undefined,
+        receipts: {
+          create: thread.participants.map((participant) => ({
+            userId: participant.userId,
+            deliveredAt: participant.userId === dto.authorId ? new Date() : null,
+            readAt: participant.userId === dto.authorId ? new Date() : null,
+          })),
+        },
+      },
+      include: { attachments: true, receipts: true },
+    });
+
+    await this.prisma.messageThread.update({ where: { id }, data: { updatedAt: new Date() } });
+
+    const updatedThread = await this.getThread(id);
+    if (moderationDecision.status === MessageModerationStatus.APPROVED) {
+      await this.messagingGateway.emitNewMessage(updatedThread, message.id);
+    }
+
+    return updatedThread;
+  }
+
+  async markDelivered(messageId: string, userId: string): Promise<void> {
+    await this.ensureReceiptExists(messageId, userId);
+    const result = await this.prisma.messageDeliveryReceipt.updateMany({
+      where: { messageId, userId, deliveredAt: null },
+      data: { deliveredAt: new Date() },
+    });
+    if (result.count > 0) {
+      await this.refreshMessageStatus(messageId);
+    }
+  }
+
+  async markRead(messageId: string, userId: string): Promise<void> {
+    await this.ensureReceiptExists(messageId, userId);
+    const now = new Date();
+    const result = await this.prisma.messageDeliveryReceipt.updateMany({
+      where: { messageId, userId },
+      data: { deliveredAt: now, readAt: now },
+    });
+    if (result.count > 0) {
+      await this.refreshMessageStatus(messageId);
+    }
+  }
+
+  private async ensureReceiptExists(messageId: string, userId: string): Promise<void> {
+    const receipt = await this.prisma.messageDeliveryReceipt.findFirst({ where: { messageId, userId } });
+    if (!receipt) {
+      throw new NotFoundException('Receipt not found for this message and user');
+    }
+  }
+
+  private async persistUploadedAttachments(
+    threadId: string,
+    files: Express.Multer.File[],
+  ): Promise<AttachmentInput[]> {
+    if (!files.length) {
+      return [];
+    }
+    const results: AttachmentInput[] = [];
+    for (const file of files) {
+      const stored = await this.storageService.saveMessageAttachment(threadId, file);
+      results.push({
+        bucket: stored.bucket,
+        storageKey: stored.key,
+        url: stored.url,
+        fileName: file.originalname,
+        mimeType: file.mimetype ?? null,
+        fileSize: file.size,
+      });
+    }
+    return results;
+  }
+
+  private async refreshMessageStatus(messageId: string): Promise<void> {
+    const receipts = await this.prisma.messageDeliveryReceipt.findMany({ where: { messageId } });
+    if (!receipts.length) {
+      return;
+    }
+    const allDelivered = receipts.every((receipt) => receipt.deliveredAt);
+    const allRead = receipts.every((receipt) => receipt.readAt);
+    const newStatus = allRead ? MessageStatus.READ : allDelivered ? MessageStatus.DELIVERED : MessageStatus.SENT;
+    await this.prisma.message.update({ where: { id: messageId }, data: { status: newStatus } });
   }
 
   private async ensureParticipantsExist(userIds: string[]): Promise<void> {
@@ -136,17 +249,25 @@ export class MessagingService {
     }
   }
 
-  private toJsonInput(value?: Record<string, unknown> | null): Prisma.InputJsonValue | null | undefined {
+  private toJsonInput(
+    value?: Record<string, unknown> | null,
+  ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
     if (value === undefined) {
       return undefined;
     }
-    return (value ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+    if (value === null) {
+      return Prisma.JsonNull;
+    }
+    return value as Prisma.InputJsonValue;
   }
 
   private get defaultInclude() {
     return {
       participants: true,
-      messages: { orderBy: { createdAt: 'asc' } },
+      messages: {
+        orderBy: { createdAt: 'asc' },
+        include: { attachments: true, receipts: true },
+      },
     } satisfies Prisma.MessageThreadInclude;
   }
 }

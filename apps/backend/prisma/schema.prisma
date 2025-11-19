@@ -116,6 +116,13 @@ enum MessageStatus {
   DELETED
 }
 
+enum MessageModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
 enum ReviewStatus {
   PENDING
   PUBLISHED
@@ -196,6 +203,7 @@ model User {
   auctions        Auction[]       @relation("AuctionSeller")
   messages        Message[]       @relation("MessageAuthor")
   threads         MessageThreadParticipant[]
+  messageReceipts MessageDeliveryReceipt[]
   reviewsAuthored Review[]        @relation("ReviewAuthor")
   reviewsReceived Review[]        @relation("ReviewRecipient")
   reviewVotes     ReviewVote[]            @relation("ReviewVoteUser")
@@ -680,18 +688,52 @@ model MessageThreadParticipant {
 }
 
 model Message {
-  id         String        @id @default(uuid())
-  threadId   String
-  authorId   String
-  body       String
-  status     MessageStatus @default(SENT)
-  attachments Json?
-  metadata   Json?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id                String                   @id @default(uuid())
+  threadId          String
+  authorId          String
+  body              String
+  status            MessageStatus            @default(SENT)
+  moderationStatus  MessageModerationStatus  @default(PENDING)
+  moderationNotes   String?
+  metadata          Json?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
-  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  author User          @relation("MessageAuthor", fields: [authorId], references: [id])
+  thread       MessageThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author       User                   @relation("MessageAuthor", fields: [authorId], references: [id])
+  attachments  MessageAttachment[]
+  receipts     MessageDeliveryReceipt[]
+}
+
+model MessageAttachment {
+  id         String   @id @default(uuid())
+  messageId  String
+  bucket     String
+  storageKey String
+  url        String
+  fileName   String
+  mimeType   String?
+  fileSize   Int?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model MessageDeliveryReceipt {
+  id          String   @id @default(uuid())
+  messageId   String
+  userId      String
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
 }
 
 model Review {

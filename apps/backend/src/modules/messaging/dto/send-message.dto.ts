@@ -10,8 +10,5 @@ export class SendMessageDto {
   body!: string;
 
   @IsOptional()
-  attachments?: Record<string, unknown> | null;
-
-  @IsOptional()
   metadata?: Record<string, unknown> | null;
 }

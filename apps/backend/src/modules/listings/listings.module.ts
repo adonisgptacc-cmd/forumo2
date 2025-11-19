@@ -7,16 +7,17 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
 import { ListingsController } from './listings.controller.js';
 import { ListingsService } from './listings.service.js';
 import { ModerationQueueService } from './moderation-queue.service.js';
-import { StorageService } from './storage.service.js';
+import { StorageModule } from '../storage/storage.module.js';
 
 @Module({
   imports: [
     PrismaModule,
     HttpModule.register({ timeout: 5000 }),
     MulterModule.register({ storage: memoryStorage() }),
+    StorageModule,
   ],
   controllers: [ListingsController],
-  providers: [ListingsService, StorageService, ModerationQueueService],
+  providers: [ListingsService, ModerationQueueService],
   exports: [ListingsService],
 })
 export class ListingsModule {}

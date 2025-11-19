@@ -17,6 +17,15 @@ export class StorageService {
 
   async saveListingImage(listingId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     const key = path.join('listings', listingId, `${Date.now()}-${randomUUID()}-${file.originalname}`);
+    return this.persistFile(key, file);
+  }
+
+  async saveMessageAttachment(threadId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
+    const key = path.join('messages', threadId, `${Date.now()}-${randomUUID()}-${file.originalname}`);
+    return this.persistFile(key, file);
+  }
+
+  private async persistFile(key: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     const filePath = path.join(this.uploadsRoot, this.bucket, key);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, file.buffer);
