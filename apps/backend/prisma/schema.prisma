@@ -199,6 +199,7 @@ model User {
   orderEvents     OrderTimelineEvent[] @relation("OrderTimelineActor")
   disputesOpened  EscrowDispute[]      @relation("EscrowDisputeOpener")
   disputeMessages DisputeMessage[]     @relation("DisputeMessageAuthor")
+  trustSeeds      TrustScoreSeed[]
 }
 
 model UserProfile {
@@ -212,6 +213,20 @@ model UserProfile {
   updatedAt         DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TrustScoreSeed {
+  id        String   @id @default(uuid())
+  userId    String
+  label     String
+  value     Int
+  createdBy String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model UserAddress {
@@ -246,6 +261,12 @@ model OtpCode {
   secret     String
   codeHash   String
   purpose    OtpPurpose
+  channel    NotificationChannel?
+  deviceFingerprint String?
+  deliveryProvider  String?
+  deliveryReference String?
+  deliveryMetadata  Json?
+  deliveredAt DateTime?
   expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime    @default(now())
@@ -254,6 +275,7 @@ model OtpCode {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose, expiresAt])
+  @@index([userId, deviceFingerprint, createdAt])
 }
 
 model DeviceSession {

@@ -1,12 +1,12 @@
-import { NotificationChannel, OtpPurpose } from '@prisma/client';
-import { IsEmail, IsEnum, IsIP, IsObject, IsOptional, IsString, Length } from 'class-validator';
+import { IsEmail, IsIP, IsObject, IsOptional, IsString, Length, MinLength } from 'class-validator';
 
-export class RequestOtpDto {
+export class PasswordResetConfirmDto {
   @IsEmail()
   email!: string;
 
-  @IsEnum(OtpPurpose)
-  purpose!: OtpPurpose;
+  @IsString()
+  @Length(6, 6)
+  code!: string;
 
   @IsString()
   @Length(8, 256)
@@ -24,7 +24,7 @@ export class RequestOtpDto {
   @IsObject()
   metadata?: Record<string, unknown>;
 
-  @IsOptional()
-  @IsEnum(NotificationChannel)
-  channel?: NotificationChannel;
+  @IsString()
+  @MinLength(12)
+  newPassword!: string;
 }

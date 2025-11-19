@@ -8,6 +8,8 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { OtpDeliveryService } from './otp-delivery.service.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
 
 @Module({
   imports: [
@@ -28,7 +30,7 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard],
   exports: [AuthService],
 })
 export class AuthModule {}

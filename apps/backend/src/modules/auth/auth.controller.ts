@@ -1,11 +1,16 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { RequestOtpDto } from './dto/request-otp.dto.js';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
 
 @Controller('auth')
 export class AuthController {
@@ -35,5 +40,28 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() req: any) {
     return this.authService.me(req.user.id);
+  }
+
+  @Post('password/reset/request')
+  requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
+    return this.authService.requestPasswordReset(dto);
+  }
+
+  @Post('password/reset/confirm')
+  confirmPasswordReset(@Body() dto: PasswordResetConfirmDto) {
+    return this.authService.confirmPasswordReset(dto);
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  listOwnSessions(@Req() req: any) {
+    return this.authService.listDeviceSessions(req.user.id);
+  }
+
+  @Get('sessions/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  listSessionsForUser(@Param('userId', new ParseUUIDPipe()) userId: string) {
+    return this.authService.listDeviceSessions(userId);
   }
 }

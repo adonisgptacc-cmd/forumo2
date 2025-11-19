@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { OtpPurpose, User } from '@prisma/client';
+import { NotificationChannel, OtpPurpose, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../../prisma/prisma.service.js';
@@ -8,6 +8,7 @@ import { AuthService } from '../auth.service.js';
 import { RequestOtpDto } from '../dto/request-otp.dto.js';
 import { VerifyOtpDto } from '../dto/verify-otp.dto.js';
 import { UsersService } from '../../users/users.service.js';
+import { OtpDeliveryService } from '../otp-delivery.service.js';
 
 const createUser = (): User => ({
   id: 'user-1',
@@ -33,6 +34,7 @@ type PrismaMock = {
     create: jest.Mock;
     findFirst: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
   deviceSession: {
     upsert: jest.Mock;
@@ -49,6 +51,7 @@ describe('AuthService OTP flows', () => {
   let jwtService: jest.Mocked<JwtService>;
   let configService: jest.Mocked<ConfigService>;
   let usersService: jest.Mocked<UsersService>;
+  let otpDelivery: jest.Mocked<OtpDeliveryService>;
 
   beforeEach(() => {
     prisma = {
@@ -60,6 +63,7 @@ describe('AuthService OTP flows', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       deviceSession: {
         upsert: jest.fn(),
@@ -91,14 +95,30 @@ describe('AuthService OTP flows', () => {
       findById: jest.fn(),
     } as unknown as jest.Mocked<UsersService>;
 
-    service = new AuthService(prisma as unknown as PrismaService, jwtService, configService, usersService);
+    otpDelivery = {
+      deliver: jest.fn().mockResolvedValue({
+        channel: NotificationChannel.EMAIL,
+        provider: 'ses',
+        referenceId: 'ref-123',
+        deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
+        metadata: { region: 'us-east-1' },
+      }),
+    } as unknown as jest.Mocked<OtpDeliveryService>;
+
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwtService,
+      configService,
+      usersService,
+      otpDelivery,
+    );
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('issues OTP codes and tracks device sessions', async () => {
+  it('issues OTP codes, enforces rate limits, and records delivery metadata', async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.create.mockImplementation(async (args) => args as never);
@@ -114,7 +134,11 @@ describe('AuthService OTP flows', () => {
 
     jest.spyOn<any, string>(service as any, 'generateOtpCode').mockReturnValue('123456');
 
-    await expect(service.requestOtp(dto)).resolves.toEqual({ message: 'OTP issued' });
+    await expect(service.requestOtp(dto)).resolves.toEqual({
+      message: 'OTP issued',
+      channel: NotificationChannel.EMAIL,
+      deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
+    });
 
     expect(prisma.otpCode.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -122,6 +146,8 @@ describe('AuthService OTP flows', () => {
           userId: user.id,
           purpose: dto.purpose,
           secret: expect.any(String),
+          channel: NotificationChannel.EMAIL,
+          deliveryProvider: 'ses',
         }),
       }),
     );
@@ -135,6 +161,22 @@ describe('AuthService OTP flows', () => {
         update: expect.objectContaining({ lastIssuedAt: expect.any(Date) }),
       }),
     );
+
+    expect(otpDelivery.deliver).toHaveBeenCalledWith(user, dto, '123456');
+  });
+
+  it('locks devices when rate limit exceeded', async () => {
+    const user = createUser();
+    prisma.user.findFirst.mockResolvedValue(user);
+    prisma.otpCode.count.mockResolvedValue(5);
+
+    const dto: RequestOtpDto = {
+      email: user.email,
+      purpose: OtpPurpose.LOGIN,
+      deviceFingerprint: 'fingerprint-123',
+    } as RequestOtpDto;
+
+    await expect(service.requestOtp(dto)).rejects.toThrow('Too many OTP requests for this device');
   });
 
   it('verifies OTP codes and returns auth response', async () => {
