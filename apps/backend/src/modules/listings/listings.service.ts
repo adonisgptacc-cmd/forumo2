@@ -48,6 +48,9 @@ export class ListingsService {
   async create(dto: CreateListingDto): Promise<SafeListing> {
     await this.ensureSellerExists(dto.sellerId);
 
+    const requestedStatus = dto.status ?? ListingStatus.DRAFT;
+    const initialStatus = requestedStatus === ListingStatus.PUBLISHED ? ListingStatus.PAUSED : requestedStatus;
+
     const listing = await this.prisma.listing.create({
       data: {
         sellerId: dto.sellerId,
@@ -55,7 +58,7 @@ export class ListingsService {
         description: dto.description,
         priceCents: dto.priceCents,
         currency: dto.currency ?? 'USD',
-        status: dto.status ?? ListingStatus.DRAFT,
+        status: initialStatus,
         location: dto.location,
         metadata: this.toJsonInput(dto.metadata),
         moderationStatus: ListingModerationStatus.PENDING,
@@ -70,6 +73,7 @@ export class ListingsService {
       listingId: listing.id,
       sellerId: listing.sellerId,
       reason: 'listing_created',
+      desiredStatus: requestedStatus,
     });
 
     this.logger.log(`Listing ${listing.id} created for seller ${listing.sellerId}`);
@@ -78,6 +82,7 @@ export class ListingsService {
 
   async update(id: string, dto: UpdateListingDto): Promise<SafeListing> {
     const current = await this.ensureListingExists(id);
+    const desiredStatus = dto.status ?? current.status;
     const data: Prisma.ListingUpdateInput = {
       title: dto.title ?? undefined,
       description: dto.description ?? undefined,
@@ -92,6 +97,9 @@ export class ListingsService {
     if (shouldRemoderate) {
       data.moderationStatus = ListingModerationStatus.PENDING;
       data.moderationNotes = null;
+      if (desiredStatus === ListingStatus.PUBLISHED || current.status === ListingStatus.PUBLISHED) {
+        data.status = ListingStatus.PAUSED;
+      }
     }
 
     await this.prisma.listing.update({ where: { id }, data });
@@ -108,6 +116,7 @@ export class ListingsService {
         listingId: id,
         sellerId: current.sellerId,
         reason: 'listing_updated',
+        desiredStatus,
       });
     }
 
@@ -124,6 +133,16 @@ export class ListingsService {
 
   async attachImage(id: string, file: Express.Multer.File): Promise<SafeListingImage> {
     const listing = await this.ensureListingExists(id);
+    const desiredStatus = listing.status;
+    const shouldPause = listing.status === ListingStatus.PUBLISHED;
+    await this.prisma.listing.update({
+      where: { id },
+      data: {
+        moderationStatus: ListingModerationStatus.PENDING,
+        moderationNotes: null,
+        ...(shouldPause ? { status: ListingStatus.PAUSED } : {}),
+      },
+    });
     const storedObject = await this.storageService.saveListingImage(id, file);
     const position = await this.prisma.listingImage.count({ where: { listingId: id } });
     const image = await this.prisma.listingImage.create({
@@ -142,6 +161,7 @@ export class ListingsService {
       listingId: id,
       sellerId: listing.sellerId,
       reason: 'image_uploaded',
+      desiredStatus,
     });
 
     return serializeListingImage(image);
@@ -154,7 +174,7 @@ export class ListingsService {
     }
   }
 
-  private async ensureListingExists(id: string): Promise<Pick<Listing, 'id' | 'sellerId'>> {
+  private async ensureListingExists(id: string): Promise<Pick<Listing, 'id' | 'sellerId' | 'status'>> {
     const listing = await this.prisma.listing.findFirst({ where: { id, deletedAt: null } });
     if (!listing) {
       throw new NotFoundException('Listing not found');

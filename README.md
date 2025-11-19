@@ -29,6 +29,9 @@ pnpm install
 # run the NestJS API on http://localhost:4000
 pnpm backend:dev
 
+# boot the moderation service on http://localhost:5005
+cd apps/moderation && uvicorn moderation_service.main:app --reload
+
 # run the Next.js web client on http://localhost:3000
 pnpm web:dev
 ```
@@ -42,6 +45,7 @@ pnpm web:dev
 3. Generate the latest Prisma client for the NestJS API via `pnpm --filter backend prisma:generate` whenever the schema changes.
 4. Local uploads are written to `apps/backend/uploads/<bucket>`; set `UPLOADS_BUCKET` to mirror your S3 bucket name and point the Nest API at a MinIO/S3 endpoint if desired.
 5. Listing image uploads use in-process memory storage plus a background write to disk. In production swap the `StorageService` implementation for signed URL uploads and ensure AI moderation jobs consume the queue exposed by `ModerationQueueService`.
+6. The Python moderation microservice lives in `apps/moderation`. Point `MODERATION_SERVICE_URL` (default `http://localhost:5005`) at the FastAPI instance so that listing and image uploads are automatically scanned before publication.
 
 ## Documentation
 

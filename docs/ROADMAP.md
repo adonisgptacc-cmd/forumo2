@@ -3,7 +3,7 @@
 ## MVP (Weeks 0-10)
 
 - [ ] Auth & User profiles (email/password, OTP, device logs)
-- [ ] Listings CRUD with media uploads + AI moderation webhooks
+- [x] Listings CRUD with media uploads + AI moderation webhooks
 - [ ] Search (PostgreSQL full-text + filters)
 - [ ] Orders + Escrow checkout (Stripe test mode)
 - [ ] Messaging (1:1 chat, attachments, moderation flags)
