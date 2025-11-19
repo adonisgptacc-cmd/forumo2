@@ -1,8 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '@prisma/client';
 
-import { SafeUser } from '../../modules/users/user.serializer.js';
+import type { UserRole } from '@forumo/shared';
+
+import type { SafeUser } from '@forumo/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
 
 @Injectable()

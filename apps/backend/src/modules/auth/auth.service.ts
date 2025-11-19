@@ -5,26 +5,26 @@ import { NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomInt } from 'crypto';
 
+import type {
+  AuthResponse,
+  LoginDto as LoginInput,
+  PasswordResetConfirmDto as PasswordResetConfirmInput,
+  RegisterDto as RegisterInput,
+  RequestOtpDto as RequestOtpInput,
+  RequestPasswordResetDto as RequestPasswordResetInput,
+  SafeUser,
+  VerifyOtpDto as VerifyOtpInput,
+} from '@forumo/shared';
+import { sanitizeUser } from '@forumo/shared';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { SafeUser, sanitizeUser } from '../users/user.serializer.js';
 import { UsersService } from '../users/users.service.js';
-import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
-import { RequestOtpDto } from './dto/request-otp.dto.js';
-import { RequestPasswordResetDto } from './dto/request-password-reset.dto.js';
-import { VerifyOtpDto } from './dto/verify-otp.dto.js';
-import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto.js';
 import { OtpDeliveryService } from './otp-delivery.service.js';
 
 interface OtpIssueResponse {
   message: string;
   channel: NotificationChannel;
   deliveredAt: Date;
-}
-
-interface AuthResponse {
-  user: SafeUser;
-  accessToken: string;
 }
 
 @Injectable()
@@ -39,7 +39,7 @@ export class AuthService {
     private readonly otpDeliveryService: OtpDeliveryService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<AuthResponse> {
+  async register(dto: RegisterInput): Promise<AuthResponse> {
     const normalizedEmail = this.normalizeEmail(dto.email);
     const existing = await this.findActiveUserByEmail(normalizedEmail);
     if (existing) {
@@ -61,7 +61,7 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async login(dto: LoginDto): Promise<AuthResponse> {
+  async login(dto: LoginInput): Promise<AuthResponse> {
     const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -80,7 +80,7 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async requestOtp(dto: RequestOtpDto): Promise<OtpIssueResponse> {
+  async requestOtp(dto: RequestOtpInput): Promise<OtpIssueResponse> {
     const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Account not found');
@@ -115,7 +115,7 @@ export class AuthService {
     return { message: 'OTP issued', channel: delivery.channel, deliveredAt: delivery.deliveredAt };
   }
 
-  async verifyOtp(dto: VerifyOtpDto): Promise<AuthResponse> {
+  async verifyOtp(dto: VerifyOtpInput): Promise<AuthResponse> {
     const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Invalid code');
@@ -128,16 +128,16 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async requestPasswordReset(dto: RequestPasswordResetDto): Promise<OtpIssueResponse> {
-    const payload: RequestOtpDto = {
+  async requestPasswordReset(dto: RequestPasswordResetInput): Promise<OtpIssueResponse> {
+    const payload: RequestOtpInput = {
       ...dto,
       purpose: OtpPurpose.PASSWORD_RESET,
-    } as RequestOtpDto;
+    } satisfies RequestOtpInput;
 
     return this.requestOtp(payload);
   }
 
-  async confirmPasswordReset(dto: PasswordResetConfirmDto): Promise<{ message: string }> {
+  async confirmPasswordReset(dto: PasswordResetConfirmInput): Promise<{ message: string }> {
     const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Invalid code');
@@ -222,7 +222,7 @@ export class AuthService {
   private upsertDeviceSession(
     userId: string,
     fingerprint: string,
-    payload: Pick<RequestOtpDto, 'deviceFingerprint' | 'ipAddress' | 'metadata' | 'userAgent'>,
+    payload: Pick<RequestOtpInput, 'deviceFingerprint' | 'ipAddress' | 'metadata' | 'userAgent'>,
     timestamps: Partial<{ lastIssuedAt: Date; lastVerifiedAt: Date }>,
   ) {
     const metadata = this.buildMetadata(payload.metadata);
@@ -246,7 +246,7 @@ export class AuthService {
     return metadata as Prisma.JsonObject;
   }
 
-  private async consumeOtp(user: User, dto: VerifyOtpDto): Promise<Date> {
+  private async consumeOtp(user: User, dto: VerifyOtpInput): Promise<Date> {
     const otpRecord = await this.prisma.otpCode.findFirst({
       where: {
         userId: user.id,

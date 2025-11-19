@@ -1,5 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+
+import type { UserRole } from '@forumo/shared';
 
 export const ROLES_KEY = 'roles';
 

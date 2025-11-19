@@ -1,14 +1,15 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
-import { RequestOtpDto } from './dto/request-otp.dto.js';
-import { RequestPasswordResetDto } from './dto/request-password-reset.dto.js';
-import { VerifyOtpDto } from './dto/verify-otp.dto.js';
-import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto.js';
+import {
+  LoginDto,
+  PasswordResetConfirmDto,
+  RegisterDto,
+  RequestOtpDto,
+  RequestPasswordResetDto,
+  VerifyOtpDto,
+} from '../../common/dtos/auth.dto.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 
@@ -60,7 +61,7 @@ export class AuthController {
 
   @Get('sessions/:userId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   listSessionsForUser(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.authService.listDeviceSessions(userId);
   }
