@@ -9,7 +9,7 @@ export class HealthController {
 
   @Get()
   @ApiOkResponse({ description: 'Service is healthy' })
-  getHealth() {
+  async getHealth() {
     return this.healthService.getStatus();
   }
 }
