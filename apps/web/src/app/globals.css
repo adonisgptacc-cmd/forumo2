@@ -21,3 +21,17 @@ h6 {
   padding: 1.5rem;
   background: rgba(15, 23, 42, 0.7);
 }
+
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.75rem 1rem;
+  color: #f8fafc;
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(248, 189, 132, 0.8);
+}

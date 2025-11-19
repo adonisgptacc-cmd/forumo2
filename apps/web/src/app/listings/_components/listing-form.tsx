@@ -4,12 +4,16 @@ import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
+  CreateListingDto,
+  CreateListingVariantDto,
   SafeListing,
-  SafeListingImage,
-  SafeListingVariant,
-} from 'apps/backend/src/modules/listings/listing.serializer';
-import type { CreateListingDto, CreateListingVariantDto } from 'apps/backend/src/modules/listings/dto/create-listing.dto';
-import type { UpdateListingDto } from 'apps/backend/src/modules/listings/dto/update-listing.dto';
+  ListingImage,
+  ListingVariant,
+  UpdateListingDto,
+} from '@forumo/shared';
+
+import { useListingMutations } from '../../../lib/react-query/hooks';
+import { useApiClient } from '../../../lib/use-api-client';
 
 const listingStatuses = ['DRAFT', 'PUBLISHED', 'PAUSED'] as const;
 const actionButtonClasses =
@@ -36,7 +40,7 @@ type SubmitResult = {
   message: string;
 };
 
-function mapVariantsToDrafts(variants: SafeListingVariant[] | undefined): VariantDraft[] {
+function mapVariantsToDrafts(variants: ListingVariant[] | undefined): VariantDraft[] {
   if (!variants?.length) {
     return [];
   }
@@ -103,7 +107,11 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   const [message, setMessage] = useState<SubmitResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const existingImages: SafeListingImage[] = listing?.images ?? [];
+  const apiClient = useApiClient();
+  const { createMutation, updateMutation } = useListingMutations();
+  const isMutating = createMutation.isPending || updateMutation.isPending;
+
+  const existingImages: ListingImage[] = listing?.images ?? [];
 
   const buttonLabel = mode === 'create' ? 'Create listing' : 'Save changes';
 
@@ -172,32 +180,14 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     }
 
     try {
-      const endpoint = mode === 'create' ? '/api/listings' : `/api/listings/${listing?.id}`;
-      const method = mode === 'create' ? 'POST' : 'PATCH';
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body.message ?? 'Failed to save listing');
-      }
-
-      const savedListing = body as SafeListing;
+      const savedListing =
+        mode === 'create'
+          ? await createMutation.mutateAsync(payload as CreateListingDto)
+          : await updateMutation.mutateAsync({ id: listing!.id, payload: payload as UpdateListingDto });
 
       if (files.length > 0) {
         for (const file of files) {
-          const formData = new FormData();
-          formData.append('file', file);
-          const uploadRes = await fetch(`/api/listings/${savedListing.id}/images`, {
-            method: 'POST',
-            body: formData,
-          });
-          if (!uploadRes.ok) {
-            const uploadBody = await uploadRes.json().catch(() => ({}));
-            throw new Error(uploadBody.message ?? 'Unable to upload images');
-          }
+          await apiClient.listings.uploadImage(savedListing.id, file);
         }
       }
 
@@ -407,8 +397,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       </section>
 
       <div className="flex items-center gap-3">
-        <button type="submit" className={actionButtonClasses} disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : buttonLabel}
+        <button type="submit" className={actionButtonClasses} disabled={isSubmitting || isMutating}>
+          {isSubmitting || isMutating ? 'Saving…' : buttonLabel}
         </button>
         <p className="text-xs text-slate-500">All required fields are marked with *</p>
       </div>
