@@ -10,10 +10,14 @@ import {
   Prisma,
 } from '@prisma/client';
 
+import type {
+  CreateOrderDto as CreateOrderInput,
+  SafeOrder,
+  UpdateOrderStatusDto as UpdateOrderStatusInput,
+} from '@forumo/shared';
+import { OrderWithRelations, serializeOrder } from '@forumo/shared';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateOrderDto } from './dto/create-order.dto.js';
-import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
-import { OrderWithRelations, SafeOrder, serializeOrder } from './order.serializer.js';
 import { PaymentsService } from './payments.service.js';
 
 @Injectable()
@@ -42,7 +46,7 @@ export class OrdersService {
     return serializeOrder(order);
   }
 
-  async create(dto: CreateOrderDto): Promise<SafeOrder> {
+  async create(dto: CreateOrderInput): Promise<SafeOrder> {
     await Promise.all([this.ensureUserExists(dto.buyerId), this.ensureUserExists(dto.sellerId)]);
 
     const lineItems = await this.buildOrderItems(dto);
@@ -97,7 +101,7 @@ export class OrdersService {
     return this.findById(order.id);
   }
 
-  async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<SafeOrder> {
+  async updateStatus(id: string, dto: UpdateOrderStatusInput): Promise<SafeOrder> {
     return this.prisma.$transaction(async (tx) => {
       const order = (await tx.order.findUnique({
         where: { id },
@@ -162,7 +166,7 @@ export class OrdersService {
     });
   }
 
-  private async buildOrderItems(dto: CreateOrderDto) {
+  private async buildOrderItems(dto: CreateOrderInput) {
     if (!dto.items.length) {
       throw new BadRequestException('At least one line item is required');
     }
@@ -307,7 +311,7 @@ export class OrdersService {
       id: string;
       escrow: { id: string; status: EscrowStatus; amountCents: number; currency: string } | null;
     },
-    dto: UpdateOrderStatusDto,
+    dto: UpdateOrderStatusInput,
   ): Promise<void> {
     const escrow =
       order.escrow ??
@@ -353,7 +357,7 @@ export class OrdersService {
       id: string;
       escrow: { id: string; status: EscrowStatus; amountCents: number; currency: string } | null;
     },
-    dto: UpdateOrderStatusDto,
+    dto: UpdateOrderStatusInput,
   ): Promise<void> {
     const escrow =
       order.escrow ??

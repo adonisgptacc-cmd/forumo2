@@ -7,7 +7,8 @@
     "web:dev": "pnpm --filter web dev",
     "backend:dev": "pnpm --filter backend start:dev",
     "lint": "pnpm --parallel lint",
-    "typecheck": "pnpm --parallel typecheck"
+    "typecheck": "pnpm --parallel typecheck",
+    "generate:openapi": "pnpm --filter backend generate:openapi"
   },
   "devDependencies": {
     "turbo": "^2.0.4"

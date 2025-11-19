@@ -1,13 +1,15 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
-import { CreateTrustSeedDto } from './dto/create-trust-seed.dto.js';
-import { UpdateProfileDto } from './dto/update-profile.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
-import { SafeUser } from './user.serializer.js';
+import type { SafeUser } from '@forumo/shared';
+
+import {
+  CreateTrustSeedDto,
+  UpdateProfileDto,
+  UpdateUserDto,
+} from '../../common/dtos/users.dto.js';
 import { UsersService, UserProfileResponse } from './users.service.js';
 
 @Controller('users')
@@ -16,31 +18,31 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   findAll(): Promise<SafeUser[]> {
     return this.usersService.findAll();
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<SafeUser> {
     return this.usersService.findById(id);
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateUserDto): Promise<SafeUser> {
     return this.usersService.update(id, dto);
   }
 
   @Patch(':id/profile')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   updateProfile(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateProfileDto): Promise<SafeUser> {
     return this.usersService.updateProfile(id, dto);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     return this.usersService.softDelete(id);
   }
@@ -61,13 +63,13 @@ export class UsersController {
   }
 
   @Get(':id/trust-seeds')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   listTrustSeeds(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.usersService.listTrustSeeds(id);
   }
 
   @Post(':id/trust-seeds')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   createTrustSeed(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: CreateTrustSeedDto,
@@ -77,7 +79,7 @@ export class UsersController {
   }
 
   @Delete(':id/trust-seeds/:seedId')
-  @Roles(UserRole.ADMIN)
+  @Roles('ADMIN')
   deleteTrustSeed(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('seedId', new ParseUUIDPipe()) seedId: string,
