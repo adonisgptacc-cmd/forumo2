@@ -18,6 +18,6 @@ import { StorageModule } from '../storage/storage.module.js';
   ],
   controllers: [ListingsController],
   providers: [ListingsService, ModerationQueueService],
-  exports: [ListingsService],
+  exports: [ListingsService, ModerationQueueService],
 })
 export class ListingsModule {}

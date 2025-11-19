@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Dict
+import logging
+import json
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from .config import Settings, get_settings
 from .models import ListingImage, ListingModerationRequest, ModerationDecision, ModerationStatus
@@ -13,44 +17,72 @@ class ModerationEngine:
 
   def __init__(self, settings: Settings | None = None) -> None:
     self.settings = settings or get_settings()
+    self._metrics: Dict[str, int] = {
+      'processed_total': 0,
+      'approved_total': 0,
+      'flagged_total': 0,
+      'rejected_total': 0,
+    }
+    self._logger = logging.getLogger('moderation.engine')
+    self._tracer = trace.get_tracer('moderation.engine')
 
   def score_listing(self, payload: ListingModerationRequest) -> ModerationDecision:
-    labels: List[str] = []
-    status = ModerationStatus.APPROVED
-    notes = 'No policy violations detected.'
-    score = 0.85
+    with self._tracer.start_as_current_span(
+      'engine.score_listing',
+      attributes={'listing.id': payload.listing_id, 'seller.id': payload.seller_id},
+    ) as span:
+      labels: List[str] = []
+      status = ModerationStatus.APPROVED
+      notes = 'No policy violations detected.'
+      score = 0.85
 
-    normalized_text = f"{payload.title} {payload.description or ''}".lower()
-    banned_hits = self._find_hits(normalized_text, self.settings.banned_keywords)
-    flagged_hits = self._find_hits(normalized_text, self.settings.flagged_keywords)
+      normalized_text = f"{payload.title} {payload.description or ''}".lower()
+      banned_hits = self._find_hits(normalized_text, self.settings.banned_keywords)
+      flagged_hits = self._find_hits(normalized_text, self.settings.flagged_keywords)
 
-    if banned_hits:
-      status = ModerationStatus.REJECTED
-      labels.append('banned_keyword')
-      notes = f"Blocked terms detected: {', '.join(banned_hits)}"
-      score = 0.0
-    elif flagged_hits:
-      status = ModerationStatus.FLAGGED
-      labels.append('text_requires_review')
-      notes = f"Sensitive terms present: {', '.join(flagged_hits)}"
-      score = 0.35
+      if banned_hits:
+        status = ModerationStatus.REJECTED
+        labels.append('banned_keyword')
+        notes = f"Blocked terms detected: {', '.join(banned_hits)}"
+        score = 0.0
+      elif flagged_hits:
+        status = ModerationStatus.FLAGGED
+        labels.append('text_requires_review')
+        notes = f"Sensitive terms present: {', '.join(flagged_hits)}"
+        score = 0.35
 
-    image_labels = self._score_images(payload.images)
-    labels.extend(image_labels)
-    score = max(0.0, min(1.0, score - (0.05 * image_labels.count('image_too_large'))))
+      image_labels = self._score_images(payload.images)
+      labels.extend(image_labels)
+      score = max(0.0, min(1.0, score - (0.05 * image_labels.count('image_too_large'))))
 
-    if status == ModerationStatus.APPROVED and 'image_flagged' in image_labels:
-      status = ModerationStatus.FLAGGED
-      notes = 'Image metadata triggered manual review.'
-      score = 0.4
+      if status == ModerationStatus.APPROVED and 'image_flagged' in image_labels:
+        status = ModerationStatus.FLAGGED
+        notes = 'Image metadata triggered manual review.'
+        score = 0.4
 
-    return ModerationDecision(
-      listing_id=payload.listing_id,
-      status=status,
-      score=round(score, 2),
-      labels=labels,
-      notes=notes,
-    )
+      decision = ModerationDecision(
+        listing_id=payload.listing_id,
+        status=status,
+        score=round(score, 2),
+        labels=labels,
+        notes=notes,
+      )
+      self._update_metrics(decision.status)
+      self._logger.info(
+        json.dumps(
+          {
+            'event': 'moderation_decision',
+            'listingId': payload.listing_id,
+            'sellerId': payload.seller_id,
+            'status': decision.status,
+            'score': decision.score,
+            'labels': decision.labels,
+          }
+        )
+      )
+      span.set_attribute('moderation.score', decision.score)
+      span.set_status(Status(StatusCode.OK))
+      return decision
 
   def _find_hits(self, haystack: str, needles: List[str]) -> List[str]:
     return [needle for needle in needles if needle in haystack]
@@ -69,3 +101,12 @@ class ModerationEngine:
     else:
       labels.append('imagery_present')
     return labels
+
+  def _update_metrics(self, status: ModerationStatus) -> None:
+    self._metrics['processed_total'] += 1
+    key = f"{status.value}_total"
+    if key in self._metrics:
+      self._metrics[key] += 1
+
+  def get_metrics(self) -> Dict[str, int]:
+    return dict(self._metrics)
