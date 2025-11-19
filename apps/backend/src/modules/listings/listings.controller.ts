@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
   MaxFileSizeValidator,
@@ -17,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { CreateListingDto } from './dto/create-listing.dto.js';
+import { ListingSearchQueryDto } from './dto/listing-search.dto.js';
 import { UpdateListingDto } from './dto/update-listing.dto.js';
 import { SafeListing, SafeListingImage } from './listing.serializer.js';
 import { ListingsService } from './listings.service.js';
@@ -28,6 +30,19 @@ export class ListingsController {
   @Get()
   findAll(): Promise<SafeListing[]> {
     return this.listingsService.findAll();
+  }
+
+  @Get('search')
+  search(@Query() query: ListingSearchQueryDto) {
+    return this.listingsService.searchListings({
+      keyword: query.keyword?.trim() || undefined,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 20,
+      status: query.status,
+      minPriceCents: query.minPriceCents,
+      maxPriceCents: query.maxPriceCents,
+      sellerId: query.sellerId,
+    });
   }
 
   @Get(':id')

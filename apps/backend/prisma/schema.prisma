@@ -325,6 +325,8 @@ model Listing {
   @@index([sellerId])
   @@index([status])
   @@index([moderationStatus])
+  @@index([title, description, location], map: "listing_search_fts_idx")
+  @@index([status, priceCents, sellerId], map: "listing_status_price_seller_idx")
 }
 
 model ListingVariant {
