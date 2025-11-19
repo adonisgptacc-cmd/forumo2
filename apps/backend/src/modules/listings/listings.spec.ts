@@ -1,12 +1,20 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Listing, ListingImage, ListingStatus, ListingVariant, Prisma } from '@prisma/client';
+import {
+  Listing,
+  ListingImage,
+  ListingModerationStatus,
+  ListingStatus,
+  ListingVariant,
+  Prisma,
+} from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { ListingsModule } from './listings.module.js';
 import { ListingWithRelations } from './listing.serializer.js';
+import { ModerationQueueService } from './moderation-queue.service.js';
 
 const SELLER_ID = 'seller-1';
 
@@ -14,11 +22,14 @@ describe('ListingsModule (smoke)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    const prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
       imports: [ListingsModule],
     })
       .overrideProvider(PrismaService)
-      .useValue(new InMemoryPrismaService())
+      .useValue(prismaMock)
+      .overrideProvider(ModerationQueueService)
+      .useValue(new ImmediateModerationQueueService(prismaMock))
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -213,6 +224,20 @@ class InMemoryPrismaService {
     return Array.from(this.images.values())
       .filter((image) => image.listingId === listingId)
       .sort((a, b) => a.position - b.position);
+  }
+}
+
+class ImmediateModerationQueueService {
+  constructor(private readonly prisma: InMemoryPrismaService) {}
+
+  async enqueueListingScan(payload: { listingId: string; desiredStatus?: ListingStatus }): Promise<void> {
+    await this.prisma.listing.update({
+      where: { id: payload.listingId },
+      data: {
+        moderationStatus: ListingModerationStatus.APPROVED,
+        status: payload.desiredStatus ?? ListingStatus.DRAFT,
+      },
+    });
   }
 }
 

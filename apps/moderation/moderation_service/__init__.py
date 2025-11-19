@@ -1,0 +1,1 @@
+"""Forumo moderation service package."""
