@@ -14,4 +14,9 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsUUID()
   actorId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  providerStatus?: string;
 }

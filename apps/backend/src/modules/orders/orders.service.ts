@@ -1,30 +1,41 @@
 import { randomUUID } from 'crypto';
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma } from '@prisma/client';
+import {
+  EscrowStatus,
+  EscrowTransactionType,
+  OrderStatus,
+  PaymentProvider,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
-import { SafeOrder, serializeOrder } from './order.serializer.js';
+import { OrderWithRelations, SafeOrder, serializeOrder } from './order.serializer.js';
+import { PaymentsService } from './payments.service.js';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+  ) {}
 
   async findAll(): Promise<SafeOrder[]> {
-    const orders = await this.prisma.order.findMany({
+    const orders = (await this.prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
       include: this.defaultInclude,
-    });
+    })) as OrderWithRelations[];
     return orders.map((order) => serializeOrder(order));
   }
 
   async findById(id: string): Promise<SafeOrder> {
-    const order = await this.prisma.order.findFirst({
+    const order = (await this.prisma.order.findFirst({
       where: { id },
       include: this.defaultInclude,
-    });
+    })) as OrderWithRelations | null;
     if (!order) {
       throw new NotFoundException('Order not found');
     }
@@ -38,53 +49,117 @@ export class OrdersService {
     const totalItemCents = lineItems.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0);
     const currency = dto.currency ?? lineItems[0]?.currency ?? 'USD';
 
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber: this.generateOrderNumber(),
-        buyerId: dto.buyerId,
-        sellerId: dto.sellerId,
-        totalItemCents,
-        shippingCents: dto.shippingCents ?? 0,
-        feeCents: dto.feeCents ?? 0,
-        currency,
-        shippingAddressId: dto.shippingAddressId ?? null,
-        billingAddressId: dto.billingAddressId ?? null,
-        metadata: this.toJsonInput(dto.metadata),
-        placedAt: new Date(),
-        items: { create: lineItems },
-        timeline: {
-          create: [{ status: OrderStatus.PENDING, note: 'Order created' }],
+    const shippingCents = dto.shippingCents ?? 0;
+    const feeCents = dto.feeCents ?? 0;
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          orderNumber: this.generateOrderNumber(),
+          buyerId: dto.buyerId,
+          sellerId: dto.sellerId,
+          totalItemCents,
+          shippingCents,
+          feeCents,
+          currency,
+          shippingAddressId: dto.shippingAddressId ?? null,
+          billingAddressId: dto.billingAddressId ?? null,
+          metadata: this.toJsonInput(dto.metadata),
+          placedAt: new Date(),
+          items: { create: lineItems },
+          timeline: {
+            create: [{ status: OrderStatus.PENDING, note: 'Order created' }],
+          },
         },
-      },
-      include: this.defaultInclude,
+      });
+
+      const totalChargeCents = this.getOrderTotalCents(created);
+      const paymentIntent = await this.paymentsService.mintPaymentIntent(created.id, totalChargeCents, created.currency);
+
+      await tx.paymentTransaction.create({
+        data: {
+          orderId: created.id,
+          provider: PaymentProvider.STRIPE,
+          status: PaymentStatus.PENDING,
+          providerStatus: paymentIntent.status,
+          amountCents: totalChargeCents,
+          currency: created.currency,
+          providerRef: paymentIntent.id,
+          metadata: this.toJsonInput(
+            paymentIntent.client_secret ? { clientSecret: paymentIntent.client_secret } : undefined,
+          ),
+        },
+      });
+
+      return created;
     });
 
-    return serializeOrder(order);
+    return this.findById(order.id);
   }
 
   async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<SafeOrder> {
-    await this.ensureOrderExists(id);
-    const timestamps = this.getStatusTimestamps(dto.status);
+    return this.prisma.$transaction(async (tx) => {
+      const order = (await tx.order.findUnique({
+        where: { id },
+        include: {
+          items: true,
+          shipments: true,
+          timeline: true,
+          payments: true,
+          escrow: { include: { disputes: true, transactions: true } },
+        },
+      })) as OrderWithRelations | null;
 
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: {
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      const timestamps = this.getStatusTimestamps(dto.status);
+      const timelineNote = dto.note ?? this.getDefaultTimelineNote(dto.status);
+      const metadata = dto.providerStatus ? { providerStatus: dto.providerStatus } : undefined;
+
+      const data: Prisma.OrderUpdateInput = {
         status: dto.status,
         ...timestamps,
         timeline: {
           create: [
             {
               status: dto.status,
-              note: dto.note ?? null,
+              note: timelineNote,
               actorId: dto.actorId ?? null,
+              metadata: this.toJsonInput(metadata),
             },
           ],
         },
-      },
-      include: this.defaultInclude,
-    });
+      };
 
-    return serializeOrder(order);
+      switch (dto.status) {
+        case OrderStatus.PAID:
+          await this.paymentsService.markPaymentCaptured(tx, order, dto.providerStatus);
+          await this.ensureEscrowHolding(tx, order);
+          data.paymentStatus = PaymentStatus.CAPTURED;
+          break;
+        case OrderStatus.CANCELLED:
+        case OrderStatus.REFUNDED:
+          await this.paymentsService.markPaymentRefunded(tx, order, dto.providerStatus);
+          await this.handleEscrowRefund(tx, order, dto);
+          data.paymentStatus = PaymentStatus.REFUNDED;
+          break;
+        case OrderStatus.COMPLETED:
+          await this.handleEscrowRelease(tx, order, dto);
+          break;
+        default:
+          break;
+      }
+
+      const updated = (await tx.order.update({
+        where: { id },
+        data,
+        include: this.defaultInclude,
+      })) as OrderWithRelations;
+
+      return serializeOrder(updated);
+    });
   }
 
   private async buildOrderItems(dto: CreateOrderDto) {
@@ -148,7 +223,7 @@ export class OrdersService {
         quantity,
         unitPriceCents,
         currency,
-      } satisfies Prisma.OrderItemCreateWithoutOrderInput;
+      } satisfies Prisma.OrderItemUncheckedCreateWithoutOrderInput;
     });
 
     if (currencySet.size > 1) {
@@ -169,13 +244,6 @@ export class OrdersService {
     }
   }
 
-  private async ensureOrderExists(id: string): Promise<void> {
-    const order = await this.prisma.order.findFirst({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-  }
-
   private getStatusTimestamps(status: OrderStatus): Prisma.OrderUpdateInput {
     const now = new Date();
     switch (status) {
@@ -187,16 +255,161 @@ export class OrdersService {
         return { deliveredAt: now };
       case OrderStatus.CANCELLED:
         return { cancelledAt: now };
+      case OrderStatus.REFUNDED:
+        return { cancelledAt: now };
+      case OrderStatus.COMPLETED:
+        return { deliveredAt: now };
       default:
         return {};
     }
   }
 
-  private toJsonInput(value?: Record<string, unknown> | null): Prisma.InputJsonValue | null | undefined {
+  private getDefaultTimelineNote(status: OrderStatus): string | null {
+    switch (status) {
+      case OrderStatus.COMPLETED:
+        return 'Escrow released to seller';
+      case OrderStatus.CANCELLED:
+      case OrderStatus.REFUNDED:
+        return 'Escrow refunded to buyer';
+      default:
+        return null;
+    }
+  }
+
+  private async ensureEscrowHolding(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      escrow: { id: string } | null;
+      totalItemCents: number;
+      shippingCents: number;
+      feeCents: number;
+      currency: string;
+    },
+  ): Promise<void> {
+    if (order.escrow) {
+      return;
+    }
+
+    await tx.escrowHolding.create({
+      data: {
+        orderId: order.id,
+        status: EscrowStatus.HOLDING,
+        amountCents: this.getOrderTotalCents(order),
+        currency: order.currency,
+      },
+    });
+  }
+
+  private async handleEscrowRelease(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      escrow: { id: string; status: EscrowStatus; amountCents: number; currency: string } | null;
+    },
+    dto: UpdateOrderStatusDto,
+  ): Promise<void> {
+    const escrow =
+      order.escrow ??
+      (await tx.escrowHolding.findUnique({ where: { orderId: order.id } })) ??
+      null;
+    if (!escrow || escrow.status === EscrowStatus.RELEASED) {
+      return;
+    }
+
+    const releasedAt = new Date();
+    await tx.escrowHolding.update({
+      where: { id: escrow.id },
+      data: { status: EscrowStatus.RELEASED, releasedAt },
+    });
+
+    await tx.escrowTransaction.create({
+      data: {
+        escrowId: escrow.id,
+        type: EscrowTransactionType.RELEASE,
+        amountCents: escrow.amountCents,
+        currency: escrow.currency,
+        note: 'Escrow released to seller',
+        actorId: dto.actorId ?? null,
+        metadata: this.toJsonInput({ orderId: order.id }),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: dto.actorId ?? null,
+        action: 'order.escrow.release',
+        entityType: 'order',
+        entityId: order.id,
+        payload:
+          this.toJsonInput({ amountCents: escrow.amountCents, currency: escrow.currency }) ?? Prisma.JsonNull,
+      },
+    });
+  }
+
+  private async handleEscrowRefund(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      escrow: { id: string; status: EscrowStatus; amountCents: number; currency: string } | null;
+    },
+    dto: UpdateOrderStatusDto,
+  ): Promise<void> {
+    const escrow =
+      order.escrow ??
+      (await tx.escrowHolding.findUnique({ where: { orderId: order.id } })) ??
+      null;
+    if (!escrow || escrow.status === EscrowStatus.REFUNDED) {
+      return;
+    }
+
+    await tx.escrowHolding.update({
+      where: { id: escrow.id },
+      data: { status: EscrowStatus.REFUNDED, releasedAt: new Date() },
+    });
+
+    await tx.escrowTransaction.create({
+      data: {
+        escrowId: escrow.id,
+        type: EscrowTransactionType.REFUND,
+        amountCents: escrow.amountCents,
+        currency: escrow.currency,
+        note: 'Escrow refunded to buyer',
+        actorId: dto.actorId ?? null,
+        metadata: this.toJsonInput({ orderId: order.id }),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: dto.actorId ?? null,
+        action: 'order.escrow.refund',
+        entityType: 'order',
+        entityId: order.id,
+        payload:
+          this.toJsonInput({ amountCents: escrow.amountCents, currency: escrow.currency }) ?? Prisma.JsonNull,
+      },
+    });
+  }
+
+  private getOrderTotalCents(order: {
+    totalItemCents: number;
+    shippingCents: number;
+    feeCents: number;
+  }): number {
+    return order.totalItemCents + order.shippingCents + order.feeCents;
+  }
+
+  private toJsonInput(
+    value?: Record<string, unknown> | null,
+  ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
     if (value === undefined) {
       return undefined;
     }
-    return (value ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+    if (value === null) {
+      return Prisma.JsonNull;
+    }
+    return value as Prisma.InputJsonValue;
   }
 
   private generateOrderNumber(): string {
@@ -205,9 +418,16 @@ export class OrdersService {
 
   private get defaultInclude() {
     return {
-      items: { orderBy: { createdAt: 'asc' } },
+      items: true,
       shipments: true,
-      timeline: { orderBy: { createdAt: 'asc' } },
+      timeline: true,
+      payments: true,
+      escrow: {
+        include: {
+          disputes: true,
+          transactions: true,
+        },
+      },
     } satisfies Prisma.OrderInclude;
   }
 }

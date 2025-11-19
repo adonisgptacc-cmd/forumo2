@@ -5,6 +5,13 @@ export type OrderWithRelations = Prisma.OrderGetPayload<{
     items: true;
     shipments: true;
     timeline: true;
+    payments: true;
+    escrow: {
+      include: {
+        disputes: true;
+        transactions: true;
+      };
+    };
   };
 }>;
 
