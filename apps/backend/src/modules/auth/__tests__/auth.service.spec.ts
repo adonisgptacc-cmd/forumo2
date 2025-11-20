@@ -189,6 +189,8 @@ describe('AuthService OTP flows', () => {
       purpose: OtpPurpose.LOGIN,
       secret: 'secret',
       codeHash,
+      channel: NotificationChannel.SMS,
+      deviceFingerprint: 'fingerprint-123',
       expiresAt: new Date(Date.now() + 60_000),
       consumedAt: null,
       createdAt: new Date(),
@@ -202,6 +204,7 @@ describe('AuthService OTP flows', () => {
       purpose: OtpPurpose.LOGIN,
       code: '654321',
       deviceFingerprint: 'fingerprint-123',
+      channel: NotificationChannel.SMS,
     };
 
     const response = await service.verifyOtp(dto);
@@ -219,6 +222,49 @@ describe('AuthService OTP flows', () => {
     expect(prisma.deviceSession.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ lastVerifiedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it('enforces IP-based rate limits when device fingerprint is missing', async () => {
+    const user = createUser();
+    prisma.user.findFirst.mockResolvedValue(user);
+    prisma.otpCode.count.mockResolvedValue(5);
+
+    const dto: RequestOtpDto = {
+      email: user.email,
+      purpose: OtpPurpose.LOGIN,
+      deviceFingerprint: '',
+      ipAddress: '127.0.0.1',
+    } as RequestOtpDto;
+
+    await expect(service.requestOtp(dto)).rejects.toThrow('Too many OTP requests for this device');
+
+    expect(prisma.otpCode.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deviceFingerprint: 'ip:127.0.0.1' }),
+      }),
+    );
+  });
+
+  it('rejects OTP verification when device or channel do not match the issued code', async () => {
+    const user = createUser();
+    prisma.user.findFirst.mockResolvedValue(user);
+    prisma.otpCode.findFirst.mockResolvedValue(null);
+
+    const dto: VerifyOtpDto = {
+      email: user.email,
+      purpose: OtpPurpose.LOGIN,
+      code: '111111',
+      deviceFingerprint: 'different-device',
+      channel: NotificationChannel.EMAIL,
+    };
+
+    await expect(service.verifyOtp(dto)).rejects.toThrow('Invalid code');
+
+    expect(prisma.otpCode.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deviceFingerprint: 'different-device', channel: NotificationChannel.EMAIL }),
       }),
     );
   });

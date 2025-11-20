@@ -1,4 +1,4 @@
-import { OtpPurpose } from '@prisma/client';
+import { NotificationChannel, OtpPurpose } from '@prisma/client';
 import { IsEmail, IsEnum, IsIP, IsObject, IsOptional, IsString, Length } from 'class-validator';
 
 export class VerifyOtpDto {
@@ -27,4 +27,8 @@ export class VerifyOtpDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsEnum(NotificationChannel)
+  channel?: NotificationChannel;
 }

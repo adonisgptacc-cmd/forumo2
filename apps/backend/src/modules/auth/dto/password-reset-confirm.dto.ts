@@ -1,4 +1,5 @@
-import { IsEmail, IsIP, IsObject, IsOptional, IsString, Length, MinLength } from 'class-validator';
+import { NotificationChannel } from '@prisma/client';
+import { IsEmail, IsEnum, IsIP, IsObject, IsOptional, IsString, Length, MinLength } from 'class-validator';
 
 export class PasswordResetConfirmDto {
   @IsEmail()
@@ -27,4 +28,8 @@ export class PasswordResetConfirmDto {
   @IsString()
   @MinLength(12)
   newPassword!: string;
+
+  @IsOptional()
+  @IsEnum(NotificationChannel)
+  channel?: NotificationChannel;
 }
