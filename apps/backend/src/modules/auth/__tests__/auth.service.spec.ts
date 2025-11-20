@@ -226,6 +226,47 @@ describe('AuthService OTP flows', () => {
     );
   });
 
+  it('prevents OTP replay after a code has been consumed', async () => {
+    const user = createUser();
+    const codeHash = await bcrypt.hash('222333', 10);
+    prisma.user.findFirst.mockResolvedValue(user);
+    prisma.otpCode.findFirst
+      .mockResolvedValueOnce({
+        id: 'otp-2',
+        userId: user.id,
+        purpose: OtpPurpose.LOGIN,
+        secret: 'secret',
+        codeHash,
+        channel: NotificationChannel.EMAIL,
+        deviceFingerprint: 'fingerprint-xyz',
+        expiresAt: new Date(Date.now() + 60_000),
+        consumedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .mockResolvedValueOnce(null);
+    prisma.otpCode.update.mockResolvedValue({} as never);
+    prisma.deviceSession.upsert.mockResolvedValue({} as never);
+
+    const dto: VerifyOtpDto = {
+      email: user.email,
+      purpose: OtpPurpose.LOGIN,
+      code: '222333',
+      deviceFingerprint: 'fingerprint-xyz',
+      channel: NotificationChannel.EMAIL,
+    };
+
+    await expect(service.verifyOtp(dto)).resolves.toBeDefined();
+    await expect(service.verifyOtp(dto)).rejects.toThrow('Invalid code');
+
+    expect(prisma.otpCode.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'otp-2' },
+        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
   it('enforces IP-based rate limits when device fingerprint is missing', async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
