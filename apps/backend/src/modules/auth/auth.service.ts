@@ -85,7 +85,9 @@ export class AuthService {
       throw new UnauthorizedException('Account not found');
     }
 
-    await this.enforceDeviceRateLimit(user.id, dto.deviceFingerprint);
+    const deviceFingerprint = this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress);
+
+    await this.enforceDeviceRateLimit(user.id, deviceFingerprint);
 
     const code = this.generateOtpCode();
     const secret = this.generateOtpSecret();
@@ -101,7 +103,7 @@ export class AuthService {
         codeHash,
         expiresAt,
         channel: delivery.channel,
-        deviceFingerprint: dto.deviceFingerprint,
+        deviceFingerprint,
         deliveryProvider: delivery.provider,
         deliveryReference: delivery.referenceId,
         deliveryMetadata: this.buildMetadata(delivery.metadata),
@@ -109,7 +111,9 @@ export class AuthService {
       },
     });
 
-    await this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastIssuedAt: new Date() });
+    if (deviceFingerprint) {
+      await this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastIssuedAt: new Date() });
+    }
 
     return { message: 'OTP issued', channel: delivery.channel, deliveredAt: delivery.deliveredAt };
   }
@@ -120,9 +124,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid code');
     }
 
-    const consumedAt = await this.consumeOtp(user, dto);
+    const deviceFingerprint = this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress);
+    const channel = this.resolveChannel(dto.channel, user);
 
-    await this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastVerifiedAt: consumedAt });
+    const consumedAt = await this.consumeOtp(user, dto, { deviceFingerprint, channel });
+
+    if (deviceFingerprint) {
+      await this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastVerifiedAt: consumedAt });
+    }
 
     return this.buildAuthResponse(user);
   }
@@ -142,6 +151,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid code');
     }
 
+    const deviceFingerprint = this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress);
+    const channel = this.resolveChannel(dto.channel, user);
+
     const consumedAt = await this.consumeOtp(
       user,
       {
@@ -152,14 +164,18 @@ export class AuthService {
         metadata: dto.metadata,
         purpose: OtpPurpose.PASSWORD_RESET,
         userAgent: dto.userAgent,
+        channel,
       },
+      { deviceFingerprint, channel },
     );
 
     const passwordHash = await bcrypt.hash(dto.newPassword, this.saltRounds);
 
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
-      this.upsertDeviceSession(user.id, dto.deviceFingerprint, dto, { lastVerifiedAt: consumedAt }),
+      ...(deviceFingerprint
+        ? [this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastVerifiedAt: consumedAt })]
+        : []),
     ]);
 
     return { message: 'Password reset successful' };
@@ -245,13 +261,19 @@ export class AuthService {
     return metadata as Prisma.JsonObject;
   }
 
-  private async consumeOtp(user: User, dto: VerifyOtpInput): Promise<Date> {
+  private async consumeOtp(
+    user: User,
+    dto: VerifyOtpInput,
+    context: { deviceFingerprint: string | null; channel: NotificationChannel },
+  ): Promise<Date> {
     const otpRecord = await this.prisma.otpCode.findFirst({
       where: {
         userId: user.id,
         purpose: dto.purpose,
         consumedAt: null,
         expiresAt: { gt: new Date() },
+        deviceFingerprint: context.deviceFingerprint,
+        channel: context.channel,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -274,7 +296,7 @@ export class AuthService {
     return consumedAt;
   }
 
-  private async enforceDeviceRateLimit(userId: string, fingerprint: string): Promise<void> {
+  private async enforceDeviceRateLimit(userId: string, fingerprint: string | null): Promise<void> {
     const limitValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_LIMIT') ?? 5);
     const windowSecondsValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_WINDOW') ?? 300);
     const limit = Number.isNaN(limitValue) ? 5 : limitValue;
@@ -303,5 +325,26 @@ export class AuthService {
     if (!exists) {
       throw new UnauthorizedException('Account not found');
     }
+  }
+
+  private resolveDeviceIdentifier(deviceFingerprint?: string, ipAddress?: string): string | null {
+    const trimmedFingerprint = deviceFingerprint?.trim();
+    if (trimmedFingerprint) {
+      return trimmedFingerprint;
+    }
+
+    if (ipAddress?.trim()) {
+      return `ip:${ipAddress.trim()}`;
+    }
+
+    return null;
+  }
+
+  private resolveChannel(requestedChannel: NotificationChannel | undefined, user: User): NotificationChannel {
+    if (requestedChannel) {
+      return requestedChannel;
+    }
+
+    return user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL;
   }
 }
