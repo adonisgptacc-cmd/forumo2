@@ -5,6 +5,9 @@ import type {
   ListingImage,
   ListingSearchParams,
   ListingSearchResponse,
+  AdminDisputeSummary,
+  AdminKycSubmission,
+  AdminListingModeration,
   Message,
   SafeListing,
   SafeMessageThread,
@@ -31,6 +34,9 @@ type MockState = {
   listings: SafeListing[];
   orders: SafeOrder[];
   threads: SafeMessageThread[];
+  kycSubmissions: AdminKycSubmission[];
+  moderationQueue: AdminListingModeration[];
+  disputes: AdminDisputeSummary[];
 };
 
 const globalKey = '__forumoMockState';
@@ -155,6 +161,59 @@ function getMockState(): MockState {
     listings: [sampleListing],
     orders: [sampleOrder],
     threads: [sampleThread],
+    kycSubmissions: [
+      {
+        id: 'kyc-1',
+        userId: 'seller-sample',
+        reviewerId: null,
+        status: 'PENDING',
+        rejectionReason: null,
+        submittedAt: now,
+        reviewedAt: null,
+        documents: [
+          {
+            id: 'kyc-doc-1',
+            submissionId: 'kyc-1',
+            type: 'passport',
+            status: 'PENDING',
+            url: null,
+            createdAt: now,
+            metadata: { issuingCountry: 'GH' },
+          },
+        ],
+        user: { id: 'seller-sample', email: 'seller@example.com', name: 'Mock Seller' },
+        reviewer: null,
+      },
+    ],
+    moderationQueue: [
+      {
+        id: sampleListing.id,
+        sellerId: sampleListing.sellerId,
+        title: sampleListing.title,
+        status: sampleListing.status,
+        moderationStatus: 'PENDING',
+        moderationNotes: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    disputes: [
+      {
+        id: 'dispute-1',
+        escrowId: 'escrow-1',
+        orderId: sampleOrder.id,
+        orderNumber: sampleOrder.orderNumber,
+        status: 'OPEN',
+        reason: 'Item arrived damaged',
+        resolution: null,
+        openedBy: { id: 'buyer-sample', email: 'buyer@example.com', name: 'Buyer' },
+        openedAt: now,
+        resolvedAt: null,
+        amountCents: sampleOrder.totalItemCents,
+        currency: sampleOrder.currency,
+        messageCount: 2,
+      },
+    ],
   };
   (globalThis as any)[globalKey] = state;
   persistMockState(state);
@@ -365,6 +424,18 @@ class MockApiClient {
       thread.messages.push(message);
       persistMockState(this.state);
       return thread;
+    },
+  };
+
+  admin = {
+    listKycSubmissions: async (): Promise<AdminKycSubmission[]> => {
+      return this.state.kycSubmissions;
+    },
+    listListingsForReview: async (): Promise<AdminListingModeration[]> => {
+      return this.state.moderationQueue;
+    },
+    listDisputes: async (): Promise<AdminDisputeSummary[]> => {
+      return this.state.disputes;
     },
   };
 }

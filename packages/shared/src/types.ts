@@ -1,7 +1,26 @@
 import { z } from 'zod';
 
+export const userRoleSchema = z.enum(['BUYER', 'SELLER', 'ADMIN', 'MODERATOR']);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
+export const kycStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_REQUIRED']);
+export type KycStatus = z.infer<typeof kycStatusSchema>;
+
+export const disputeStatusSchema = z.enum(['OPEN', 'UNDER_REVIEW', 'RESOLVED', 'ESCALATED']);
+export type DisputeStatus = z.infer<typeof disputeStatusSchema>;
+
+export const safeUserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().nullable().optional(),
+  role: userRoleSchema,
+});
+export type SafeUser = z.infer<typeof safeUserSchema>;
+
 export const listingStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'PAUSED']);
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
+export const listingModerationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FLAGGED']);
+export type ListingModerationStatus = z.infer<typeof listingModerationStatusSchema>;
 
 export const listingVariantSchema = z.object({
   id: z.string().uuid().optional(),
@@ -322,3 +341,64 @@ export interface UploadResult {
   message: string;
   image?: ListingImage;
 }
+
+export const adminUserSummarySchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().nullable().optional(),
+});
+export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+
+export const adminKycDocumentSchema = z.object({
+  id: z.string().uuid(),
+  submissionId: z.string().uuid(),
+  type: z.string(),
+  status: kycStatusSchema,
+  url: z.string().nullable().optional(),
+  createdAt: z.string().datetime().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
+});
+export type AdminKycDocument = z.infer<typeof adminKycDocumentSchema>;
+
+export const adminKycSubmissionSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  reviewerId: z.string().uuid().nullable().optional(),
+  status: kycStatusSchema,
+  rejectionReason: z.string().nullable().optional(),
+  submittedAt: z.string().datetime(),
+  reviewedAt: z.string().datetime().nullable().optional(),
+  documents: z.array(adminKycDocumentSchema).default([]),
+  user: adminUserSummarySchema.optional(),
+  reviewer: adminUserSummarySchema.nullable().optional(),
+});
+export type AdminKycSubmission = z.infer<typeof adminKycSubmissionSchema>;
+
+export const adminListingModerationSchema = z.object({
+  id: z.string().uuid(),
+  sellerId: z.string().uuid(),
+  title: z.string(),
+  status: listingStatusSchema,
+  moderationStatus: listingModerationStatusSchema,
+  moderationNotes: z.string().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type AdminListingModeration = z.infer<typeof adminListingModerationSchema>;
+
+export const adminDisputeSchema = z.object({
+  id: z.string().uuid(),
+  escrowId: z.string().uuid(),
+  orderId: z.string().uuid().optional(),
+  orderNumber: z.string().optional(),
+  status: disputeStatusSchema,
+  reason: z.string(),
+  resolution: z.string().nullable().optional(),
+  openedBy: adminUserSummarySchema.optional(),
+  openedAt: z.string().datetime(),
+  resolvedAt: z.string().datetime().nullable().optional(),
+  amountCents: z.number().int().nonnegative().optional(),
+  currency: z.string().length(3).optional(),
+  messageCount: z.number().int().nonnegative().default(0),
+});
+export type AdminDisputeSummary = z.infer<typeof adminDisputeSchema>;
