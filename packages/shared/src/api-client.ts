@@ -7,6 +7,9 @@ import {
   ListingImage,
   ListingSearchParams,
   ListingSearchResponse,
+  AdminDisputeSummary,
+  AdminKycSubmission,
+  AdminListingModeration,
   SafeListing,
   SafeMessageThread,
   SafeOrder,
@@ -15,6 +18,9 @@ import {
   listingSearchParamsSchema,
   listingSearchResponseSchema,
   safeListingSchema,
+  adminDisputeSchema,
+  adminKycSubmissionSchema,
+  adminListingModerationSchema,
   messageThreadSchema,
   safeOrderSchema,
   authResponseSchema,
@@ -241,6 +247,27 @@ export class ForumoApiClient {
         body: payload,
       });
       return messageThreadSchema.parse(result);
+    },
+  };
+
+  readonly admin = {
+    listKycSubmissions: async (): Promise<AdminKycSubmission[]> => {
+      const result = await this.request<AdminKycSubmission[]>('/admin/kyc/submissions', {
+        method: 'GET',
+        auth: true,
+      });
+      return result.map((item) => adminKycSubmissionSchema.parse(item));
+    },
+    listListingsForReview: async (): Promise<AdminListingModeration[]> => {
+      const result = await this.request<AdminListingModeration[]>('/admin/moderations/listings', {
+        method: 'GET',
+        auth: true,
+      });
+      return result.map((item) => adminListingModerationSchema.parse(item));
+    },
+    listDisputes: async (): Promise<AdminDisputeSummary[]> => {
+      const result = await this.request<AdminDisputeSummary[]>('/admin/disputes', { method: 'GET', auth: true });
+      return result.map((item) => adminDisputeSchema.parse(item));
     },
   };
 }

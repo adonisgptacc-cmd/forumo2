@@ -5,17 +5,16 @@ import { NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomInt } from 'crypto';
 
-import type {
-  AuthResponse,
+import type { AuthResponse } from '@forumo/shared';
+import {
   LoginDto as LoginInput,
   PasswordResetConfirmDto as PasswordResetConfirmInput,
   RegisterDto as RegisterInput,
   RequestOtpDto as RequestOtpInput,
   RequestPasswordResetDto as RequestPasswordResetInput,
-  SafeUser,
   VerifyOtpDto as VerifyOtpInput,
-} from '@forumo/shared';
-import { sanitizeUser } from '@forumo/shared';
+} from '../../common/dtos/auth.dto.js';
+import { SafeUser, sanitizeUser } from '../users/user.serializer.js';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';

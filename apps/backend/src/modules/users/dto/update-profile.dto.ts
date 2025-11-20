@@ -12,6 +12,6 @@ export class UpdateProfileDto {
   avatarUrl?: string;
 
   @IsOptional()
-  @IsPhoneNumber('ZZ', { message: 'phone must be a valid international number' })
+  @IsPhoneNumber('GH', { message: 'phone must be a valid international number' })
   phone?: string;
 }
