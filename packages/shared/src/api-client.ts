@@ -250,6 +250,16 @@ export class ForumoApiClient {
     },
   };
 
+  readonly notifications = {
+    registerExpoPushToken: async (token: string): Promise<void> => {
+      await this.requestJson<void>('/notifications/expo-token', {
+        method: 'POST',
+        auth: true,
+        body: { token },
+      });
+    },
+  };
+
   readonly admin = {
     listKycSubmissions: async (): Promise<AdminKycSubmission[]> => {
       const result = await this.request<AdminKycSubmission[]>('/admin/kyc/submissions', {

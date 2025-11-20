@@ -268,6 +268,11 @@ export const registerPayloadSchema = z.object({
 });
 export type RegisterPayload = z.infer<typeof registerPayloadSchema>;
 
+export const pushTokenRegistrationSchema = z.object({
+  token: z.string(),
+});
+export type PushTokenRegistration = z.infer<typeof pushTokenRegistrationSchema>;
+
 export const authResponseSchema = z.object({
   accessToken: z.string(),
   user: z.object({

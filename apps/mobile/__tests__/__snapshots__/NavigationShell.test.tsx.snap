@@ -1,0 +1,23 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NavigationShell renders the navigation container 1`] = `
+<div
+  style={
+    {
+      "flex": 1,
+    }
+  }
+  testID="navigation-shell"
+>
+  <div
+    data-testid="mock-navigation-container"
+  >
+    <div>
+      <div />
+      <div />
+      <div />
+      <div />
+    </div>
+  </div>
+</div>
+`;
