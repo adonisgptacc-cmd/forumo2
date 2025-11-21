@@ -51,9 +51,10 @@ pnpm web:dev
 
 - Set `JWT_SECRET` (and optionally `JWT_TTL`) for API-issued bearer tokens used by the web and admin clients.
 - Configure rate limits and expirations with `OTP_TTL`, `OTP_DEVICE_RATE_LIMIT`, and `OTP_DEVICE_RATE_WINDOW`.
-- Email OTPs are delivered via Mailgun. Provide `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, and `MAILGUN_EMAIL_FROM` (default `no-reply@forumo.dev`). Override the region base with `MAILGUN_API_BASE` if needed.
-- SMS OTPs go through AWS SNS. Provide `SNS_REGION`, `SNS_ACCESS_KEY_ID`, and `SNS_SECRET_ACCESS_KEY`, plus optional `SNS_SMS_SENDER_ID` for branded messaging where supported.
-- The Next.js client reads `NEXT_PUBLIC_API_BASE_URL` to call the NestJS API and `NEXTAUTH_SECRET` for session integrity.
+- Email OTPs are delivered via Mailgun. Provide `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, and `MAILGUN_EMAIL_FROM` (default `no-reply@forumo.dev`). Override the region base with `MAILGUN_API_BASE` (e.g., `https://api.eu.mailgun.net`) if needed.
+- SMS OTPs go through AWS SNS. Provide `SNS_REGION`, `SNS_ACCESS_KEY_ID`, and `SNS_SECRET_ACCESS_KEY`, plus optional `SNS_SMS_SENDER_ID` for branded messaging where supported. Missing or invalid credentials fall back to a local simulator for development.
+- The Next.js client reads `NEXT_PUBLIC_API_BASE_URL` to call the NestJS API and `NEXTAUTH_SECRET` for session integrity. Login/sign-up forms persist the issued JWT and user profile to `localStorage` so subsequent REST calls can reuse the bearer token.
+- `.env.example` in the repo root contains all of the variables above plus API mock toggles for local testing. Copy it to `.env` when bootstrapping a new environment.
 
 ## Documentation
 

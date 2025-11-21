@@ -54,13 +54,15 @@ export function SignupForm() {
       router.push('/app');
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message || 'Unable to create account. Try a different email.');
-      } else if (err instanceof Error) {
-        setError(err.message || 'Unable to create account. Try a different email.');
-      } else {
-        setError('Unable to create account. Try a different email.');
+      try {
+        localStorage.removeItem('forumo.accessToken');
+        localStorage.removeItem('forumo.user');
+      } catch {
+        // ignore storage errors
       }
+      const apiErrorMessage = err instanceof ApiError ? err.message : null;
+      const genericMessage = err instanceof Error ? err.message : null;
+      setError(apiErrorMessage || genericMessage || 'Unable to create account. Try a different email.');
     } finally {
       setIsSubmitting(false);
     }

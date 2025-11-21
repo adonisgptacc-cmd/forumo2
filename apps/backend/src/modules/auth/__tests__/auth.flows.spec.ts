@@ -10,6 +10,7 @@ import { PrismaService } from '../../../prisma/prisma.service.js';
 import { AuthModule } from '../auth.module.js';
 import { AuthService } from '../auth.service.js';
 import { OtpDeliveryService } from '../otp-delivery.service.js';
+import { RequestOtpDto } from '../dto/request-otp.dto.js';
 
 class FakeConfigService {
   private readonly values: Record<string, string> = {
@@ -241,7 +242,7 @@ describe('AuthModule HTTP flows', () => {
     prisma = new InMemoryPrismaService();
     otpDelivery = {
       deliver: jest.fn(async (user, dto) => ({
-        channel: dto.channel ?? NotificationChannel.EMAIL,
+        channel: dto.channel ?? (user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL),
         provider: 'mailgun',
         deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
         referenceId: 'ref-otp',
@@ -268,6 +269,25 @@ describe('AuthModule HTTP flows', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('prefers SMS when the user has a phone and channel is omitted', async () => {
+    const user = await createUser(prisma, { phone: '+233550000001' });
+    jest.spyOn<any, string>(authService as any, 'generateOtpCode').mockReturnValue('999000');
+
+    const response = await request(app.getHttpServer())
+      .post('/auth/otp/request')
+      .send({
+        email: user.email,
+        purpose: OtpPurpose.LOGIN,
+        deviceFingerprint: 'device-sms',
+      })
+      .expect(201);
+
+    expect(response.body.channel).toBe(NotificationChannel.SMS);
+    const [, deliveredDto] = otpDelivery.deliver.mock.calls[0];
+    expect((deliveredDto as RequestOtpDto).channel).toBeUndefined();
+    expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.SMS);
   });
 
   it('issues and verifies OTP codes while recording device sessions', async () => {
