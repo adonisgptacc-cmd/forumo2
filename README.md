@@ -40,12 +40,20 @@ pnpm web:dev
 
 ## Database migrations & uploads
 
-1. Copy `.env.example` (coming soon) or export `DATABASE_URL=postgres://user:pass@localhost:5432/forumo`.
+1. Copy `.env.example` or export `DATABASE_URL=postgres://user:pass@localhost:5432/forumo`.
 2. Apply the Prisma schema (users + listings, variants, and images) with `pnpm --filter backend prisma migrate deploy`.
 3. Generate the latest Prisma client for the NestJS API via `pnpm --filter backend prisma:generate` whenever the schema changes.
 4. Local uploads are written to `apps/backend/uploads/<bucket>`; set `UPLOADS_BUCKET` to mirror your S3 bucket name and point the Nest API at a MinIO/S3 endpoint if desired.
 5. Listing image uploads use in-process memory storage plus a background write to disk. In production swap the `StorageService` implementation for signed URL uploads and ensure AI moderation jobs consume the queue exposed by `ModerationQueueService`.
 6. The Python moderation microservice lives in `apps/moderation`. Point `MODERATION_SERVICE_URL` (default `http://localhost:5005`) at the FastAPI instance so that listing and image uploads are automatically scanned before publication.
+
+## Auth & OTP configuration
+
+- Set `JWT_SECRET` (and optionally `JWT_TTL`) for API-issued bearer tokens used by the web and admin clients.
+- Configure rate limits and expirations with `OTP_TTL`, `OTP_DEVICE_RATE_LIMIT`, and `OTP_DEVICE_RATE_WINDOW`.
+- Email OTPs are delivered via Mailgun. Provide `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, and `MAILGUN_EMAIL_FROM` (default `no-reply@forumo.dev`). Override the region base with `MAILGUN_API_BASE` if needed.
+- SMS OTPs go through AWS SNS. Provide `SNS_REGION`, `SNS_ACCESS_KEY_ID`, and `SNS_SECRET_ACCESS_KEY`, plus optional `SNS_SMS_SENDER_ID` for branded messaging where supported.
+- The Next.js client reads `NEXT_PUBLIC_API_BASE_URL` to call the NestJS API and `NEXTAUTH_SECRET` for session integrity.
 
 ## Documentation
 

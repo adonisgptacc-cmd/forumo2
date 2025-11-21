@@ -2,34 +2,60 @@
 
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+
+import { ApiError, type AuthResponse } from '@forumo/shared';
+
+import { createApiClient } from '../../lib/api-client';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get('callbackUrl') ?? '/app';
-  const [email, setEmail] = useState('seller@example.com');
-  const [password, setPassword] = useState('password123');
+  const api = createApiClient();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const persistAuth = useCallback((auth: AuthResponse) => {
+    try {
+      localStorage.setItem('forumo.accessToken', auth.accessToken);
+      localStorage.setItem('forumo.user', JSON.stringify(auth.user));
+    } catch {
+      // ignore write errors (e.g., Safari private mode)
+    }
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-      callbackUrl,
-    });
-    setIsSubmitting(false);
-    if (result?.error) {
-      setError('Unable to sign in. Double-check your credentials.');
-      return;
+    try {
+      const auth = await api.auth.login({ email, password });
+      persistAuth(auth);
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      router.push(result?.url ?? callbackUrl);
+      router.refresh();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Unable to sign in.');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Unable to sign in.');
+      } else {
+        setError('Unable to sign in. Double-check your credentials.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push(result?.url ?? callbackUrl);
-    router.refresh();
   }
 
   return (

@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationChannel, User } from '@prisma/client';
-import { SendEmailCommand, SESClient } from '@aws-sdk/client-ses';
-import twilio, { Twilio } from 'twilio';
+import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { randomUUID } from 'crypto';
 
 import { RequestOtpDto } from './dto/request-otp.dto.js';
@@ -18,24 +17,27 @@ export interface OtpDeliveryResult {
 @Injectable()
 export class OtpDeliveryService {
   private readonly logger = new Logger(OtpDeliveryService.name);
-  private readonly sesClient?: SESClient;
-  private readonly twilioClient?: Twilio;
+  private readonly snsClient?: SNSClient;
+  private readonly mailgunConfig?: { apiKey: string; domain: string; from: string; apiBase: string };
 
   constructor(private readonly configService: ConfigService) {
-    if (this.hasSesConfig()) {
-      this.sesClient = new SESClient({
-        region: this.configService.getOrThrow('SES_REGION'),
-        credentials: {
-          accessKeyId: this.configService.getOrThrow('SES_ACCESS_KEY_ID'),
-          secretAccessKey: this.configService.getOrThrow('SES_SECRET_ACCESS_KEY'),
-        },
-      });
+    if (this.hasMailgunConfig()) {
+      this.mailgunConfig = {
+        apiKey: this.configService.getOrThrow('MAILGUN_API_KEY'),
+        domain: this.configService.getOrThrow('MAILGUN_DOMAIN'),
+        from: this.configService.get<string>('MAILGUN_EMAIL_FROM') ?? 'no-reply@forumo.dev',
+        apiBase: this.configService.get<string>('MAILGUN_API_BASE') ?? 'https://api.mailgun.net',
+      };
     }
 
-    if (this.hasTwilioConfig()) {
-      const accountSid = this.configService.getOrThrow('TWILIO_ACCOUNT_SID');
-      const authToken = this.configService.getOrThrow('TWILIO_AUTH_TOKEN');
-      this.twilioClient = twilio(accountSid, authToken);
+    if (this.hasSnsConfig()) {
+      this.snsClient = new SNSClient({
+        region: this.configService.getOrThrow('SNS_REGION'),
+        credentials: {
+          accessKeyId: this.configService.getOrThrow('SNS_ACCESS_KEY_ID'),
+          secretAccessKey: this.configService.getOrThrow('SNS_SECRET_ACCESS_KEY'),
+        },
+      });
     }
   }
 
@@ -52,54 +54,73 @@ export class OtpDeliveryService {
   }
 
   private async sendEmail(recipient: string, code: string): Promise<OtpDeliveryResult> {
-    if (this.sesClient) {
-      const fromAddress = this.configService.get<string>('SES_EMAIL_FROM') ?? 'no-reply@example.com';
-      const message = new SendEmailCommand({
-        Source: fromAddress,
-        Destination: { ToAddresses: [recipient] },
-        Message: {
-          Subject: { Data: 'Your one-time passcode' },
-          Body: {
-            Text: { Data: `Your Forumo verification code is ${code}. It will expire soon.` },
-          },
-        },
+    if (this.mailgunConfig) {
+      const body = new URLSearchParams({
+        from: this.mailgunConfig.from,
+        to: recipient,
+        subject: 'Your one-time passcode',
+        text: `Your Forumo verification code is ${code}. It will expire soon.`,
       });
-      const response = await this.sesClient.send(message);
+
+      const response = await fetch(`${this.mailgunConfig.apiBase}/v3/${this.mailgunConfig.domain}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`api:${this.mailgunConfig.apiKey}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        this.logger.warn(`Mailgun delivery failed: ${message || response.statusText}`);
+        return this.simulateDelivery(NotificationChannel.EMAIL, recipient, code);
+      }
+
+      const payload = (await response.json()) as { id?: string; message?: string };
+
       return {
         channel: NotificationChannel.EMAIL,
-        provider: 'ses',
-        referenceId: response.MessageId,
+        provider: 'mailgun',
+        referenceId: payload.id,
         deliveredAt: new Date(),
-        metadata: { messageId: response.MessageId },
+        metadata: { message: payload.message },
       };
     }
 
-    this.logger.debug(`SES credentials missing, simulating email delivery to ${recipient}`);
+    this.logger.debug(`Mailgun credentials missing, simulating email delivery to ${recipient}`);
     return this.simulateDelivery(NotificationChannel.EMAIL, recipient, code);
   }
 
   private async sendSms(recipient: string, code: string): Promise<OtpDeliveryResult> {
-    if (this.twilioClient) {
-      const from = this.configService.getOrThrow<string>('TWILIO_FROM_NUMBER');
-      const result = await this.twilioClient.messages.create({
-        to: recipient,
-        from,
-        body: `Your Forumo verification code is ${code}`,
+    if (this.snsClient) {
+      const senderId = this.configService.get<string>('SNS_SMS_SENDER_ID');
+      const command = new PublishCommand({
+        Message: `Your Forumo verification code is ${code}`,
+        PhoneNumber: recipient,
+        ...(senderId
+          ? {
+              MessageAttributes: {
+                'AWS.SNS.SMS.SenderID': { DataType: 'String', StringValue: senderId },
+              },
+            }
+          : {}),
       });
+
+      const result = await this.snsClient.send(command);
 
       return {
         channel: NotificationChannel.SMS,
-        provider: 'twilio',
-        referenceId: result.sid,
-        deliveredAt: result.dateCreated ? new Date(result.dateCreated) : new Date(),
+        provider: 'sns',
+        referenceId: result.MessageId,
+        deliveredAt: new Date(),
         metadata: {
-          accountSid: result.accountSid,
-          status: result.status,
+          messageId: result.MessageId,
         },
       };
     }
 
-    this.logger.debug(`Twilio credentials missing, simulating SMS delivery to ${recipient}`);
+    this.logger.debug(`SNS credentials missing, simulating SMS delivery to ${recipient}`);
     return this.simulateDelivery(NotificationChannel.SMS, recipient, code);
   }
 
@@ -113,19 +134,15 @@ export class OtpDeliveryService {
     };
   }
 
-  private hasSesConfig(): boolean {
-    return Boolean(
-      this.configService.get<string>('SES_REGION') &&
-        this.configService.get<string>('SES_ACCESS_KEY_ID') &&
-        this.configService.get<string>('SES_SECRET_ACCESS_KEY'),
-    );
+  private hasMailgunConfig(): boolean {
+    return Boolean(this.configService.get<string>('MAILGUN_API_KEY') && this.configService.get<string>('MAILGUN_DOMAIN'));
   }
 
-  private hasTwilioConfig(): boolean {
+  private hasSnsConfig(): boolean {
     return Boolean(
-      this.configService.get<string>('TWILIO_ACCOUNT_SID') &&
-        this.configService.get<string>('TWILIO_AUTH_TOKEN') &&
-        this.configService.get<string>('TWILIO_FROM_NUMBER'),
+      this.configService.get<string>('SNS_REGION') &&
+        this.configService.get<string>('SNS_ACCESS_KEY_ID') &&
+        this.configService.get<string>('SNS_SECRET_ACCESS_KEY'),
     );
   }
 }

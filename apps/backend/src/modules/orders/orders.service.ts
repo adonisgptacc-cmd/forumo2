@@ -10,12 +10,9 @@ import {
   Prisma,
 } from '@prisma/client';
 
-import type {
-  CreateOrderDto as CreateOrderInput,
-  SafeOrder,
-  UpdateOrderStatusDto as UpdateOrderStatusInput,
-} from '@forumo/shared';
-import { OrderWithRelations, serializeOrder } from '@forumo/shared';
+import type { CreateOrderDto as CreateOrderInput } from './dto/create-order.dto.js';
+import type { UpdateOrderStatusDto as UpdateOrderStatusInput } from './dto/update-order-status.dto.js';
+import { OrderWithRelations, SafeOrder, serializeOrder } from './order.serializer.js';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentsService } from './payments.service.js';
@@ -137,15 +134,17 @@ export class OrdersService {
         },
       };
 
+      const providerStatus = dto.providerStatus ?? undefined;
+
       switch (dto.status) {
         case OrderStatus.PAID:
-          await this.paymentsService.markPaymentCaptured(tx, order, dto.providerStatus);
+          await this.paymentsService.markPaymentCaptured(tx, order, providerStatus);
           await this.ensureEscrowHolding(tx, order);
           data.paymentStatus = PaymentStatus.CAPTURED;
           break;
         case OrderStatus.CANCELLED:
         case OrderStatus.REFUNDED:
-          await this.paymentsService.markPaymentRefunded(tx, order, dto.providerStatus);
+          await this.paymentsService.markPaymentRefunded(tx, order, providerStatus);
           await this.handleEscrowRefund(tx, order, dto);
           data.paymentStatus = PaymentStatus.REFUNDED;
           break;

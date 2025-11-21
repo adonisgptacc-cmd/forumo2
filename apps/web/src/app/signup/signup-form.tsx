@@ -2,7 +2,9 @@
 
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+
+import { ApiError, type AuthResponse } from '@forumo/shared';
 
 import { createApiClient } from '../../lib/api-client';
 
@@ -10,14 +12,23 @@ export function SignupForm() {
   const router = useRouter();
   const api = createApiClient();
   const [form, setForm] = useState({
-    name: 'Demo Seller',
-    email: `seller+${Date.now()}@forumo.dev`,
-    password: 'password123',
-    phone: '+233550000000',
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const persistAuth = useCallback((auth: AuthResponse) => {
+    try {
+      localStorage.setItem('forumo.accessToken', auth.accessToken);
+      localStorage.setItem('forumo.user', JSON.stringify(auth.user));
+    } catch {
+      // ignore write errors (e.g., Safari private mode)
+    }
+  }, []);
 
   const updateField = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -29,17 +40,27 @@ export function SignupForm() {
     setMessage(null);
     setIsSubmitting(true);
     try {
-      await api.auth.register(form);
+      const auth = await api.auth.register(form);
+      persistAuth(auth);
       setMessage('Account created. Redirecting you to the dashboard…');
-      await signIn('credentials', {
+      const signInResult = await signIn('credentials', {
         email: form.email,
         password: form.password,
         redirect: false,
       });
+      if (signInResult?.error) {
+        throw new Error(signInResult.error);
+      }
       router.push('/app');
       router.refresh();
     } catch (err) {
-      setError('Unable to create account. Try a different email.');
+      if (err instanceof ApiError) {
+        setError(err.message || 'Unable to create account. Try a different email.');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Unable to create account. Try a different email.');
+      } else {
+        setError('Unable to create account. Try a different email.');
+      }
     } finally {
       setIsSubmitting(false);
     }
