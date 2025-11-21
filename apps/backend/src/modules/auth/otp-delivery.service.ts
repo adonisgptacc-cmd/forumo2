@@ -62,30 +62,35 @@ export class OtpDeliveryService {
         text: `Your Forumo verification code is ${code}. It will expire soon.`,
       });
 
-      const response = await fetch(`${this.mailgunConfig.apiBase}/v3/${this.mailgunConfig.domain}/messages`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`api:${this.mailgunConfig.apiKey}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body,
-      });
+      try {
+        const response = await fetch(`${this.mailgunConfig.apiBase}/v3/${this.mailgunConfig.domain}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`api:${this.mailgunConfig.apiKey}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body,
+        });
 
-      if (!response.ok) {
-        const message = await response.text();
-        this.logger.warn(`Mailgun delivery failed: ${message || response.statusText}`);
+        if (!response.ok) {
+          const message = await response.text();
+          this.logger.warn(`Mailgun delivery failed: ${message || response.statusText}`);
+          return this.simulateDelivery(NotificationChannel.EMAIL, recipient, code);
+        }
+
+        const payload = (await response.json()) as { id?: string; message?: string };
+
+        return {
+          channel: NotificationChannel.EMAIL,
+          provider: 'mailgun',
+          referenceId: payload.id,
+          deliveredAt: new Date(),
+          metadata: { message: payload.message },
+        };
+      } catch (error) {
+        this.logger.error(`Mailgun delivery threw: ${(error as Error).message}`);
         return this.simulateDelivery(NotificationChannel.EMAIL, recipient, code);
       }
-
-      const payload = (await response.json()) as { id?: string; message?: string };
-
-      return {
-        channel: NotificationChannel.EMAIL,
-        provider: 'mailgun',
-        referenceId: payload.id,
-        deliveredAt: new Date(),
-        metadata: { message: payload.message },
-      };
     }
 
     this.logger.debug(`Mailgun credentials missing, simulating email delivery to ${recipient}`);
@@ -107,17 +112,22 @@ export class OtpDeliveryService {
           : {}),
       });
 
-      const result = await this.snsClient.send(command);
+      try {
+        const result = await this.snsClient.send(command);
 
-      return {
-        channel: NotificationChannel.SMS,
-        provider: 'sns',
-        referenceId: result.MessageId,
-        deliveredAt: new Date(),
-        metadata: {
-          messageId: result.MessageId,
-        },
-      };
+        return {
+          channel: NotificationChannel.SMS,
+          provider: 'sns',
+          referenceId: result.MessageId,
+          deliveredAt: new Date(),
+          metadata: {
+            messageId: result.MessageId,
+          },
+        };
+      } catch (error) {
+        this.logger.error(`SNS delivery threw: ${(error as Error).message}`);
+        return this.simulateDelivery(NotificationChannel.SMS, recipient, code);
+      }
     }
 
     this.logger.debug(`SNS credentials missing, simulating SMS delivery to ${recipient}`);

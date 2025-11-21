@@ -43,16 +43,21 @@ export function LoginForm() {
       if (result?.error) {
         throw new Error(result.error);
       }
+      if (!result?.ok && !result?.url) {
+        throw new Error('Authentication failed. Please try again.');
+      }
       router.push(result?.url ?? callbackUrl);
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message || 'Unable to sign in.');
-      } else if (err instanceof Error) {
-        setError(err.message || 'Unable to sign in.');
-      } else {
-        setError('Unable to sign in. Double-check your credentials.');
+      try {
+        localStorage.removeItem('forumo.accessToken');
+        localStorage.removeItem('forumo.user');
+      } catch {
+        // ignore storage errors
       }
+      const apiErrorMessage = err instanceof ApiError ? err.message : null;
+      const genericMessage = err instanceof Error ? err.message : null;
+      setError(apiErrorMessage || genericMessage || 'Unable to sign in. Double-check your credentials.');
     } finally {
       setIsSubmitting(false);
     }
