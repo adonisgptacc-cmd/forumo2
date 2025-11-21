@@ -339,6 +339,9 @@ export const listingSearchParamsSchema = z.object({
   status: listingStatusSchema.optional(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(12),
+  minPriceCents: z.number().int().nonnegative().optional(),
+  maxPriceCents: z.number().int().nonnegative().optional(),
+  tags: z.array(z.string()).optional(),
 });
 export type ListingSearchParams = z.infer<typeof listingSearchParamsSchema>;
 

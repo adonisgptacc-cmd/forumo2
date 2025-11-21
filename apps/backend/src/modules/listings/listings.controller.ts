@@ -22,10 +22,14 @@ import { ListingSearchQueryDto } from './dto/listing-search.dto.js';
 import { UpdateListingDto } from './dto/update-listing.dto.js';
 import { SafeListing, SafeListingImage } from './listing.serializer.js';
 import { ListingsService } from './listings.service.js';
+import { ListingSearchService } from './search.service.js';
 
 @Controller('listings')
 export class ListingsController {
-  constructor(private readonly listingsService: ListingsService) {}
+  constructor(
+    private readonly listingsService: ListingsService,
+    private readonly listingSearchService: ListingSearchService,
+  ) {}
 
   @Get()
   findAll(): Promise<SafeListing[]> {
@@ -34,14 +38,15 @@ export class ListingsController {
 
   @Get('search')
   search(@Query() query: ListingSearchQueryDto) {
-    return this.listingsService.searchListings({
+    return this.listingSearchService.search({
       keyword: query.keyword?.trim() || undefined,
       page: query.page ?? 1,
-      pageSize: query.pageSize ?? 20,
+      pageSize: query.pageSize ?? 12,
       status: query.status,
       minPriceCents: query.minPriceCents,
       maxPriceCents: query.maxPriceCents,
       sellerId: query.sellerId,
+      tags: query.tags,
     });
   }
 

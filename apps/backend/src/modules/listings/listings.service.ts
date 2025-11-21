@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -12,26 +12,9 @@ import {
   serializeListing,
   serializeListingImage,
 } from './listing.serializer.js';
+import { listingDefaultInclude } from './listings.prisma.js';
 import { ModerationQueueService } from './moderation-queue.service.js';
 import { StorageService } from '../storage/storage.service.js';
-
-export interface ListingSearchParams {
-  keyword?: string;
-  page: number;
-  pageSize: number;
-  status?: ListingStatus;
-  minPriceCents?: number;
-  maxPriceCents?: number;
-  sellerId?: string;
-}
-
-export interface ListingSearchResponse {
-  data: SafeListing[];
-  total: number;
-  page: number;
-  pageSize: number;
-  pageCount: number;
-}
 
 @Injectable()
 export class ListingsService {
@@ -43,115 +26,11 @@ export class ListingsService {
     private readonly storageService: StorageService,
   ) {}
 
-  async searchListings(params: ListingSearchParams): Promise<ListingSearchResponse> {
-    const page = params.page > 0 ? params.page : 1;
-    const cappedPageSize = Math.min(params.pageSize > 0 ? params.pageSize : 20, 50);
-    const offset = (page - 1) * cappedPageSize;
-
-    if (
-      params.maxPriceCents !== undefined &&
-      params.minPriceCents !== undefined &&
-      params.maxPriceCents < params.minPriceCents
-    ) {
-      throw new BadRequestException('maxPriceCents must be greater than or equal to minPriceCents');
-    }
-
-    const where: Prisma.ListingWhereInput = {
-      deletedAt: null,
-      ...(params.status ? { status: params.status } : {}),
-      ...(params.sellerId ? { sellerId: params.sellerId } : {}),
-    };
-
-    if (params.minPriceCents !== undefined || params.maxPriceCents !== undefined) {
-      where.priceCents = {
-        ...(params.minPriceCents !== undefined ? { gte: params.minPriceCents } : {}),
-        ...(params.maxPriceCents !== undefined ? { lte: params.maxPriceCents } : {}),
-      };
-    }
-
-    if (!params.keyword) {
-      const [total, listings] = await this.prisma.$transaction([
-        this.prisma.listing.count({ where }),
-        this.prisma.listing.findMany({
-          where,
-          skip: offset,
-          take: cappedPageSize,
-          orderBy: { createdAt: 'desc' },
-          include: this.defaultInclude,
-        }),
-      ]);
-
-      const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
-
-      return {
-        data: listings.map((listing) => serializeListing(listing)),
-        total,
-        page,
-        pageSize: cappedPageSize,
-        pageCount: total === 0 ? 0 : pageCount,
-      };
-    }
-
-    const document = Prisma.sql`to_tsvector('english', coalesce("title", '') || ' ' || coalesce("description", '') || ' ' || coalesce("location", ''))`;
-    const tsQuery = Prisma.sql`plainto_tsquery('english', ${params.keyword})`;
-    const sqlConditions: Prisma.Sql[] = [Prisma.sql`"deletedAt" IS NULL`, Prisma.sql`${document} @@ ${tsQuery}`];
-
-    if (params.status) {
-      sqlConditions.push(Prisma.sql`"status" = ${params.status}`);
-    }
-    if (params.sellerId) {
-      sqlConditions.push(Prisma.sql`"sellerId" = ${params.sellerId}`);
-    }
-    if (params.minPriceCents !== undefined) {
-      sqlConditions.push(Prisma.sql`"priceCents" >= ${params.minPriceCents}`);
-    }
-    if (params.maxPriceCents !== undefined) {
-      sqlConditions.push(Prisma.sql`"priceCents" <= ${params.maxPriceCents}`);
-    }
-
-    const whereSql = Prisma.sql`WHERE ${Prisma.join(sqlConditions, ' AND ')}`;
-    const searchQuery = Prisma.sql`
-      SELECT "id", ts_rank_cd(${document}, ${tsQuery}) as rank
-      FROM "Listing"
-      ${whereSql}
-      ORDER BY rank DESC, "createdAt" DESC
-      LIMIT ${cappedPageSize}
-      OFFSET ${offset}
-    `;
-
-    const [total, rows] = await this.prisma.$transaction([
-      this.prisma.listing.count({ where }),
-      this.prisma.$queryRaw<{ id: string }[]>(searchQuery),
-    ]);
-
-    const listingIds = rows.map((row) => row.id);
-    const listings = listingIds.length
-      ? await this.prisma.listing.findMany({
-          where: { id: { in: listingIds } },
-          include: this.defaultInclude,
-        })
-      : [];
-    const listingMap = new Map(listings.map((listing) => [listing.id, listing]));
-    const ordered = listingIds
-      .map((id) => listingMap.get(id))
-      .filter((listing): listing is ListingWithRelations => Boolean(listing));
-
-    const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
-
-    return {
-      data: ordered.map((listing) => serializeListing(listing)),
-      total,
-      page,
-      pageSize: cappedPageSize,
-      pageCount: total === 0 ? 0 : pageCount,
-    };
-  }
-
   async findAll(): Promise<SafeListing[]> {
     const listings = await this.prisma.listing.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: this.defaultInclude,
+      include: listingDefaultInclude,
     });
     return listings.map((listing) => serializeListing(listing));
   }
@@ -159,7 +38,7 @@ export class ListingsService {
   async findById(id: string): Promise<SafeListing> {
     const listing = await this.prisma.listing.findFirst({
       where: { id, deletedAt: null },
-      include: this.defaultInclude,
+      include: listingDefaultInclude,
     });
     if (!listing) {
       throw new NotFoundException('Listing not found');
@@ -342,14 +221,4 @@ export class ListingsService {
     return value as Prisma.InputJsonValue;
   }
 
-  private get defaultInclude() {
-    return {
-      images: {
-        orderBy: { position: 'asc' },
-      },
-      variants: {
-        orderBy: { createdAt: 'asc' },
-      },
-    } satisfies Prisma.ListingInclude;
-  }
 }

@@ -131,6 +131,9 @@ export class ForumoApiClient {
         keyword: params.keyword,
         sellerId: params.sellerId,
         status: params.status,
+        minPriceCents: params.minPriceCents !== undefined ? Number(params.minPriceCents) : undefined,
+        maxPriceCents: params.maxPriceCents !== undefined ? Number(params.maxPriceCents) : undefined,
+        tags: params.tags,
       });
       const result = await this.request<ListingSearchResponse>(
         `/listings/search${buildQuery(parsed)}`,
@@ -282,12 +285,21 @@ export class ForumoApiClient {
   };
 }
 
-function buildQuery(params: Record<string, string | number | undefined>) {
+function buildQuery(params: Record<string, string | number | string[] | undefined>) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      query.append(key, String(value));
+    if (value === undefined || value === null || value === '') {
+      return;
     }
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null && item !== '') {
+          query.append(key, String(item));
+        }
+      });
+      return;
+    }
+    query.append(key, String(value));
   });
   const queryString = query.toString();
   return queryString ? `?${queryString}` : '';

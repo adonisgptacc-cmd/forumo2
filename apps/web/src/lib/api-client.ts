@@ -260,10 +260,16 @@ class MockApiClient {
         const keyword = params.keyword?.toLowerCase();
         const status = params.status;
         const sellerId = params.sellerId;
+        const minPrice = params.minPriceCents ?? 0;
+        const maxPrice = params.maxPriceCents;
+        const tags = params.tags?.map((tag) => tag.toLowerCase());
         return (
           (!keyword || listing.title.toLowerCase().includes(keyword) || listing.description.toLowerCase().includes(keyword)) &&
           (!status || listing.status === status) &&
-          (!sellerId || listing.sellerId === sellerId)
+          (!sellerId || listing.sellerId === sellerId) &&
+          (!maxPrice || listing.priceCents <= maxPrice) &&
+          listing.priceCents >= minPrice &&
+          (!tags?.length || tags.some((tag) => listing.metadata?.tags?.includes(tag)))
         );
       });
       return {

@@ -1,6 +1,6 @@
 import { ListingStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ListingSearchQueryDto {
   @IsOptional()
@@ -39,4 +39,17 @@ export class ListingSearchQueryDto {
   @IsOptional()
   @IsString()
   sellerId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    const tags = Array.isArray(value) ? value : String(value).split(',');
+    return tags
+      .map((tag) => String(tag).trim())
+      .filter(Boolean)
+      .map((tag) => tag.toLowerCase());
+  })
+  tags?: string[];
 }

@@ -16,6 +16,11 @@ function normalizeSearchParams(params: ListingsPageProps['searchParams']): Parti
     if (!single) continue;
     if (key === 'page' || key === 'pageSize') {
       normalized[key as 'page' | 'pageSize'] = Number(single);
+    } else if (key === 'minPriceCents' || key === 'maxPriceCents') {
+      normalized[key as 'minPriceCents' | 'maxPriceCents'] = Number(single);
+    } else if (key === 'tags') {
+      const tags = Array.isArray(value) ? value : [value];
+      normalized.tags = tags.flatMap((tag) => String(tag).split(',')).map((tag) => tag.trim()).filter(Boolean);
     } else {
       normalized[key as keyof ListingSearchParams] = single as never;
     }
