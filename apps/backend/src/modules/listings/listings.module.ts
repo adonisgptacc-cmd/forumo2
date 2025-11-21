@@ -7,6 +7,7 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
 import { ListingsController } from './listings.controller.js';
 import { ListingsService } from './listings.service.js';
 import { ModerationQueueService } from './moderation-queue.service.js';
+import { ListingSearchService } from './search.service.js';
 import { StorageModule } from '../storage/storage.module.js';
 
 @Module({
@@ -17,7 +18,7 @@ import { StorageModule } from '../storage/storage.module.js';
     StorageModule,
   ],
   controllers: [ListingsController],
-  providers: [ListingsService, ModerationQueueService],
-  exports: [ListingsService, ModerationQueueService],
+  providers: [ListingsService, ListingSearchService, ModerationQueueService],
+  exports: [ListingsService, ListingSearchService, ModerationQueueService],
 })
 export class ListingsModule {}

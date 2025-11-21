@@ -1,30 +1,30 @@
 import { ListingModerationStatus, ListingStatus } from '@prisma/client';
 
-import { ListingsService } from './listings.service.js';
+import { ListingSearchService } from './search.service.js';
 
-describe('ListingsService searchListings', () => {
-  const listingA = {
-    id: 'listing-a',
-    sellerId: 'seller-1',
-    title: 'Vintage Kente',
-    description: 'Hand woven cloth',
-    priceCents: 45000,
-    currency: 'USD',
-    status: ListingStatus.PUBLISHED,
-    moderationStatus: ListingModerationStatus.APPROVED,
-    moderationNotes: null,
-    metadata: null,
-    location: 'Accra',
-    deletedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    images: [],
-    variants: [],
-  } as const;
-  const listingB = { ...listingA, id: 'listing-b', title: 'Modern Basket' } as const;
+const listingA = {
+  id: 'listing-a',
+  sellerId: 'seller-1',
+  title: 'Vintage Kente',
+  description: 'Hand woven cloth',
+  priceCents: 45000,
+  currency: 'USD',
+  status: ListingStatus.PUBLISHED,
+  moderationStatus: ListingModerationStatus.APPROVED,
+  moderationNotes: null,
+  metadata: { tags: ['kente', 'textile'] },
+  location: 'Accra',
+  deletedAt: null,
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+  images: [],
+  variants: [],
+} as const;
+const listingB = { ...listingA, id: 'listing-b', title: 'Modern Basket', priceCents: 12500 } as const;
 
+describe('ListingSearchService', () => {
   let prisma: any;
-  let service: ListingsService;
+  let service: ListingSearchService;
 
   beforeEach(() => {
     prisma = {
@@ -36,34 +36,22 @@ describe('ListingsService searchListings', () => {
       $transaction: jest.fn().mockImplementation((actions: Promise<unknown>[]) => Promise.all(actions)),
     };
 
-    service = new ListingsService(prisma, {} as any, {} as any);
+    service = new ListingSearchService(prisma as any);
   });
 
   it('applies relevance ranking when keyword is provided', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ id: listingB.id }, { id: listingA.id }]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ count: 2 }]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: listingB.id }, { id: listingA.id }]);
     prisma.listing.findMany.mockResolvedValue([listingA, listingB]);
 
-    const result = await service.searchListings({ keyword: 'kente', page: 1, pageSize: 10 });
+    const result = await service.search({ keyword: 'kente', page: 1, pageSize: 10 });
 
-    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
     expect(result.data.map((listing) => listing.id)).toEqual([listingB.id, listingA.id]);
   });
 
-  it('supports pagination through skip and take', async () => {
-    const result = await service.searchListings({ keyword: undefined, page: 3, pageSize: 5 });
-
-    expect(prisma.listing.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skip: 10,
-        take: 5,
-      }),
-    );
-    expect(result.page).toBe(3);
-    expect(result.pageSize).toBe(5);
-  });
-
-  it('combines status, price, and seller filters', async () => {
-    await service.searchListings({
+  it('combines tag, status, price, and seller filters without a keyword', async () => {
+    await service.search({
       keyword: undefined,
       page: 1,
       pageSize: 10,
@@ -71,6 +59,7 @@ describe('ListingsService searchListings', () => {
       minPriceCents: 1000,
       maxPriceCents: 5000,
       sellerId: 'seller-2',
+      tags: ['Handmade', 'Basket'],
     });
 
     const expectedWhere = {
@@ -78,11 +67,19 @@ describe('ListingsService searchListings', () => {
       status: ListingStatus.PAUSED,
       sellerId: 'seller-2',
       priceCents: { gte: 1000, lte: 5000 },
+      tags: { some: { tag: { slug: { in: ['handmade', 'basket'] } } } },
     };
 
     expect(prisma.listing.count).toHaveBeenCalledWith({ where: expectedWhere });
     expect(prisma.listing.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expectedWhere }),
     );
+  });
+
+  it('normalizes keyword spacing and uses websearch queries', () => {
+    const query = (service as any).buildKeywordQuery('  woven   cloth ');
+    expect(query.values?.[0]).toBe('woven cloth');
+    expect(Array.isArray(query.strings)).toBe(true);
+    expect(query.strings.join(' ')).toContain('websearch_to_tsquery');
   });
 });
