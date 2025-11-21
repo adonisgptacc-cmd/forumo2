@@ -17,7 +17,7 @@ import type {
 } from '@forumo/shared';
 import { ForumoApiClient } from '@forumo/shared';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
+export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 const useMocks = process.env.NEXT_PUBLIC_USE_API_MOCKS === 'true';
 
 export function createApiClient(accessToken?: string | null) {
@@ -25,7 +25,7 @@ export function createApiClient(accessToken?: string | null) {
     return new MockApiClient();
   }
   return new ForumoApiClient({
-    baseUrl,
+    baseUrl: apiBaseUrl,
     getAccessToken: () => accessToken ?? undefined,
   });
 }

@@ -173,6 +173,21 @@ export const orderTimelineSchema = z.object({
 });
 export type OrderTimelineEvent = z.infer<typeof orderTimelineSchema>;
 
+export const paymentTransactionSchema = z.object({
+  id: z.string().uuid(),
+  orderId: z.string().uuid(),
+  provider: z.string(),
+  status: paymentStatusSchema,
+  providerStatus: z.string().nullable().optional(),
+  amountCents: z.number().int(),
+  currency: z.string(),
+  providerRef: z.string().nullable().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
+  processedAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime().nullable().optional(),
+});
+export type PaymentTransaction = z.infer<typeof paymentTransactionSchema>;
+
 export const escrowHoldingSchema = z.object({
   id: z.string().uuid(),
   status: escrowStatusSchema,
@@ -199,6 +214,7 @@ export const safeOrderSchema = z.object({
   items: z.array(orderItemSchema).default([]),
   shipments: z.array(orderShipmentSchema).default([]),
   escrow: escrowHoldingSchema.nullable().optional(),
+  payments: z.array(paymentTransactionSchema).default([]),
 });
 export type SafeOrder = z.infer<typeof safeOrderSchema>;
 

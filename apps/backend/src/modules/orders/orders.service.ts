@@ -423,8 +423,8 @@ export class OrdersService {
     return {
       items: true,
       shipments: true,
-      timeline: true,
-      payments: true,
+      timeline: { orderBy: { createdAt: 'asc' } },
+      payments: { orderBy: { createdAt: 'desc' } },
       escrow: {
         include: {
           disputes: true,
