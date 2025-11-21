@@ -82,4 +82,38 @@ describe('ListingSearchService', () => {
     expect(Array.isArray(query.strings)).toBe(true);
     expect(query.strings.join(' ')).toContain('websearch_to_tsquery');
   });
+
+  it('constructs a weighted search document with filters applied in the CTE', async () => {
+    prisma.$queryRaw.mockResolvedValueOnce([{ count: 1 }]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: listingA.id }]);
+
+    await service.search({
+      keyword: 'basket',
+      page: 2,
+      pageSize: 5,
+      minPriceCents: 1000,
+      maxPriceCents: 5000,
+      tags: ['woven'],
+    });
+
+    const cteSql = (prisma.$queryRaw.mock.calls[0]?.[0] as any).strings.join(' ');
+    expect(cteSql).toContain('WITH searchable AS');
+    expect(cteSql).toContain('setweight(to_tsvector');
+    expect(cteSql).toContain('coalesce(l."title"');
+    expect(cteSql).toContain('coalesce(l."description"');
+    expect(cteSql).toContain('string_agg');
+    expect(cteSql).toContain('l."priceCents" >=');
+    expect(cteSql).toContain('l."priceCents" <=');
+    expect(cteSql).toContain('lt."slug"');
+  });
+
+  it('orders keyword results by rank then createdAt', async () => {
+    prisma.$queryRaw.mockResolvedValueOnce([{ count: 1 }]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: listingA.id }]);
+
+    await service.search({ keyword: 'kente', page: 1, pageSize: 5 });
+
+    const searchSql = (prisma.$queryRaw.mock.calls[1]?.[0] as any).strings.join(' ');
+    expect(searchSql).toContain('ORDER BY rank DESC, s."createdAt" DESC');
+  });
 });

@@ -47,6 +47,7 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
       page: 1,
       pageSize: filters.pageSize ?? DEFAULTS.pageSize,
     };
+
     setFilters(next);
   }
 
@@ -90,64 +91,24 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
               />
             </label>
           </div>
-          <button
-            className="h-10 rounded-md border border-amber-400 px-6 text-sm font-semibold uppercase tracking-[0.25em] text-amber-100 hover:bg-amber-400/10"
-            type="submit"
-          >
-            Search
-          </button>
+          <div className="flex gap-3">
+            <button
+              className="h-10 rounded-md border border-amber-400 px-6 text-sm font-semibold uppercase tracking-[0.25em] text-amber-100 hover:bg-amber-400/10"
+              type="submit"
+            >
+              Search
+            </button>
+            <button
+              className="h-10 rounded-md border border-slate-700 px-4 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+              type="button"
+              onClick={() => setFilters(DEFAULTS)}
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <label className="grid gap-1 text-sm font-medium text-slate-300">
-            Status
-            <select className="input" name="status" defaultValue={filters.status ?? ''}>
-              <option value="">Any</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="PAUSED">Paused</option>
-              <option value="DRAFT">Draft</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-300">
-            Seller ID
-            <input className="input" type="text" name="sellerId" defaultValue={filters.sellerId ?? ''} placeholder="UUID" />
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-300">
-            Min price (USD)
-            <input
-              className="input"
-              type="number"
-              min={0}
-              name="minPriceCents"
-              step="0.01"
-              defaultValue={filters.minPriceCents ? filters.minPriceCents / 100 : ''}
-              placeholder="0.00"
-            />
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-300">
-            Max price (USD)
-            <input
-              className="input"
-              type="number"
-              min={0}
-              name="maxPriceCents"
-              step="0.01"
-              defaultValue={filters.maxPriceCents ? filters.maxPriceCents / 100 : ''}
-              placeholder="100.00"
-            />
-          </label>
-          <label className="md:col-span-2 lg:col-span-4 grid gap-1 text-sm font-medium text-slate-300">
-            Tags (comma separated)
-            <input
-              className="input"
-              type="text"
-              name="tags"
-              defaultValue={(filters.tags ?? []).join(', ')}
-              placeholder="e.g. handmade, basket, cloth"
-            />
-            <span className="text-xs font-normal text-slate-500">We match tags using full-text search with title and description.</span>
-          </label>
-        </div>
+        <FilterPanel filters={filters} />
       </form>
 
       {isLoading ? (
@@ -206,6 +167,63 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function FilterPanel({ filters }: { filters: Partial<ListingSearchParams> }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <label className="grid gap-1 text-sm font-medium text-slate-300">
+        Status
+        <select className="input" name="status" defaultValue={filters.status ?? ''}>
+          <option value="">Any</option>
+          <option value="PUBLISHED">Published</option>
+          <option value="PAUSED">Paused</option>
+          <option value="DRAFT">Draft</option>
+        </select>
+      </label>
+      <label className="grid gap-1 text-sm font-medium text-slate-300">
+        Seller ID
+        <input className="input" type="text" name="sellerId" defaultValue={filters.sellerId ?? ''} placeholder="UUID" />
+      </label>
+      <label className="grid gap-1 text-sm font-medium text-slate-300">
+        Min price (USD)
+        <input
+          className="input"
+          type="number"
+          min={0}
+          name="minPriceCents"
+          step="0.01"
+          defaultValue={filters.minPriceCents ? filters.minPriceCents / 100 : ''}
+          placeholder="0.00"
+        />
+      </label>
+      <label className="grid gap-1 text-sm font-medium text-slate-300">
+        Max price (USD)
+        <input
+          className="input"
+          type="number"
+          min={0}
+          name="maxPriceCents"
+          step="0.01"
+          defaultValue={filters.maxPriceCents ? filters.maxPriceCents / 100 : ''}
+          placeholder="100.00"
+        />
+      </label>
+      <label className="md:col-span-2 lg:col-span-4 grid gap-1 text-sm font-medium text-slate-300">
+        Tags (comma separated)
+        <input
+          className="input"
+          type="text"
+          name="tags"
+          defaultValue={(filters.tags ?? []).join(', ')}
+          placeholder="e.g. handmade, basket, cloth"
+        />
+        <span className="text-xs font-normal text-slate-500">
+          We match tags using full-text search alongside title and description.
+        </span>
+      </label>
     </div>
   );
 }
