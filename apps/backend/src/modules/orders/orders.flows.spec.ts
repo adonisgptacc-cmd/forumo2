@@ -109,6 +109,72 @@ describe('OrdersModule flows', () => {
     expect(cancelRes.body.escrow.transactions[0].type).toBe(EscrowTransactionType.REFUND);
     expect(prismaMock.auditLogs[0]?.action).toBe('order.escrow.refund');
   });
+
+  it('captures provider statuses from Stripe webhook callbacks', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ buyerId: BUYER_ID, sellerId: SELLER_ID, items: [{ listingId: LISTING_ID }] })
+      .expect(201);
+
+    const orderId = createRes.body.id;
+
+    await request(app.getHttpServer())
+      .post('/orders/payments/stripe/webhook')
+      .send({
+        type: 'payment_intent.succeeded',
+        data: { object: { metadata: { orderId }, status: 'requires_capture' } },
+      })
+      .expect(200);
+
+    const refreshed = await request(app.getHttpServer()).get(`/orders/${orderId}`).expect(200);
+    expect(refreshed.body.payments[0].providerStatus).toBe('requires_capture');
+    expect(refreshed.body.timeline.at(-1)?.status).toBe(OrderStatus.PAID);
+  });
+
+  it('releases escrow via controller shortcut', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ buyerId: BUYER_ID, sellerId: SELLER_ID, items: [{ listingId: LISTING_ID }] })
+      .expect(201);
+    const orderId = createRes.body.id;
+
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.PAID })
+      .expect(200);
+
+    const releaseRes = await request(app.getHttpServer())
+      .post(`/orders/${orderId}/release`)
+      .send({ note: 'Buyer confirmed', actorId: BUYER_ID })
+      .expect(200);
+
+    expect(releaseRes.body.status).toBe(OrderStatus.COMPLETED);
+    expect(releaseRes.body.escrow.status).toBe(EscrowStatus.RELEASED);
+    expect(releaseRes.body.timeline.at(-1)?.note).toBe('Buyer confirmed');
+  });
+
+  it('refunds escrow via controller shortcut', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ buyerId: BUYER_ID, sellerId: SELLER_ID, items: [{ listingId: LISTING_ID }], shippingCents: 250 })
+      .expect(201);
+    const orderId = createRes.body.id;
+
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.PAID })
+      .expect(200);
+
+    const refundRes = await request(app.getHttpServer())
+      .post(`/orders/${orderId}/refund`)
+      .send({ providerStatus: 'canceled', actorId: SELLER_ID })
+      .expect(200);
+
+    expect(refundRes.body.status).toBe(OrderStatus.REFUNDED);
+    expect(refundRes.body.paymentStatus).toBe(PaymentStatus.REFUNDED);
+    expect(refundRes.body.timeline.at(-1)?.status).toBe(OrderStatus.REFUNDED);
+    expect(refundRes.body.escrow.transactions.at(-1)?.type).toBe(EscrowTransactionType.REFUND);
+  });
 });
 
 class InMemoryPrismaService {
@@ -134,6 +200,152 @@ class InMemoryPrismaService {
       status: ListingStatus.PUBLISHED,
       variants: [],
     });
+
+    const now = new Date();
+    const paidOrderId = randomUUID();
+    const refundedOrderId = randomUUID();
+
+    const paidOrder: OrderRecord = {
+      id: paidOrderId,
+      orderNumber: 'ORD-SEEDED-PAID',
+      buyerId: BUYER_ID,
+      sellerId: SELLER_ID,
+      status: OrderStatus.PAID,
+      paymentStatus: PaymentStatus.CAPTURED,
+      totalItemCents: 1000,
+      shippingCents: 200,
+      feeCents: 50,
+      currency: 'USD',
+      shippingAddressId: null,
+      billingAddressId: null,
+      metadata: null,
+      placedAt: now,
+      paidAt: now,
+      fulfilledAt: null,
+      deliveredAt: null,
+      cancelledAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.orders.set(paidOrderId, paidOrder);
+    this.createOrderItem(paidOrderId, {
+      listingId: LISTING_ID,
+      listingTitle: 'Sample listing',
+      quantity: 1,
+      unitPriceCents: 1000,
+      currency: 'USD',
+      variantId: null,
+      variantLabel: null,
+    });
+    this.timelines.set(paidOrderId, [
+      this.createTimelineRecord(paidOrderId, { status: OrderStatus.PENDING, note: 'Seeded order' }),
+      this.createTimelineRecord(paidOrderId, { status: OrderStatus.PAID, note: 'Seeded payment' }),
+    ]);
+    this.payments.set(paidOrderId, [
+      {
+        id: randomUUID(),
+        orderId: paidOrderId,
+        provider: PaymentProvider.STRIPE,
+        status: PaymentStatus.CAPTURED,
+        providerStatus: 'succeeded',
+        amountCents: 1250,
+        currency: 'USD',
+        providerRef: 'pi_seeded_paid',
+        metadata: null,
+        processedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const paidEscrow: EscrowHoldingRecord = {
+      id: randomUUID(),
+      orderId: paidOrderId,
+      status: EscrowStatus.HOLDING,
+      amountCents: 1250,
+      currency: 'USD',
+      releaseAfter: null,
+      releasedAt: null,
+      metadata: null,
+    };
+    this.escrows.set(paidOrderId, paidEscrow);
+    this.escrowTransactions.set(paidEscrow.id, []);
+
+    const refundedOrder: OrderRecord = {
+      id: refundedOrderId,
+      orderNumber: 'ORD-SEEDED-REFUNDED',
+      buyerId: BUYER_ID,
+      sellerId: SELLER_ID,
+      status: OrderStatus.REFUNDED,
+      paymentStatus: PaymentStatus.REFUNDED,
+      totalItemCents: 1000,
+      shippingCents: 0,
+      feeCents: 0,
+      currency: 'USD',
+      shippingAddressId: null,
+      billingAddressId: null,
+      metadata: null,
+      placedAt: now,
+      paidAt: now,
+      fulfilledAt: null,
+      deliveredAt: null,
+      cancelledAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.orders.set(refundedOrderId, refundedOrder);
+    this.createOrderItem(refundedOrderId, {
+      listingId: LISTING_ID,
+      listingTitle: 'Sample listing',
+      quantity: 1,
+      unitPriceCents: 1000,
+      currency: 'USD',
+      variantId: null,
+      variantLabel: null,
+    });
+    this.timelines.set(refundedOrderId, [
+      this.createTimelineRecord(refundedOrderId, { status: OrderStatus.PAID, note: 'Seeded payment' }),
+      this.createTimelineRecord(refundedOrderId, { status: OrderStatus.REFUNDED, note: 'Seeded refund' }),
+    ]);
+    this.payments.set(refundedOrderId, [
+      {
+        id: randomUUID(),
+        orderId: refundedOrderId,
+        provider: PaymentProvider.STRIPE,
+        status: PaymentStatus.REFUNDED,
+        providerStatus: 'canceled',
+        amountCents: 1000,
+        currency: 'USD',
+        providerRef: 'pi_seeded_refund',
+        metadata: null,
+        processedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const refundEscrow: EscrowHoldingRecord = {
+      id: randomUUID(),
+      orderId: refundedOrderId,
+      status: EscrowStatus.REFUNDED,
+      amountCents: 1000,
+      currency: 'USD',
+      releaseAfter: null,
+      releasedAt: now,
+      metadata: null,
+    };
+    this.escrows.set(refundedOrderId, refundEscrow);
+    this.escrowTransactions.set(refundEscrow.id, [
+      {
+        id: randomUUID(),
+        escrowId: refundEscrow.id,
+        type: EscrowTransactionType.REFUND,
+        amountCents: 1000,
+        currency: 'USD',
+        note: 'Seeded refund',
+        actorId: null,
+        createdAt: now,
+      },
+    ]);
   }
 
   get auditLogs(): AuditLogRecord[] {

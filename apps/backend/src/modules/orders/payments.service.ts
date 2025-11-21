@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Order, PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 
@@ -15,6 +15,19 @@ export class PaymentsService {
     if (apiKey) {
       this.stripe = new Stripe(apiKey);
     }
+  }
+
+  validateStripeEvent(payload: unknown, signature?: string, rawBody?: Buffer | string): Stripe.Event {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (this.stripe && secret && signature && rawBody) {
+      try {
+        return this.stripe.webhooks.constructEvent(rawBody, signature, secret) as Stripe.Event;
+      } catch (error) {
+        throw new BadRequestException('Invalid Stripe webhook signature');
+      }
+    }
+
+    return payload as Stripe.Event;
   }
 
   async mintPaymentIntent(orderId: string, amountCents: number, currency: string): Promise<Stripe.PaymentIntent> {
