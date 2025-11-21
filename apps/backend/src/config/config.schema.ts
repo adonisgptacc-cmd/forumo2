@@ -14,13 +14,14 @@ export const configSchema = z
     STRIPE_SECRET_KEY: z.string().min(1),
     UPLOADS_BUCKET: optionalString,
     REDIS_URL: optionalString,
-    SES_REGION: optionalString,
-    SES_ACCESS_KEY_ID: optionalString,
-    SES_SECRET_ACCESS_KEY: optionalString,
-    SES_EMAIL_FROM: optionalString,
-    TWILIO_ACCOUNT_SID: optionalString,
-    TWILIO_AUTH_TOKEN: optionalString,
-    TWILIO_FROM_NUMBER: optionalString,
+    MAILGUN_API_KEY: optionalString,
+    MAILGUN_DOMAIN: optionalString,
+    MAILGUN_EMAIL_FROM: optionalString,
+    MAILGUN_API_BASE: optionalString,
+    SNS_REGION: optionalString,
+    SNS_ACCESS_KEY_ID: optionalString,
+    SNS_SECRET_ACCESS_KEY: optionalString,
+    SNS_SMS_SENDER_ID: optionalString,
     MODERATION_SERVICE_URL: optionalString,
     MODERATION_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
     MODERATION_MAX_ATTEMPTS: z.coerce.number().int().positive().optional(),
@@ -28,27 +29,27 @@ export const configSchema = z
     MODERATION_WORKER_CONCURRENCY: z.coerce.number().int().positive().optional(),
   })
   .superRefine((value, ctx) => {
-    const sesValues = [value.SES_REGION, value.SES_ACCESS_KEY_ID, value.SES_SECRET_ACCESS_KEY];
-    const hasSesValues = sesValues.some(Boolean);
-    const missingSesValues = sesValues.filter((entry) => !entry).length;
+    const mailgunValues = [value.MAILGUN_API_KEY, value.MAILGUN_DOMAIN];
+    const hasMailgunValues = mailgunValues.some(Boolean);
+    const missingMailgunValues = mailgunValues.filter((entry) => !entry).length;
 
-    if (hasSesValues && missingSesValues > 0) {
+    if (hasMailgunValues && missingMailgunValues > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'SES_REGION, SES_ACCESS_KEY_ID, and SES_SECRET_ACCESS_KEY must all be provided together.',
-        path: ['SES_REGION'],
+        message: 'MAILGUN_API_KEY and MAILGUN_DOMAIN must be provided together.',
+        path: ['MAILGUN_API_KEY'],
       });
     }
 
-    const twilioValues = [value.TWILIO_ACCOUNT_SID, value.TWILIO_AUTH_TOKEN, value.TWILIO_FROM_NUMBER];
-    const hasTwilioValues = twilioValues.some(Boolean);
-    const missingTwilioValues = twilioValues.filter((entry) => !entry).length;
+    const snsValues = [value.SNS_REGION, value.SNS_ACCESS_KEY_ID, value.SNS_SECRET_ACCESS_KEY];
+    const hasSnsValues = snsValues.some(Boolean);
+    const missingSnsValues = snsValues.filter((entry) => !entry).length;
 
-    if (hasTwilioValues && missingTwilioValues > 0) {
+    if (hasSnsValues && missingSnsValues > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER must all be provided together.',
-        path: ['TWILIO_ACCOUNT_SID'],
+        message: 'SNS_REGION, SNS_ACCESS_KEY_ID, and SNS_SECRET_ACCESS_KEY must all be provided together.',
+        path: ['SNS_REGION'],
       });
     }
   });

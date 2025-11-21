@@ -21,7 +21,7 @@ export class OrdersController {
 
   @Post()
   create(@Body() dto: CreateOrderDto): Promise<SafeOrder> {
-    return this.ordersService.create(dto);
+    return this.ordersService.create(dto as any);
   }
 
   @Patch(':id/status')

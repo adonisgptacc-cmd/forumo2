@@ -45,12 +45,11 @@ const moderationQueueStub: Pick<ModerationQueueService, 'enqueueListingScan' | '
 const requiredEnv: Record<string, string> = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/forumo',
   JWT_SECRET: 'swagger-secret',
-  SES_REGION: 'us-east-1',
-  SES_ACCESS_KEY_ID: 'fake-access-key',
-  SES_SECRET_ACCESS_KEY: 'fake-secret',
-  TWILIO_ACCOUNT_SID: 'twilio-sid',
-  TWILIO_AUTH_TOKEN: 'twilio-token',
-  TWILIO_FROM_NUMBER: '+10000000000',
+  MAILGUN_API_KEY: 'fake-mailgun-key',
+  MAILGUN_DOMAIN: 'forumo.test',
+  SNS_REGION: 'us-east-1',
+  SNS_ACCESS_KEY_ID: 'fake-access-key',
+  SNS_SECRET_ACCESS_KEY: 'fake-secret',
 };
 
 for (const [key, value] of Object.entries(requiredEnv)) {
