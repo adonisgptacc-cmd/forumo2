@@ -16,10 +16,15 @@ import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
 
 import { createApiClient } from '../api-client';
+import { MessagingLayer } from '../messaging-layer';
 import { queryKeys } from './query-keys';
 
 function useApi(accessToken?: string | null) {
   return useMemo(() => createApiClient(accessToken), [accessToken]);
+}
+
+function useMessagingLayer(accessToken?: string | null) {
+  return useMemo(() => new MessagingLayer(accessToken), [accessToken]);
 }
 
 export function useCurrentUser() {
@@ -90,21 +95,21 @@ export function useCreateOrder() {
 
 export function useMessageThreads(userId?: string) {
   const { accessToken, user } = useCurrentUser();
-  const api = useApi(accessToken);
+  const messaging = useMessagingLayer(accessToken);
   const targetUserId = userId ?? user?.id;
   return useQuery<SafeMessageThread[]>({
     queryKey: queryKeys.threads(targetUserId),
-    queryFn: () => api.messaging.listThreads({ userId: targetUserId ?? undefined }),
+    queryFn: () => messaging.listThreads({ userId: targetUserId ?? undefined }),
     enabled: Boolean(accessToken),
   });
 }
 
 export function useThread(id: string | null) {
   const { accessToken } = useCurrentUser();
-  const api = useApi(accessToken);
+  const messaging = useMessagingLayer(accessToken);
   return useQuery<SafeMessageThread | null>({
     queryKey: id ? queryKeys.thread(id) : ['thread', null],
-    queryFn: () => (id ? api.messaging.getThread(id) : Promise.resolve(null)),
+    queryFn: () => (id ? messaging.getThread(id) : Promise.resolve(null)),
     enabled: Boolean(id && accessToken),
     refetchInterval: 30000,
   });
@@ -112,11 +117,11 @@ export function useThread(id: string | null) {
 
 export function useSendMessage(threadId: string) {
   const { accessToken, user } = useCurrentUser();
-  const api = useApi(accessToken);
+  const messaging = useMessagingLayer(accessToken);
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ payload, attachments }: { payload: SendMessageDto; attachments?: Blob[] }) =>
-      api.messaging.sendMessage(threadId, payload, attachments),
+      messaging.sendMessage(threadId, payload, attachments),
     onSuccess: (_, { payload }) => {
       client.invalidateQueries({ queryKey: queryKeys.thread(threadId) });
       client.invalidateQueries({ queryKey: queryKeys.threads(user?.id ?? payload.authorId) });
