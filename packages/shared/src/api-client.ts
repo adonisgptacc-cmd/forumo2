@@ -301,6 +301,17 @@ export class ForumoApiClient {
       });
       return result.map((item) => adminKycSubmissionSchema.parse(item));
     },
+    reviewKycSubmission: async (
+      id: string,
+      payload: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string | null },
+    ): Promise<AdminKycSubmission> => {
+      const result = await this.requestJson<AdminKycSubmission>(`/admin/kyc/submissions/${id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
+      return adminKycSubmissionSchema.parse(result);
+    },
     listListingsForReview: async (): Promise<AdminListingModeration[]> => {
       const result = await this.request<AdminListingModeration[]>('/admin/moderations/listings', {
         method: 'GET',
@@ -308,9 +319,31 @@ export class ForumoApiClient {
       });
       return result.map((item) => adminListingModerationSchema.parse(item));
     },
+    reviewListing: async (
+      id: string,
+      payload: { moderationStatus: AdminListingModeration['moderationStatus']; moderationNotes?: string | null },
+    ): Promise<AdminListingModeration> => {
+      const result = await this.requestJson<AdminListingModeration>(`/admin/moderations/listings/${id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
+      return adminListingModerationSchema.parse(result);
+    },
     listDisputes: async (): Promise<AdminDisputeSummary[]> => {
       const result = await this.request<AdminDisputeSummary[]>('/admin/disputes', { method: 'GET', auth: true });
       return result.map((item) => adminDisputeSchema.parse(item));
+    },
+    resolveDispute: async (
+      id: string,
+      payload: { status: AdminDisputeSummary['status']; resolution?: string | null },
+    ): Promise<AdminDisputeSummary> => {
+      const result = await this.requestJson<AdminDisputeSummary>(`/admin/disputes/${id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
+      return adminDisputeSchema.parse(result);
     },
   };
 }

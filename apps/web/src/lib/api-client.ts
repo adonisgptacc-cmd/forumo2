@@ -227,13 +227,18 @@ class MockApiClient {
 
   auth = {
     login: async (payload: { email: string; password: string }): Promise<AuthResponse> => {
+      const role = payload.email.includes('admin')
+        ? 'ADMIN'
+        : payload.email.includes('moderator')
+          ? 'MODERATOR'
+          : 'SELLER';
       return {
         accessToken: 'mock-token',
         user: {
           id: 'mock-user',
           email: payload.email,
           name: 'Mock Seller',
-          role: 'SELLER',
+          role,
         },
       };
     },
@@ -437,11 +442,52 @@ class MockApiClient {
     listKycSubmissions: async (): Promise<AdminKycSubmission[]> => {
       return this.state.kycSubmissions;
     },
+    reviewKycSubmission: async (
+      id: string,
+      payload: { status: AdminKycSubmission['status']; rejectionReason?: string | null },
+    ): Promise<AdminKycSubmission> => {
+      const submission = this.state.kycSubmissions.find((item) => item.id === id);
+      if (!submission) throw new Error('Submission not found');
+      submission.status = payload.status;
+      submission.rejectionReason = payload.rejectionReason ?? null;
+      submission.reviewedAt = new Date().toISOString();
+      submission.reviewer = {
+        id: submission.reviewer?.id ?? 'reviewer-mock',
+        email: submission.reviewer?.email ?? 'admin@example.com',
+        name: submission.reviewer?.name ?? 'Console Reviewer',
+      };
+      persistMockState(this.state);
+      return submission;
+    },
     listListingsForReview: async (): Promise<AdminListingModeration[]> => {
       return this.state.moderationQueue;
     },
+    reviewListing: async (
+      id: string,
+      payload: { moderationStatus: AdminListingModeration['moderationStatus']; moderationNotes?: string | null },
+    ): Promise<AdminListingModeration> => {
+      const listing = this.state.moderationQueue.find((item) => item.id === id);
+      if (!listing) throw new Error('Listing not found');
+      listing.moderationStatus = payload.moderationStatus;
+      listing.moderationNotes = payload.moderationNotes ?? null;
+      listing.updatedAt = new Date().toISOString();
+      persistMockState(this.state);
+      return listing;
+    },
     listDisputes: async (): Promise<AdminDisputeSummary[]> => {
       return this.state.disputes;
+    },
+    resolveDispute: async (
+      id: string,
+      payload: { status: AdminDisputeSummary['status']; resolution?: string | null },
+    ): Promise<AdminDisputeSummary> => {
+      const dispute = this.state.disputes.find((item) => item.id === id);
+      if (!dispute) throw new Error('Dispute not found');
+      dispute.status = payload.status;
+      dispute.resolution = payload.resolution ?? null;
+      dispute.resolvedAt = new Date().toISOString();
+      persistMockState(this.state);
+      return dispute;
     },
   };
 }
