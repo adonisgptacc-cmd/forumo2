@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateListingDto,
   CreateOrderDto,
+  CreateReviewDto,
   ListingSearchParams,
   ListingSearchResponse,
   SafeListing,
@@ -11,6 +12,7 @@ import type {
   SafeOrder,
   SendMessageDto,
   UpdateListingDto,
+  ListingReviewResponse,
 } from '@forumo/shared';
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
@@ -49,6 +51,32 @@ export function useListing(id: string | null) {
     queryFn: () => (id ? api.listings.get(id) : Promise.resolve(null)),
     enabled: Boolean(id),
   });
+}
+
+export function useListingReviews(listingId: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<ListingReviewResponse | null>({
+    queryKey: listingId ? queryKeys.listingReviews(listingId) : ['listing', null, 'reviews'],
+    queryFn: () => (listingId ? api.reviews.forListing(listingId) : Promise.resolve(null)),
+    enabled: Boolean(listingId),
+  });
+}
+
+export function useReviewMutations() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+
+  const createReview = useMutation({
+    mutationFn: (payload: CreateReviewDto) => api.reviews.create(payload),
+    onSuccess: (review) => {
+      client.invalidateQueries({ queryKey: queryKeys.listingReviews(review.listingId) });
+      client.invalidateQueries({ queryKey: queryKeys.sellerReviewRollup(review.recipientId) });
+    },
+  });
+
+  return { createReview };
 }
 
 export function useListingMutations() {

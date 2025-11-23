@@ -7,22 +7,30 @@ import {
   ListingImage,
   ListingSearchParams,
   ListingSearchResponse,
+  ListingReviewResponse,
   AdminDisputeSummary,
   AdminKycSubmission,
   AdminListingModeration,
+  CreateReviewDto,
   SafeListing,
   SafeMessageThread,
   SafeOrder,
+  SafeReview,
   SendMessageDto,
   UpdateOrderStatusDto,
+  ReviewRollup,
+  createReviewSchema,
   listingSearchParamsSchema,
   listingSearchResponseSchema,
   safeListingSchema,
+  listingReviewResponseSchema,
   adminDisputeSchema,
   adminKycSubmissionSchema,
   adminListingModerationSchema,
   messageThreadSchema,
   safeOrderSchema,
+  reviewSchema,
+  reviewRollupSchema,
   authResponseSchema,
 } from './types';
 
@@ -198,6 +206,28 @@ export class ForumoApiClient {
         body: payload,
       });
       return safeOrderSchema.parse(response);
+    },
+  };
+
+  readonly reviews = {
+    forListing: async (listingId: string): Promise<ListingReviewResponse> => {
+      const result = await this.request<ListingReviewResponse>(`/reviews${buildQuery({ listingId })}`, {
+        method: 'GET',
+      });
+      return listingReviewResponseSchema.parse(result);
+    },
+    create: async (payload: CreateReviewDto): Promise<SafeReview> => {
+      const parsed = createReviewSchema.parse(payload);
+      const result = await this.requestJson<SafeReview>('/reviews', {
+        method: 'POST',
+        auth: true,
+        body: parsed,
+      });
+      return reviewSchema.parse(result);
+    },
+    rollup: async (sellerId: string): Promise<ReviewRollup> => {
+      const result = await this.request<ReviewRollup>(`/reviews/seller/${sellerId}/rollup`, { method: 'GET' });
+      return reviewRollupSchema.parse(result);
     },
   };
 
