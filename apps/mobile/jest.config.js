@@ -7,6 +7,8 @@ module.exports = {
     ...expoPreset.moduleNameMapper,
     '^@forumo/shared$': '<rootDir>/../../packages/shared/src',
     '^@forumo/shared/(.*)': '<rootDir>/../../packages/shared/src/$1',
+    '^@forumo/config$': '<rootDir>/../../packages/config/src',
+    '^@forumo/config/(.*)': '<rootDir>/../../packages/config/src/$1',
     '@react-native/js-polyfills': '<rootDir>/jest.polyfills.mock.ts',
     'react-native-safe-area-context/jest/mock': '<rootDir>/jest.safe-area.mock.ts',
     '^expo$': '<rootDir>/jest.expo.mock.ts',

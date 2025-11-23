@@ -7,7 +7,7 @@ import { useAuth } from '../providers/AuthProvider';
 export type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
-  const { login } = useAuth();
+  const { login, enterDemo } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,6 +43,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         style={styles.input}
       />
       <Button title={loading ? 'Signing in...' : 'Sign in'} onPress={handleLogin} disabled={loading} />
+      <Button title="Use demo account" onPress={() => { enterDemo(); navigation.replace('Main'); }} />
       <View style={styles.footer}>
         <Text>Need an account?</Text>
         <Button title="Create one" onPress={() => navigation.navigate('Register')} />

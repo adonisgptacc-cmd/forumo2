@@ -2,5 +2,9 @@
   "name": "@forumo/config",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@forumo/shared": "workspace:*"
+  }
 }

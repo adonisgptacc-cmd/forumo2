@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeListing } from '@forumo/shared';
+import { brandColors, demoListings, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 
 interface ListingItemProps {
@@ -9,7 +10,7 @@ interface ListingItemProps {
 
 const ListingItem: React.FC<ListingItemProps> = ({ item }) => {
   return (
-    <View style={styles.card}>
+    <View style={styles.card} testID={`listing-card-${item.id}`}>
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.price}>
         {item.currency} {(item.priceCents / 100).toFixed(2)}
@@ -28,18 +29,28 @@ export const ListingDiscoveryScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | undefined>();
+  const [keyword, setKeyword] = useState('');
 
   const loadPage = useCallback(
     async (pageToLoad: number, append = true) => {
       if (loading || (!hasMore && append)) return;
       setLoading(true);
-      const response = await apiClient.listings.search({ page: pageToLoad, pageSize: 10 });
-      setHasMore(response.page < response.pageCount);
-      setListings((prev) => (append ? [...prev, ...response.data] : response.data));
-      setPage(pageToLoad);
-      setLoading(false);
+      setError(undefined);
+      try {
+        const response = await apiClient.listings.search({ page: pageToLoad, pageSize: 10, keyword: keyword || undefined });
+        setHasMore(response.page < response.pageCount);
+        setListings((prev) => (append ? [...prev, ...response.data] : response.data));
+        setPage(pageToLoad);
+      } catch (err) {
+        setHasMore(false);
+        setListings(demoListings);
+        setError('Using demo listings while we reconnect.');
+      } finally {
+        setLoading(false);
+      }
     },
-    [apiClient, hasMore, loading],
+    [apiClient, hasMore, keyword, loading],
   );
 
   useEffect(() => {
@@ -58,36 +69,60 @@ export const ListingDiscoveryScreen: React.FC = () => {
     setRefreshing(false);
   };
 
+  const filteredListings = useMemo(() => {
+    if (!keyword) return listings;
+    const term = keyword.toLowerCase();
+    return listings.filter((listing) =>
+      listing.title.toLowerCase().includes(term) || listing.description.toLowerCase().includes(term),
+    );
+  }, [keyword, listings]);
+
   return (
-    <FlatList
-      testID="listing-discovery"
-      contentContainerStyle={styles.list}
-      data={listings}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ListingItem item={item} />}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListEmptyComponent={!loading ? <Text style={styles.empty}>No listings yet.</Text> : null}
-      ListFooterComponent={
-        loading ? (
-          <View style={styles.footer}>
-            <ActivityIndicator />
-          </View>
-        ) : null
-      }
-    />
+    <View style={styles.container}>
+      <TextInput
+        placeholder="Search listings"
+        value={keyword}
+        onChangeText={setKeyword}
+        onSubmitEditing={() => loadPage(1, false)}
+        style={styles.search}
+        returnKeyType="search"
+        testID="listing-search"
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <FlatList
+        testID="listing-discovery"
+        contentContainerStyle={styles.list}
+        data={filteredListings}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <ListingItem item={item} />}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={!loading ? <Text style={styles.empty}>No listings yet.</Text> : null}
+        ListFooterComponent={
+          loading ? (
+            <View style={styles.footer}>
+              <ActivityIndicator />
+            </View>
+          ) : null
+        }
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: brandColors.background,
+  },
   list: {
-    padding: 16,
-    gap: 12,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   card: {
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: brandColors.card,
+    padding: spacing.md,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOpacity: 0.05,
@@ -101,19 +136,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   price: {
-    color: '#16a34a',
+    color: brandColors.success,
     fontWeight: '700',
   },
   description: {
-    color: '#4b5563',
+    color: brandColors.muted,
   },
   empty: {
     textAlign: 'center',
     marginTop: 40,
-    color: '#6b7280',
+    color: brandColors.muted,
   },
   footer: {
     padding: 16,
     alignItems: 'center',
+  },
+  search: {
+    margin: spacing.md,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  error: {
+    color: '#f97316',
+    paddingHorizontal: spacing.md,
   },
 });

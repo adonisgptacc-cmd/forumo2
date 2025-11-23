@@ -13,6 +13,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@forumo/config": "workspace:*",
     "@forumo/shared": "workspace:*",
     "@react-navigation/bottom-tabs": "^7.8.5",
     "@react-navigation/native": "^7.1.20",
