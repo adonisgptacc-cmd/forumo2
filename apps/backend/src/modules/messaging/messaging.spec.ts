@@ -18,7 +18,8 @@ const SELLER_ID = 'seller-1';
 describe('MessagingModule (integration)', () => {
   let app: INestApplication;
   let prisma: InMemoryPrismaService;
-  let gateway: FakeGateway;
+  let gateway: MessagingGateway;
+  let server: RecordingServer;
   let moderation: MockModerationService;
   let storage: FakeStorageService;
   let messagingService: MessagingService;
@@ -26,7 +27,7 @@ describe('MessagingModule (integration)', () => {
 
   beforeEach(async () => {
     prisma = new InMemoryPrismaService();
-    gateway = new FakeGateway();
+    server = new RecordingServer();
     moderation = new MockModerationService();
     storage = new FakeStorageService();
 
@@ -35,8 +36,6 @@ describe('MessagingModule (integration)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
-      .overrideProvider(MessagingGateway)
-      .useValue(gateway)
       .overrideProvider(MessageModerationService)
       .useValue(moderation)
       .overrideProvider(StorageService)
@@ -46,6 +45,8 @@ describe('MessagingModule (integration)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
+    gateway = moduleRef.get(MessagingGateway);
+    gateway.server = server as any;
     messagingService = moduleRef.get(MessagingService);
 
     const createThreadRes = await request(app.getHttpServer())
@@ -77,8 +78,9 @@ describe('MessagingModule (integration)', () => {
     expect(latestMessage.attachments).toHaveLength(1);
     expect(latestMessage.attachments[0].fileName).toBe('photo.png');
     expect(storage.savedAttachments).toHaveLength(1);
-    expect(gateway.events).toHaveLength(1);
-    expect(gateway.events[0].threadId).toBe(threadId);
+    expect(server.events).toHaveLength(2);
+    expect(server.events[0]).toMatchObject({ room: BUYER_ID, payload: expect.objectContaining({ threadId }) });
+    expect(server.events[1]).toMatchObject({ room: SELLER_ID, payload: expect.objectContaining({ threadId }) });
   });
 
   it('tracks delivery and read receipts for participants', async () => {
@@ -99,6 +101,28 @@ describe('MessagingModule (integration)', () => {
     expect(sellerReceipt.readAt).toBeTruthy();
   });
 
+  it('updates delivery state when gateway receives delivered/read events', async () => {
+    const response = await request(app.getHttpServer())
+      .post(`/messages/threads/${threadId}/messages`)
+      .field('authorId', BUYER_ID)
+      .field('body', 'Confirming delivery window')
+      .expect(201);
+
+    const messageId = response.body.messages.at(-1).id as string;
+    const socket = new FakeSocket(SELLER_ID);
+    gateway.handleConnection(socket as any);
+
+    await gateway.handleDelivered(socket as any, { messageId });
+    await gateway.handleRead(socket as any, { messageId });
+
+    const threadRes = await request(app.getHttpServer()).get(`/messages/threads/${threadId}`).expect(200);
+    const updatedMessage = threadRes.body.messages.find((message: any) => message.id === messageId);
+    expect(updatedMessage.status).toBe(MessageStatus.READ);
+    const receipt = updatedMessage.receipts.find((item: any) => item.userId === SELLER_ID);
+    expect(receipt.deliveredAt).toBeTruthy();
+    expect(receipt.readAt).toBeTruthy();
+  });
+
   it('flags risky content and holds delivery when moderation rejects', async () => {
     moderation.status = MessageModerationStatus.FLAGGED;
     moderation.notes = 'Contains sensitive information';
@@ -111,20 +135,9 @@ describe('MessagingModule (integration)', () => {
 
     const latestMessage = response.body.messages.at(-1);
     expect(latestMessage.moderationStatus).toBe(MessageModerationStatus.FLAGGED);
-    expect(gateway.events).toHaveLength(0);
+    expect(server.events).toHaveLength(0);
   });
 });
-
-class FakeGateway {
-  events: Array<{ threadId: string; messageId: string }> = [];
-
-  async emitNewMessage(thread: any, messageId?: string) {
-    if (!messageId) {
-      return;
-    }
-    this.events.push({ threadId: thread.id, messageId });
-  }
-}
 
 class MockModerationService {
   status: MessageModerationStatus = MessageModerationStatus.APPROVED;
@@ -132,6 +145,33 @@ class MockModerationService {
 
   async scanMessage() {
     return { status: this.status, notes: this.notes };
+  }
+}
+
+class RecordingServer {
+  events: Array<{ room: string; payload: any }> = [];
+
+  to(room: string) {
+    return {
+      emit: (event: string, payload: any) => {
+        if (event === 'messages:new') {
+          this.events.push({ room, payload });
+        }
+      },
+    };
+  }
+}
+
+class FakeSocket {
+  id = randomUUID();
+  handshake: { auth: { userId: string }; query: Record<string, unknown> };
+
+  constructor(userId: string) {
+    this.handshake = { auth: { userId }, query: {} };
+  }
+
+  join() {
+    return;
   }
 }
 
