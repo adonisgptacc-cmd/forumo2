@@ -1,0 +1,11 @@
+groups:
+  - name: forumo-api
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx rate"
+          description: "Error rate is above 5% over the last 5 minutes"

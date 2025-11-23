@@ -4,11 +4,33 @@
   "private": true,
   "packageManager": "pnpm@9.1.4",
   "scripts": {
-    "web:dev": "pnpm --filter web dev",
-    "backend:dev": "pnpm --filter backend start:dev",
-    "lint": "pnpm --parallel lint",
-    "typecheck": "pnpm --parallel typecheck",
-    "generate:openapi": "pnpm --filter backend generate:openapi"
+    "dev": "turbo run dev --parallel",
+    "dev:backend": "turbo run dev --filter=backend",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:mobile": "turbo run dev --filter=mobile",
+    
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:migrate": "turbo run migrate --filter=backend",
+    "db:seed": "turbo run seed --filter=backend",
+    "db:studio": "turbo run studio --filter=backend",
+    
+    "docker:up": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "docker:clean": "docker-compose -f docker-compose.dev.yml down -v",
+    
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "test:coverage": "turbo run test --coverage",
+    
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    
+    "build": "turbo run build",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "turbo": "^2.0.4"

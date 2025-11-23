@@ -10,6 +10,7 @@ import { MessagingModule } from './messaging/messaging.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { configSchema } from '../config/config.schema.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { ObservabilityModule } from './observability/observability.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ReviewsModule } from './reviews/reviews.module.js';
       validate: (env) => configSchema.parse(env),
     }),
     HealthModule,
+    ObservabilityModule,
     AuthModule,
     UsersModule,
     ListingsModule,
