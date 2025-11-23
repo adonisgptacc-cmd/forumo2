@@ -1,11 +1,25 @@
 'use client';
 
 import Link from 'next/link';
+import { FormEvent, useMemo, useState } from 'react';
 
-import { useListing } from '../../../lib/react-query/hooks';
+import { useCurrentUser, useListing, useListingReviews, useReviewMutations } from '../../../lib/react-query/hooks';
 
 export function ListingDetail({ id }: { id: string }) {
   const { data, isLoading } = useListing(id);
+  const { user } = useCurrentUser();
+  const { data: reviewData, isLoading: reviewsLoading } = useListingReviews(id);
+  const { createReview } = useReviewMutations();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [orderId, setOrderId] = useState('');
+
+  const isSubmitting = createReview.isPending;
+
+  const averageRating = useMemo(() => {
+    if (!reviewData) return '—';
+    return reviewData.rollup.publishedCount > 0 ? reviewData.rollup.averageRating.toFixed(1) : '—';
+  }, [reviewData]);
 
   if (isLoading) {
     return <p className="text-slate-400">Loading listing…</p>;
@@ -21,6 +35,19 @@ export function ListingDetail({ id }: { id: string }) {
       </div>
     );
   }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || !user) return;
+    createReview.mutate({
+      reviewerId: user.id,
+      recipientId: data.sellerId,
+      listingId: data.id,
+      orderId,
+      rating,
+      comment,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -71,6 +98,113 @@ export function ListingDetail({ id }: { id: string }) {
           </div>
         </section>
       ) : null}
+
+      <section className="space-y-6 rounded-xl border border-slate-800 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Seller feedback</p>
+            <p className="text-xl font-semibold">
+              Average: {averageRating}{' '}
+              <span className="text-sm text-slate-400">
+                ({reviewData?.rollup.publishedCount ?? 0} published)
+              </span>
+            </p>
+          </div>
+          <div className="text-right text-sm text-slate-400">
+            <p>Pending: {reviewData?.rollup.pendingCount ?? 0}</p>
+            <p>Flags: {reviewData?.rollup.flaggedCount ?? 0}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Reviews</h3>
+            {reviewsLoading && <p className="text-sm text-slate-500">Loading reviews…</p>}
+            {!reviewsLoading && (reviewData?.reviews?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-500">No reviews yet.</p>
+            ) : null}
+            <ul className="space-y-3">
+              {reviewData?.reviews.map((review) => (
+                <li key={review.id} className="rounded-lg border border-slate-800 p-3">
+                  <p className="text-sm font-semibold">{review.rating} / 5</p>
+                  {review.comment ? (
+                    <p className="text-sm text-slate-200">{review.comment}</p>
+                  ) : (
+                    <p className="text-xs text-slate-500">No comment provided.</p>
+                  )}
+                  <p className="text-xs text-slate-500">By {review.reviewer?.name ?? 'anonymous'}</p>
+                  {review.flags.length > 0 ? (
+                    <p className="text-xs text-amber-300">Held for review ({review.flags.length} flag)</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold">Leave a review</h3>
+            {!user ? (
+              <p className="text-sm text-slate-500">Sign in to submit feedback.</p>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <label className="block text-sm font-medium" htmlFor="rating">
+                  Rating
+                </label>
+                <select
+                  id="rating"
+                  className="w-full rounded-md border border-slate-800 bg-slate-900 p-2"
+                  value={rating}
+                  onChange={(event) => setRating(Number(event.target.value))}
+                  disabled={isSubmitting}
+                >
+                  {[5, 4, 3, 2, 1].map((value) => (
+                    <option key={value} value={value}>
+                      {value} stars
+                    </option>
+                  ))}
+                </select>
+
+                <label className="block text-sm font-medium" htmlFor="orderId">
+                  Order ID
+                </label>
+                <input
+                  id="orderId"
+                  required
+                  className="w-full rounded-md border border-slate-800 bg-slate-900 p-2 text-sm"
+                  value={orderId}
+                  onChange={(event) => setOrderId(event.target.value)}
+                  placeholder="Order used for this purchase"
+                  disabled={isSubmitting}
+                />
+
+                <label className="block text-sm font-medium" htmlFor="comment">
+                  Comment
+                </label>
+                <textarea
+                  id="comment"
+                  className="w-full rounded-md border border-slate-800 bg-slate-900 p-2 text-sm"
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                  rows={4}
+                  disabled={isSubmitting}
+                  placeholder="Share details about this listing and seller"
+                />
+
+                <button
+                  type="submit"
+                  className="w-full rounded-md bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting…' : 'Submit review'}
+                </button>
+                {createReview.error ? (
+                  <p className="text-sm text-rose-300">{String(createReview.error.message)}</p>
+                ) : null}
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

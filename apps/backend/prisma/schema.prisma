@@ -207,6 +207,7 @@ model User {
   reviewsAuthored Review[]        @relation("ReviewAuthor")
   reviewsReceived Review[]        @relation("ReviewRecipient")
   reviewVotes     ReviewVote[]            @relation("ReviewVoteUser")
+  reviewRollup    SellerReviewRollup? @relation("SellerReviewRollupSeller")
   notifications   Notification[]
   auditLogs       AuditLog[]
   orderEvents     OrderTimelineEvent[] @relation("OrderTimelineActor")
@@ -748,6 +749,7 @@ model Review {
   rating      Int
   comment     String?
   status      ReviewStatus @default(PENDING)
+  moderationNotes String?
   metadata    Json?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -757,6 +759,7 @@ model Review {
   listing   Listing @relation(fields: [listingId], references: [id])
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   votes     ReviewVote[]
+  flags     ReviewFlag[]
 
   @@index([recipientId, status])
 }
@@ -772,6 +775,32 @@ model ReviewVote {
   user   User   @relation("ReviewVoteUser", fields: [userId], references: [id])
 
   @@unique([reviewId, userId])
+}
+
+model ReviewFlag {
+  id        String   @id @default(uuid())
+  reviewId  String
+  reason    String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+model SellerReviewRollup {
+  id             String   @id @default(uuid())
+  sellerId       String   @unique
+  averageRating  Decimal  @default(0)
+  reviewCount    Int      @default(0)
+  publishedCount Int      @default(0)
+  pendingCount   Int      @default(0)
+  flaggedCount   Int      @default(0)
+  lastReviewAt   DateTime?
+  updatedAt      DateTime @updatedAt
+
+  seller User @relation("SellerReviewRollupSeller", fields: [sellerId], references: [id], onDelete: Cascade)
 }
 
 model InventoryItem {

@@ -9,6 +9,7 @@ import { OrdersModule } from './orders/orders.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { configSchema } from '../config/config.schema.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { configSchema } from '../config/config.schema.js';
     OrdersModule,
     MessagingModule,
     AdminModule,
+    ReviewsModule,
   ],
 })
 export class AppModule {}

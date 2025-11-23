@@ -197,6 +197,62 @@ export const escrowHoldingSchema = z.object({
 });
 export type EscrowHolding = z.infer<typeof escrowHoldingSchema>;
 
+export const reviewStatusSchema = z.enum(['PENDING', 'PUBLISHED', 'REJECTED']);
+export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
+
+export const reviewFlagSchema = z.object({
+  id: z.string().uuid(),
+  reason: z.string(),
+  notes: z.string().nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+export type ReviewFlag = z.infer<typeof reviewFlagSchema>;
+
+export const reviewSchema = z.object({
+  id: z.string().uuid(),
+  reviewerId: z.string().uuid(),
+  recipientId: z.string().uuid(),
+  listingId: z.string().uuid(),
+  orderId: z.string().uuid(),
+  rating: z.number().int(),
+  comment: z.string().nullable().optional(),
+  status: reviewStatusSchema,
+  moderationNotes: z.string().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  reviewer: safeUserSchema.nullable().optional(),
+  flags: z.array(reviewFlagSchema).default([]),
+});
+export type SafeReview = z.infer<typeof reviewSchema>;
+
+export const reviewRollupSchema = z.object({
+  sellerId: z.string().uuid(),
+  averageRating: z.number(),
+  reviewCount: z.number().int(),
+  publishedCount: z.number().int(),
+  pendingCount: z.number().int(),
+  flaggedCount: z.number().int(),
+  lastReviewAt: z.string().datetime().nullable().optional(),
+});
+export type ReviewRollup = z.infer<typeof reviewRollupSchema>;
+
+export const listingReviewResponseSchema = z.object({
+  reviews: z.array(reviewSchema),
+  rollup: reviewRollupSchema,
+});
+export type ListingReviewResponse = z.infer<typeof listingReviewResponseSchema>;
+
+export const createReviewSchema = z.object({
+  reviewerId: z.string().uuid(),
+  recipientId: z.string().uuid(),
+  listingId: z.string().uuid(),
+  orderId: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().nullable().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+export type CreateReviewDto = z.infer<typeof createReviewSchema>;
+
 export const safeOrderSchema = z.object({
   id: z.string().uuid(),
   orderNumber: z.string(),
