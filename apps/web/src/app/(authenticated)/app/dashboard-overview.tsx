@@ -7,16 +7,16 @@ import { useListings, useMessageThreads, useOrders } from '../../../lib/react-qu
 export function DashboardOverview() {
   const { data: listings } = useListings({ page: 1, pageSize: 5 });
   const { data: orders } = useOrders();
-  const { data: threads } = useMessageThreads();
+  const { data: threads } = useMessageThreads(undefined, 1);
+
+  const threadList = threads?.data ?? [];
 
   const openOrders = orders?.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED') ?? [];
   const unreadMessages =
-    threads?.reduce((total, thread) => {
+    threadList.reduce((total, thread) => {
       return (
         total +
-        thread.messages.filter((message) =>
-          message.receipts?.every((receipt) => !receipt.readAt),
-        ).length
+        thread.messages.filter((message) => message.receipts?.every((receipt) => !receipt.readAt)).length
       );
     }, 0) ?? 0;
 
@@ -74,7 +74,7 @@ export function DashboardOverview() {
             </Link>
           </div>
           <ul className="space-y-3 text-sm">
-            {threads?.slice(0, 4).map((thread) => {
+            {threadList.slice(0, 4).map((thread) => {
               const lastMessage = thread.messages.at(-1);
               return (
                 <li key={thread.id} className="rounded-lg border border-slate-800 p-3">

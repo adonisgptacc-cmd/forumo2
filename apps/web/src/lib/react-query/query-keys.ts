@@ -5,6 +5,6 @@ export const queryKeys = {
   sellerReviewRollup: (sellerId: string) => ['seller', sellerId, 'reviews'] as const,
   orders: ['orders'] as const,
   order: (id: string) => ['orders', id] as const,
-  threads: (userId?: string | null) => ['threads', userId ?? 'self'] as const,
+  threads: (userId?: string | null, page = 1) => ['threads', userId ?? 'self', page] as const,
   thread: (id: string) => ['thread', id] as const,
 };

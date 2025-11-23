@@ -19,7 +19,7 @@ const DEFAULTS: ListingSearchParams = {
 
 export function ListingExplorer({ initialParams }: { initialParams: Partial<ListingSearchParams> }) {
   const [filters, setFilters] = useState<Partial<ListingSearchParams>>({ ...DEFAULTS, ...initialParams });
-  const { data, isLoading } = useListings(filters);
+  const { data, isLoading, isError, error, isFetching } = useListings(filters);
 
   const { showingFrom, showingTo } = useMemo(() => {
     if (!data || data.data.length === 0) {
@@ -112,10 +112,17 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
       </form>
 
       {isLoading ? (
-        <div className="grid-card text-slate-400">Loading listings…</div>
+        <div className="grid-card text-slate-400" role="status" aria-live="polite">
+          Loading listings…
+        </div>
+      ) : isError ? (
+        <div className="grid-card border-red-500/40 text-red-200" role="alert">
+          <p className="font-semibold">We could not load listings.</p>
+          <p className="text-sm opacity-80">{(error as Error | undefined)?.message ?? 'Please retry your search.'}</p>
+        </div>
       ) : data && data.data.length > 0 ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-slate-400">
+          <div className="flex items-center justify-between text-sm text-slate-400" aria-live="polite">
             <p>
               Showing {showingFrom} – {showingTo} of {data.total} listings
             </p>
@@ -138,7 +145,7 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
               </button>
             </div>
           </div>
-          <ul className="grid gap-4 md:grid-cols-2">
+          <ul className="grid gap-4 md:grid-cols-2" aria-busy={isFetching} aria-live="polite">
             {data.data.map((listing) => (
               <li key={listing.id} className="grid-card space-y-3">
                 <div className="space-y-1">
@@ -157,7 +164,7 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
           </ul>
         </div>
       ) : (
-        <div className="grid-card space-y-2 text-slate-300">
+        <div className="grid-card space-y-2 text-slate-300" role="status" aria-live="polite">
           <p>No listings matched your search.</p>
           <p className="text-sm text-slate-500">
             Try adjusting the keyword or filters, or

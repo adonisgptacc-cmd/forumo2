@@ -24,7 +24,8 @@ export default function MessagesPage() {
 function MessagesInbox() {
   const { user, accessToken } = useCurrentUser();
   const messaging = useMemo(() => new MessagingLayer(accessToken), [accessToken]);
-  const { data, isLoading, refetch } = useMessageThreads();
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, error, refetch, isFetching } = useMessageThreads(undefined, page);
   const [incoming, setIncoming] = useState<Message | null>(null);
 
   useEffect(() => {
@@ -39,7 +40,20 @@ function MessagesInbox() {
   }, [messaging, refetch, user?.id]);
 
   if (isLoading) {
-    return <p className="text-slate-400">Loading inbox…</p>;
+    return (
+      <p className="text-slate-400" role="status" aria-live="polite">
+        Loading inbox…
+      </p>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="grid-card border-red-500/40 text-red-100" role="alert">
+        <p className="font-semibold">Unable to load conversations.</p>
+        <p className="text-sm opacity-80">{(error as Error | undefined)?.message ?? 'Please try again.'}</p>
+      </div>
+    );
   }
 
   return (
@@ -49,12 +63,13 @@ function MessagesInbox() {
           New message from {incoming.authorId.slice(0, 6)}… {incoming.body.slice(0, 80)}
         </div>
       ) : null}
-      {data && data.length > 0 ? (
-        <ul className="space-y-3">
-          {data.map((thread) => {
-            const lastMessage = thread.messages.at(-1);
-            const flagged = lastMessage?.moderationStatus === 'FLAGGED' || lastMessage?.metadata?.flagged;
-            return (
+      {data && data.data.length > 0 ? (
+        <>
+          <ul className="space-y-3" aria-live="polite" aria-busy={isFetching}>
+            {data.data.map((thread) => {
+              const lastMessage = thread.messages.at(-1);
+              const flagged = lastMessage?.moderationStatus === 'FLAGGED' || lastMessage?.metadata?.flagged;
+              return (
               <li key={thread.id} className="grid-card space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -70,9 +85,34 @@ function MessagesInbox() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+          <div className="flex items-center justify-between text-sm text-slate-500">
+            <p>
+              Page {data.page} of {data.pageCount || 1}
+            </p>
+            <div className="flex gap-3">
+              <button
+                className="rounded border border-slate-700 px-3 py-1 disabled:opacity-50"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={data.page <= 1}
+              >
+                Previous
+              </button>
+              <button
+                className="rounded border border-slate-700 px-3 py-1 disabled:opacity-50"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={data.page >= data.pageCount}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       ) : (
-        <p className="text-slate-400">No threads found.</p>
+        <div className="grid-card text-slate-300" role="status" aria-live="polite">
+          <p className="font-semibold">No threads found.</p>
+          <p className="text-sm text-slate-500">Start a conversation from a listing or invite a buyer to chat.</p>
+        </div>
       )}
     </div>
   );

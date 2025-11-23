@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -10,6 +11,7 @@ import { ThreadQueryDto } from './dto/thread-query.dto.js';
 import { MessageThreadWithRelations, SafeMessageThread, serializeThread } from './message.serializer.js';
 import { MessagingGateway } from './messaging.gateway.js';
 import { MessageModerationService } from './moderation.service.js';
+import { CacheService } from '../../common/services/cache.service.js';
 
 interface AttachmentInput {
   bucket: string;
@@ -29,18 +31,58 @@ export class MessagingService {
     private readonly moderation: MessageModerationService,
     @Inject(forwardRef(() => MessagingGateway))
     private readonly messagingGateway: MessagingGateway,
+    private readonly cache: CacheService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async listThreads(query: ThreadQueryDto): Promise<SafeMessageThread[]> {
-    const threads = await this.prisma.messageThread.findMany({
-      where: {
-        participants: query.userId ? { some: { userId: query.userId } } : undefined,
-        listingId: query.listingId ?? undefined,
-      },
-      orderBy: { updatedAt: 'desc' },
-      include: this.defaultInclude,
-    });
-    return threads.map((thread) => serializeThread(thread));
+  async listThreads(query: ThreadQueryDto): Promise<{
+    data: SafeMessageThread[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pageCount: number;
+  }> {
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const pageSize = query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
+    const where: Prisma.MessageThreadWhereInput = {
+      participants: query.userId ? { some: { userId: query.userId } } : undefined,
+      listingId: query.listingId ?? undefined,
+    };
+
+    const cacheKey = this.buildCacheKey({ ...query, page, pageSize });
+    const cached = await this.cache.get<{
+      data: SafeMessageThread[];
+      total: number;
+      page: number;
+      pageSize: number;
+      pageCount: number;
+    }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const [total, threads] = await this.prisma.$transaction([
+      this.prisma.messageThread.count({ where }),
+      this.prisma.messageThread.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        include: this.defaultInclude,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const pageCount = pageSize === 0 ? 0 : Math.max(1, Math.ceil(total / pageSize));
+    const response = {
+      data: threads.map((thread) => serializeThread(thread)),
+      total,
+      page,
+      pageSize,
+      pageCount,
+    };
+
+    await this.cache.set(cacheKey, response, this.cacheTtlMs);
+    return response;
   }
 
   async getThread(id: string): Promise<SafeMessageThread> {
@@ -269,5 +311,14 @@ export class MessagingService {
         include: { attachments: true, receipts: true },
       },
     } satisfies Prisma.MessageThreadInclude;
+  }
+
+  private buildCacheKey(query: ThreadQueryDto): string {
+    return `messages:threads:${JSON.stringify(query)}`;
+  }
+
+  private get cacheTtlMs() {
+    const ttlSeconds = Number(this.configService.get<string>('CACHE_TTL_SECONDS') ?? 30);
+    return (Number.isNaN(ttlSeconds) ? 30 : ttlSeconds) * 1000;
   }
 }

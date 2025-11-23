@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ListingStatus, Prisma } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { listingDefaultInclude } from './listings.prisma.js';
 import { ListingWithRelations, SafeListing, serializeListing } from './listing.serializer.js';
+import { CacheService } from '../../common/services/cache.service.js';
 
 export interface ListingSearchParams {
   keyword?: string;
@@ -26,12 +28,22 @@ export interface ListingSearchResponse {
 
 @Injectable()
 export class ListingSearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async search(params: ListingSearchParams): Promise<ListingSearchResponse> {
     const page = params.page > 0 ? params.page : 1;
     const cappedPageSize = Math.min(params.pageSize > 0 ? params.pageSize : 12, 50);
     const offset = (page - 1) * cappedPageSize;
+
+    const cacheKey = this.buildCacheKey({ ...params, page, pageSize: cappedPageSize });
+    const cached = await this.cache.get<ListingSearchResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     if (
       params.maxPriceCents !== undefined &&
@@ -59,13 +71,15 @@ export class ListingSearchService {
 
       const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
 
-      return {
+      const response: ListingSearchResponse = {
         data: typedListings.map((listing) => serializeListing(listing)),
         total,
         page,
         pageSize: cappedPageSize,
         pageCount: total === 0 ? 0 : pageCount,
       };
+      await this.cache.set(cacheKey, response, this.cacheTtlMs);
+      return response;
     }
 
     const tsQuery = this.buildKeywordQuery(params.keyword);
@@ -108,13 +122,24 @@ export class ListingSearchService {
 
     const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
 
-    return {
+    const response: ListingSearchResponse = {
       data: ordered.map((listing) => serializeListing(listing)),
       total,
       page,
       pageSize: cappedPageSize,
       pageCount: total === 0 ? 0 : pageCount,
     };
+    await this.cache.set(cacheKey, response, this.cacheTtlMs);
+    return response;
+  }
+
+  private buildCacheKey(params: ListingSearchParams & { page: number; pageSize: number }): string {
+    return `listings:search:${JSON.stringify(params)}`;
+  }
+
+  private get cacheTtlMs() {
+    const ttlSeconds = Number(this.configService.get<string>('CACHE_TTL_SECONDS') ?? 30);
+    return (Number.isNaN(ttlSeconds) ? 30 : ttlSeconds) * 1000;
   }
 
   private normalizeTags(tags?: string[]): string[] {
