@@ -42,6 +42,8 @@ export class PaymentsController {
 
     const providerStatus = intent?.status ?? event.type ?? 'unknown';
 
+    await this.paymentsService.updateProviderStatus(orderId, providerStatus);
+
     if (event.type === 'payment_intent.succeeded') {
       await this.ordersService.updateStatus(orderId, {
         status: OrderStatus.PAID,
