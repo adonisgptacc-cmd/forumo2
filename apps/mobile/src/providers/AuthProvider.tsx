@@ -9,6 +9,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
   logout: () => void;
+  enterDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -42,9 +43,21 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const logout = useCallback(() => setAuth(undefined), []);
 
+  const enterDemo = useCallback(() => {
+    setAuth({
+      accessToken: 'demo-access-token',
+      user: {
+        id: '00000000-0000-0000-0000-000000000000',
+        email: 'demo@forumo.test',
+        name: 'Demo User',
+        role: 'BUYER',
+      },
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ apiClient, user: auth?.user, accessToken: auth?.accessToken, login, register, logout }),
-    [apiClient, auth?.user, auth?.accessToken, login, register, logout],
+    () => ({ apiClient, user: auth?.user, accessToken: auth?.accessToken, login, register, logout, enterDemo }),
+    [apiClient, auth?.user, auth?.accessToken, login, register, logout, enterDemo],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

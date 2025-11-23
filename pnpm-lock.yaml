@@ -156,6 +156,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@forumo/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@forumo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -285,7 +288,11 @@ importers:
         specifier: ^5.4.5
         version: 5.9.3
 
-  packages/config: {}
+  packages/config:
+    dependencies:
+      '@forumo/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/design-system:
     dependencies:

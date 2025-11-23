@@ -9,6 +9,7 @@ module.exports = function (api) {
           extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
           alias: {
             '@forumo/shared': '../../packages/shared/src',
+            '@forumo/config': '../../packages/config/src',
           },
         },
       ],

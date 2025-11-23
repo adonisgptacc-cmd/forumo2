@@ -13,7 +13,9 @@
     "baseUrl": ".",
     "paths": {
       "@forumo/shared": ["packages/shared/src/index.ts"],
-      "@forumo/shared/*": ["packages/shared/src/*"]
+      "@forumo/shared/*": ["packages/shared/src/*"],
+      "@forumo/config": ["packages/config/src/index.ts"],
+      "@forumo/config/*": ["packages/config/src/*"]
     }
   }
 }
