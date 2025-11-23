@@ -9,6 +9,7 @@ import { ListingsService } from './listings.service.js';
 import { ModerationQueueService } from './moderation-queue.service.js';
 import { ListingSearchService } from './search.service.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { CacheService } from '../../common/services/cache.service.js';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { StorageModule } from '../storage/storage.module.js';
     StorageModule,
   ],
   controllers: [ListingsController],
-  providers: [ListingsService, ListingSearchService, ModerationQueueService],
+  providers: [ListingsService, ListingSearchService, ModerationQueueService, CacheService],
   exports: [ListingsService, ListingSearchService, ModerationQueueService],
 })
 export class ListingsModule {}

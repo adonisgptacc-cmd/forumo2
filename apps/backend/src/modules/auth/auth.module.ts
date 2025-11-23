@@ -10,12 +10,15 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { OtpDeliveryService } from './otp-delivery.service.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { RateLimitService } from '../../common/services/rate-limit.service.js';
+import { ObservabilityModule } from '../observability/observability.module.js';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
     UsersModule,
+    ObservabilityModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -30,7 +33,7 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard, RateLimitService],
   exports: [AuthService],
 })
 export class AuthModule {}

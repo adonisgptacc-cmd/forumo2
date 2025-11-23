@@ -13,7 +13,9 @@ export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}
 
   @Get('threads')
-  listThreads(@Query() query: ThreadQueryDto): Promise<SafeMessageThread[]> {
+  listThreads(
+    @Query() query: ThreadQueryDto,
+  ): Promise<{ data: SafeMessageThread[]; total: number; page: number; pageSize: number; pageCount: number }> {
     return this.messagingService.listThreads(query);
   }
 

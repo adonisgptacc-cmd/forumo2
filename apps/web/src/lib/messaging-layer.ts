@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 
-import type { CreateThreadDto, SafeMessageThread, SendMessageDto } from '@forumo/shared';
+import type { CreateThreadDto, PaginatedResponse, SafeMessageThread, SendMessageDto } from '@forumo/shared';
 
 import { apiBaseUrl, createApiClient } from './api-client';
 
@@ -16,7 +16,9 @@ export class MessagingLayer {
     return io(`${base}/messages`, { auth: { userId } });
   }
 
-  async listThreads(params: { userId?: string; listingId?: string } = {}): Promise<SafeMessageThread[]> {
+  async listThreads(
+    params: { userId?: string; listingId?: string; page?: number; pageSize?: number } = {},
+  ): Promise<PaginatedResponse<SafeMessageThread>> {
     return this.apiClient.messaging.listThreads(params);
   }
 

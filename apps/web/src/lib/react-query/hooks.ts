@@ -13,6 +13,7 @@ import type {
   SendMessageDto,
   UpdateListingDto,
   ListingReviewResponse,
+  PaginatedResponse,
 } from '@forumo/shared';
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
@@ -121,13 +122,13 @@ export function useCreateOrder() {
   });
 }
 
-export function useMessageThreads(userId?: string) {
+export function useMessageThreads(userId?: string, page = 1) {
   const { accessToken, user } = useCurrentUser();
   const messaging = useMessagingLayer(accessToken);
   const targetUserId = userId ?? user?.id;
-  return useQuery<SafeMessageThread[]>({
-    queryKey: queryKeys.threads(targetUserId),
-    queryFn: () => messaging.listThreads({ userId: targetUserId ?? undefined }),
+  return useQuery<PaginatedResponse<SafeMessageThread>>({
+    queryKey: queryKeys.threads(targetUserId, page),
+    queryFn: () => messaging.listThreads({ userId: targetUserId ?? undefined, page }),
     enabled: Boolean(accessToken),
   });
 }
@@ -152,7 +153,7 @@ export function useSendMessage(threadId: string) {
       messaging.sendMessage(threadId, payload, attachments),
     onSuccess: (_, { payload }) => {
       client.invalidateQueries({ queryKey: queryKeys.thread(threadId) });
-      client.invalidateQueries({ queryKey: queryKeys.threads(user?.id ?? payload.authorId) });
+      client.invalidateQueries({ queryKey: ['threads'], exact: false });
     },
   });
 }

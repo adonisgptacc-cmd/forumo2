@@ -19,6 +19,7 @@ import {
   SendMessageDto,
   UpdateOrderStatusDto,
   ReviewRollup,
+  PaginatedResponse,
   createReviewSchema,
   listingSearchParamsSchema,
   listingSearchResponseSchema,
@@ -232,12 +233,17 @@ export class ForumoApiClient {
   };
 
   readonly messaging = {
-    listThreads: async (params: { userId?: string; listingId?: string } = {}): Promise<SafeMessageThread[]> => {
-      const result = await this.request<SafeMessageThread[]>(
+    listThreads: async (
+      params: { userId?: string; listingId?: string; page?: number; pageSize?: number } = {},
+    ): Promise<PaginatedResponse<SafeMessageThread>> => {
+      const result = await this.request<PaginatedResponse<SafeMessageThread>>(
         `/messages/threads${buildQuery(params)}`,
         { method: 'GET', auth: true },
       );
-      return result.map((thread) => messageThreadSchema.parse(thread));
+      return {
+        ...result,
+        data: result.data.map((thread) => messageThreadSchema.parse(thread)),
+      };
     },
     getThread: async (id: string): Promise<SafeMessageThread> => {
       const result = await this.request<SafeMessageThread>(`/messages/threads/${id}`, {

@@ -9,7 +9,7 @@ import { useCurrentUser, useMessageThreads } from '../../../../lib/react-query/h
 
 export function MessagesPanel() {
   const { user } = useCurrentUser();
-  const { data, isLoading } = useMessageThreads();
+  const { data, isLoading, isError, error } = useMessageThreads();
   const [incoming, setIncoming] = useState<Message | null>(null);
 
   useEffect(() => {
@@ -34,10 +34,17 @@ export function MessagesPanel() {
         </div>
       ) : null}
       {isLoading ? (
-        <p className="text-slate-400">Loading threads…</p>
-      ) : data && data.length > 0 ? (
+        <p className="text-slate-400" role="status" aria-live="polite">
+          Loading threads…
+        </p>
+      ) : isError ? (
+        <div className="grid-card border-red-500/40 text-red-200" role="alert">
+          <p className="font-semibold">Unable to load threads.</p>
+          <p className="text-sm opacity-80">{(error as Error | undefined)?.message ?? 'Please try again.'}</p>
+        </div>
+      ) : data && data.data.length > 0 ? (
         <ul className="space-y-3">
-          {data.map((thread) => {
+          {data.data.map((thread) => {
             const lastMessage = thread.messages.at(-1);
             const flagged = lastMessage?.moderationStatus === 'FLAGGED' || lastMessage?.metadata?.flagged;
             return (
@@ -58,7 +65,9 @@ export function MessagesPanel() {
           })}
         </ul>
       ) : (
-        <p className="text-slate-400">No threads found.</p>
+        <p className="text-slate-400" role="status" aria-live="polite">
+          No threads found.
+        </p>
       )}
     </div>
   );

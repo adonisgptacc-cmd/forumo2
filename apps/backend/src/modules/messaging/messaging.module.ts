@@ -9,6 +9,7 @@ import { MessagingService } from './messaging.service.js';
 import { MessagingGateway } from './messaging.gateway.js';
 import { MessageModerationService } from './moderation.service.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { CacheService } from '../../common/services/cache.service.js';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { StorageModule } from '../storage/storage.module.js';
     StorageModule,
   ],
   controllers: [MessagingController],
-  providers: [MessagingService, MessagingGateway, MessageModerationService],
+  providers: [MessagingService, MessagingGateway, MessageModerationService, CacheService],
   exports: [MessagingService],
 })
 export class MessagingModule {}

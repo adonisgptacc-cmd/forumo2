@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Order, PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
+import { Order, PaymentProvider, PaymentStatus, Prisma, WebhookEventStatus } from '@prisma/client';
 import Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -96,6 +96,35 @@ export class PaymentsService {
     });
   }
 
+  async recordWebhookEvent(eventName: string, payload: unknown, status: WebhookEventStatus = WebhookEventStatus.PENDING) {
+    return this.prisma.webhookEvent.create({
+      data: {
+        eventName,
+        status,
+        payload: this.toJsonInput(payload) ?? (Prisma.JsonNull as unknown as Prisma.InputJsonValue),
+      },
+    });
+  }
+
+  async markWebhookProcessed(id?: string) {
+    if (!id) return;
+    await this.prisma.webhookEvent.update({
+      where: { id },
+      data: { status: WebhookEventStatus.PROCESSED, lastError: null },
+    });
+  }
+
+  async markWebhookFailed(id?: string, error?: unknown) {
+    if (!id) return;
+    await this.prisma.webhookEvent.update({
+      where: { id },
+      data: {
+        status: WebhookEventStatus.FAILED,
+        lastError: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+  }
+
   private async ensurePaymentTransaction(tx: Prisma.TransactionClient, order: Order): Promise<void> {
     const existing = await tx.paymentTransaction.findFirst({ where: { orderId: order.id } });
     if (existing) {
@@ -117,5 +146,12 @@ export class PaymentsService {
 
   private calculateOrderTotal(order: Pick<Order, 'totalItemCents' | 'shippingCents' | 'feeCents'>): number {
     return order.totalItemCents + order.shippingCents + order.feeCents;
+  }
+
+  private toJsonInput(value: unknown): Prisma.InputJsonValue | null {
+    if (value === null || value === undefined) {
+      return Prisma.JsonNull as unknown as Prisma.InputJsonValue;
+    }
+    return value as Prisma.InputJsonValue;
   }
 }

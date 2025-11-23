@@ -165,6 +165,22 @@ export class OrdersService {
     });
   }
 
+  async updateStatusFromProvider(id: string, dto: UpdateOrderStatusInput): Promise<SafeOrder | null> {
+    const existing = await this.prisma.order.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) {
+      return null;
+    }
+
+    if (existing.status === dto.status) {
+      if (dto.providerStatus) {
+        await this.paymentsService.updateProviderStatus(id, dto.providerStatus);
+      }
+      return this.findById(id);
+    }
+
+    return this.updateStatus(id, dto);
+  }
+
   private async buildOrderItems(dto: CreateOrderInput) {
     if (!dto.items.length) {
       throw new BadRequestException('At least one line item is required');
