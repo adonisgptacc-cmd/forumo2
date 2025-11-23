@@ -20,6 +20,7 @@ import { OrdersModule } from './orders.module.js';
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';
 const LISTING_ID = 'listing-1';
+const CANCELLED_ORDER_NUMBER = 'ORD-SEEDED-CANCELLED';
 
 describe('OrdersModule flows', () => {
   let app: INestApplication;
@@ -40,6 +41,15 @@ describe('OrdersModule flows', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('returns seeded paid/cancelled/refunded orders', async () => {
+    const res = await request(app.getHttpServer()).get('/orders').expect(200);
+    const numbers = res.body.map((order: any) => order.orderNumber);
+
+    expect(numbers).toContain('ORD-SEEDED-PAID');
+    expect(numbers).toContain('ORD-SEEDED-REFUNDED');
+    expect(numbers).toContain(CANCELLED_ORDER_NUMBER);
   });
 
   it('runs the pay → fulfill → release happy path', async () => {
@@ -204,6 +214,7 @@ class InMemoryPrismaService {
     const now = new Date();
     const paidOrderId = randomUUID();
     const refundedOrderId = randomUUID();
+    const cancelledOrderId = randomUUID();
 
     const paidOrder: OrderRecord = {
       id: paidOrderId,
@@ -342,6 +353,82 @@ class InMemoryPrismaService {
         amountCents: 1000,
         currency: 'USD',
         note: 'Seeded refund',
+        actorId: null,
+        createdAt: now,
+      },
+    ]);
+
+    const cancelledOrder: OrderRecord = {
+      id: cancelledOrderId,
+      orderNumber: CANCELLED_ORDER_NUMBER,
+      buyerId: BUYER_ID,
+      sellerId: SELLER_ID,
+      status: OrderStatus.CANCELLED,
+      paymentStatus: PaymentStatus.REFUNDED,
+      totalItemCents: 800,
+      shippingCents: 150,
+      feeCents: 0,
+      currency: 'USD',
+      shippingAddressId: null,
+      billingAddressId: null,
+      metadata: null,
+      placedAt: now,
+      paidAt: now,
+      fulfilledAt: null,
+      deliveredAt: null,
+      cancelledAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.orders.set(cancelledOrderId, cancelledOrder);
+    this.createOrderItem(cancelledOrderId, {
+      listingId: LISTING_ID,
+      listingTitle: 'Sample listing',
+      quantity: 1,
+      unitPriceCents: 800,
+      currency: 'USD',
+      variantId: null,
+      variantLabel: null,
+    });
+    this.timelines.set(cancelledOrderId, [
+      this.createTimelineRecord(cancelledOrderId, { status: OrderStatus.PENDING, note: 'Seeded order' }),
+      this.createTimelineRecord(cancelledOrderId, { status: OrderStatus.CANCELLED, note: 'Seeded cancellation' }),
+    ]);
+    this.payments.set(cancelledOrderId, [
+      {
+        id: randomUUID(),
+        orderId: cancelledOrderId,
+        provider: PaymentProvider.STRIPE,
+        status: PaymentStatus.REFUNDED,
+        providerStatus: 'canceled',
+        amountCents: 950,
+        currency: 'USD',
+        providerRef: 'pi_seeded_cancelled',
+        metadata: null,
+        processedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const cancelledEscrow: EscrowHoldingRecord = {
+      id: randomUUID(),
+      orderId: cancelledOrderId,
+      status: EscrowStatus.REFUNDED,
+      amountCents: 950,
+      currency: 'USD',
+      releaseAfter: null,
+      releasedAt: now,
+      metadata: null,
+    };
+    this.escrows.set(cancelledOrderId, cancelledEscrow);
+    this.escrowTransactions.set(cancelledEscrow.id, [
+      {
+        id: randomUUID(),
+        escrowId: cancelledEscrow.id,
+        type: EscrowTransactionType.REFUND,
+        amountCents: 950,
+        currency: 'USD',
+        note: 'Seeded cancellation refund',
         actorId: null,
         createdAt: now,
       },

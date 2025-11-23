@@ -105,7 +105,7 @@ export class OrdersService {
         include: {
           items: true,
           shipments: true,
-          timeline: true,
+          timeline: { include: { actor: true } },
           payments: true,
           escrow: { include: { disputes: true, transactions: true } },
         },
@@ -423,7 +423,7 @@ export class OrdersService {
     return {
       items: true,
       shipments: true,
-      timeline: { orderBy: { createdAt: 'asc' } },
+      timeline: { orderBy: { createdAt: 'asc' }, include: { actor: true } },
       payments: { orderBy: { createdAt: 'desc' } },
       escrow: {
         include: {

@@ -19,15 +19,15 @@ export class PaymentsService {
 
   validateStripeEvent(payload: unknown, signature?: string, rawBody?: Buffer | string): Stripe.Event {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (this.stripe && secret && signature && rawBody) {
-      try {
-        return this.stripe.webhooks.constructEvent(rawBody, signature, secret) as Stripe.Event;
-      } catch (error) {
-        throw new BadRequestException('Invalid Stripe webhook signature');
-      }
+    if (!this.stripe || !secret || !signature || !rawBody) {
+      return payload as Stripe.Event;
     }
 
-    return payload as Stripe.Event;
+    try {
+      return this.stripe.webhooks.constructEvent(rawBody, signature, secret) as Stripe.Event;
+    } catch (error) {
+      throw new BadRequestException('Invalid Stripe webhook signature');
+    }
   }
 
   async mintPaymentIntent(orderId: string, amountCents: number, currency: string): Promise<Stripe.PaymentIntent> {
@@ -36,7 +36,9 @@ export class PaymentsService {
         amount: amountCents,
         currency: currency.toLowerCase(),
         automatic_payment_methods: { enabled: true },
+        description: `Order ${orderId} checkout`,
         metadata: { orderId },
+        payment_method_types: ['card'],
       });
     }
 
@@ -49,6 +51,17 @@ export class PaymentsService {
       client_secret: `cs_${randomUUID()}`,
       metadata: { orderId },
     } as unknown as Stripe.PaymentIntent;
+  }
+
+  async updateProviderStatus(orderId: string, providerStatus?: string): Promise<void> {
+    if (!providerStatus) {
+      return;
+    }
+
+    await this.prisma.paymentTransaction.updateMany({
+      where: { orderId },
+      data: { providerStatus },
+    });
   }
 
   async markPaymentCaptured(
