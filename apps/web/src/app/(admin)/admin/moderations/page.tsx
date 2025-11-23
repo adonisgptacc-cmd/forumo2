@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { createApiClient } from '../../../../lib/api-client';
 import { authOptions } from '../../../../lib/auth';
+import { reviewListing } from './actions';
 
 function StatusPill({ status }: { status: string }) {
   const palette: Record<string, string> = {
@@ -56,6 +57,39 @@ export default async function ModerationQueuePage() {
             key: 'createdAt',
             header: 'Created',
             render: (item) => <span className="text-sm text-slate-300">{new Date(item.createdAt).toLocaleString()}</span>,
+          },
+          {
+            key: 'actions',
+            header: 'Actions',
+            render: (item) => (
+              <div className="space-y-2 text-xs text-slate-200">
+                <form action={reviewListing} className="flex flex-col gap-2">
+                  <input type="hidden" name="listingId" value={item.id} />
+                  <input type="hidden" name="decision" value="APPROVED" />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-emerald-50 transition hover:border-emerald-300"
+                  >
+                    Approve listing
+                  </button>
+                </form>
+                <form action={reviewListing} className="space-y-2">
+                  <input type="hidden" name="listingId" value={item.id} />
+                  <input type="hidden" name="decision" value="REJECTED" />
+                  <input
+                    name="notes"
+                    placeholder="Moderation notes"
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-md border border-rose-400/60 bg-rose-500/10 px-3 py-2 text-left text-rose-100 transition hover:border-rose-300"
+                  >
+                    Reject listing
+                  </button>
+                </form>
+              </div>
+            ),
           },
         ]}
         data={listings}

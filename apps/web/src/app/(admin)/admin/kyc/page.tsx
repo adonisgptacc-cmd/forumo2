@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { createApiClient } from '../../../../lib/api-client';
 import { authOptions } from '../../../../lib/auth';
+import { reviewKycSubmission } from './actions';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -71,6 +72,39 @@ export default async function KycQueuePage() {
             render: (item) => (
               <div className="text-sm text-slate-300">
                 {item.reviewer ? item.reviewer.name ?? item.reviewer.email : 'Unassigned'}
+              </div>
+            ),
+          },
+          {
+            key: 'actions',
+            header: 'Decision',
+            render: (item) => (
+              <div className="space-y-2 text-xs text-slate-200">
+                <form action={reviewKycSubmission} className="flex flex-col gap-2">
+                  <input type="hidden" name="submissionId" value={item.id} />
+                  <input type="hidden" name="decision" value="APPROVED" />
+                  <button
+                    type="submit"
+                    className="rounded-md border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-emerald-50 transition hover:border-emerald-300"
+                  >
+                    Approve verification
+                  </button>
+                </form>
+                <form action={reviewKycSubmission} className="space-y-2">
+                  <input type="hidden" name="submissionId" value={item.id} />
+                  <input type="hidden" name="decision" value="REJECTED" />
+                  <input
+                    name="reason"
+                    placeholder="Reason for rejection"
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-md border border-rose-400/60 bg-rose-500/10 px-3 py-2 text-left text-rose-100 transition hover:border-rose-300"
+                  >
+                    Reject submission
+                  </button>
+                </form>
               </div>
             ),
           },

@@ -19,6 +19,15 @@ All backend services are exposed behind a single NestJS API gateway running at `
 | Notifications | `/notifications`    | list notifications, mark read |
 | Admin         | `/admin`            | user/listing moderation, disputes, audit logs |
 
+### Admin endpoints
+
+- `GET /admin/kyc/submissions` — list pending and completed verification submissions.
+- `PATCH /admin/kyc/submissions/:id` — approve or reject a KYC submission with an optional rejection reason.
+- `GET /admin/moderations/listings` — queue of listings awaiting human review.
+- `PATCH /admin/moderations/listings/:id` — update moderation status and notes for a listing.
+- `GET /admin/disputes` — retrieve disputes escalated to staff with aggregated metadata.
+- `PATCH /admin/disputes/:id` — move a dispute through review or resolution states with notes.
+
 ## WebSocket channels
 
 - `message:new`, `message:typing`, `message:read`
