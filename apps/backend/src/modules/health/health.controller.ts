@@ -12,4 +12,16 @@ export class HealthController {
   async getHealth() {
     return this.healthService.getStatus();
   }
+
+  @Get('live')
+  @ApiOkResponse({ description: 'Liveness probe' })
+  async getLiveness() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  @Get('ready')
+  @ApiOkResponse({ description: 'Readiness probe' })
+  async getReadiness() {
+    return this.healthService.getStatus();
+  }
 }

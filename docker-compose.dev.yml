@@ -1,0 +1,76 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: forumo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: forumo
+      POSTGRES_USER: forumo
+      POSTGRES_PASSWORD: forumo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: forumo-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.test
+      PGADMIN_DEFAULT_PASSWORD: password
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  redis:
+    image: redis:7
+    container_name: forumo-redis
+    restart: unless-stopped
+    command: >-
+      redis-server --save "" --appendonly yes --dir /data
+      --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker/redis-data:/data
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
+    container_name: forumo-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_SERVER_URL: http://localhost:9000
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    command: >-
+      sh -c "mkdir -p /data/uploads /data/avatars /data/documents &&
+      minio server /data --console-address :9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./docker/minio-data:/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: forumo-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

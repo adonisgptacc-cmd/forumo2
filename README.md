@@ -38,6 +38,57 @@ pnpm web:dev
 
 > **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/`.
 
+## Getting Started - Local Development
+
+Spin up the full local stack with Docker, install dependencies, run pending database migrations, and start the monorepo processes in parallel:
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+npm install
+npm run db:migrate
+npm run dev
+```
+
+### Service URLs & Credentials
+
+- PostgreSQL: `localhost:5432` (user: `forumo`, password: `forumo`, db: `forumo`)
+- pgAdmin: http://localhost:5050 (email: `admin@local.test`, password: `password`)
+- Redis: `localhost:6379`
+- MinIO API: http://localhost:9000 (key: `minioadmin`, secret: `minioadmin`)
+- MinIO Console: http://localhost:9001
+- Mailpit SMTP: `localhost:1025`, Web UI: http://localhost:8025
+
+### Troubleshooting Docker
+
+- **Port conflicts**: stop other services using 5432/6379/9000/9001/1025/8025/5050 or override ports in `docker-compose.dev.yml`.
+- **Volume permissions**: ensure the `docker/*-data` directories are writable by Docker; removing them and letting Docker recreate can resolve stale permissions.
+- **Cold start failures**: restart individual services with `docker-compose -f docker-compose.dev.yml restart <service>` to retry initialization scripts like `pg_stat_statements`.
+
+### Environment configuration
+
+- Copy `.env.example` files (root + each app) to `.env` via `./scripts/setup.sh`; the script also installs dependencies and runs migrations.
+- Environment variable precedence: explicit shell exports override `.env` files, which override hard-coded defaults in code/config schemas.
+- Validate required entries before boot: `./scripts/validate-env.sh apps/backend/.env`.
+
+### Architecture Diagram
+
+```mermaid
+flowchart LR
+  Web[Next.js web] -->|REST/WS| Backend[NestJS API]
+  Mobile[React Native] -->|REST/WS| Backend
+  Backend -->|SQL| Postgres[(PostgreSQL)]
+  Backend -->|Cache/Queues| Redis[(Redis)]
+  Backend -->|S3 API| MinIO[(MinIO)]
+  Backend -->|SMTP| Mailpit[Mailpit]
+  Postgres --> pgAdmin[pgAdmin]
+```
+
+### Observability
+
+- Health: `GET /api/v1/health`, `GET /api/v1/health/live`, `GET /api/v1/health/ready`
+- Metrics: `GET /metrics` (API-key gated outside development)
+- Dashboards & alerts: see `monitoring/dashboards` and `monitoring/alerts` for Grafana and Prometheus examples.
+
 ## Database migrations & uploads
 
 1. Copy `.env.example` or export `DATABASE_URL=postgres://user:pass@localhost:5432/forumo`.
