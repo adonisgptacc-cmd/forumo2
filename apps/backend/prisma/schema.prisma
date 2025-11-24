@@ -27,6 +27,18 @@ enum OtpPurpose {
   MFA
 }
 
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum DeviceSessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
 enum AddressType {
   SHIPPING
   BILLING
@@ -181,11 +193,16 @@ model User {
   name           String
   email          String          @unique
   passwordHash   String
+  emailVerified  Boolean         @default(false)
+  twoFactorEnabled Boolean       @default(false)
   phone          String?
   avatarUrl      String?
   role           UserRole        @default(BUYER)
+  accountStatus  AccountStatus   @default(ACTIVE)
   trustScore     Int             @default(0)
   kycStatus      KycStatus       @default(PENDING)
+  tokenVersion   Int             @default(0)
+  lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
@@ -276,6 +293,7 @@ model OtpCode {
   secret     String
   codeHash   String
   purpose    OtpPurpose
+  attempts   Int         @default(0)
   channel    NotificationChannel?
   deviceFingerprint String?
   deliveryProvider  String?
@@ -299,9 +317,16 @@ model DeviceSession {
   fingerprint    String
   userAgent      String?
   ipAddress      String?
+  deviceType     String?
+  browser        String?
+  os             String?
+  location       String?
   metadata       Json?
+  sessionTokenHash String?
+  status         DeviceSessionStatus @default(ACTIVE)
   lastIssuedAt   DateTime?
   lastVerifiedAt DateTime?
+  lastActiveAt   DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

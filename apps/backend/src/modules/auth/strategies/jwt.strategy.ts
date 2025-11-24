@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -9,6 +9,7 @@ import { SafeUser } from '../../users/user.serializer.js';
 export interface JwtPayload {
   sub: string;
   role: string;
+  tokenVersion: number;
 }
 
 @Injectable()
@@ -21,6 +22,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<SafeUser> {
-    return this.usersService.findById(payload.sub);
+    const user = await this.usersService.findById(payload.sub);
+    if (user.tokenVersion !== payload.tokenVersion) {
+      throw new UnauthorizedException('Session expired');
+    }
+    return user;
   }
 }
