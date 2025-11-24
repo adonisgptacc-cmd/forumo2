@@ -112,6 +112,7 @@ flowchart LR
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) – end-to-end systems design.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) – MVP, V1, and V2 delivery plan derived from the PRD.
 - [`docs/API-GATEWAY.md`](docs/API-GATEWAY.md) – HTTP and WebSocket route overview.
+- [`docs/TESTING.md`](docs/TESTING.md) – how to run backend, web, and mobile test suites.
 
 ## Code style & tooling
 
