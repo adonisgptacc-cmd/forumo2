@@ -27,26 +27,27 @@ npm install -g pnpm
 pnpm install
 
 # run the NestJS API on http://localhost:4000
-pnpm backend:dev
+pnpm dev:backend
 
 # boot the moderation service on http://localhost:5005
-cd apps/moderation && uvicorn moderation_service.main:app --reload
+cd apps/moderation && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && \
+  uvicorn moderation_service.main:app --reload
 
 # run the Next.js web client on http://localhost:3000
-pnpm web:dev
+pnpm dev:web
 ```
 
-> **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/`.
+> **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/` (see `docs/ROADMAP.md` for the rollout plan and `docs/ARCHITECTURE.md` for how they will attach to the backend).
 
 ## Getting Started - Local Development
 
 Spin up the full local stack with Docker, install dependencies, run pending database migrations, and start the monorepo processes in parallel:
 
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
-npm install
-npm run db:migrate
-npm run dev
+pnpm docker:up
+pnpm install
+pnpm db:migrate
+pnpm dev
 ```
 
 ### Service URLs & Credentials
