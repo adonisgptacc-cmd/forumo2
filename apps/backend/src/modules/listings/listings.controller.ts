@@ -41,12 +41,18 @@ export class ListingsController {
     return this.listingSearchService.search({
       keyword: query.keyword?.trim() || undefined,
       page: query.page ?? 1,
-      pageSize: query.pageSize ?? 12,
+      pageSize: query.pageSize ?? 20,
       status: query.status,
+      moderationStatus: query.moderationStatus,
       minPriceCents: query.minPriceCents,
       maxPriceCents: query.maxPriceCents,
       sellerId: query.sellerId,
+      sellerIds: query.sellerIds,
       tags: query.tags,
+      categories: query.categories,
+      createdAfter: query.createdAfter,
+      createdBefore: query.createdBefore,
+      sort: query.sort ?? 'relevance',
     });
   }
 

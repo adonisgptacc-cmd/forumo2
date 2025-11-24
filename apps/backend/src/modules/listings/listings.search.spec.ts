@@ -41,13 +41,18 @@ describe('ListingSearchService', () => {
 
   it('applies relevance ranking when keyword is provided', async () => {
     prisma.$queryRaw.mockResolvedValueOnce([{ count: 2 }]);
-    prisma.$queryRaw.mockResolvedValueOnce([{ id: listingB.id }, { id: listingA.id }]);
+    prisma.$queryRaw.mockResolvedValueOnce([
+      { id: listingB.id, rank: 0.9, snippet: '<b>basket</b>' },
+      { id: listingA.id, rank: 0.5, snippet: null },
+    ]);
     prisma.listing.findMany.mockResolvedValue([listingA, listingB]);
 
-    const result = await service.search({ keyword: 'kente', page: 1, pageSize: 10 });
+    const result = await service.search({ keyword: 'kente', page: 1, pageSize: 10, sort: 'relevance' });
 
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
     expect(result.data.map((listing) => listing.id)).toEqual([listingB.id, listingA.id]);
+    expect(result.data[0].relevanceScore).toBe(0.9);
+    expect(result.data[0].snippet).toBe('<b>basket</b>');
   });
 
   it('combines tag, status, price, and seller filters without a keyword', async () => {
@@ -59,15 +64,21 @@ describe('ListingSearchService', () => {
       minPriceCents: 1000,
       maxPriceCents: 5000,
       sellerId: 'seller-2',
+      sellerIds: ['seller-3'],
+      categories: ['bags'],
       tags: ['Handmade', 'Basket'],
+      createdAfter: new Date('2024-01-01'),
+      createdBefore: new Date('2024-02-01'),
     });
 
     const expectedWhere = {
       deletedAt: null,
       status: ListingStatus.PAUSED,
-      sellerId: 'seller-2',
+      sellerId: { in: ['seller-3', 'seller-2'] },
       priceCents: { gte: 1000, lte: 5000 },
+      createdAt: { gte: new Date('2024-01-01'), lte: new Date('2024-02-01') },
       tags: { some: { tag: { slug: { in: ['handmade', 'basket'] } } } },
+      categories: { some: { category: { slug: { in: ['bags'] } } } },
     };
 
     expect(prisma.listing.count).toHaveBeenCalledWith({ where: expectedWhere });
@@ -76,11 +87,12 @@ describe('ListingSearchService', () => {
     );
   });
 
-  it('normalizes keyword spacing and uses websearch queries', () => {
-    const query = (service as any).buildKeywordQuery('  woven   cloth ');
-    expect(query.values?.[0]).toBe('woven cloth');
-    expect(Array.isArray(query.strings)).toBe(true);
-    expect(query.strings.join(' ')).toContain('websearch_to_tsquery');
+  it('normalizes keyword spacing and uses multiple tsquery strategies', () => {
+    const { tsQueries, headlineQuery } = (service as any).buildKeywordQueries('  woven   cloth ');
+    expect(tsQueries.baseQuery.values?.[0]).toBe('woven cloth');
+    expect(Array.isArray(tsQueries.baseQuery.strings)).toBe(true);
+    expect(tsQueries.baseQuery.strings.join(' ')).toContain('websearch_to_tsquery');
+    expect(headlineQuery).toBe(tsQueries.baseQuery);
   });
 
   it('constructs a weighted search document with filters applied in the CTE', async () => {
@@ -93,6 +105,7 @@ describe('ListingSearchService', () => {
       pageSize: 5,
       minPriceCents: 1000,
       maxPriceCents: 5000,
+      categories: ['craft'],
       tags: ['woven'],
     });
 
@@ -105,6 +118,7 @@ describe('ListingSearchService', () => {
     expect(cteSql).toContain('l."priceCents" >=');
     expect(cteSql).toContain('l."priceCents" <=');
     expect(cteSql).toContain('lt."slug"');
+    expect(cteSql).toContain('lc."slug"');
   });
 
   it('orders keyword results by rank then createdAt', async () => {
