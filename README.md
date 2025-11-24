@@ -37,7 +37,7 @@ cd apps/moderation && python -m venv .venv && source .venv/bin/activate && pip i
 pnpm dev:web
 ```
 
-> **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/`.
+> **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/` (see `docs/ROADMAP.md` for the rollout plan and `docs/ARCHITECTURE.md` for how they will attach to the backend).
 
 ## Getting Started - Local Development
 
