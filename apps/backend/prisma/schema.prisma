@@ -347,6 +347,7 @@ model Listing {
   moderationNotes   String?
   metadata          Json?
   location          String?
+  searchVector      Unsupported("tsvector")?
   deletedAt         DateTime?
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
