@@ -9,17 +9,23 @@ import { RequestOtpDto } from '../dto/request-otp.dto.js';
 import { VerifyOtpDto } from '../dto/verify-otp.dto.js';
 import { UsersService } from '../../users/users.service.js';
 import { OtpDeliveryService } from '../otp-delivery.service.js';
+import { RateLimitService } from '../../../common/services/rate-limit.service.js';
 
 const createUser = (): User => ({
   id: 'user-1',
   name: 'Zuri',
   email: 'zuri@example.com',
   passwordHash: 'hashed',
+  emailVerified: false,
+  twoFactorEnabled: false,
   phone: '+27123456789',
   avatarUrl: null,
   role: 'BUYER',
+  accountStatus: 'ACTIVE',
   trustScore: 0,
   kycStatus: 'PENDING',
+  tokenVersion: 0,
+  lastLoginAt: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-02T00:00:00.000Z'),
   deletedAt: null,
@@ -52,6 +58,7 @@ describe('AuthService OTP flows', () => {
   let configService: jest.Mocked<ConfigService>;
   let usersService: jest.Mocked<UsersService>;
   let otpDelivery: jest.Mocked<OtpDeliveryService>;
+  let rateLimit: jest.Mocked<RateLimitService>;
 
   beforeEach(() => {
     prisma = {
@@ -105,12 +112,17 @@ describe('AuthService OTP flows', () => {
       }),
     } as unknown as jest.Mocked<OtpDeliveryService>;
 
+    rateLimit = {
+      enforce: jest.fn(),
+    } as unknown as jest.Mocked<RateLimitService>;
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService,
       configService,
       usersService,
       otpDelivery,
+      rateLimit,
     );
   });
 
@@ -193,6 +205,7 @@ describe('AuthService OTP flows', () => {
       deviceFingerprint: 'fingerprint-123',
       expiresAt: new Date(Date.now() + 60_000),
       consumedAt: null,
+      attempts: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -241,6 +254,7 @@ describe('AuthService OTP flows', () => {
         deviceFingerprint: 'fingerprint-xyz',
         expiresAt: new Date(Date.now() + 60_000),
         consumedAt: null,
+        attempts: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

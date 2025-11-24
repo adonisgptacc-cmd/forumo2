@@ -1,9 +1,9 @@
 import { ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
+import { DeviceSessionStatus, NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { randomBytes, randomInt } from 'crypto';
+import { createHash, randomBytes, randomInt } from 'crypto';
 
 import type { AuthResponse } from '@forumo/shared';
 import {
@@ -17,6 +17,7 @@ import {
 import { SafeUser, sanitizeUser } from '../users/user.serializer.js';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { RateLimitService } from '../../common/services/rate-limit.service.js';
 import { UsersService } from '../users/users.service.js';
 import { OtpDeliveryService } from './otp-delivery.service.js';
 
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
+    private readonly rateLimitService: RateLimitService,
   ) {}
 
   async register(dto: RegisterInput): Promise<AuthResponse> {
@@ -57,26 +59,42 @@ export class AuthService {
 
     await this.ensureUserProfile(user.id);
 
-    return this.buildAuthResponse(user);
+    return this.buildAuthResponse(user, {});
   }
 
   async login(dto: LoginInput): Promise<AuthResponse> {
-    const user = await this.findActiveUserByEmail(this.normalizeEmail(dto.email));
+    const normalizedEmail = this.normalizeEmail(dto.email);
+    const user = await this.findActiveUserByEmail(normalizedEmail);
     if (!user) {
+      this.enforceLoginAttemptLimit(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
+      this.enforceLoginAttemptLimit(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.buildAuthResponse(user);
+    const response = await this.buildAuthResponse(user, {
+      rememberMe: dto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress),
+      sessionMetadata: dto.metadata,
+      userAgent: dto.userAgent,
+      ipAddress: dto.ipAddress,
+    });
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return response;
   }
 
   async me(userId: string): Promise<AuthResponse> {
     const user = await this.usersService.findById(userId);
-    return this.buildAuthResponse(user);
+    return this.buildAuthResponse(user, {});
   }
 
   async requestOtp(dto: RequestOtpInput): Promise<OtpIssueResponse> {
@@ -88,6 +106,7 @@ export class AuthService {
     const deviceFingerprint = this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress);
 
     await this.enforceDeviceRateLimit(user.id, deviceFingerprint);
+    await this.enforceOtpCooldown(user.id, dto.purpose, deviceFingerprint);
 
     const code = this.generateOtpCode();
     const secret = this.generateOtpSecret();
@@ -133,7 +152,7 @@ export class AuthService {
       await this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastVerifiedAt: consumedAt });
     }
 
-    return this.buildAuthResponse(user);
+    return this.buildAuthResponse(user, { sessionFingerprint: deviceFingerprint, userAgent: dto.userAgent, ipAddress: dto.ipAddress, sessionMetadata: dto.metadata });
   }
 
   async requestPasswordReset(dto: RequestPasswordResetInput): Promise<OtpIssueResponse> {
@@ -172,10 +191,11 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.newPassword, this.saltRounds);
 
     await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
+      this.prisma.user.update({ where: { id: user.id }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
       ...(deviceFingerprint
         ? [this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastVerifiedAt: consumedAt })]
         : []),
+      this.prisma.deviceSession.updateMany({ where: { userId: user.id }, data: { status: 'REVOKED' } }),
     ]);
 
     return { message: 'Password reset successful' };
@@ -189,18 +209,41 @@ export class AuthService {
     });
   }
 
-  private async buildAuthResponse(user: SafeUser | { passwordHash: string } & SafeUser): Promise<AuthResponse> {
+  private async buildAuthResponse(
+    user: SafeUser | ({ passwordHash: string } & SafeUser),
+    options: {
+      rememberMe?: boolean;
+      sessionFingerprint?: string | null;
+      sessionMetadata?: Record<string, unknown>;
+      userAgent?: string;
+      ipAddress?: string;
+    },
+  ): Promise<AuthResponse> {
     const safeUser = sanitizeUser(user)!;
     const secret = this.configService.getOrThrow<string>('JWT_SECRET');
-    const ttlValue = Number(this.configService.get<string>('JWT_TTL') ?? 86400);
-    const expiresIn = Number.isNaN(ttlValue) ? 86400 : ttlValue;
+    const defaultTtlValue = Number(this.configService.get<string>('JWT_TTL') ?? 86400);
+    const rememberTtlValue = Number(this.configService.get<string>('JWT_TTL_REMEMBER') ?? 2_592_000);
+    const rawTtl = options.rememberMe ? rememberTtlValue : defaultTtlValue;
+    const expiresIn = Number.isNaN(rawTtl) ? defaultTtlValue : rawTtl;
     const token = await this.jwtService.signAsync(
-      { sub: safeUser.id, role: safeUser.role },
+      { sub: safeUser.id, role: safeUser.role, tokenVersion: safeUser.tokenVersion },
       {
         secret,
         expiresIn,
       },
     );
+
+    if (options.sessionFingerprint) {
+      await this.upsertDeviceSession(safeUser.id, options.sessionFingerprint, {
+        deviceFingerprint: options.sessionFingerprint,
+        userAgent: options.userAgent,
+        ipAddress: options.ipAddress,
+        metadata: options.sessionMetadata,
+      }, {
+        lastActiveAt: new Date(),
+      }, this.hashToken(token));
+    }
+
     return { user: safeUser, accessToken: token };
   }
 
@@ -238,12 +281,14 @@ export class AuthService {
     userId: string,
     fingerprint: string,
     payload: Pick<RequestOtpInput, 'deviceFingerprint' | 'ipAddress' | 'metadata' | 'userAgent'>,
-    timestamps: Partial<{ lastIssuedAt: Date; lastVerifiedAt: Date }>,
+    timestamps: Partial<{ lastIssuedAt: Date; lastVerifiedAt: Date; lastActiveAt: Date; status: DeviceSessionStatus }>,
+    sessionTokenHash?: string,
   ) {
     const metadata = this.buildMetadata(payload.metadata);
     const base = {
       userAgent: payload.userAgent,
       ipAddress: payload.ipAddress,
+      ...(sessionTokenHash ? { sessionTokenHash } : {}),
       ...(metadata ? { metadata } : {}),
     };
 
@@ -259,6 +304,10 @@ export class AuthService {
       return undefined;
     }
     return metadata as Prisma.JsonObject;
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private async consumeOtp(
@@ -282,8 +331,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid code');
     }
 
+    if (otpRecord.attempts >= 3) {
+      throw new UnauthorizedException('Too many invalid attempts');
+    }
+
     const matches = await bcrypt.compare(dto.code, otpRecord.codeHash);
     if (!matches) {
+      await this.prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
       throw new UnauthorizedException('Invalid code');
     }
 
@@ -324,6 +381,27 @@ export class AuthService {
     const exists = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!exists) {
       throw new UnauthorizedException('Account not found');
+    }
+  }
+
+  private enforceLoginAttemptLimit(email: string): void {
+    const limitValue = Number(this.configService.get<string>('LOGIN_ATTEMPT_LIMIT') ?? 5);
+    const windowValue = Number(this.configService.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000);
+    const limit = Number.isNaN(limitValue) ? 5 : limitValue;
+    const windowMs = Number.isNaN(windowValue) ? 900_000 : windowValue;
+    this.rateLimitService.enforce(`login-fail:${email}`, limit, windowMs);
+  }
+
+  private async enforceOtpCooldown(userId: string, purpose: OtpPurpose, fingerprint: string | null): Promise<void> {
+    const cooldownValue = Number(this.configService.get<string>('OTP_COOLDOWN_SECONDS') ?? 60);
+    const cooldownMs = Number.isNaN(cooldownValue) ? 60_000 : cooldownValue * 1000;
+    const lastIssued = await this.prisma.otpCode.findFirst({
+      where: { userId, purpose, deviceFingerprint: fingerprint ?? undefined },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastIssued && Date.now() - lastIssued.createdAt.getTime() < cooldownMs) {
+      throw new HttpException('OTP recently sent. Please wait before requesting again.', HttpStatus.TOO_MANY_REQUESTS);
     }
   }
 
