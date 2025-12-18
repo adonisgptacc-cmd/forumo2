@@ -2,11 +2,11 @@ import type { Express } from 'express';
 import { Body, Controller, Get, Param, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 
-import { CreateThreadDto } from './dto/create-thread.dto.js';
-import { SendMessageDto } from './dto/send-message.dto.js';
-import { ThreadQueryDto } from './dto/thread-query.dto.js';
-import { SafeMessageThread } from './message.serializer.js';
-import { MessagingService } from './messaging.service.js';
+import { CreateThreadDto } from "./dto/create-thread.dto";
+import { SendMessageDto } from "./dto/send-message.dto";
+import { ThreadQueryDto } from "./dto/thread-query.dto";
+import { SafeMessageThread } from "./message.serializer";
+import { MessagingService } from "./messaging.service";
 
 @Controller('messages')
 export class MessagingController {

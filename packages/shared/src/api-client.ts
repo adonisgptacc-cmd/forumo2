@@ -100,12 +100,12 @@ export class ForumoApiClient {
     return payload as T;
   }
 
-  private async requestJson<T>(path: string, options: RequestInit & { auth?: boolean; body?: unknown } = {}): Promise<T> {
+  private async requestJson<T>(path: string, options: Omit<RequestInit, 'body'> & { auth?: boolean; body?: unknown } = {}): Promise<T> {
     const body =
       options.body && !(options.body instanceof FormData)
         ? JSON.stringify(options.body)
         : options.body;
-    return this.request<T>(path, { ...options, body });
+    return this.request<T>(path, { ...options, body: body as any });
   }
 
   readonly auth = {
@@ -276,7 +276,7 @@ export class ForumoApiClient {
         const result = await this.request<SafeMessageThread>(`/messages/threads/${threadId}/messages`, {
           method: 'POST',
           auth: true,
-          body: formData,
+          body: formData as any,
         });
         return messageThreadSchema.parse(result);
       }

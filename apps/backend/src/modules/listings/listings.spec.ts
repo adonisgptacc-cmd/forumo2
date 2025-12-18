@@ -11,10 +11,10 @@ import {
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { ListingsModule } from './listings.module.js';
-import { ListingWithRelations } from './listing.serializer.js';
-import { ModerationQueueService } from './moderation-queue.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { ListingsModule } from "./listings.module";
+import { ListingWithRelations } from "./listing.serializer";
+import { ModerationQueueService } from "./moderation-queue.service";
 
 const SELLER_ID = 'seller-1';
 

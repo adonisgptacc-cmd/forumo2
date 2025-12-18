@@ -1,9 +1,10 @@
 import { ThreadRoom } from './thread-room';
 
-export default function ThreadPage({ params }: { params: { threadId: string } }) {
+export default async function ThreadPage({ params }: { params: Promise<{ threadId: string }> }) {
+  const { threadId } = await params;
   return (
     <div className="space-y-4">
-      <ThreadRoom threadId={params.threadId} />
+      <ThreadRoom threadId={threadId} />
     </div>
   );
 }

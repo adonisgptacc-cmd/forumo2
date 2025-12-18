@@ -1,0 +1,59 @@
+
+> backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> tsc -p tsconfig.build.json
+
+src/common/decorators/roles.decorator.ts(3,31): error TS6059: File 'C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/index.ts' is not under 'rootDir' 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/common/decorators/roles.decorator.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/common/guards/roles.guard.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/common/guards/roles.guard.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/modules/users/users.controller.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/modules/auth/auth.service.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/modules/admin/admin.service.ts'
+    Imported via '@forumo/shared' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src/modules/admin/admin.controller.ts'
+src/config/config.schema.ts(1,19): error TS2307: Cannot find module 'zod' or its corresponding type declarations.
+src/config/config.schema.ts(45,42): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/config/config.schema.ts(51,43): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/config/config.schema.ts(55,17): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/config/config.schema.ts(55,24): error TS7006: Parameter 'ctx' implicitly has an 'any' type.
+src/modules/auth/__tests__/auth.service.spec.ts(19,3): error TS2353: Object literal may only specify known properties, and 'emailVerified' does not exist in type '{ id: string; email: string; name: string; role: UserRole; createdAt: Date; updatedAt: Date; phone: string | null; avatarUrl: string | null; kycStatus: KycStatus; passwordHash: string; trustScore: number; deletedAt: Date | null; }'.
+src/modules/auth/auth.service.ts(89,15): error TS2353: Object literal may only specify known properties, and 'lastLoginAt' does not exist in type '(Without<UserUpdateInput, UserUncheckedUpdateInput> & UserUncheckedUpdateInput) | (Without<...> & UserUpdateInput)'.
+src/modules/auth/auth.service.ts(194,79): error TS2353: Object literal may only specify known properties, and 'tokenVersion' does not exist in type '(Without<UserUpdateInput, UserUncheckedUpdateInput> & UserUncheckedUpdateInput) | (Without<...> & UserUpdateInput)'.
+src/modules/auth/auth.service.ts(229,71): error TS2339: Property 'tokenVersion' does not exist on type 'SafeUser'.
+src/modules/auth/strategies/jwt.strategy.ts(26,14): error TS2339: Property 'tokenVersion' does not exist on type 'SafeUser'.
+src/modules/observability/audit-log.service.ts(26,9): error TS2322: Type 'Record<string, unknown> | null' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue | undefined'.
+  Type 'null' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue | undefined'.
+src/modules/orders/payments.service.ts(113,42): error TS2339: Property 'PROCESSED' does not exist on type '{ PENDING: "PENDING"; SUCCESS: "SUCCESS"; FAILED: "FAILED"; }'.
+src/modules/reviews/reviews.service.ts(116,11): error TS2322: Type 'JsonValue' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue | undefined'.
+  Type 'null' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue | undefined'.
+src/modules/reviews/reviews.service.ts(169,96): error TS2353: Object literal may only specify known properties, and 'listingId' does not exist in type 'OrderWhereInput'.
+src/telemetry/tracer.ts(6,42): error TS2307: Cannot find module '@opentelemetry/sdk-trace-base' or its corresponding type declarations.
+src/telemetry/tracer.ts(7,36): error TS2307: Cannot find module '@opentelemetry/sdk-trace-base' or its corresponding type declarations.
+src/telemetry/tracer.ts(27,5): error TS2322: Type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/node_modules/.pnpm/@opentelemetry+resources@1.30.1_@opentelemetry+api@1.9.0/node_modules/@opentelemetry/resources/build/src/Resource").Resource' is not assignable to type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/node_modules/.pnpm/@opentelemetry+resources@1.0.0_@opentelemetry+api@1.9.0/node_modules/@opentelemetry/resources/build/src/Resource").Resource'.
+  Types of property 'attributes' are incompatible.
+    Type 'Attributes' is not assignable to type 'ResourceAttributes'.
+      'string' index signatures are incompatible.
+        Type 'AttributeValue | undefined' is not assignable to type 'string | number | boolean'.
+          Type 'undefined' is not assignable to type 'string | number | boolean'.
+src/telemetry/tracer.ts(29,7): error TS2322: Type 'Instrumentation<InstrumentationConfig>[]' is not assignable to type 'InstrumentationOption'.
+  Type 'Instrumentation<InstrumentationConfig>[]' is not assignable to type '(typeof InstrumentationBase)[]'.
+    Property 'prototype' is missing in type 'Instrumentation<InstrumentationConfig>' but required in type 'typeof InstrumentationBase'.
+../../packages/shared/src/api-client.ts(115,9): error TS2322: Type '{ email: string; password: string; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(122,9): error TS2322: Type '{ name: string; email: string; password: string; phone?: string | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(163,9): error TS2322: Type '{ priceCents: number; sellerId: string; title: string; description: string; status?: "DRAFT" | "PUBLISHED" | "PAUSED" | undefined; currency?: string | undefined; metadata?: Record<string, any> | null | undefined; location?: string | undefined; variants?: { ...; }[] | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(171,9): error TS2322: Type '{ status?: "DRAFT" | "PUBLISHED" | "PAUSED" | undefined; priceCents?: number | undefined; currency?: string | undefined; metadata?: Record<string, any> | null | undefined; ... 4 more ...; variants?: { ...; }[] | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(199,9): error TS2322: Type '{ currency: string; sellerId: string; buyerId: string; items: { listingId: string; quantity: number; variantId?: string | null | undefined; }[]; metadata?: Record<string, any> | null | undefined; shippingCents?: number | ... 1 more ... | undefined; feeCents?: number | ... 1 more ... | undefined; shippingAddressId?: ...' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(207,9): error TS2322: Type '{ status: "PENDING" | "CONFIRMED" | "PAID" | "FULFILLED" | "DELIVERED" | "COMPLETED" | "CANCELLED" | "REFUNDED" | "DISPUTED"; note?: string | null | undefined; providerStatus?: string | null | undefined; actorId?: string | ... 1 more ... | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(225,9): error TS2322: Type '{ listingId: string; orderId: string; reviewerId: string; recipientId: string; rating: number; metadata?: Record<string, any> | undefined; comment?: string | null | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(259,9): error TS2322: Type '{ participants: { role: "BUYER" | "SELLER" | "ADMIN" | "SYSTEM"; userId: string; }[]; metadata?: Record<string, any> | null | undefined; listingId?: string | null | undefined; subject?: string | ... 1 more ... | undefined; initialMessage?: { ...; } | ... 1 more ... | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(286,9): error TS2322: Type '{ authorId: string; body: string; metadata?: Record<string, any> | null | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(297,17): error TS2353: Object literal may only specify known properties, and 'token' does not exist in type 'ReadableStream<any> | Blob | ArrayBuffer | ArrayBufferView<ArrayBuffer> | FormData | URLSearchParams'.
+../../packages/shared/src/api-client.ts(317,9): error TS2322: Type '{ status: "APPROVED" | "REJECTED"; rejectionReason?: string | null | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(335,9): error TS2322: Type '{ moderationStatus: "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED"; moderationNotes?: string | null | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/api-client.ts(350,9): error TS2322: Type '{ status: "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "ESCALATED"; resolution?: string | null | undefined; }' is not assignable to type 'BodyInit | null | undefined'.
+../../packages/shared/src/index.ts(1,15): error TS6059: File 'C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/types.ts' is not under 'rootDir' 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via './types' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/index.ts'
+    Imported via './types' from file 'C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/api-client.ts'
+../../packages/shared/src/index.ts(2,15): error TS6059: File 'C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/api-client.ts' is not under 'rootDir' 'C:/Users/ABADO/Desktop/forumo2/forumo2/apps/backend/src'. 'rootDir' is expected to contain all source files.
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 2.

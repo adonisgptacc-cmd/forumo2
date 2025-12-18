@@ -3,10 +3,10 @@ import type { ListingSearchParams } from '@forumo/shared';
 import { ListingExplorer } from './listing-explorer';
 
 type ListingsPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined> | undefined>;
 };
 
-function normalizeSearchParams(params: ListingsPageProps['searchParams']): Partial<ListingSearchParams> {
+function normalizeSearchParams(params: Record<string, string | string[] | undefined> | undefined): Partial<ListingSearchParams> {
   const normalized: Partial<ListingSearchParams> = {};
   if (!params) {
     return normalized;
@@ -28,8 +28,9 @@ function normalizeSearchParams(params: ListingsPageProps['searchParams']): Parti
   return normalized;
 }
 
-export default function ListingsIndex({ searchParams }: ListingsPageProps) {
-  const initialParams = normalizeSearchParams(searchParams);
+export default async function ListingsIndex({ searchParams }: ListingsPageProps) {
+  const resolvedParams = await searchParams;
+  const initialParams = normalizeSearchParams(resolvedParams);
   return (
     <main>
       <ListingExplorer initialParams={initialParams} />

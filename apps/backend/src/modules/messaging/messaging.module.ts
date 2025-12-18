@@ -3,13 +3,13 @@ import { HttpModule } from '@nestjs/axios';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
-import { PrismaModule } from '../../prisma/prisma.module.js';
-import { MessagingController } from './messaging.controller.js';
-import { MessagingService } from './messaging.service.js';
-import { MessagingGateway } from './messaging.gateway.js';
-import { MessageModerationService } from './moderation.service.js';
-import { StorageModule } from '../storage/storage.module.js';
-import { CacheService } from '../../common/services/cache.service.js';
+import { PrismaModule } from "../../prisma/prisma.module";
+import { MessagingController } from "./messaging.controller";
+import { MessagingService } from "./messaging.service";
+import { MessagingGateway } from "./messaging.gateway";
+import { MessageModerationService } from "./moderation.service";
+import { StorageModule } from "../storage/storage.module";
+import { CacheService } from "../../common/services/cache.service";
 
 @Module({
   imports: [

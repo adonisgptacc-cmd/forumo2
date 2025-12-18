@@ -1,0 +1,35 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build "--filter=backend"
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: backend
+ÔÇó Running build in 1 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing f3c3d5d536dc7d28
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+backend:build: src/modules/auth/__tests__/auth.service.spec.ts(19,3): error TS2353: Object literal may only specify known properties, and 'emailVerified' does not exist in type '{ id: string; email: string; name: string; role: UserRole; createdAt: Date; updatedAt: Date; phone: string | null; avatarUrl: string | null; kycStatus: KycStatus; ... 4 more ...; lastLoginAt: Date | null; }'.
+backend:build: src/telemetry/tracer.ts(27,5): error TS2322: Type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/node_modules/.pnpm/@opentelemetry+resources@1.30.1_@opentelemetry+api@1.9.0/node_modules/@opentelemetry/resources/build/src/Resource").Resource' is not assignable to type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/node_modules/.pnpm/@opentelemetry+resources@1.0.0_@opentelemetry+api@1.9.0/node_modules/@opentelemetry/resources/build/src/Resource").Resource'.
+backend:build:   Types of property 'attributes' are incompatible.
+backend:build:     Type 'Attributes' is not assignable to type 'ResourceAttributes'.
+backend:build:       'string' index signatures are incompatible.
+backend:build:         Type 'AttributeValue | undefined' is not assignable to type 'string | number | boolean'.
+backend:build:           Type 'undefined' is not assignable to type 'string | number | boolean'.
+backend:build: src/telemetry/tracer.ts(29,7): error TS2322: Type 'Instrumentation<InstrumentationConfig>[]' is not assignable to type 'InstrumentationOption'.
+backend:build:   Type 'Instrumentation<InstrumentationConfig>[]' is not assignable to type '(typeof InstrumentationBase)[]'.
+backend:build:     Property 'prototype' is missing in type 'Instrumentation<InstrumentationConfig>' but required in type 'typeof InstrumentationBase'.
+backend:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 2.
+backend:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (2)
+backend#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (2)
+
+ Tasks:    0 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    13.875s 
+Failed:    backend#build
+
+ ERROR  run failed: command  exited (2)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 2.

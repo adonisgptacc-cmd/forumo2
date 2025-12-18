@@ -1,0 +1,4 @@
+
+> backend@0.1.0 lint C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> eslint 'src/**/*.{ts,tsx}'
+

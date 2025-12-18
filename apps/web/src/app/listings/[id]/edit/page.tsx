@@ -18,8 +18,9 @@ async function fetchListing(id: string): Promise<SafeListing | null> {
   }
 }
 
-export default async function EditListingPage({ params }: { params: { id: string } }) {
-  const listing = await fetchListing(params.id);
+export default async function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const listing = await fetchListing(id);
 
   if (!listing) {
     notFound();
@@ -27,7 +28,7 @@ export default async function EditListingPage({ params }: { params: { id: string
 
   return (
     <main className="space-y-6">
-      <Link className="text-sm text-amber-300" href={`/listings/${params.id}`}>
+      <Link className="text-sm text-amber-300" href={`/listings/${id}`}>
         ← Back to details
       </Link>
       <section className="space-y-2">
@@ -35,7 +36,7 @@ export default async function EditListingPage({ params }: { params: { id: string
         <h1 className="text-3xl font-semibold">Update {listing.title}</h1>
         <p className="text-slate-300">Push changes live, add new variants, or refresh product photography.</p>
       </section>
-      <ListingForm mode="edit" listing={listing} />
+      <ListingForm mode="edit" listing={listing as any} />
     </main>
   );
 }

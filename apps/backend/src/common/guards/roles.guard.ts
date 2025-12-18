@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 import type { UserRole } from '@forumo/shared';
 
 import type { SafeUser } from '@forumo/shared';
-import { ROLES_KEY } from '../decorators/roles.decorator.js';
+import { ROLES_KEY } from "../decorators/roles.decorator";
 
 @Injectable()
 export class RolesGuard implements CanActivate {

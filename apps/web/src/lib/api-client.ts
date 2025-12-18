@@ -130,6 +130,7 @@ function getMockState(): MockState {
       currency: 'USD',
       releaseDate: null,
     },
+    payments: [],
   } as SafeOrder;
   const sampleThread: SafeMessageThread = {
     id: 'thread-sample',
@@ -382,6 +383,7 @@ class MockApiClient {
           currency: listing.currency ?? 'USD',
           releaseDate: null,
         },
+        payments: [],
       } as SafeOrder;
       this.state.orders.unshift(order);
       persistMockState(this.state);
@@ -397,8 +399,14 @@ class MockApiClient {
   };
 
   messaging = {
-    listThreads: async (): Promise<SafeMessageThread[]> => {
-      return this.state.threads;
+    listThreads: async (): Promise<any> => {
+      return {
+        data: this.state.threads,
+        total: this.state.threads.length,
+        page: 1,
+        pageSize: this.state.threads.length,
+        pageCount: 1,
+      };
     },
     getThread: async (id: string): Promise<SafeMessageThread> => {
       const thread = this.state.threads.find((item) => item.id === id);
@@ -435,6 +443,26 @@ class MockApiClient {
       thread.messages.push(message);
       persistMockState(this.state);
       return thread;
+    },
+  };
+
+  reviews = {
+    forListing: async (_listingId: string): Promise<any> => {
+      // Mock empty reviews for now
+      return {
+        rating: 0,
+        count: 0,
+        breakdown: {},
+        recent: [],
+      };
+    },
+    create: async (_payload: any): Promise<any> => {
+      // Mock creation
+      return {
+        id: 'mock-review',
+        rating: 5,
+        text: 'Review content',
+      };
     },
   };
 

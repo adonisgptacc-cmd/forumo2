@@ -1,6 +1,6 @@
 import { ReviewStatus, SellerReviewRollup } from '@prisma/client';
 
-import { SafeUser, sanitizeUser } from '../users/user.serializer.js';
+import { SafeUser, sanitizeUser } from "../users/user.serializer";
 
 export interface SafeReviewFlag {
   id: string;

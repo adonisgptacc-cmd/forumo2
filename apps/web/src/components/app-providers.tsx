@@ -22,7 +22,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={client}>
         {children}
-        <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </SessionProvider>
   );

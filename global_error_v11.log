@@ -1,0 +1,110 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: @forumo/config, @forumo/design-system, @forumo/mobile, @forumo/shared, backend, web
+ÔÇó Running build in 6 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing 3e17e1c89b213ddb
+web:build: cache bypass, force executing 42bf03f46b00547e
+web:build: 
+web:build: > web@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web
+web:build: > next build
+web:build: 
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+web:build:  ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+web:build:  We detected multiple lockfiles and selected the directory of C:\Users\ABADO\package-lock.json as the root directory.
+web:build:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+web:build:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+web:build:  Detected additional lockfiles: 
+web:build:    * C:\Users\ABADO\Desktop\forumo2\forumo2\pnpm-lock.yaml
+web:build: 
+web:build:    Ôû▓ Next.js 15.5.6
+web:build:    - Experiments (use with caution):
+web:build:      Ô£ô optimizeCss
+web:build: 
+web:build:    Creating an optimized production build ...
+web:build:  ÔÜá Compiled with warnings in 3.2s
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/(admin)/admin/kyc/page.tsx
+web:build: 
+web:build:  ÔÜá Compiled with warnings in 1005ms
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build:  Ô£ô Compiled successfully in 4.8s
+web:build:    Linting and checking validity of types ...
+web:build: Failed to compile.
+web:build: 
+web:build: ./src/app/messages/page.tsx:31:13
+web:build: Type error: Argument of type '() => (() => Socket<DefaultEventsMap, DefaultEventsMap>) | undefined' is not assignable to parameter of type 'EffectCallback'.
+web:build:   Type '(() => Socket<DefaultEventsMap, DefaultEventsMap>) | undefined' is not assignable to type 'void | Destructor'.
+web:build:     Type '() => Socket<DefaultEventsMap, DefaultEventsMap>' is not assignable to type 'void | Destructor'.
+web:build:       Type '() => Socket<DefaultEventsMap, DefaultEventsMap>' is not assignable to type 'Destructor'.
+web:build:         Type 'Socket<DefaultEventsMap, DefaultEventsMap>' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+web:build: 
+web:build: [0m [90m 29 |[39m   [36mconst[39m [incoming[33m,[39m setIncoming] [33m=[39m useState[33m<[39m[33mMessage[39m [33m|[39m [36mnull[39m[33m>[39m([36mnull[39m)[33m;[39m
+web:build:  [90m 30 |[39m
+web:build: [31m[1m>[22m[39m[90m 31 |[39m   useEffect(() [33m=>[39m {
+web:build:  [90m    |[39m             [31m[1m^[22m[39m
+web:build:  [90m 32 |[39m     [36mif[39m ([33m![39muser[33m?[39m[33m.[39mid) [36mreturn[39m[33m;[39m
+web:build:  [90m 33 |[39m     [36mconst[39m socket [33m=[39m messaging[33m.[39mconnect(user[33m.[39mid)[33m;[39m
+web:build:  [90m 34 |[39m     socket[33m.[39mon([32m'messages:new'[39m[33m,[39m (payload[33m:[39m { threadId[33m:[39m string[33m;[39m message[33m:[39m [33mMessage[39m }) [33m=>[39m {[0m
+web:build: Next.js build worker exited with code: 1 and signal: null
+web:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.
+web:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+web#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+
+ Tasks:    1 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    20.92s 
+Failed:    web#build
+
+ ERROR  run failed: command  exited (1)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

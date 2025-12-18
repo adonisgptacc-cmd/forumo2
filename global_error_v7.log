@@ -1,0 +1,106 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: @forumo/config, @forumo/design-system, @forumo/mobile, @forumo/shared, backend, web
+ÔÇó Running build in 6 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing 3e17e1c89b213ddb
+web:build: cache bypass, force executing 38b27d4a65bf1d66
+web:build: 
+web:build: > web@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web
+web:build: > next build
+web:build: 
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+web:build:  ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+web:build:  We detected multiple lockfiles and selected the directory of C:\Users\ABADO\package-lock.json as the root directory.
+web:build:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+web:build:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+web:build:  Detected additional lockfiles: 
+web:build:    * C:\Users\ABADO\Desktop\forumo2\forumo2\pnpm-lock.yaml
+web:build: 
+web:build:    Ôû▓ Next.js 15.5.6
+web:build:    - Experiments (use with caution):
+web:build:      Ô£ô optimizeCss
+web:build: 
+web:build:    Creating an optimized production build ...
+web:build:  ÔÜá Compiled with warnings in 3.2s
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/(admin)/admin/disputes/page.tsx
+web:build: 
+web:build:  ÔÜá Compiled with warnings in 1380ms
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build:  Ô£ô Compiled successfully in 5.2s
+web:build:    Linting and checking validity of types ...
+web:build: Failed to compile.
+web:build: 
+web:build: ./src/app/listings/_components/listing-form.tsx:243:83
+web:build: Type error: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"DRAFT" | "PUBLISHED" | "PAUSED">'.
+web:build: 
+web:build: [0m [90m 241 |[39m         [33m<[39m[33mlabel[39m className[33m=[39m[32m"space-y-1 text-sm"[39m[33m>[39m
+web:build:  [90m 242 |[39m           [33m<[39m[33mspan[39m className[33m=[39m[32m"text-slate-300"[39m[33m>[39m[33mStatus[39m[33m<[39m[33m/[39m[33mspan[39m[33m>[39m
+web:build: [31m[1m>[22m[39m[90m 243 |[39m           [33m<[39m[33mselect[39m className[33m=[39m[32m"input"[39m value[33m=[39m{status} onChange[33m=[39m{(event) [33m=>[39m setStatus(event[33m.[39mtarget[33m.[39mvalue)}[33m>[39m
+web:build:  [90m     |[39m                                                                                   [31m[1m^[22m[39m
+web:build:  [90m 244 |[39m             {listingStatuses[33m.[39mmap((statusOption) [33m=>[39m (
+web:build:  [90m 245 |[39m               [33m<[39m[33moption[39m key[33m=[39m{statusOption} value[33m=[39m{statusOption}[33m>[39m
+web:build:  [90m 246 |[39m                 {statusOption}[0m
+web:build: Next.js build worker exited with code: 1 and signal: null
+web:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.
+web:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+web#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+
+ Tasks:    1 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    20.51s 
+Failed:    web#build
+
+ ERROR  run failed: command  exited (1)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

@@ -45,7 +45,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <Link
                 key={item.href}
                 className="flex items-center justify-between rounded-lg border border-transparent px-3 py-2 text-slate-200 transition hover:border-amber-400 hover:bg-amber-400/5"
-                href={item.href}
+                href={item.href as any}
               >
                 <span>{item.label}</span>
                 <span aria-hidden className="text-xs text-slate-500">

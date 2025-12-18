@@ -1,0 +1,46 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build "--filter=web"
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: web
+ÔÇó Running build in 1 packages
+ÔÇó Remote caching disabled
+web:build: cache bypass, force executing 9034945b9cfb8388
+web:build: 
+web:build: > web@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web
+web:build: > next build
+web:build: 
+web:build:  ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+web:build:  We detected multiple lockfiles and selected the directory of C:\Users\ABADO\package-lock.json as the root directory.
+web:build:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+web:build:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+web:build:  Detected additional lockfiles: 
+web:build:    * C:\Users\ABADO\Desktop\forumo2\forumo2\pnpm-lock.yaml
+web:build: 
+web:build:    Ôû▓ Next.js 15.5.6
+web:build:    - Experiments (use with caution):
+web:build:      Ô£ô optimizeCss
+web:build: 
+web:build:    Creating an optimized production build ...
+web:build: Failed to compile.
+web:build: 
+web:build: ./src/app/orders/page.tsx
+web:build: Module not found: Can't resolve '../../lib/format-currency'
+web:build: 
+web:build: https://nextjs.org/docs/messages/module-not-found
+web:build: 
+web:build: 
+web:build: > Build failed because of webpack errors
+web:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.
+web:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+web#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+
+ Tasks:    0 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    10.055s 
+Failed:    web#build
+
+ ERROR  run failed: command  exited (1)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

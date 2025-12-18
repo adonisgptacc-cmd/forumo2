@@ -5,12 +5,12 @@ import { MessageModerationStatus, MessageParticipantRole, MessageStatus } from '
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { StorageService } from '../storage/storage.service.js';
-import { MessagingModule } from './messaging.module.js';
-import { MessagingGateway } from './messaging.gateway.js';
-import { MessageModerationService } from './moderation.service.js';
-import { MessagingService } from './messaging.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
+import { MessagingModule } from "./messaging.module";
+import { MessagingGateway } from "./messaging.gateway";
+import { MessageModerationService } from "./moderation.service";
+import { MessagingService } from "./messaging.service";
 
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';

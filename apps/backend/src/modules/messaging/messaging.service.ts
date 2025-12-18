@@ -3,15 +3,15 @@ import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef 
 import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { StorageService } from '../storage/storage.service.js';
-import { CreateThreadDto } from './dto/create-thread.dto.js';
-import { SendMessageDto } from './dto/send-message.dto.js';
-import { ThreadQueryDto } from './dto/thread-query.dto.js';
-import { MessageThreadWithRelations, SafeMessageThread, serializeThread } from './message.serializer.js';
-import { MessagingGateway } from './messaging.gateway.js';
-import { MessageModerationService } from './moderation.service.js';
-import { CacheService } from '../../common/services/cache.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
+import { CreateThreadDto } from "./dto/create-thread.dto";
+import { SendMessageDto } from "./dto/send-message.dto";
+import { ThreadQueryDto } from "./dto/thread-query.dto";
+import { MessageThreadWithRelations, SafeMessageThread, serializeThread } from "./message.serializer";
+import { MessagingGateway } from "./messaging.gateway";
+import { MessageModerationService } from "./moderation.service";
+import { CacheService } from "../../common/services/cache.service";
 
 interface AttachmentInput {
   bucket: string;

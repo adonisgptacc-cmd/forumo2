@@ -1,0 +1,19 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build "--filter=backend"
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: backend
+ÔÇó Running build in 1 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing 3e17e1c89b213ddb
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+
+ Tasks:    1 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    7.309s 
+

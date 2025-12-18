@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               className="rounded-full border border-slate-700 px-4 py-1 text-slate-300 hover:border-amber-400"
-              href={item.href}
+              href={item.href as any}
             >
               {item.label}
             </Link>

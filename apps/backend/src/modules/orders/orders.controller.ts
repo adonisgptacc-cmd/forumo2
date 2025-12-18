@@ -1,10 +1,10 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 
-import { CreateOrderDto } from './dto/create-order.dto.js';
-import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
-import { SafeOrder } from './order.serializer.js';
-import { OrdersService } from './orders.service.js';
+import { CreateOrderDto } from "./dto/create-order.dto";
+import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
+import { SafeOrder } from "./order.serializer";
+import { OrdersService } from "./orders.service";
 
 @Controller('orders')
 export class OrdersController {

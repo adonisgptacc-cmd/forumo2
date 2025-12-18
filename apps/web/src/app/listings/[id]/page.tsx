@@ -1,6 +1,6 @@
 import { ListingDetail } from './listing-detail';
 
-type ListingRouteParams = Promise<{ id: string }> | { id: string };
+type ListingRouteParams = Promise<{ id: string }>;
 
 export default async function ListingDetailPage({ params }: { params: ListingRouteParams }) {
   const resolvedParams = await params;

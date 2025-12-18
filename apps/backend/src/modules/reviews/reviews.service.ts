@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ReviewStatus } from '@prisma/client';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateReviewDto, UpdateReviewDto } from './dto/create-review.dto.js';
-import { ReviewModerationService } from './moderation.service.js';
-import { ListingReviewResponse, ReviewRollup, SafeReview, serializeReview, serializeRollup } from './review.serializer.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { CreateReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
+import { ReviewModerationService } from "./moderation.service";
+import { ListingReviewResponse, ReviewRollup, SafeReview, serializeReview, serializeRollup } from "./review.serializer";
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService, private readonly moderation: ReviewModerationService) {}
+  constructor(private readonly prisma: PrismaService, private readonly moderation: ReviewModerationService) { }
 
   async listForListing(listingId: string): Promise<ListingReviewResponse> {
     const listing = await this.prisma.listing.findFirst({ where: { id: listingId, deletedAt: null } });
@@ -113,7 +113,7 @@ export class ReviewsService {
           comment: dto.comment ?? existing.comment,
           status,
           moderationNotes: moderation.notes ?? existing.moderationNotes,
-          metadata: this.buildMetadata(dto.metadata) ?? existing.metadata,
+          metadata: (this.buildMetadata(dto.metadata) ?? existing.metadata) as any,
         },
         include: { reviewer: true },
       });
@@ -166,7 +166,7 @@ export class ReviewsService {
   }
 
   private async ensureOrder(orderId: string, buyerId: string, sellerId: string, listingId: string): Promise<void> {
-    const order = await this.prisma.order.findFirst({ where: { id: orderId, buyerId, sellerId, listingId } });
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, buyerId, sellerId, items: { some: { listingId } } } });
     if (!order) {
       throw new BadRequestException('Order not found for reviewer and seller');
     }

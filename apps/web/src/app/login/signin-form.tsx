@@ -46,7 +46,7 @@ export function LoginForm() {
       if (!result?.ok && !result?.url) {
         throw new Error('Authentication failed. Please try again.');
       }
-      router.push(result?.url ?? callbackUrl);
+      router.push((result?.url ?? callbackUrl) as any);
       router.refresh();
     } catch (err) {
       try {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
 
 interface AuditInput {
   actorId?: string | null;
@@ -14,7 +14,7 @@ interface AuditInput {
 
 @Injectable()
 export class AuditLogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async record(event: AuditInput) {
     await this.prisma.auditLog.create({
@@ -23,7 +23,7 @@ export class AuditLogService {
         action: event.action,
         entityType: event.entityType,
         entityId: event.entityId ?? null,
-        payload: event.payload ?? null,
+        payload: (event.payload ?? null) as any,
         ipAddress: event.ipAddress ?? null,
         userAgent: event.userAgent ?? null,
       },

@@ -51,7 +51,7 @@ export function SignupForm() {
       if (signInResult?.error) {
         throw new Error(signInResult.error);
       }
-      router.push('/app');
+      router.push('/app' as any);
       router.refresh();
     } catch (err) {
       try {

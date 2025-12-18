@@ -1,0 +1,53 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env", "**/.env.local"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "build/**"],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:backend": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:web": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:mobile": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
+    "test:e2e": {
+      "cache": false
+    },
+    "lint": {
+      "outputs": []
+    },
+    "typecheck": {
+      "cache": false
+    },
+    "migrate": {
+      "cache": false
+    },
+    "seed": {
+      "cache": false
+    },
+    "studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "prisma:generate": {
+      "cache": false
+    }
+  }
+}

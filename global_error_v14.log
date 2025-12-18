@@ -1,0 +1,107 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: @forumo/config, @forumo/design-system, @forumo/mobile, @forumo/shared, backend, web
+ÔÇó Running build in 6 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing 3e17e1c89b213ddb
+web:build: cache bypass, force executing ca43d751abfac6c7
+web:build: 
+web:build: > web@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web
+web:build: > next build
+web:build: 
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+web:build:  ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+web:build:  We detected multiple lockfiles and selected the directory of C:\Users\ABADO\package-lock.json as the root directory.
+web:build:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+web:build:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+web:build:  Detected additional lockfiles: 
+web:build:    * C:\Users\ABADO\Desktop\forumo2\forumo2\pnpm-lock.yaml
+web:build: 
+web:build:    Ôû▓ Next.js 15.5.6
+web:build:    - Experiments (use with caution):
+web:build:      Ô£ô optimizeCss
+web:build: 
+web:build:    Creating an optimized production build ...
+web:build:  ÔÜá Compiled with warnings in 3.4s
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/(admin)/admin/disputes/page.tsx
+web:build: 
+web:build:  ÔÜá Compiled with warnings in 1384ms
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build:  Ô£ô Compiled successfully in 5.5s
+web:build:    Linting and checking validity of types ...
+web:build: Failed to compile.
+web:build: 
+web:build: ./src/lib/messaging-layer.ts:22:5
+web:build: Type error: Type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/types").PaginatedResponse<{ id: string; createdAt: string; participants: { id: string; role: "ADMIN" | "BUYER" | "SELLER" | "SYSTEM"; userId: string; threadId: string; }[]; messages: { id: string; createdAt: string; status: "DELIVERED" | ... 2 more ....' is not assignable to type 'import("C:/Users/ABADO/Desktop/forumo2/forumo2/packages/shared/src/types").PaginatedResponse<{ id: string; createdAt: string; participants: { id: string; role: "ADMIN" | "BUYER" | "SELLER" | "SYSTEM"; userId: string; threadId: string; }[]; messages: { id: string; createdAt: string; status: "DELIVERED" | ... 2 more ....'. Two different types with this name exist, but they are unrelated.
+web:build:   Type '{ id: string; createdAt: string; participants: { id: string; role: "ADMIN" | "BUYER" | "SELLER" | "SYSTEM"; userId: string; threadId: string; }[]; messages: { id: string; createdAt: string; status: "DELIVERED" | ... 2 more ... | "DELETED"; ... 7 more ...; moderationNotes?: string | ... 1 more ... | undefined; }[]; l...' is missing the following properties from type 'PaginatedResponse<{ id: string; createdAt: string; participants: { id: string; role: "ADMIN" | "BUYER" | "SELLER" | "SYSTEM"; userId: string; threadId: string; }[]; messages: { id: string; createdAt: string; status: "DELIVERED" | ... 2 more ... | "DELETED"; ... 7 more ...; moderationNotes?: string | ... 1 more ... |...': data, total, page, pageSize, pageCount
+web:build: 
+web:build: [0m [90m 20 |[39m     params[33m:[39m { userId[33m?[39m[33m:[39m string[33m;[39m listingId[33m?[39m[33m:[39m string[33m;[39m page[33m?[39m[33m:[39m number[33m;[39m pageSize[33m?[39m[33m:[39m number } [33m=[39m {}[33m,[39m
+web:build:  [90m 21 |[39m   )[33m:[39m [33mPromise[39m[33m<[39m[33mPaginatedResponse[39m[33m<[39m[33mSafeMessageThread[39m[33m>>[39m {
+web:build: [31m[1m>[22m[39m[90m 22 |[39m     [36mreturn[39m [36mthis[39m[33m.[39mapiClient[33m.[39mmessaging[33m.[39mlistThreads(params)[33m;[39m
+web:build:  [90m    |[39m     [31m[1m^[22m[39m
+web:build:  [90m 23 |[39m   }
+web:build:  [90m 24 |[39m
+web:build:  [90m 25 |[39m   [36masync[39m getThread(id[33m:[39m string)[33m:[39m [33mPromise[39m[33m<[39m[33mSafeMessageThread[39m[33m>[39m {[0m
+web:build: Next.js build worker exited with code: 1 and signal: null
+web:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.
+web:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+web#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+
+ Tasks:    1 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    23.108s 
+Failed:    web#build
+
+ ERROR  run failed: command  exited (1)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

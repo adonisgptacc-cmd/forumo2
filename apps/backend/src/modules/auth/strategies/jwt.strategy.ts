@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-import { UsersService } from '../../users/users.service.js';
-import { SafeUser } from '../../users/user.serializer.js';
+import { UsersService } from "../../users/users.service";
+import { SafeUser } from "../../users/user.serializer";
 
 export interface JwtPayload {
   sub: string;

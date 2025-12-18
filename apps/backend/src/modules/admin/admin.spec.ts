@@ -2,9 +2,9 @@ import { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { AdminModule } from './admin.module.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AdminModule } from "./admin.module";
 
 class StubAuthGuard implements CanActivate {
   constructor(private readonly role: string) {}

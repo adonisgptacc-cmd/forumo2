@@ -4,7 +4,8 @@ export const runtime = 'nodejs';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const formData = await req.formData();
     const file = formData.get('file');
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ message: 'Image file is required' }, { status: 400 });
     }
 
-    const res = await fetch(`${API_BASE_URL}/listings/${params.id}/images`, {
+    const res = await fetch(`${API_BASE_URL}/listings/${id}/images`, {
       method: 'POST',
       body: formData,
     });

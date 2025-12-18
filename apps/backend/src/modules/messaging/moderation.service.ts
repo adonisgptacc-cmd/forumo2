@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MessageModerationStatus } from '@prisma/client';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom } from "rxjs";
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
 interface ModerationAttachmentPayload {

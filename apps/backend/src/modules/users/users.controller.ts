@@ -1,16 +1,16 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { Roles } from '../../common/decorators/roles.decorator.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
 import type { SafeUser } from '@forumo/shared';
 
 import {
   CreateTrustSeedDto,
   UpdateProfileDto,
   UpdateUserDto,
-} from '../../common/dtos/users.dto.js';
-import { UsersService, UserProfileResponse } from './users.service.js';
+} from "../../common/dtos/users.dto";
+import { UsersService, UserProfileResponse } from "./users.service";
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)

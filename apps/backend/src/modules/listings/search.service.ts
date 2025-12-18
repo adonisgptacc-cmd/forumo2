@@ -2,10 +2,10 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { listingDefaultInclude } from './listings.prisma.js';
-import { ListingWithRelations, SafeListing, serializeListing } from './listing.serializer.js';
-import { CacheService } from '../../common/services/cache.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { listingDefaultInclude } from "./listings.prisma";
+import { ListingWithRelations, SafeListing, serializeListing } from "./listing.serializer";
+import { CacheService } from "../../common/services/cache.service";
 
 export type ListingSearchSort =
   | 'relevance'

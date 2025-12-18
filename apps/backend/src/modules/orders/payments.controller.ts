@@ -4,10 +4,10 @@ import { OrderStatus } from '@prisma/client';
 import type { Request } from 'express';
 import Stripe from 'stripe';
 
-import { OrdersService } from './orders.service.js';
-import { PaymentsService } from './payments.service.js';
-import { RateLimitService } from '../../common/services/rate-limit.service.js';
-import { AuditLogService } from '../observability/audit-log.service.js';
+import { OrdersService } from "./orders.service";
+import { PaymentsService } from "./payments.service";
+import { RateLimitService } from "../../common/services/rate-limit.service";
+import { AuditLogService } from "../observability/audit-log.service";
 
 interface StripeIntentPayload {
   id: string;

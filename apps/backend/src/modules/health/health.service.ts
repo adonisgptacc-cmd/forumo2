@@ -2,8 +2,8 @@ import { performance } from 'node:perf_hooks';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import IORedis from 'ioredis';
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { ModerationQueueService } from '../listings/moderation-queue.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { ModerationQueueService } from "../listings/moderation-queue.service";
 
 @Injectable()
 export class HealthService {

@@ -6,11 +6,11 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 
-import { PrismaService } from '../../../prisma/prisma.service.js';
-import { AuthModule } from '../auth.module.js';
-import { AuthService } from '../auth.service.js';
-import { OtpDeliveryService } from '../otp-delivery.service.js';
-import { RequestOtpDto } from '../dto/request-otp.dto.js';
+import { PrismaService } from "../../../prisma/prisma.service";
+import { AuthModule } from "../auth.module";
+import { AuthService } from "../auth.service";
+import { OtpDeliveryService } from "../otp-delivery.service";
+import { RequestOtpDto } from "../dto/request-otp.dto";
 
 class FakeConfigService {
   private readonly values: Record<string, string> = {

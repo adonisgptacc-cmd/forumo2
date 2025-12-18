@@ -1,8 +1,8 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 
-import { CreateReviewDto, UpdateReviewDto } from './dto/create-review.dto.js';
-import { ListingReviewResponse, ReviewRollup, SafeReview } from './review.serializer.js';
-import { ReviewsService } from './reviews.service.js';
+import { CreateReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
+import { ListingReviewResponse, ReviewRollup, SafeReview } from "./review.serializer";
+import { ReviewsService } from "./reviews.service";
 
 @Controller('reviews')
 export class ReviewsController {

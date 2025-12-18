@@ -1,0 +1,107 @@
+
+> forumo@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2
+> turbo run build
+
+turbo 2.6.1
+
+ÔÇó Packages in scope: @forumo/config, @forumo/design-system, @forumo/mobile, @forumo/shared, backend, web
+ÔÇó Running build in 6 packages
+ÔÇó Remote caching disabled
+backend:build: cache bypass, force executing 3e17e1c89b213ddb
+web:build: cache bypass, force executing 6b21573b728aac3f
+web:build: 
+web:build: > web@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web
+web:build: > next build
+web:build: 
+backend:build: 
+backend:build: > backend@0.1.0 build C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+backend:build: > tsc -p tsconfig.build.json
+backend:build: 
+web:build:  ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+web:build:  We detected multiple lockfiles and selected the directory of C:\Users\ABADO\package-lock.json as the root directory.
+web:build:  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+web:build:    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+web:build:  Detected additional lockfiles: 
+web:build:    * C:\Users\ABADO\Desktop\forumo2\forumo2\pnpm-lock.yaml
+web:build: 
+web:build:    Ôû▓ Next.js 15.5.6
+web:build:    - Experiments (use with caution):
+web:build:      Ô£ô optimizeCss
+web:build: 
+web:build:    Creating an optimized production build ...
+web:build:  ÔÜá Compiled with warnings in 4.1s
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/(admin)/admin/disputes/page.tsx
+web:build: 
+web:build:  ÔÜá Compiled with warnings in 1303ms
+web:build: 
+web:build: ./src/app/login/signin-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/login/signin-form.tsx
+web:build: 
+web:build: ./src/app/signup/signup-form.tsx
+web:build: Attempted import error: 'ApiError' is not exported from '@forumo/shared' (imported as 'ApiError').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/app/signup/signup-form.tsx
+web:build: 
+web:build: ./src/lib/api-client.ts
+web:build: Attempted import error: 'ForumoApiClient' is not exported from '@forumo/shared' (imported as 'ForumoApiClient').
+web:build: 
+web:build: Import trace for requested module:
+web:build: ./src/lib/api-client.ts
+web:build: ./src/app/orders/page.tsx
+web:build: 
+web:build:  Ô£ô Compiled successfully in 6.2s
+web:build:    Linting and checking validity of types ...
+web:build: Failed to compile.
+web:build: 
+web:build: ./src/lib/react-query/hooks.ts:73:59
+web:build: Type error: Property 'create' does not exist on type '{ forListing: (_listingId: string) => Promise<any>; } | { forListing: (listingId: string) => Promise<{ reviews: { id: string; listingId: string; createdAt: string; updatedAt: string; status: "PUBLISHED" | ... 1 more ... | "REJECTED"; ... 7 more ...; reviewer?: { ...; } | ... 1 more ... | undefined; }[]; rollup: { .....'.
+web:build:   Property 'create' does not exist on type '{ forListing: (_listingId: string) => Promise<any>; }'.
+web:build: 
+web:build: [0m [90m 71 |[39m
+web:build:  [90m 72 |[39m   [36mconst[39m createReview [33m=[39m useMutation({
+web:build: [31m[1m>[22m[39m[90m 73 |[39m     mutationFn[33m:[39m (payload[33m:[39m [33mCreateReviewDto[39m) [33m=>[39m api[33m.[39mreviews[33m.[39mcreate(payload)[33m,[39m
+web:build:  [90m    |[39m                                                           [31m[1m^[22m[39m
+web:build:  [90m 74 |[39m     onSuccess[33m:[39m (review) [33m=>[39m {
+web:build:  [90m 75 |[39m       client[33m.[39minvalidateQueries({ queryKey[33m:[39m queryKeys[33m.[39mlistingReviews(review[33m.[39mlistingId) })[33m;[39m
+web:build:  [90m 76 |[39m       client[33m.[39minvalidateQueries({ queryKey[33m:[39m queryKeys[33m.[39msellerReviewRollup(review[33m.[39mrecipientId) })[33m;[39m[0m
+web:build: Next.js build worker exited with code: 1 and signal: null
+web:build: ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.
+web:build: ERROR: command finished with error: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+web#build: command (C:\Users\ABADO\Desktop\forumo2\forumo2\apps\web) C:\Users\ABADO\AppData\Local\pnpm\.tools\@pnpm+win-x64\9.1.4\bin\pnpm.CMD run build exited (1)
+
+ Tasks:    1 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    26.649s 
+Failed:    web#build
+
+ ERROR  run failed: command  exited (1)
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

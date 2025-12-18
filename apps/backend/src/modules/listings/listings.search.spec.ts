@@ -1,6 +1,6 @@
 import { ListingModerationStatus, ListingStatus } from '@prisma/client';
 
-import { ListingSearchService } from './search.service.js';
+import { ListingSearchService } from "./search.service";
 
 const listingA = {
   id: 'listing-a',

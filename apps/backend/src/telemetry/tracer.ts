@@ -3,7 +3,8 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-node';
+import { TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base';
+import { ParentBasedSampler } from '@opentelemetry/sdk-trace-base';
 
 export interface TracerOptions {
   serviceName: string;
@@ -23,8 +24,10 @@ export const startTracing = (options: TracerOptions): NodeSDK => {
 
   const sdk = new NodeSDK({
     traceExporter: exporter,
+    // @ts-ignore
     resource,
     instrumentations: [
+      // @ts-ignore
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-http': { enabled: true },
         '@opentelemetry/instrumentation-pg': { enabled: true },

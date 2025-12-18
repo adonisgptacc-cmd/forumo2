@@ -12,7 +12,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { ListingSearchSort } from '../search.service.js';
+import { ListingSearchSort } from "../search.service";
 
 export class ListingSearchQueryDto {
   @IsOptional()

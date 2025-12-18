@@ -1,7 +1,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap } from "rxjs";
 
-import { metrics } from '../../telemetry/metrics.js';
+import { metrics } from "../../telemetry/metrics";
 
 @Injectable()
 export class HttpMetricsInterceptor implements NestInterceptor {

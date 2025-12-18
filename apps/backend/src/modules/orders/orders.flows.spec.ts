@@ -14,8 +14,8 @@ import {
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { OrdersModule } from './orders.module.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { OrdersModule } from "./orders.module";
 
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';

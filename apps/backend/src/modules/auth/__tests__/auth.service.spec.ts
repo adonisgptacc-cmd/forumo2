@@ -3,13 +3,13 @@ import { JwtService } from '@nestjs/jwt';
 import { NotificationChannel, OtpPurpose, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
-import { PrismaService } from '../../../prisma/prisma.service.js';
-import { AuthService } from '../auth.service.js';
-import { RequestOtpDto } from '../dto/request-otp.dto.js';
-import { VerifyOtpDto } from '../dto/verify-otp.dto.js';
-import { UsersService } from '../../users/users.service.js';
-import { OtpDeliveryService } from '../otp-delivery.service.js';
-import { RateLimitService } from '../../../common/services/rate-limit.service.js';
+import { PrismaService } from "../../../prisma/prisma.service";
+import { AuthService } from "../auth.service";
+import { RequestOtpDto } from "../dto/request-otp.dto";
+import { VerifyOtpDto } from "../dto/verify-otp.dto";
+import { UsersService } from "../../users/users.service";
+import { OtpDeliveryService } from "../otp-delivery.service";
+import { RateLimitService } from "../../../common/services/rate-limit.service";
 
 const createUser = (): User => ({
   id: 'user-1',

@@ -13,7 +13,7 @@ import {
 
 import { MessageParticipantRole } from '@prisma/client';
 
-import { SendMessageDto } from './send-message.dto.js';
+import { SendMessageDto } from "./send-message.dto";
 
 export class ThreadParticipantDto {
   @IsUUID()

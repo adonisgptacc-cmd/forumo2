@@ -1,6 +1,6 @@
 import { ReviewStatus } from '@prisma/client';
 
-import { ReviewModerationService } from './moderation.service.js';
+import { ReviewModerationService } from "./moderation.service";
 
 describe('ReviewModerationService', () => {
   const service = new ReviewModerationService();

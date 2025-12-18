@@ -36,7 +36,9 @@ function MessagesInbox() {
       messaging.emitDelivered(socket, payload.message.id);
       refetch();
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [messaging, refetch, user?.id]);
 
   if (isLoading) {
@@ -70,21 +72,21 @@ function MessagesInbox() {
               const lastMessage = thread.messages.at(-1);
               const flagged = lastMessage?.moderationStatus === 'FLAGGED' || lastMessage?.metadata?.flagged;
               return (
-              <li key={thread.id} className="grid-card space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{thread.subject ?? 'Conversation'}</p>
-                    <p className="text-sm text-slate-400">{thread.participants.length} participants</p>
+                <li key={thread.id} className="grid-card space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{thread.subject ?? 'Conversation'}</p>
+                      <p className="text-sm text-slate-400">{thread.participants.length} participants</p>
+                    </div>
+                    {flagged ? <ModerationBadge status="FLAGGED" /> : null}
                   </div>
-                  {flagged ? <ModerationBadge status="FLAGGED" /> : null}
-                </div>
-                <p className="text-sm text-slate-200">{lastMessage?.body ?? 'No messages yet.'}</p>
-                <Link className="text-sm text-amber-300" href={`/messages/${thread.id}`}>
-                  Open thread →
-                </Link>
-              </li>
-            );
-          })}
+                  <p className="text-sm text-slate-200">{lastMessage?.body ?? 'No messages yet.'}</p>
+                  <Link className="text-sm text-amber-300" href={`/messages/${thread.id}`}>
+                    Open thread →
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
           <div className="flex items-center justify-between text-sm text-slate-500">
             <p>

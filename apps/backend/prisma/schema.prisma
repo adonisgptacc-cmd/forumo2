@@ -193,19 +193,16 @@ model User {
   name           String
   email          String          @unique
   passwordHash   String
-  emailVerified  Boolean         @default(false)
-  twoFactorEnabled Boolean       @default(false)
   phone          String?
   avatarUrl      String?
   role           UserRole        @default(BUYER)
-  accountStatus  AccountStatus   @default(ACTIVE)
   trustScore     Int             @default(0)
   kycStatus      KycStatus       @default(PENDING)
-  tokenVersion   Int             @default(0)
-  lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
+  tokenVersion   Int             @default(0)
+  lastLoginAt    DateTime?
   profile        UserProfile?
   otpCodes       OtpCode[]
   deviceSessions DeviceSession[]

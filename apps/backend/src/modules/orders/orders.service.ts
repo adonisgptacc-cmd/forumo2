@@ -10,12 +10,12 @@ import {
   Prisma,
 } from '@prisma/client';
 
-import type { CreateOrderDto as CreateOrderInput } from './dto/create-order.dto.js';
-import type { UpdateOrderStatusDto as UpdateOrderStatusInput } from './dto/update-order-status.dto.js';
-import { OrderWithRelations, SafeOrder, serializeOrder } from './order.serializer.js';
+import type { CreateOrderDto as CreateOrderInput } from "./dto/create-order.dto";
+import type { UpdateOrderStatusDto as UpdateOrderStatusInput } from "./dto/update-order-status.dto";
+import { OrderWithRelations, SafeOrder, serializeOrder } from "./order.serializer";
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { PaymentsService } from './payments.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { PaymentsService } from "./payments.service";
 
 @Injectable()
 export class OrdersService {

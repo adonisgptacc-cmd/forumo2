@@ -12,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { CreateListingVariantDto } from './create-listing.dto.js';
+import { CreateListingVariantDto } from "./create-listing.dto";
 
 export class UpdateListingDto {
   @IsOptional()

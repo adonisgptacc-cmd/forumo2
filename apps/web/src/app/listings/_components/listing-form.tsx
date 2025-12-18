@@ -192,7 +192,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       }
 
       setMessage({ success: true, message: 'Listing saved! Redirecting…' });
-      router.push(`/listings/${savedListing.id}`);
+      router.push(`/listings/${savedListing.id}` as any);
       router.refresh();
     } catch (error) {
       const err = error as Error;
@@ -217,9 +217,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       {message ? (
         <div
-          className={`rounded-md border p-3 text-sm ${
-            message.success ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-red-500/40 bg-red-500/10 text-red-200'
-          }`}
+          className={`rounded-md border p-3 text-sm ${message.success ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-red-500/40 bg-red-500/10 text-red-200'
+            }`}
         >
           {message.message}
         </div>
@@ -240,7 +239,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-300">Status</span>
-          <select className="input" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <select className="input" value={status} onChange={(event) => setStatus(event.target.value as any)}>
             {listingStatuses.map((statusOption) => (
               <option key={statusOption} value={statusOption}>
                 {statusOption}

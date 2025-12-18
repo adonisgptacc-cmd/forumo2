@@ -13,13 +13,13 @@ import {
   RequestOtpDto as RequestOtpInput,
   RequestPasswordResetDto as RequestPasswordResetInput,
   VerifyOtpDto as VerifyOtpInput,
-} from '../../common/dtos/auth.dto.js';
-import { SafeUser, sanitizeUser } from '../users/user.serializer.js';
+} from "../../common/dtos/auth.dto";
+import { SafeUser, sanitizeUser } from "../users/user.serializer";
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { RateLimitService } from '../../common/services/rate-limit.service.js';
-import { UsersService } from '../users/users.service.js';
-import { OtpDeliveryService } from './otp-delivery.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { RateLimitService } from "../../common/services/rate-limit.service";
+import { UsersService } from "../users/users.service";
+import { OtpDeliveryService } from "./otp-delivery.service";
 
 interface OtpIssueResponse {
   message: string;

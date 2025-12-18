@@ -4,7 +4,7 @@ import { NotificationChannel, User } from '@prisma/client';
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { randomUUID } from 'crypto';
 
-import { RequestOtpDto } from './dto/request-otp.dto.js';
+import { RequestOtpDto } from "./dto/request-otp.dto";
 
 export interface OtpDeliveryResult {
   channel: NotificationChannel;

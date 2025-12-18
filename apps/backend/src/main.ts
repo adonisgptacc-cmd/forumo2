@@ -1,10 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe, cleanupOpenApiDoc } from 'nestjs-zod';
-import { AppModule } from './modules/app.module.js';
+import { AppModule } from './modules/app.module';
 import { ConfigService } from '@nestjs/config';
-import { startTracing } from './telemetry/tracer.js';
-import { TelemetryLogger } from './telemetry/logger.js';
+import { startTracing } from './telemetry/tracer';
+import { TelemetryLogger } from './telemetry/logger';
 
 async function bootstrap() {
   const logger = new TelemetryLogger();
@@ -13,13 +13,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ZodValidationPipe());
 
-  const otlpEndpoint = configService.get<string>('OTEL_EXPORTER_OTLP_ENDPOINT');
-  const telemetry = startTracing({
-    serviceName: 'forumo-backend',
-    environment: configService.get<string>('NODE_ENV') ?? 'development',
-    endpoint: otlpEndpoint,
-    samplingRatio: (configService.get<string>('NODE_ENV') ?? 'development') === 'development' ? 1 : 0.1,
-  });
+  // Skip telemetry initialization for now - it has version compatibility issues
+  // const otlpEndpoint = configService.get<string>('OTEL_EXPORTER_OTLP_ENDPOINT');
+  // const telemetry = startTracing({
+  //   serviceName: 'forumo-backend',
+  //   environment: configService.get<string>('NODE_ENV') ?? 'development',
+  //   endpoint: otlpEndpoint,
+  //   samplingRatio: (configService.get<string>('NODE_ENV') ?? 'development') === 'development' ? 1 : 0.1,
+  // });
 
   const config = new DocumentBuilder()
     .setTitle('Forumo API')
@@ -31,10 +32,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, cleanupOpenApiDoc(document));
 
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 4000;
+  const server = await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Backend listening on http://0.0.0.0:${port}`);
+  console.log(`📚 API Docs available at http://localhost:${port}/docs`);
 
   const shutdown = async () => {
-    await telemetry.shutdown().catch(() => undefined);
+    // await telemetry.shutdown().catch(() => undefined);
     await app.close();
   };
 
@@ -42,4 +46,7 @@ async function bootstrap() {
   process.on('SIGTERM', shutdown);
 }
 
-bootstrap();
+bootstrap().catch(err => {
+  console.error('Failed to bootstrap application:', err);
+  process.exit(1);
+});

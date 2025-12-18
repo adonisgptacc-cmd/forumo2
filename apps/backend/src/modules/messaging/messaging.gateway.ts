@@ -10,8 +10,8 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 
-import { SafeMessageThread } from './message.serializer.js';
-import { MessagingService } from './messaging.service.js';
+import { SafeMessageThread } from "./message.serializer";
+import { MessagingService } from "./messaging.service";
 
 interface MessageAckPayload {
   messageId: string;

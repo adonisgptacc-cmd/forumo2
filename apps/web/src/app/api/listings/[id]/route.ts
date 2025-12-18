@@ -26,6 +26,7 @@ async function forwardJson(req: NextRequest, endpoint: string, method: 'PATCH') 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  return forwardJson(req, `${API_BASE_URL}/listings/${params.id}`, 'PATCH');
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return forwardJson(req, `${API_BASE_URL}/listings/${id}`, 'PATCH');
 }

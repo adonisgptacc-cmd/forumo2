@@ -7,7 +7,7 @@ import { Job, Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
 
 interface ModerationJobPayload {
   listingId: string;
@@ -52,7 +52,7 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly serviceUrl: string;
   private readonly requestTimeoutMs: number;
   private readonly queueName = 'listing-moderation';
-  private readonly dlqName = 'listing-moderation:dlq';
+  private readonly dlqName = 'listing-moderation-dlq';
   private readonly maxAttempts: number;
   private readonly backoffDelayMs: number;
   private readonly concurrency: number;
@@ -96,7 +96,9 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async initializeQueues(): Promise<void> {
     const redisUrl = this.configService.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
-    this.connection = new IORedis(redisUrl);
+    this.connection = new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+    });
     this.queue = new Queue(this.queueName, {
       connection: this.connection,
       defaultJobOptions: {

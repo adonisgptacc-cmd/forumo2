@@ -2,16 +2,16 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
-import { PrismaModule } from '../../prisma/prisma.module.js';
-import { UsersModule } from '../users/users.module.js';
-import { AuthController } from './auth.controller.js';
-import { AuthService } from './auth.service.js';
-import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
-import { JwtStrategy } from './strategies/jwt.strategy.js';
-import { OtpDeliveryService } from './otp-delivery.service.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
-import { RateLimitService } from '../../common/services/rate-limit.service.js';
-import { ObservabilityModule } from '../observability/observability.module.js';
+import { PrismaModule } from "../../prisma/prisma.module";
+import { UsersModule } from "../users/users.module";
+import { AuthController } from "./auth.controller";
+import { AuthService } from "./auth.service";
+import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { JwtStrategy } from "./strategies/jwt.strategy";
+import { OtpDeliveryService } from "./otp-delivery.service";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { RateLimitService } from "../../common/services/rate-limit.service";
+import { ObservabilityModule } from "../observability/observability.module";
 
 @Module({
   imports: [

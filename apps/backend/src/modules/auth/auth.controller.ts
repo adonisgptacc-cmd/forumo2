@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
-import { AuthService } from './auth.service.js';
+import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { AuthService } from "./auth.service";
 import {
   LoginDto,
   PasswordResetConfirmDto,
@@ -10,11 +10,11 @@ import {
   RequestOtpDto,
   RequestPasswordResetDto,
   VerifyOtpDto,
-} from '../../common/dtos/auth.dto.js';
-import { Roles } from '../../common/decorators/roles.decorator.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
-import { RateLimitService } from '../../common/services/rate-limit.service.js';
-import { AuditLogService } from '../observability/audit-log.service.js';
+} from "../../common/dtos/auth.dto";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { RateLimitService } from "../../common/services/rate-limit.service";
+import { AuditLogService } from "../observability/audit-log.service";
 
 @Controller('auth')
 export class AuthController {

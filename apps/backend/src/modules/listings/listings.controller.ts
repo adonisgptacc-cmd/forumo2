@@ -17,12 +17,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-import { CreateListingDto } from './dto/create-listing.dto.js';
-import { ListingSearchQueryDto } from './dto/listing-search.dto.js';
-import { UpdateListingDto } from './dto/update-listing.dto.js';
-import { SafeListing, SafeListingImage } from './listing.serializer.js';
-import { ListingsService } from './listings.service.js';
-import { ListingSearchService } from './search.service.js';
+import { CreateListingDto } from "./dto/create-listing.dto";
+import { ListingSearchQueryDto } from "./dto/listing-search.dto";
+import { UpdateListingDto } from "./dto/update-listing.dto";
+import { SafeListing, SafeListingImage } from "./listing.serializer";
+import { ListingsService } from "./listings.service";
+import { ListingSearchService } from "./search.service";
 
 @Controller('listings')
 export class ListingsController {

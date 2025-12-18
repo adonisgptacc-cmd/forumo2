@@ -3,13 +3,13 @@ import { HttpModule } from '@nestjs/axios';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
-import { PrismaModule } from '../../prisma/prisma.module.js';
-import { ListingsController } from './listings.controller.js';
-import { ListingsService } from './listings.service.js';
-import { ModerationQueueService } from './moderation-queue.service.js';
-import { ListingSearchService } from './search.service.js';
-import { StorageModule } from '../storage/storage.module.js';
-import { CacheService } from '../../common/services/cache.service.js';
+import { PrismaModule } from "../../prisma/prisma.module";
+import { ListingsController } from "./listings.controller";
+import { ListingsService } from "./listings.service";
+import { ModerationQueueService } from "./moderation-queue.service";
+import { ListingSearchService } from "./search.service";
+import { StorageModule } from "../storage/storage.module";
+import { CacheService } from "../../common/services/cache.service";
 
 @Module({
   imports: [

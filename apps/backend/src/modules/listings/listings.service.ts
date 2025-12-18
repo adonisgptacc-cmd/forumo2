@@ -2,19 +2,19 @@ import type { Express } from 'express';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateListingDto, CreateListingVariantDto } from './dto/create-listing.dto.js';
-import { UpdateListingDto } from './dto/update-listing.dto.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { CreateListingDto, CreateListingVariantDto } from "./dto/create-listing.dto";
+import { UpdateListingDto } from "./dto/update-listing.dto";
 import {
   ListingWithRelations,
   SafeListing,
   SafeListingImage,
   serializeListing,
   serializeListingImage,
-} from './listing.serializer.js';
-import { listingDefaultInclude } from './listings.prisma.js';
-import { ModerationQueueService } from './moderation-queue.service.js';
-import { StorageService } from '../storage/storage.service.js';
+} from "./listing.serializer";
+import { listingDefaultInclude } from "./listings.prisma";
+import { ModerationQueueService } from "./moderation-queue.service";
+import { StorageService } from "../storage/storage.service";
 
 @Injectable()
 export class ListingsService {

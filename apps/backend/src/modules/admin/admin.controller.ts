@@ -1,9 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 
-import { Roles } from '../../common/decorators/roles.decorator.js';
-import { RolesGuard } from '../../common/guards/roles.guard.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { AdminService } from './admin.service.js';
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AdminService } from "./admin.service";
 import type { AdminDisputeSummary, AdminKycSubmission, AdminListingModeration } from '@forumo/shared';
 
 @Controller('admin')

@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TrustScoreSeed, UserProfile } from '@prisma/client';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateTrustSeedDto } from './dto/create-trust-seed.dto.js';
-import { UpdateProfileDto } from './dto/update-profile.dto.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
-import { SafeUser, sanitizeUser } from './user.serializer.js';
+import { PrismaService } from "../../prisma/prisma.service";
+import { CreateTrustSeedDto } from "./dto/create-trust-seed.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { SafeUser, sanitizeUser } from "./user.serializer";
 
 export interface UserProfileResponse {
   user: SafeUser;

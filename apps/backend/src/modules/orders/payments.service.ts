@@ -4,7 +4,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Order, PaymentProvider, PaymentStatus, Prisma, WebhookEventStatus } from '@prisma/client';
 import Stripe from 'stripe';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class PaymentsService {
@@ -110,7 +110,7 @@ export class PaymentsService {
     if (!id) return;
     await this.prisma.webhookEvent.update({
       where: { id },
-      data: { status: WebhookEventStatus.PROCESSED, lastError: null },
+      data: { status: WebhookEventStatus.SUCCESS, lastError: null },
     });
   }
 
