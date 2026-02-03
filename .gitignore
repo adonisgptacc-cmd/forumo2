@@ -8,3 +8,7 @@ apps/**/dist
 apps/**/.expo
 apps/**/build
 artifacts
+
+# Build artifacts
+.turbo
+*.tsbuildinfo
