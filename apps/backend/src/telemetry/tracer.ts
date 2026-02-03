@@ -24,10 +24,10 @@ export const startTracing = (options: TracerOptions): NodeSDK => {
 
   const sdk = new NodeSDK({
     traceExporter: exporter,
-    // @ts-ignore
+    // @ts-expect-error OpenTelemetry SDK version mismatch
     resource,
     instrumentations: [
-      // @ts-ignore
+      // @ts-expect-error OpenTelemetry SDK version mismatch
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-http': { enabled: true },
         '@opentelemetry/instrumentation-pg': { enabled: true },

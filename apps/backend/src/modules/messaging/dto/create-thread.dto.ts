@@ -3,7 +3,6 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
-  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,

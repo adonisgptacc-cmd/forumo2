@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "test": "jest",
     "test:detox": "detox test -c ios.sim.debug --headless",
-    "lint": "expo lint"
+    "lint": "eslint 'src/**/*.{ts,tsx}'"
   },
   "dependencies": {
     "@forumo/config": "workspace:*",
@@ -28,6 +28,9 @@
     "react-native-screens": "^4.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.7.0",
+    "typescript-eslint": "^8.0.1",
+    "eslint": "^9.7.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^12.4.0",
     "@types/jest": "^29.5.12",

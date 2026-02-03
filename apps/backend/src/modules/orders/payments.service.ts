@@ -25,7 +25,7 @@ export class PaymentsService {
 
     try {
       return this.stripe.webhooks.constructEvent(rawBody, signature, secret) as Stripe.Event;
-    } catch (error) {
+    } catch (_error) {
       throw new BadRequestException('Invalid Stripe webhook signature');
     }
   }

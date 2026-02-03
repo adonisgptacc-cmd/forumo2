@@ -13,12 +13,12 @@ export type SafeListing = Listing & {
 };
 
 export const serializeListingImage = (image: ListingImage): SafeListingImage => {
-  const { listingId, ...rest } = image;
+  const { listingId: _listingId, ...rest } = image;
   return rest;
 };
 
 export const serializeListingVariant = (variant: ListingVariant): SafeListingVariant => {
-  const { listingId, ...rest } = variant;
+  const { listingId: _listingId, ...rest } = variant;
   return rest;
 };
 

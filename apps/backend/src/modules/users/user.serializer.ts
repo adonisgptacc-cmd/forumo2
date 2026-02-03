@@ -12,7 +12,7 @@ export const sanitizeUser = (user: SanitizableUser | null): SafeUser | null => {
   }
 
   if ('passwordHash' in user) {
-    const { passwordHash, ...rest } = user;
+    const { passwordHash: _passwordHash, ...rest } = user;
     return rest;
   }
 

@@ -2,14 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe, cleanupOpenApiDoc } from 'nestjs-zod';
 import { AppModule } from './modules/app.module';
-import { ConfigService } from '@nestjs/config';
-import { startTracing } from './telemetry/tracer';
+// ConfigService and startTracing are available for when telemetry is re-enabled
+// import { ConfigService } from '@nestjs/config';
+// import { startTracing } from './telemetry/tracer';
 import { TelemetryLogger } from './telemetry/logger';
 
 async function bootstrap() {
   const logger = new TelemetryLogger();
   const app = await NestFactory.create(AppModule, { cors: true, logger });
-  const configService = app.get(ConfigService);
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ZodValidationPipe());
 
@@ -33,7 +33,7 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, cleanupOpenApiDoc(document));
 
   const port = process.env.PORT ?? 4000;
-  const server = await app.listen(port, '0.0.0.0');
+  await app.listen(port, '0.0.0.0');
   console.log(`🚀 Backend listening on http://0.0.0.0:${port}`);
   console.log(`📚 API Docs available at http://localhost:${port}/docs`);
 
