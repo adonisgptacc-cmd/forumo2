@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 
 import { PrismaModule } from "../../prisma/prisma.module";
 import { UsersModule } from "../users/users.module";
@@ -8,6 +9,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { JwtStrategy } from "./strategies/jwt.strategy";
+import { GoogleStrategy } from "./strategies/google.strategy";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { RateLimitService } from "../../common/services/rate-limit.service";
@@ -19,6 +21,7 @@ import { ObservabilityModule } from "../observability/observability.module";
     PrismaModule,
     UsersModule,
     ObservabilityModule,
+    PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -33,7 +36,7 @@ import { ObservabilityModule } from "../observability/observability.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard, RateLimitService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard, RateLimitService],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

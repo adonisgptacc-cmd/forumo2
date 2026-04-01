@@ -11,6 +11,29 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     CredentialsProvider({
+      id: 'token-auth',
+      name: 'Token',
+      credentials: {
+        token: { label: 'Token', type: 'text' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.token) return null;
+        const api = createApiClient(credentials.token);
+        try {
+          const auth = await api.auth.me();
+          return {
+            id: auth.user.id,
+            email: auth.user.email,
+            name: auth.user.name,
+            role: auth.user.role,
+            accessToken: credentials.token,
+          } as any;
+        } catch {
+          return null;
+        }
+      },
+    }),
+    CredentialsProvider({
       name: 'Credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },

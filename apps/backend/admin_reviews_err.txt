@@ -1,0 +1,98 @@
+
+> backend@0.1.0 pretest C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> pnpm run prisma:generate
+
+
+> backend@0.1.0 prisma:generate C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> prisma generate --schema prisma/schema.prisma
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Ô£ö Generated Prisma Client (v5.22.0) to .\..\..\node_modules\.pnpm\@prisma+client@5.22.0_prisma@5.22.0\node_modules\@prisma\client in 345ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+
+> backend@0.1.0 test C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> jest --runInBand "src/modules/admin" "src/modules/reviews"
+
+FAIL src/modules/admin/admin.spec.ts
+  ÔùÅ AdminModule RBAC ÔÇ║ rejects non-admin users
+
+    TypeError: OAuth2Strategy requires a clientID option
+
+      11 |         private readonly authService: AuthService,
+      12 |     ) {
+    > 13 |         super({
+         |         ^
+      14 |             clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
+      15 |             clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET'),
+      16 |             callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL') || 'http://localhost:4000/api/v1/auth/google/callback',
+
+      at GoogleStrategy.OAuth2Strategy (../../node_modules/.pnpm/passport-oauth2@1.8.0/node_modules/passport-oauth2/lib/strategy.js:87:34)
+      at new Strategy (../../node_modules/.pnpm/passport-google-oauth20@2.0.0/node_modules/passport-google-oauth20/lib/strategy.js:52:18)
+      at new MixinStrategy (../../node_modules/.pnpm/@nestjs+passport@10.0.3_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_37yk4vqurdvbeczcexli2wrps4/node_modules/@nestjs/passport/dist/passport/passport.strategy.js:32:13)
+      at new GoogleStrategy (src/modules/auth/strategies/google.strategy.ts:13:9)
+      at TestingInjector.instantiateClass (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:373:19)
+      at callback (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:65:45)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:145:24)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadProvider (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:98:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:56:13
+          at async Promise.all (index 5)
+      at TestingInstanceLoader.createInstancesOfProviders (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:55:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:40:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at createApp (src/modules/admin/admin.spec.ts:84:21)
+      at Object.<anonymous> (src/modules/admin/admin.spec.ts:112:11)
+
+  ÔùÅ AdminModule RBAC ÔÇ║ allows admins to read dashboard data
+
+    TypeError: OAuth2Strategy requires a clientID option
+
+      11 |         private readonly authService: AuthService,
+      12 |     ) {
+    > 13 |         super({
+         |         ^
+      14 |             clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
+      15 |             clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET'),
+      16 |             callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL') || 'http://localhost:4000/api/v1/auth/google/callback',
+
+      at GoogleStrategy.OAuth2Strategy (../../node_modules/.pnpm/passport-oauth2@1.8.0/node_modules/passport-oauth2/lib/strategy.js:87:34)
+      at new Strategy (../../node_modules/.pnpm/passport-google-oauth20@2.0.0/node_modules/passport-google-oauth20/lib/strategy.js:52:18)
+      at new MixinStrategy (../../node_modules/.pnpm/@nestjs+passport@10.0.3_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_37yk4vqurdvbeczcexli2wrps4/node_modules/@nestjs/passport/dist/passport/passport.strategy.js:32:13)
+      at new GoogleStrategy (src/modules/auth/strategies/google.strategy.ts:13:9)
+      at TestingInjector.instantiateClass (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:373:19)
+      at callback (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:65:45)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:145:24)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadProvider (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:98:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:56:13
+          at async Promise.all (index 5)
+      at TestingInstanceLoader.createInstancesOfProviders (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:55:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:40:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at createApp (src/modules/admin/admin.spec.ts:84:21)
+      at Object.<anonymous> (src/modules/admin/admin.spec.ts:117:11)
+
+PASS src/modules/reviews/moderation.service.spec.ts
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       2 failed, 3 passed, 5 total
+Snapshots:   0 total
+Time:        4.766 s, estimated 6 s
+Ran all test suites matching /src\\modules\\admin|src\\modules\\reviews/i.
+ÔÇëELIFECYCLEÔÇë Test failed. See above for more details.

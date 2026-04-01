@@ -3,27 +3,44 @@ import {
   CreateListingDto,
   UpdateListingDto,
   CreateOrderDto,
+  CreateOfferDto,
   CreateThreadDto,
+  ListingCategory,
   ListingImage,
   ListingSearchParams,
   ListingSearchResponse,
   ListingReviewResponse,
+  ListingTag,
   AdminDisputeSummary,
   AdminKycSubmission,
   AdminListingModeration,
   CreateReviewDto,
   SafeListing,
   SafeMessageThread,
+  SafeNotification,
+  SafeOffer,
   SafeOrder,
   SafeReview,
+  SafeUser,
+  SavedListing,
   SendMessageDto,
   UpdateOrderStatusDto,
   ReviewRollup,
   PaginatedResponse,
+  Storefront,
+  CreateStorefrontDto,
+  Auction,
+  CreateAuctionDto,
+  PlaceBidDto,
   createReviewSchema,
+  createOfferSchema,
   listingSearchParamsSchema,
   listingSearchResponseSchema,
   safeListingSchema,
+  safeNotificationSchema,
+  savedListingSchema,
+  safeOfferSchema,
+  safeUserSchema,
   listingReviewResponseSchema,
   adminDisputeSchema,
   adminKycSubmissionSchema,
@@ -33,7 +50,35 @@ import {
   reviewSchema,
   reviewRollupSchema,
   authResponseSchema,
+  storefrontSchema,
+  createStorefrontSchema,
+  auctionSchema,
+  createAuctionSchema,
+  placeBidSchema,
 } from './types';
+
+export interface UpdateProfilePayload {
+  name?: string;
+  avatarUrl?: string;
+  phone?: string;
+}
+
+export interface UserProfileData {
+  user: SafeUser;
+  profile: {
+    userId: string;
+    bio?: string | null;
+    website?: string | null;
+    location?: string | null;
+    socialLinks?: Record<string, string> | null;
+  } | null;
+  trustSeeds: Array<{
+    id: string;
+    label: string;
+    value: number;
+    createdAt: string;
+  }>;
+}
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number, public readonly details?: unknown) {
@@ -63,7 +108,8 @@ export class ForumoApiClient {
   }
 
   private buildUrl(path: string, query?: Record<string, string | number | undefined>) {
-    const url = new URL(path, `${this.baseUrl}/`);
+    const relativePath = path.startsWith('/') ? path.slice(1) : path;
+    const url = new URL(relativePath, `${this.baseUrl}/`);
     if (query) {
       Object.entries(query).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -108,6 +154,26 @@ export class ForumoApiClient {
     return this.request<T>(path, { ...options, body: body as any });
   }
 
+  async get<T>(path: string, options: Omit<RequestInit, 'body' | 'method'> & { auth?: boolean } = {}): Promise<T> {
+    return this.request<T>(path, { ...options, method: 'GET' });
+  }
+
+  async post<T>(path: string, body?: unknown, options: Omit<RequestInit, 'body' | 'method'> & { auth?: boolean } = {}): Promise<T> {
+    return this.requestJson<T>(path, { ...options, method: 'POST', body });
+  }
+
+  async put<T>(path: string, body?: unknown, options: Omit<RequestInit, 'body' | 'method'> & { auth?: boolean } = {}): Promise<T> {
+    return this.requestJson<T>(path, { ...options, method: 'PUT', body });
+  }
+
+  async patch<T>(path: string, body?: unknown, options: Omit<RequestInit, 'body' | 'method'> & { auth?: boolean } = {}): Promise<T> {
+    return this.requestJson<T>(path, { ...options, method: 'PATCH', body });
+  }
+
+  async delete<T>(path: string, options: Omit<RequestInit, 'body' | 'method'> & { auth?: boolean } = {}): Promise<T> {
+    return this.request<T>(path, { ...options, method: 'DELETE' });
+  }
+
   readonly auth = {
     login: async (payload: { email: string; password: string }): Promise<AuthResponse> => {
       const response = await this.requestJson<AuthResponse>('/auth/login', {
@@ -143,6 +209,8 @@ export class ForumoApiClient {
         minPriceCents: params.minPriceCents !== undefined ? Number(params.minPriceCents) : undefined,
         maxPriceCents: params.maxPriceCents !== undefined ? Number(params.maxPriceCents) : undefined,
         tags: params.tags,
+        sort: params.sort,
+        categories: params.categories,
       });
       const result = await this.request<ListingSearchResponse>(
         `/listings/search${buildQuery(parsed)}`,
@@ -171,6 +239,9 @@ export class ForumoApiClient {
         body: payload,
       });
       return safeListingSchema.parse(result);
+    },
+    delete: async (id: string): Promise<void> => {
+      await this.delete<void>(`/listings/${id}`, { auth: true });
     },
     uploadImage: async (listingId: string, file: Blob): Promise<ListingImage> => {
       const formData = new FormData();
@@ -207,6 +278,13 @@ export class ForumoApiClient {
         body: payload,
       });
       return safeOrderSchema.parse(response);
+    },
+    initiatePayment: async (orderId: string): Promise<{ clientSecret: string }> => {
+      const response = await this.requestJson<{ clientSecret: string }>(`/orders/${orderId}/initiate-payment`, {
+        method: 'POST',
+        auth: true,
+      });
+      return response;
     },
   };
 
@@ -297,6 +375,19 @@ export class ForumoApiClient {
         body: { token },
       });
     },
+    list: async (): Promise<SafeNotification[]> => {
+      const result = await this.request<SafeNotification[]>('/notifications', { method: 'GET', auth: true });
+      return result.map((n) => safeNotificationSchema.parse(n));
+    },
+    unreadCount: async (): Promise<{ count: number }> => {
+      return this.request<{ count: number }>('/notifications/unread-count', { method: 'GET', auth: true });
+    },
+    markAsRead: async (id: string): Promise<void> => {
+      await this.requestJson<void>(`/notifications/${id}/read`, { method: 'PATCH', auth: true });
+    },
+    markAllAsRead: async (): Promise<void> => {
+      await this.requestJson<void>('/notifications/mark-all-read', { method: 'POST', auth: true });
+    },
   };
 
   readonly admin = {
@@ -350,6 +441,200 @@ export class ForumoApiClient {
         body: payload,
       });
       return adminDisputeSchema.parse(result);
+    },
+  };
+
+  readonly auctions = {
+    list: async (params: { page?: number; pageSize?: number; status?: string } = {}): Promise<PaginatedResponse<Auction>> => {
+      const result = await this.request<PaginatedResponse<Auction>>(
+        `/auctions${buildQuery(params)}`,
+        { method: 'GET' },
+      );
+      return {
+        ...result,
+        data: (result.data ?? []).map((a) => auctionSchema.parse(a)),
+      };
+    },
+    create: async (payload: CreateAuctionDto): Promise<Auction> => {
+      const parsed = createAuctionSchema.parse(payload);
+      const result = await this.requestJson<Auction>('/auctions', {
+        method: 'POST',
+        auth: true,
+        body: parsed,
+      });
+      return auctionSchema.parse(result);
+    },
+    get: async (id: string): Promise<Auction> => {
+      const result = await this.requestJson<Auction>(`/auctions/${id}`, { method: 'GET' });
+      return auctionSchema.parse(result);
+    },
+    placeBid: async (id: string, payload: PlaceBidDto): Promise<Auction> => {
+      const parsed = placeBidSchema.parse(payload);
+      const result = await this.requestJson<Auction>(`/auctions/${id}/bids`, {
+        method: 'POST',
+        auth: true,
+        body: parsed,
+      });
+      return auctionSchema.parse(result);
+    },
+  };
+
+  readonly categories = {
+    list: async (): Promise<ListingCategory[]> => {
+      return this.request<ListingCategory[]>('/categories', { method: 'GET' });
+    },
+    listTags: async (): Promise<ListingTag[]> => {
+      return this.request<ListingTag[]>('/categories/tags', { method: 'GET' });
+    },
+    createCategory: async (payload: { slug: string; name: string; description?: string; parentId?: string; position?: number }): Promise<ListingCategory> => {
+      return this.requestJson<ListingCategory>('/categories', { method: 'POST', auth: true, body: payload });
+    },
+    updateCategory: async (id: string, payload: { name?: string; description?: string; parentId?: string; position?: number }): Promise<ListingCategory> => {
+      return this.requestJson<ListingCategory>(`/categories/${id}`, { method: 'PATCH', auth: true, body: payload });
+    },
+    deleteCategory: async (id: string): Promise<void> => {
+      await this.request<void>(`/categories/${id}`, { method: 'DELETE', auth: true });
+    },
+    createTag: async (payload: { slug: string; label: string }): Promise<ListingTag> => {
+      return this.requestJson<ListingTag>('/categories/tags', { method: 'POST', auth: true, body: payload });
+    },
+    updateTag: async (id: string, payload: { label?: string }): Promise<ListingTag> => {
+      return this.requestJson<ListingTag>(`/categories/tags/${id}`, { method: 'PATCH', auth: true, body: payload });
+    },
+    deleteTag: async (id: string): Promise<void> => {
+      await this.request<void>(`/categories/tags/${id}`, { method: 'DELETE', auth: true });
+    },
+    assignCategories: async (listingId: string, categoryIds: string[], primaryCategoryId?: string): Promise<void> => {
+      await this.requestJson<void>(`/categories/listings/${listingId}/categories`, {
+        method: 'POST',
+        auth: true,
+        body: { categoryIds, primaryCategoryId },
+      });
+    },
+    assignTags: async (listingId: string, tagIds: string[]): Promise<void> => {
+      await this.requestJson<void>(`/categories/listings/${listingId}/tags`, {
+        method: 'POST',
+        auth: true,
+        body: { tagIds },
+      });
+    },
+  };
+
+  readonly wishlist = {
+    list: async (): Promise<SavedListing[]> => {
+      const result = await this.request<SavedListing[]>('/wishlist', { method: 'GET', auth: true });
+      return result.map((s) => savedListingSchema.parse(s));
+    },
+    save: async (listingId: string): Promise<SavedListing> => {
+      const result = await this.requestJson<SavedListing>(`/wishlist/${listingId}`, {
+        method: 'POST',
+        auth: true,
+      });
+      return savedListingSchema.parse(result);
+    },
+    remove: async (listingId: string): Promise<void> => {
+      await this.request<void>(`/wishlist/${listingId}`, { method: 'DELETE', auth: true });
+    },
+    check: async (listingId: string): Promise<{ saved: boolean }> => {
+      return this.request<{ saved: boolean }>(`/wishlist/${listingId}/check`, {
+        method: 'GET',
+        auth: true,
+      });
+    },
+  };
+
+  readonly offers = {
+    list: async (): Promise<SafeOffer[]> => {
+      const result = await this.request<SafeOffer[]>('/offers', { method: 'GET', auth: true });
+      return result.map((o) => safeOfferSchema.parse(o));
+    },
+    create: async (payload: CreateOfferDto): Promise<SafeOffer> => {
+      const parsed = createOfferSchema.parse(payload);
+      const result = await this.requestJson<SafeOffer>('/offers', {
+        method: 'POST',
+        auth: true,
+        body: parsed,
+      });
+      return safeOfferSchema.parse(result);
+    },
+    accept: async (id: string): Promise<SafeOffer> => {
+      const result = await this.requestJson<SafeOffer>(`/offers/${id}/accept`, {
+        method: 'POST',
+        auth: true,
+      });
+      return safeOfferSchema.parse(result);
+    },
+    decline: async (id: string): Promise<SafeOffer> => {
+      const result = await this.requestJson<SafeOffer>(`/offers/${id}/decline`, {
+        method: 'POST',
+        auth: true,
+      });
+      return safeOfferSchema.parse(result);
+    },
+  };
+
+  readonly users = {
+    getProfile: async (): Promise<UserProfileData> => {
+      return this.request<UserProfileData>('/users/me/profile', { method: 'GET', auth: true });
+    },
+    updateProfile: async (payload: UpdateProfilePayload): Promise<SafeUser> => {
+      const result = await this.requestJson<SafeUser>('/users/me/profile', {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
+      return safeUserSchema.parse(result);
+    },
+    deleteAvatar: async (): Promise<SafeUser> => {
+      const result = await this.request<SafeUser>('/users/me/avatar', { method: 'DELETE', auth: true });
+      return safeUserSchema.parse(result);
+    },
+  };
+
+  readonly storefronts = {
+    create: async (payload: CreateStorefrontDto): Promise<Storefront> => {
+      const parsed = createStorefrontSchema.parse(payload);
+      const result = await this.requestJson<Storefront>('/storefronts', {
+        method: 'POST',
+        auth: true,
+        body: parsed,
+      });
+      return storefrontSchema.parse(result);
+    },
+    get: async (slug: string): Promise<Storefront> => {
+      const result = await this.requestJson<Storefront>(`/storefronts/${slug}`, { method: 'GET' });
+      return storefrontSchema.parse(result);
+    },
+    getMine: async (): Promise<Storefront | null> => {
+      try {
+        const result = await this.request<Storefront>('/storefronts/me', { method: 'GET', auth: true });
+        return result ? storefrontSchema.parse(result) : null;
+      } catch {
+        return null;
+      }
+    },
+    update: async (payload: { name?: string; description?: string; logoUrl?: string; bannerUrl?: string }): Promise<Storefront> => {
+      const result = await this.requestJson<Storefront>('/storefronts/me', {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
+      return storefrontSchema.parse(result);
+    },
+    remove: async (): Promise<void> => {
+      await this.request<void>('/storefronts/me', { method: 'DELETE', auth: true });
+    },
+    listCollections: async (): Promise<Array<{ id: string; name: string; slug: string; description: string | null; productIds: string[]; createdAt: string }>> => {
+      return this.request('/storefronts/me/collections', { method: 'GET', auth: true });
+    },
+    createCollection: async (payload: { name: string; slug: string; description?: string; productIds?: string[] }) => {
+      return this.requestJson('/storefronts/me/collections', { method: 'POST', auth: true, body: payload });
+    },
+    updateCollection: async (id: string, payload: { name?: string; description?: string; productIds?: string[] }) => {
+      return this.requestJson(`/storefronts/me/collections/${id}`, { method: 'PATCH', auth: true, body: payload });
+    },
+    deleteCollection: async (id: string): Promise<void> => {
+      await this.request<void>(`/storefronts/me/collections/${id}`, { method: 'DELETE', auth: true });
     },
   };
 }

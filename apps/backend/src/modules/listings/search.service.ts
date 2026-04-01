@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { listingDefaultInclude } from "./listings.prisma";
-import { ListingWithRelations, SafeListing, serializeListing } from "./listing.serializer";
+import { SafeListing, serializeListing } from "./listing.serializer";
 import { CacheService } from "../../common/services/cache.service";
 
 export type ListingSearchSort =
@@ -51,7 +51,7 @@ export class ListingSearchService {
     private readonly prisma: PrismaService,
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly configService?: ConfigService,
-  ) {}
+  ) { }
 
   async search(params: ListingSearchParams): Promise<ListingSearchResponse> {
     const page = params.page > 0 ? params.page : 1;
@@ -92,12 +92,12 @@ export class ListingSearchService {
           include: listingDefaultInclude,
         }),
       ]);
-      const typedListings = listings as ListingWithRelations[];
+      // Listings from Prisma are passed directly to serializeListing which handles the conversion
 
       const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
 
       const response: ListingSearchResponse = {
-        data: typedListings.map((listing) => serializeListing(listing)),
+        data: listings.map((listing) => serializeListing(listing)),
         total,
         page,
         pageSize: cappedPageSize,
@@ -142,16 +142,17 @@ export class ListingSearchService {
 
     const total = countRows?.[0]?.count ?? 0;
     const listingIds = rows.map((row) => row.id);
-    const listings = (listingIds.length
+    const listings = listingIds.length
       ? await this.prisma.listing.findMany({
-          where: { id: { in: listingIds } },
-          include: listingDefaultInclude,
-        })
-      : []) as ListingWithRelations[];
-    const listingMap = new Map(listings.map((listing) => [listing.id, listing]));
+        where: { id: { in: listingIds } },
+        include: listingDefaultInclude,
+      })
+      : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const listingMap = new Map(listings.map((listing) => [listing.id, listing] as [string, any]));
     const ordered = listingIds
       .map((id) => listingMap.get(id))
-      .filter((listing): listing is ListingWithRelations => Boolean(listing));
+      .filter((listing): listing is NonNullable<typeof listing> => Boolean(listing));
 
     const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
 
@@ -192,7 +193,8 @@ export class ListingSearchService {
     return (keyword ?? '').trim().replace(/\s+/g, ' ');
   }
 
-  private buildKeywordQueries(keyword: string) {
+  private buildKeywordQueries(rawKeyword: string) {
+    const keyword = this.normalizeKeyword(rawKeyword);
     const tokens = keyword.split(' ').filter(Boolean);
     const baseQuery = Prisma.sql`websearch_to_tsquery('english', ${keyword})`;
     const prefixQuery = tokens.length
@@ -225,36 +227,36 @@ export class ListingSearchService {
       ...(params.moderationStatus ? { moderationStatus: params.moderationStatus } : {}),
       ...(params.sellerId || sellerIds.length
         ? {
-            sellerId: sellerIds.length
-              ? { in: Array.from(new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])])) }
-              : params.sellerId,
-          }
+          sellerId: sellerIds.length
+            ? { in: Array.from(new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])])) }
+            : params.sellerId,
+        }
         : {}),
       ...(params.createdAfter || params.createdBefore
         ? {
-            createdAt: {
-              ...(params.createdAfter ? { gte: params.createdAfter } : {}),
-              ...(params.createdBefore ? { lte: params.createdBefore } : {}),
-            },
-          }
+          createdAt: {
+            ...(params.createdAfter ? { gte: params.createdAfter } : {}),
+            ...(params.createdBefore ? { lte: params.createdBefore } : {}),
+          },
+        }
         : {}),
       ...(tagSlugs.length
         ? {
-            tags: {
-              some: {
-                tag: { slug: { in: tagSlugs } },
-              },
+          tags: {
+            some: {
+              tag: { slug: { in: tagSlugs } },
             },
-          }
+          },
+        }
         : {}),
       ...(categorySlugs.length
         ? {
-            categories: {
-              some: {
-                category: { slug: { in: categorySlugs } },
-              },
+          categories: {
+            some: {
+              category: { slug: { in: categorySlugs } },
             },
-          }
+          },
+        }
         : {}),
     };
 
@@ -277,10 +279,10 @@ export class ListingSearchService {
     const conditions: Prisma.Sql[] = [Prisma.sql`l."deletedAt" IS NULL`];
 
     if (params.status) {
-      conditions.push(Prisma.sql`l."status" = ${params.status}`);
+      conditions.push(Prisma.sql`l."status" = ${params.status}::"ListingStatus"`);
     }
     if (params.moderationStatus) {
-      conditions.push(Prisma.sql`l."moderationStatus" = ${params.moderationStatus}`);
+      conditions.push(Prisma.sql`l."moderationStatus" = ${params.moderationStatus}::"ListingModerationStatus"`);
     }
     if (params.sellerId || sellerIds.length) {
       const sellers = Array.from(new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])]));

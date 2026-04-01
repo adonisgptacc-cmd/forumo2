@@ -1,0 +1,32 @@
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/appname
+DATABASE_POOL_MIN=2
+DATABASE_POOL_MAX=10
+
+# Redis
+REDIS_URL=redis://localhost:6379
+REDIS_TTL_SECONDS=3600
+
+# Storage
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_USE_SSL=false
+MINIO_BUCKET_NAME=uploads
+
+# Email
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_FROM=noreply@app.local
+
+# Auth
+JWT_SECRET=changeme-generate-secure-secret
+JWT_EXPIRES_IN=7d
+REFRESH_TOKEN_EXPIRES_IN=30d
+
+# Observability
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+ENABLE_METRICS=true
+LOG_LEVEL=debug
+METRICS_API_KEY=

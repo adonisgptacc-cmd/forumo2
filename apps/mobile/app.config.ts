@@ -1,28 +1,54 @@
 import { ConfigContext, ExpoConfig } from 'expo/config';
 import 'dotenv/config';
 
+const appEnv = process.env.APP_ENV ?? 'development';
+
+const apiBaseUrls: Record<string, string> = {
+  development: 'http://localhost:4000/api/v1',
+  preview: 'https://api-preview.forumo.app/api/v1',
+  production: 'https://api.forumo.app/api/v1',
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Forumo Mobile',
+  name: appEnv === 'production' ? 'Forumo' : `Forumo (${appEnv})`,
   slug: 'forumo-mobile',
   version: '1.0.0',
   orientation: 'portrait',
   scheme: 'forumo',
-  userInterfaceStyle: 'light',
+  userInterfaceStyle: 'automatic',
   platforms: ['ios', 'android'],
   assetBundlePatterns: ['**/*'],
   plugins: ['expo-notifications'],
   ios: {
     supportsTablet: true,
+    bundleIdentifier: 'app.forumo.mobile',
+    infoPlist: {
+      NSCameraUsageDescription: 'Used to capture listing photos.',
+      NSPhotoLibraryUsageDescription: 'Used to attach photos to listings.',
+    },
   },
   android: {
+    package: 'app.forumo.mobile',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
+    permissions: ['CAMERA', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE'],
+  },
+  updates: {
+    url: 'https://u.expo.dev/forumo-mobile',
+    fallbackToCacheTimeout: 0,
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
   },
   extra: {
-    apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:3000/api',
+    appEnv,
+    apiBaseUrl: process.env.API_BASE_URL ?? apiBaseUrls[appEnv] ?? apiBaseUrls.development,
+    eas: {
+      projectId: process.env.EAS_PROJECT_ID ?? '',
+    },
   },
   experiments: {
     typedRoutes: true,

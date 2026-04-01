@@ -19,6 +19,17 @@ export class PaymentsService {
 
   validateStripeEvent(payload: unknown, signature?: string, rawBody?: Buffer | string): Stripe.Event {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const isProd = process.env.NODE_ENV === 'production';
+
+    // In production, always require signature verification
+    if (isProd && (!this.stripe || !secret)) {
+      throw new BadRequestException('Stripe webhook secret not configured');
+    }
+    if (isProd && (!signature || !rawBody)) {
+      throw new BadRequestException('Missing Stripe webhook signature');
+    }
+
+    // Dev/test: skip verification if Stripe not configured
     if (!this.stripe || !secret || !signature || !rawBody) {
       return payload as Stripe.Event;
     }
@@ -94,6 +105,43 @@ export class PaymentsService {
         processedAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Issue a refund via Stripe for a captured PaymentIntent.
+   * Looks up the most recent captured PaymentTransaction for the order to get
+   * the providerRef (payment_intent ID), then calls stripe.refunds.create().
+   * Safe to call even if Stripe is not configured (logs a warning and returns).
+   */
+  async issueStripeRefund(orderId: string, reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer'): Promise<void> {
+    if (!this.stripe) {
+      console.warn(`[PaymentsService] Stripe not configured — skipping refund for order ${orderId}`);
+      return;
+    }
+
+    const captured = await this.prisma.paymentTransaction.findFirst({
+      where: {
+        orderId,
+        status: { in: [PaymentStatus.CAPTURED, PaymentStatus.SETTLED] },
+        provider: PaymentProvider.STRIPE,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!captured?.providerRef) {
+      console.warn(`[PaymentsService] No captured Stripe transaction found for order ${orderId} — skipping refund`);
+      return;
+    }
+
+    try {
+      await this.stripe.refunds.create({
+        payment_intent: captured.providerRef,
+        reason: reason ?? 'requested_by_customer',
+      });
+    } catch (err) {
+      // Log but don't rethrow — the order cancellation should still succeed in DB
+      console.error(`[PaymentsService] Stripe refund failed for order ${orderId}:`, err);
+    }
   }
 
   async recordWebhookEvent(eventName: string, payload: unknown, status: WebhookEventStatus = WebhookEventStatus.PENDING) {

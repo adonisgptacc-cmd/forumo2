@@ -69,14 +69,14 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.serviceUrl = this.configService.get<string>('MODERATION_SERVICE_URL') ?? 'http://localhost:5005';
-    const timeoutValue = Number(this.configService.get<string>('MODERATION_SERVICE_TIMEOUT_MS') ?? 5000);
+    this.serviceUrl = this.configService?.get<string>('MODERATION_SERVICE_URL') ?? 'http://localhost:5005';
+    const timeoutValue = Number(this.configService?.get<string>('MODERATION_SERVICE_TIMEOUT_MS') ?? 5000);
     this.requestTimeoutMs = Number.isNaN(timeoutValue) ? 5000 : timeoutValue;
-    const attemptsValue = Number(this.configService.get<string>('MODERATION_MAX_ATTEMPTS') ?? 5);
+    const attemptsValue = Number(this.configService?.get<string>('MODERATION_MAX_ATTEMPTS') ?? 5);
     this.maxAttempts = Number.isNaN(attemptsValue) ? 5 : attemptsValue;
-    const backoffValue = Number(this.configService.get<string>('MODERATION_RETRY_BACKOFF_MS') ?? 2000);
+    const backoffValue = Number(this.configService?.get<string>('MODERATION_RETRY_BACKOFF_MS') ?? 2000);
     this.backoffDelayMs = Number.isNaN(backoffValue) ? 2000 : backoffValue;
-    const concurrencyValue = Number(this.configService.get<string>('MODERATION_WORKER_CONCURRENCY') ?? 2);
+    const concurrencyValue = Number(this.configService?.get<string>('MODERATION_WORKER_CONCURRENCY') ?? 2);
     this.concurrency = Number.isNaN(concurrencyValue) ? 2 : concurrencyValue;
   }
 

@@ -1,58 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-forumo-navy: #131921;
+  --color-forumo-navy-light: #232f3e;
+  --color-forumo-gold: #ffd814;
+  --color-forumo-gold-hover: #f7ca00;
+  --color-forumo-orange: #f08804;
+  --color-forumo-link: #007185;
+  --color-forumo-bg: #f3f3f3;
+}
+
 :root {
-  color-scheme: dark;
-  --admin-bg: radial-gradient(circle at 10% 20%, rgba(248, 189, 132, 0.08), transparent 30%),
-    radial-gradient(circle at 80% 0%, rgba(94, 234, 212, 0.08), transparent 25%),
-    #030711;
-  --admin-panel: rgba(10, 17, 32, 0.85);
-  --admin-border: rgba(148, 163, 184, 0.2);
-  --admin-amber: #f8bd84;
-  --admin-green: #5eead4;
-  --admin-rose: #fb7185;
+  --background: #ffffff;
+  --foreground: #0f1111;
+  --forumo-navy: #131921;
+  --forumo-gold: #ffd814;
 }
 
 body {
+  background-color: var(--color-forumo-bg);
+  color: var(--foreground);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-weight: 600;
+.forumo-header {
+  background-color: var(--color-forumo-navy);
+  color: white;
 }
 
-.grid-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  background: rgba(15, 23, 42, 0.7);
+.forumo-sub-header {
+  background-color: var(--color-forumo-navy-light);
+  color: white;
 }
 
-.admin-shell {
-  min-height: 100vh;
-  background: var(--admin-bg);
-  padding: 1.5rem;
+.btn-forumo {
+  background-color: var(--color-forumo-gold);
+  color: #0f1111;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  box-shadow: 0 2px 5px 0 rgba(213, 217, 217, .5);
+  transition: background-color 0.2s;
+  border: 1px solid #fcd200;
 }
 
-.admin-surface {
-  background: var(--admin-panel);
-  border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+.btn-forumo:hover {
+  background-color: var(--color-forumo-gold-hover);
 }
 
-.input {
+.input-forumo {
   width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.6);
-  padding: 0.75rem 1rem;
-  color: #f8fafc;
+  border: 1px solid #888;
+  border-radius: 4px;
+  padding: 8px 12px;
+  background: white;
+  color: #0f1111;
 }
 
-.input:focus {
+.input-forumo:focus {
   outline: none;
-  border-color: rgba(248, 189, 132, 0.8);
+  border-color: #e77600;
+  box-shadow: 0 0 3px 2px rgba(228, 121, 17, .5);
+}
+
+.card-forumo {
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
 }

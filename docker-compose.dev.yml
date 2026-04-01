@@ -1,4 +1,3 @@
-version: '3.9'
 
 services:
   postgres:
@@ -50,9 +49,9 @@ services:
       MINIO_SERVER_URL: http://localhost:9000
       MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
       MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    command: >-
+    entrypoint: >
       sh -c "mkdir -p /data/uploads /data/avatars /data/documents &&
-      minio server /data --console-address :9001"
+      /usr/bin/minio server /data --console-address :9001"
     ports:
       - "9000:9000"
       - "9001:9001"

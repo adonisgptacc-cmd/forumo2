@@ -1,6 +1,6 @@
-import { ThreadPageClient } from './client-page';
+import { redirect } from 'next/navigation';
 
-export default async function ThreadPage({ params }: { params: Promise<{ threadId: string }> }) {
+export default async function ThreadRedirect({ params }: { params: Promise<{ threadId: string }> }) {
   const { threadId } = await params;
-  return <ThreadPageClient threadId={threadId} />;
+  redirect(`/app/messages/${threadId}`);
 }

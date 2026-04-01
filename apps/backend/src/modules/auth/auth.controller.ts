@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { AuthService } from "./auth.service";
 import {
   LoginDto,
@@ -23,7 +25,7 @@ export class AuthController {
     private readonly rateLimit: RateLimitService,
     private readonly auditLog: AuditLogService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @Post('register')
   async register(@Body() dto: RegisterDto, @Req() req: any) {
@@ -132,6 +134,51 @@ export class AuthController {
   @Roles('ADMIN')
   listSessionsForUser(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.authService.listDeviceSessions(userId);
+  }
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth() {
+    // Initiates Google OAuth flow
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthCallback(@Req() req: any, @Res() res: Response) {
+    // User is now authenticated via Google
+    const user = req.user;
+    const result = await this.authService.buildAuthResponse(user, {});
+
+    await this.auditLog.record({
+      actorId: user.id,
+      action: 'auth.google.login',
+      entityType: 'user',
+      entityId: user.id,
+      payload: { email: user.email },
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+    // Set token in an httpOnly cookie so it never appears in URL/logs/history
+    res.cookie('oauth_token', result.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'strict' : 'lax',
+      maxAge: 5 * 60 * 1000, // 5 min — frontend must exchange and clear
+    });
+    res.redirect(`${frontendUrl}/auth/callback`);
+  }
+
+  /** Exchange the short-lived oauth_token cookie for a bearer token (one-time use). */
+  @Get('oauth/exchange')
+  exchangeOAuthCookie(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const token = (req.cookies as Record<string, string>)?.['oauth_token'];
+    if (!token) throw new UnauthorizedException('No OAuth token cookie found');
+    // Clear the cookie immediately — single use
+    (res as any).clearCookie('oauth_token');
+    return { accessToken: token };
   }
 
   private applyRateLimit(action: string, req: any) {

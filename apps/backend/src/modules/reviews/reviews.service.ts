@@ -113,7 +113,7 @@ export class ReviewsService {
           comment: dto.comment ?? existing.comment,
           status,
           moderationNotes: moderation.notes ?? existing.moderationNotes,
-          metadata: (this.buildMetadata(dto.metadata) ?? existing.metadata) as any,
+          metadata: (this.buildMetadata(dto.metadata) ?? existing.metadata) as Prisma.InputJsonValue,
         },
         include: { reviewer: true },
       });

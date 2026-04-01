@@ -6,16 +6,25 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@forumo/shared": ["packages/shared/src/index.ts"],
-      "@forumo/shared/*": ["packages/shared/src/*"],
-      "@forumo/config": ["packages/config/src/index.ts"],
-      "@forumo/config/*": ["packages/config/src/*"]
+      "@forumo/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@forumo/shared/*": [
+        "packages/shared/src/*"
+      ],
+      "@forumo/config": [
+        "packages/config/src/index.ts"
+      ],
+      "@forumo/config/*": [
+        "packages/config/src/*"
+      ]
     }
   }
 }

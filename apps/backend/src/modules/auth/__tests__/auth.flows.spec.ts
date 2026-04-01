@@ -19,6 +19,9 @@ class FakeConfigService {
     OTP_TTL: '300',
     OTP_DEVICE_RATE_LIMIT: '5',
     OTP_DEVICE_RATE_WINDOW: '300',
+    GOOGLE_CLIENT_ID: 'test-google-id',
+    GOOGLE_CLIENT_SECRET: 'test-google-secret',
+    GOOGLE_CALLBACK_URL: 'http://localhost/callback',
   };
 
   get<T = string>(key: string): T | undefined {
@@ -206,12 +209,28 @@ class InMemoryPrismaService {
     findMany: async ({ where }: { where: { userId: string } }) => {
       return Array.from(this.deviceSessions.values()).filter((record) => record.userId === where.userId);
     },
+    updateMany: async ({ where, data }: { where: any; data: any }) => {
+      let count = 0;
+      for (const [key, session] of this.deviceSessions.entries()) {
+        if (!where.userId || session.userId === where.userId) {
+          Object.assign(session, data, { updatedAt: new Date() });
+          count++;
+        }
+      }
+      return { count };
+    },
   };
 
   userProfile = {
     upsert: async ({ where, create }: { where: { userId: string }; create: any }) => {
       this.profiles.set(where.userId, { ...create, updatedAt: new Date() });
       return this.profiles.get(where.userId);
+    },
+  };
+
+  auditLog = {
+    create: async ({ data }: { data: any }) => {
+      return { id: randomUUID(), ...data };
     },
   };
 

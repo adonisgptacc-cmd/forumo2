@@ -8,7 +8,31 @@ export function OrdersBoard() {
   const { data, isLoading } = useOrders();
 
   if (isLoading) {
-    return <p className="text-slate-400">Loading orders…</p>;
+    return (
+      <div className="space-y-4 animate-pulse">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="grid-card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="h-3 w-16 bg-slate-700 rounded" />
+                <div className="h-5 w-32 bg-slate-700 rounded" />
+              </div>
+              <div className="h-6 w-20 bg-slate-700 rounded-full" />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="h-3 w-10 bg-slate-700 rounded" />
+                <div className="h-3 w-48 bg-slate-800 rounded" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 w-16 bg-slate-700 rounded" />
+                <div className="h-3 w-40 bg-slate-800 rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (!data || data.length === 0) {
@@ -56,9 +80,11 @@ export function OrdersBoard() {
             <p>
               Total {(order.totalItemCents + order.shippingCents + order.feeCents) / 100} {order.currency}
             </p>
-            <Link className="text-amber-300" href={`/app/messages?orderId=${order.id}`}>
-              Contact buyer →
-            </Link>
+            <div className="flex gap-3">
+              <Link className="text-amber-300 hover:underline" href={`/app/orders/${order.id}` as any}>
+                View details →
+              </Link>
+            </div>
           </div>
         </article>
       ))}

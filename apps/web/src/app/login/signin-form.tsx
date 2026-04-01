@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { ApiError, type AuthResponse } from '@forumo/shared';
 
 import { createApiClient } from '../../lib/api-client';
+import { GoogleSignInButton } from '../../components/google-signin-button';
 
 export function LoginForm() {
   const router = useRouter();
@@ -95,6 +96,11 @@ export function LoginForm() {
       >
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </button>
+      <div className="relative my-1">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
+        <div className="relative flex justify-center text-xs"><span className="bg-slate-950/50 px-2 text-slate-500">or</span></div>
+      </div>
+      <GoogleSignInButton />
       <p className="text-center text-xs text-slate-500">
         Need an account? <a className="text-amber-300" href="/signup">Create one</a> to unlock dashboards.
       </p>

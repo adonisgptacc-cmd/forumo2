@@ -1,4 +1,4 @@
-import { Inject, forwardRef, Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -28,7 +28,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   constructor(
     @Inject(forwardRef(() => MessagingService))
     private readonly messagingService: MessagingService,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket): void {
     const userId = this.extractUserId(client);

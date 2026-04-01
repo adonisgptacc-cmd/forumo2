@@ -1,5 +1,6 @@
-import { INestApplication } from '@nestjs/common';
+import { CanActivate, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 import {
   EscrowStatus,
   EscrowTransactionType,
@@ -16,11 +17,20 @@ import request from 'supertest';
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersModule } from "./orders.module";
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';
 const LISTING_ID = 'listing-1';
 const CANCELLED_ORDER_NUMBER = 'ORD-SEEDED-CANCELLED';
+
+class MockGuard implements CanActivate {
+  canActivate(context: any) {
+    const req = context.switchToHttp().getRequest();
+    req.user = { id: BUYER_ID, role: 'BUYER' };
+    return true;
+  }
+}
 
 describe('OrdersModule flows', () => {
   let app: INestApplication;
@@ -29,10 +39,15 @@ describe('OrdersModule flows', () => {
   beforeEach(async () => {
     prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
-      imports: [OrdersModule],
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        OrdersModule,
+      ],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideGuard(JwtAuthGuard)
+      .useClass(MockGuard)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -117,7 +132,11 @@ describe('OrdersModule flows', () => {
     expect(cancelRes.body.paymentStatus).toBe(PaymentStatus.REFUNDED);
     expect(cancelRes.body.escrow.status).toBe(EscrowStatus.REFUNDED);
     expect(cancelRes.body.escrow.transactions[0].type).toBe(EscrowTransactionType.REFUND);
-    expect(prismaMock.auditLogs[0]?.action).toBe('order.escrow.refund');
+
+    // Check if any audit log matches the expected action, since webhook received might come first
+    const refundLog = prismaMock.auditLogs.find(log => log.action === 'order.escrow.refund');
+    expect(refundLog).toBeDefined();
+    expect(refundLog?.entityId).toBe(orderId);
   });
 
   it('captures provider statuses from Stripe webhook callbacks', async () => {
@@ -637,6 +656,13 @@ class InMemoryPrismaService {
     },
   };
 
+  webhookEvent = {
+    create: async ({ data }: { data: any }) => {
+      return { id: randomUUID(), ...data };
+    },
+    update: async () => ({}),
+  };
+
   private createOrderItem(orderId: string, item: any) {
     const id = randomUUID();
     this.items.set(id, {
@@ -664,14 +690,14 @@ class InMemoryPrismaService {
     };
   }
 
-  private buildOrder(record: OrderRecord, include: Prisma.OrderInclude) {
+  private buildOrder(record: OrderRecord, include: Prisma.OrderInclude | undefined) {
     return {
       ...record,
-      items: include.items ? this.getItems(record.id) : undefined,
+      items: include?.items ? this.getItems(record.id) : undefined,
       shipments: [],
-      timeline: include.timeline ? this.getTimeline(record.id) : undefined,
-      payments: include.payments ? this.getPayments(record.id) : undefined,
-      escrow: include.escrow ? this.getEscrow(record.id) : null,
+      timeline: include?.timeline ? this.getTimeline(record.id) : undefined,
+      payments: include?.payments ? this.getPayments(record.id) : undefined,
+      escrow: include?.escrow ? this.getEscrow(record.id) : null,
     };
   }
 

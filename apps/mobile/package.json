@@ -10,7 +10,13 @@
     "web": "expo start --web",
     "test": "jest",
     "test:detox": "detox test -c ios.sim.debug --headless",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:dev": "eas build --profile development --platform all",
+    "build:preview": "eas build --profile preview --platform all",
+    "build:production": "eas build --profile production --platform all",
+    "submit:production": "eas submit --profile production --platform all",
+    "update:preview": "eas update --channel preview --message",
+    "update:production": "eas update --channel production --message"
   },
   "dependencies": {
     "@forumo/config": "workspace:*",

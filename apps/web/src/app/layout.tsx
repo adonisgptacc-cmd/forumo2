@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppProviders } from '../components/app-providers';
+import { ForumoHeader } from '../components/forumo-header';
+import { ForumoFooter } from '../components/forumo-footer';
 
 export const metadata: Metadata = {
   title: 'Forumo Marketplace',
@@ -10,9 +12,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-50">
+      <body className="min-h-screen">
         <AppProviders>
-          <div className="mx-auto max-w-6xl px-6 py-12">{children}</div>
+          <ForumoHeader />
+          <main className="mx-auto max-w-[1500px] bg-[#f3f3f3]">
+            {children}
+          </main>
+          <ForumoFooter />
         </AppProviders>
       </body>
     </html>

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import {
   EscrowStatus,
   EscrowTransactionType,
@@ -22,23 +22,27 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
-  ) {}
+  ) { }
 
-  async findAll(): Promise<SafeOrder[]> {
+  async findAll(userId: string): Promise<SafeOrder[]> {
     const orders = (await this.prisma.order.findMany({
+      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
       orderBy: { createdAt: 'desc' },
       include: this.defaultInclude,
     })) as OrderWithRelations[];
     return orders.map((order) => serializeOrder(order));
   }
 
-  async findById(id: string): Promise<SafeOrder> {
+  async findById(id: string, userId?: string): Promise<SafeOrder> {
     const order = (await this.prisma.order.findFirst({
       where: { id },
       include: this.defaultInclude,
     })) as OrderWithRelations | null;
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+    if (userId && order.buyerId !== userId && order.sellerId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
     return serializeOrder(order);
   }
@@ -98,6 +102,44 @@ export class OrdersService {
     return this.findById(order.id);
   }
 
+  async initiatePayment(orderId: string, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payments: true }
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.buyerId !== userId) throw new ForbiddenException('Not your order');
+    if (order.status !== OrderStatus.PENDING) throw new BadRequestException('Order status not pending');
+
+    // Check for existing pending intent
+    const existing = order.payments.find(p => p.status === PaymentStatus.PENDING && p.provider === PaymentProvider.STRIPE);
+    if (existing && existing.metadata && (existing.metadata as any).clientSecret) {
+      return { clientSecret: (existing.metadata as any).clientSecret };
+    }
+
+    // Create new intent
+    const totalChargeCents = order.totalItemCents + order.shippingCents + order.feeCents;
+    const paymentIntent = await this.paymentsService.mintPaymentIntent(order.id, totalChargeCents, order.currency);
+
+    await this.prisma.paymentTransaction.create({
+      data: {
+        orderId: order.id,
+        provider: PaymentProvider.STRIPE,
+        status: PaymentStatus.PENDING,
+        providerStatus: paymentIntent.status,
+        amountCents: totalChargeCents,
+        currency: order.currency,
+        providerRef: paymentIntent.id,
+        metadata: this.toJsonInput(
+          paymentIntent.client_secret ? { clientSecret: paymentIntent.client_secret } : undefined,
+        ),
+      },
+    });
+
+    return { clientSecret: paymentIntent.client_secret };
+  }
+
   async updateStatus(id: string, dto: UpdateOrderStatusInput): Promise<SafeOrder> {
     return this.prisma.$transaction(async (tx) => {
       const order = (await tx.order.findUnique({
@@ -147,6 +189,8 @@ export class OrdersService {
           await this.paymentsService.markPaymentRefunded(tx, order, providerStatus);
           await this.handleEscrowRefund(tx, order, dto);
           data.paymentStatus = PaymentStatus.REFUNDED;
+          // Issue Stripe refund outside the transaction (non-fatal if it fails)
+          void this.paymentsService.issueStripeRefund(order.id, 'requested_by_customer');
           break;
         case OrderStatus.COMPLETED:
           await this.handleEscrowRelease(tx, order, dto);
@@ -277,7 +321,7 @@ export class OrdersService {
       case OrderStatus.REFUNDED:
         return { cancelledAt: now };
       case OrderStatus.COMPLETED:
-        return { deliveredAt: now };
+        return {}; // No dedicated completedAt field; deliveredAt was already set at DELIVERED
       default:
         return {};
     }
@@ -429,6 +473,65 @@ export class OrdersService {
       return Prisma.JsonNull;
     }
     return value as Prisma.InputJsonValue;
+  }
+
+  async getSellerAnalytics(sellerId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: { sellerId },
+      select: {
+        id: true,
+        status: true,
+        totalItemCents: true,
+        shippingCents: true,
+        feeCents: true,
+        currency: true,
+        placedAt: true,
+        createdAt: true,
+      },
+    });
+
+    // Only COMPLETED means escrow was released to seller — DELIVERED is still in-flight
+    const completedOrders = orders.filter((o) => o.status === 'COMPLETED');
+
+    const totalRevenueCents = completedOrders.reduce(
+      (sum, o) => sum + o.totalItemCents + o.shippingCents + o.feeCents,
+      0,
+    );
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const o of orders) {
+      ordersByStatus[o.status] = (ordersByStatus[o.status] ?? 0) + 1;
+    }
+
+    // Group revenue by month (last 12 months)
+    const now = new Date();
+    const revenueByMonth: { month: string; revenueCents: number; orderCount: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString('en', { month: 'short', year: '2-digit' });
+      const monthOrders = completedOrders.filter((o) => {
+        const placed = new Date(o.placedAt ?? o.createdAt);
+        return placed.getFullYear() === d.getFullYear() && placed.getMonth() === d.getMonth();
+      });
+      revenueByMonth.push({
+        month: label,
+        revenueCents: monthOrders.reduce((s, o) => s + o.totalItemCents + o.shippingCents + o.feeCents, 0),
+        orderCount: monthOrders.length,
+      });
+    }
+
+    const avgOrderValueCents = completedOrders.length
+      ? Math.round(totalRevenueCents / completedOrders.length)
+      : 0;
+
+    return {
+      totalOrders: orders.length,
+      completedOrders: completedOrders.length,
+      totalRevenueCents,
+      avgOrderValueCents,
+      ordersByStatus,
+      revenueByMonth,
+    };
   }
 
   private generateOrderNumber(): string {

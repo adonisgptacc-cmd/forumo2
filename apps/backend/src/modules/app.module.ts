@@ -13,6 +13,14 @@ import { configSchema } from "../config/config.schema";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { HttpMetricsInterceptor } from "../common/interceptors/http-metrics.interceptor";
+import { KycModule } from "./kyc/kyc.module";
+import { EscrowModule } from "./escrow/escrow.module";
+import { InventoryModule } from "./inventory/inventory.module";
+import { AuctionsModule } from "./auctions/auctions.module";
+import { StorefrontsModule } from "./storefronts/storefronts.module";
+import { OffersModule } from "./offers/offers.module";
+import { WishlistModule } from "./wishlist/wishlist.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -22,6 +30,7 @@ import { HttpMetricsInterceptor } from "../common/interceptors/http-metrics.inte
     }),
     HealthModule,
     ObservabilityModule,
+    NotificationsModule,
     AuthModule,
     UsersModule,
     ListingsModule,
@@ -29,7 +38,14 @@ import { HttpMetricsInterceptor } from "../common/interceptors/http-metrics.inte
     MessagingModule,
     AdminModule,
     ReviewsModule,
+    KycModule,
+    EscrowModule,
+    InventoryModule,
+    AuctionsModule,
+    StorefrontsModule,
+    OffersModule,
+    WishlistModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor }],
 })
-export class AppModule {}
+export class AppModule { }

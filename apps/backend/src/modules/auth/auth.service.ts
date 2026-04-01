@@ -38,7 +38,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
     private readonly rateLimitService: RateLimitService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterInput): Promise<AuthResponse> {
     const normalizedEmail = this.normalizeEmail(dto.email);
@@ -209,7 +209,7 @@ export class AuthService {
     });
   }
 
-  private async buildAuthResponse(
+  async buildAuthResponse(
     user: SafeUser | ({ passwordHash: string } & SafeUser),
     options: {
       rememberMe?: boolean;
@@ -424,5 +424,37 @@ export class AuthService {
     }
 
     return user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL;
+  }
+
+  async validateOrCreateGoogleUser(profile: {
+    googleId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }): Promise<User> {
+    const normalizedEmail = this.normalizeEmail(profile.email);
+
+    // Check if user exists by email
+    let user = await this.findActiveUserByEmail(normalizedEmail);
+
+    if (user) {
+      // User exists, just return them
+      return user;
+    }
+
+    // Create new user with Google OAuth
+    user = await this.prisma.user.create({
+      data: {
+        name: profile.name,
+        email: normalizedEmail,
+        passwordHash: '', // No password for OAuth users
+        avatarUrl: profile.avatarUrl,
+        kycStatus: 'NOT_REQUIRED', // OAuth users are pre-verified by Google
+      },
+    });
+
+    await this.ensureUserProfile(user.id);
+
+    return user;
   }
 }

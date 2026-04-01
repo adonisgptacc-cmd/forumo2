@@ -8,9 +8,17 @@ import { authOptions } from '../../../lib/auth';
 
 const navItems = [
   { href: '/app', label: 'Overview' },
-  { href: '/app/orders', label: 'Orders & Escrow' },
-  { href: '/app/checkout', label: 'Buyer Checkout' },
-  { href: '/app/messages', label: 'Messaging' },
+  { href: '/app/dashboard', label: 'Seller Dashboard' },
+  { href: '/app/listings', label: 'My Listings' },
+  { href: '/app/storefront', label: 'Storefront' },
+  { href: '/app/auctions/new', label: 'Create Auction' },
+  { href: '/app/orders', label: 'Orders' },
+  { href: '/app/offers', label: 'Offers' },
+  { href: '/app/wishlist', label: 'Wishlist' },
+  { href: '/app/messages', label: 'Messages' },
+  { href: '/app/cart', label: 'Cart' },
+  { href: '/app/profile', label: 'Profile' },
+  { href: '/app/kyc', label: 'Verification' },
 ];
 
 export default async function AppLayout({ children }: { children: ReactNode }) {

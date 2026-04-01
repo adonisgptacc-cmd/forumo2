@@ -1,20 +1,37 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding database...');
 
-  // Create sample users
+  const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD ?? 'Admin@forumo2026!', 10);
   const sellerPassword = await bcrypt.hash('seller123', 10);
   const buyerPassword = await bcrypt.hash('buyer123', 10);
 
+  // ── Admin user ──────────────────────────────────────────────────
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@forumo.africa' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      name: 'Forumo Admin',
+      email: 'admin@forumo.africa',
+      passwordHash: adminPassword,
+      kycStatus: 'APPROVED',
+      role: 'ADMIN',
+    },
+  });
+  console.log(`✓ Admin:  ${admin.email}  (role: ${admin.role})`);
+
+  // ── Dev users ────────────────────────────────────────────────────
   const seller = await prisma.user.upsert({
     where: { email: 'seller@example.com' },
     update: {},
     create: {
-      id: `user-seller-${Date.now()}`,
+      id: randomUUID(),
       name: 'John Seller',
       email: 'seller@example.com',
       passwordHash: sellerPassword,
@@ -22,12 +39,13 @@ async function main() {
       role: 'SELLER',
     },
   });
+  console.log(`✓ Seller: ${seller.email}`);
 
   const buyer = await prisma.user.upsert({
     where: { email: 'buyer@example.com' },
     update: {},
     create: {
-      id: `user-buyer-${Date.now()}`,
+      id: randomUUID(),
       name: 'Jane Buyer',
       email: 'buyer@example.com',
       passwordHash: buyerPassword,
@@ -35,75 +53,48 @@ async function main() {
       role: 'BUYER',
     },
   });
+  console.log(`✓ Buyer:  ${buyer.email}`);
 
-  console.log(`Created seller: ${seller.email}`);
-  console.log(`Created buyer: ${buyer.email}`);
+  // ── Categories ───────────────────────────────────────────────────
+  const categories = ['Electronics', 'Fashion', 'Home & Kitchen', 'Sports', 'Books', 'Vehicles', 'Agriculture'];
+  for (const name of categories) {
+    await prisma.listingCategory.upsert({
+      where: { name },
+      update: {},
+      create: { name, description: `${name} listings` },
+    });
+  }
+  console.log(`✓ Categories: ${categories.join(', ')}`);
 
-  // Create sample listings
+  // ── Sample listings ──────────────────────────────────────────────
   const sampleListings = [
-    {
-      title: 'Vintage Leather Jacket',
-      description: 'Classic vintage leather jacket in excellent condition. Perfect for any style.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 15000,
-    },
-    {
-      title: 'iPhone 14 Pro Max',
-      description: 'Apple iPhone 14 Pro Max, 256GB, Space Black. Like new condition.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 120000,
-    },
-    {
-      title: 'Wooden Dining Table',
-      description: 'Beautiful handcrafted wooden dining table, seats 6 people.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 45000,
-    },
-    {
-      title: 'Mountain Bike - Trek',
-      description: 'Trek mountain bike, 2022 model, 21-speed, great for trails.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 50000,
-    },
-    {
-      title: 'Vintage Analog Camera',
-      description: 'Canon AE-1 35mm camera with original lens, fully functional.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 25000,
-    },
-    {
-      title: 'Yoga Mat & Equipment Set',
-      description: 'Complete yoga set with mat, blocks, straps, and carrying bag.',
-      sellerId: seller.id,
-      status: 'PUBLISHED',
-      priceCents: 8000,
-    },
+    { title: 'Vintage Leather Jacket', description: 'Classic vintage leather jacket in excellent condition.', priceCents: 15000 },
+    { title: 'iPhone 14 Pro Max', description: 'Apple iPhone 14 Pro Max, 256GB, Space Black. Like new condition.', priceCents: 120000 },
+    { title: 'Wooden Dining Table', description: 'Beautiful handcrafted wooden dining table, seats 6 people.', priceCents: 45000 },
+    { title: 'Mountain Bike - Trek', description: 'Trek mountain bike, 2022 model, 21-speed, great for trails.', priceCents: 50000 },
+    { title: 'Vintage Analog Camera', description: 'Canon AE-1 35mm camera with original lens, fully functional.', priceCents: 25000 },
+    { title: 'Yoga Mat & Equipment Set', description: 'Complete yoga set with mat, blocks, straps, and carrying bag.', priceCents: 8000 },
   ];
 
-  for (const listingData of sampleListings) {
-    const listing = await prisma.listing.upsert({
-      where: { id: `listing-${listingData.title.replace(/\s+/g, '-').toLowerCase()}` },
-      update: {},
-      create: {
-        ...listingData,
-        id: `listing-${listingData.title.replace(/\s+/g, '-').toLowerCase()}`,
-      },
-    });
-    console.log(`Created listing: ${listing.title}`);
+  for (const data of sampleListings) {
+    const existing = await prisma.listing.findFirst({ where: { title: data.title, sellerId: seller.id } });
+    if (!existing) {
+      await prisma.listing.create({
+        data: { ...data, id: randomUUID(), sellerId: seller.id, status: 'PUBLISHED', moderationStatus: 'APPROVED' },
+      });
+    }
+    console.log(`✓ Listing: ${data.title}`);
   }
 
-  console.log('Seeding completed!');
+  console.log('\nSeeding complete!');
+  console.log('\nDev credentials:');
+  console.log('  admin@forumo.africa  /  Admin@forumo2026!');
+  console.log('  seller@example.com   /  seller123');
+  console.log('  buyer@example.com    /  buyer123');
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
+  .then(() => prisma.$disconnect())
   .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();

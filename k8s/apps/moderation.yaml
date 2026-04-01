@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forumo-moderation
+  namespace: forumo
+  labels:
+    app: moderation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moderation
+  template:
+    metadata:
+      labels:
+        app: moderation
+    spec:
+      containers:
+        - name: moderation
+          image: forumo-moderation:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5005
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5005
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5005
+            initialDelaySeconds: 20
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forumo-moderation
+  namespace: forumo
+spec:
+  selector:
+    app: moderation
+  ports:
+    - port: 5005
+      targetPort: 5005
+  type: ClusterIP

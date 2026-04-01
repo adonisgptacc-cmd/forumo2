@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { ApiError, type AuthResponse } from '@forumo/shared';
 
 import { createApiClient } from '../../lib/api-client';
+import { GoogleSignInButton } from '../../components/google-signin-button';
 
 export function SignupForm() {
   const router = useRouter();
@@ -109,6 +110,11 @@ export function SignupForm() {
       >
         {isSubmitting ? 'Creating account…' : 'Create account'}
       </button>
+      <div className="relative my-1">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
+        <div className="relative flex justify-center text-xs"><span className="bg-slate-950/50 px-2 text-slate-500">or</span></div>
+      </div>
+      <GoogleSignInButton />
     </form>
   );
 }

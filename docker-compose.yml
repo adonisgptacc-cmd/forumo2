@@ -1,0 +1,111 @@
+
+services:
+  # --- Infrastructure ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: forumo-postgres
+    environment:
+      - POSTGRES_USER=forumo
+      - POSTGRES_PASSWORD=forumo
+      - POSTGRES_DB=forumo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forumo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: forumo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
+    container_name: forumo-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address :9001
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: forumo-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # --- Applications ---
+  moderation:
+    build:
+      context: ./apps/moderation
+      dockerfile: Dockerfile
+    container_name: forumo-moderation
+    ports:
+      - "5005:5005"
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: forumo-backend
+    environment:
+      - DATABASE_URL=postgresql://forumo:forumo@postgres:5432/forumo?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev-super-secret-key-change-in-prod
+      - MODERATION_SERVICE_URL=http://moderation:5005
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - UPLOADS_BUCKET=forumo-uploads
+      - PORT=4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      moderation:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: forumo-web
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

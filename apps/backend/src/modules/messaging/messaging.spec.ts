@@ -5,6 +5,7 @@ import { MessageModerationStatus, MessageParticipantRole, MessageStatus } from '
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
+import { ConfigModule } from '@nestjs/config';
 import { PrismaService } from "../../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { MessagingModule } from "./messaging.module";
@@ -32,7 +33,10 @@ describe('MessagingModule (integration)', () => {
     storage = new FakeStorageService();
 
     const moduleRef = await Test.createTestingModule({
-      imports: [MessagingModule],
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        MessagingModule,
+      ],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
@@ -420,8 +424,8 @@ class InMemoryPrismaService {
   private buildThread(thread: ThreadRecord, include?: any) {
     const participants = include?.participants
       ? Array.from(this.participants.values())
-          .filter((participant) => participant.threadId === thread.id)
-          .map((participant) => ({ ...participant }))
+        .filter((participant) => participant.threadId === thread.id)
+        .map((participant) => ({ ...participant }))
       : undefined;
     const messages = include?.messages
       ? this.buildMessagesForThread(thread.id, include.messages?.orderBy?.createdAt)
@@ -446,13 +450,13 @@ class InMemoryPrismaService {
   private buildMessage(message: MessageRecord, include?: any) {
     const attachments = include?.attachments
       ? Array.from(this.attachments.values())
-          .filter((attachment) => attachment.messageId === message.id)
-          .map((attachment) => ({ ...attachment }))
+        .filter((attachment) => attachment.messageId === message.id)
+        .map((attachment) => ({ ...attachment }))
       : undefined;
     const receipts = include?.receipts
       ? Array.from(this.receipts.values())
-          .filter((receipt) => receipt.messageId === message.id)
-          .map((receipt) => ({ ...receipt }))
+        .filter((receipt) => receipt.messageId === message.id)
+        .map((receipt) => ({ ...receipt }))
       : undefined;
     return {
       ...message,

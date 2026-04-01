@@ -1,0 +1,53 @@
+
+> backend@0.1.0 pretest C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> pnpm run prisma:generate
+
+
+> backend@0.1.0 prisma:generate C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> prisma generate --schema prisma/schema.prisma
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Ô£ö Generated Prisma Client (v5.22.0) to .\..\..\node_modules\.pnpm\@prisma+client@5.22.0_prisma@5.22.0\node_modules\@prisma\client in 492ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want real-time updates to your database without manual polling? Discover how with Pulse: https://pris.ly/tip-0-pulse
+
+
+> backend@0.1.0 test C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> jest --runInBand "src/modules/orders/orders.flows.spec.ts"
+
+FAIL src/modules/orders/orders.flows.spec.ts (6.691 s)
+  OrdersModule flows
+    ÔêÜ returns seeded paid/cancelled/refunded orders (310 ms)
+    ÔêÜ runs the pay ÔåÆ fulfill ÔåÆ release happy path (49 ms)
+    ├ù cancels and refunds via webhook + cancellation (26 ms)
+    ÔêÜ captures provider statuses from Stripe webhook callbacks (19 ms)
+    ÔêÜ releases escrow via controller shortcut (19 ms)
+    ÔêÜ refunds escrow via controller shortcut (21 ms)
+
+  ÔùÅ OrdersModule flows ÔÇ║ cancels and refunds via webhook + cancellation
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "order.escrow.refund"
+    Received: "payments.webhook.received"
+
+      129 |     expect(cancelRes.body.escrow.status).toBe(EscrowStatus.REFUNDED);
+      130 |     expect(cancelRes.body.escrow.transactions[0].type).toBe(EscrowTransactionType.REFUND);
+    > 131 |     expect(prismaMock.auditLogs[0]?.action).toBe('order.escrow.refund');
+          |                                             ^
+      132 |   });
+      133 |
+      134 |   it('captures provider statuses from Stripe webhook callbacks', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:131:45)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 5 passed, 6 total
+Snapshots:   0 total
+Time:        7.025 s, estimated 8 s
+Ran all test suites matching /src\\modules\\orders\\orders.flows.spec.ts/i.
+ÔÇëELIFECYCLEÔÇë Test failed. See above for more details.

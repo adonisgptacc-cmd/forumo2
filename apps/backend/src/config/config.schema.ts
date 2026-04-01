@@ -33,6 +33,7 @@ export const configSchema = z
     SNS_ACCESS_KEY_ID: optionalString,
     SNS_SECRET_ACCESS_KEY: optionalString,
     SNS_SMS_SENDER_ID: optionalString,
+    ADMIN_NOTIFICATION_EMAIL: optionalString,
     MODERATION_SERVICE_URL: optionalString,
     MODERATION_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
     MODERATION_MAX_ATTEMPTS: z.coerce.number().int().positive().optional(),

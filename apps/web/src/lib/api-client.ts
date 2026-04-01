@@ -14,21 +14,32 @@ import type {
   SafeOrder,
   SendMessageDto,
   UpdateListingDto,
+  SafeReview,
+  CreateReviewDto,
+  ReviewRollup,
+  ListingReviewResponse,
+  Storefront,
+  Auction,
+  CreateAuctionDto,
+  PlaceBidDto,
+  CreateStorefrontDto,
 } from '@forumo/shared';
 import { ForumoApiClient } from '@forumo/shared';
 
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 const useMocks = process.env.NEXT_PUBLIC_USE_API_MOCKS === 'true';
 
-export function createApiClient(accessToken?: string | null) {
+export function createApiClient(accessToken?: string | null): ForumoApiClient {
   if (useMocks) {
-    return new MockApiClient();
+    return new MockApiClient() as any as ForumoApiClient;
   }
   return new ForumoApiClient({
     baseUrl: apiBaseUrl,
     getAccessToken: () => accessToken ?? undefined,
   });
 }
+
+export const apiClient = createApiClient();
 
 type MockState = {
   listings: SafeListing[];
@@ -224,6 +235,31 @@ function getMockState(): MockState {
 class MockApiClient {
   private get state() {
     return getMockState();
+  }
+
+  async get(path: string) {
+    console.log('Mock GET:', path);
+    return {} as any;
+  }
+
+  async post(path: string, body: any) {
+    console.log('Mock POST:', path, body);
+    return {} as any;
+  }
+
+  async put(path: string, body: any) {
+    console.log('Mock PUT:', path, body);
+    return {} as any;
+  }
+
+  async patch(path: string, body: any) {
+    console.log('Mock PATCH:', path, body);
+    return {} as any;
+  }
+
+  async delete(path: string) {
+    console.log('Mock DELETE:', path);
+    return {} as any;
   }
 
   auth = {
@@ -447,21 +483,53 @@ class MockApiClient {
   };
 
   reviews = {
-    forListing: async (_listingId: string): Promise<any> => {
+    forListing: async (_listingId: string): Promise<ListingReviewResponse> => {
       // Mock empty reviews for now
       return {
-        rating: 0,
-        count: 0,
-        breakdown: {},
-        recent: [],
+        reviews: [],
+        rollup: {
+          sellerId: 'mock-seller',
+          averageRating: 0,
+          reviewCount: 0,
+          publishedCount: 0,
+          pendingCount: 0,
+          flaggedCount: 0,
+          lastReviewAt: null,
+        },
       };
     },
-    create: async (_payload: any): Promise<any> => {
+    create: async (payload: CreateReviewDto): Promise<SafeReview> => {
       // Mock creation
       return {
-        id: 'mock-review',
-        rating: 5,
-        text: 'Review content',
+        id: uid(),
+        reviewerId: payload.reviewerId,
+        recipientId: payload.recipientId,
+        listingId: payload.listingId,
+        orderId: payload.orderId,
+        rating: payload.rating,
+        comment: payload.comment,
+        status: 'PUBLISHED',
+        moderationNotes: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reviewer: {
+          id: payload.reviewerId,
+          email: 'reviewer@example.com',
+          name: 'Mock Reviewer',
+          role: 'BUYER',
+        },
+        flags: [],
+      } as SafeReview;
+    },
+    rollup: async (sellerId: string): Promise<ReviewRollup> => {
+      return {
+        sellerId,
+        averageRating: 5,
+        reviewCount: 1,
+        publishedCount: 1,
+        pendingCount: 0,
+        flaggedCount: 0,
+        lastReviewAt: new Date().toISOString(),
       };
     },
   };
@@ -516,6 +584,84 @@ class MockApiClient {
       dispute.resolvedAt = new Date().toISOString();
       persistMockState(this.state);
       return dispute;
+    },
+  };
+
+  auctions = {
+    create: async (payload: CreateAuctionDto): Promise<Auction> => {
+      const auction: Auction = {
+        id: uid(),
+        listingId: payload.listingId,
+        sellerId: 'seller-sample',
+        status: 'ACTIVE',
+        startingBidCents: payload.startingBidCents,
+        currency: 'USD',
+        reserveCents: payload.reserveCents ?? null,
+        buyNowCents: payload.buyNowCents ?? null,
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 86400000 * payload.durationDays).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        currentBidCents: payload.startingBidCents,
+        bidCount: 0,
+      };
+      return auction;
+    },
+    get: async (id: string): Promise<Auction> => {
+      return {
+        id,
+        listingId: 'listing-sample',
+        sellerId: 'seller-sample',
+        status: 'ACTIVE',
+        startingBidCents: 1000,
+        currency: 'USD',
+        reserveCents: null,
+        buyNowCents: null,
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 3600000).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        currentBidCents: 1500,
+        bidCount: 3,
+        listing: this.state.listings[0],
+      };
+    },
+    placeBid: async (id: string, payload: PlaceBidDto): Promise<Auction> => {
+      const auction = await this.auctions.get(id);
+      auction.currentBidCents = payload.amountCents;
+      auction.bidCount = (auction.bidCount ?? 0) + 1;
+      return auction;
+    },
+  };
+
+  storefronts = {
+    create: async (payload: CreateStorefrontDto): Promise<Storefront> => {
+      const storefront: Storefront = {
+        id: uid(),
+        userId: 'seller-sample',
+        name: payload.name,
+        slug: payload.slug,
+        description: payload.description,
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        collections: [],
+      };
+      return storefront;
+    },
+    get: async (slug: string): Promise<Storefront> => {
+      return {
+        id: uid(),
+        userId: 'seller-sample',
+        name: 'Mock Store',
+        slug,
+        description: 'A mock storefront for testing',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        user: { id: 'seller-sample', email: 'seller@example.com', name: 'Mock Seller' },
+        collections: [],
+      };
     },
   };
 }

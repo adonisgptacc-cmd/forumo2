@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
@@ -46,15 +46,15 @@ export class ListingsService {
     return serializeListing(listing);
   }
 
-  async create(dto: CreateListingDto): Promise<SafeListing> {
-    await this.ensureSellerExists(dto.sellerId);
+  async create(dto: CreateListingDto, sellerId: string): Promise<SafeListing> {
+    await this.ensureSellerExists(sellerId);
 
     const requestedStatus = dto.status ?? ListingStatus.DRAFT;
     const initialStatus = requestedStatus === ListingStatus.PUBLISHED ? ListingStatus.PAUSED : requestedStatus;
 
     const listing = await this.prisma.listing.create({
       data: {
-        sellerId: dto.sellerId,
+        sellerId,
         title: dto.title,
         description: dto.description,
         priceCents: dto.priceCents,
@@ -72,17 +72,18 @@ export class ListingsService {
 
     await this.moderationQueue.enqueueListingScan({
       listingId: listing.id,
-      sellerId: listing.sellerId,
+      sellerId,
       reason: 'listing_created',
       desiredStatus: requestedStatus,
     });
 
-    this.logger.log(`Listing ${listing.id} created for seller ${listing.sellerId}`);
+    this.logger.log(`Listing ${listing.id} created for seller ${sellerId}`);
     return this.findById(listing.id);
   }
 
-  async update(id: string, dto: UpdateListingDto): Promise<SafeListing> {
+  async update(id: string, dto: UpdateListingDto, userId: string): Promise<SafeListing> {
     const current = await this.ensureListingExists(id);
+    if (current.sellerId !== userId) throw new ForbiddenException('Not your listing');
     const desiredStatus = dto.status ?? current.status;
     const data: Prisma.ListingUpdateInput = {
       title: dto.title ?? undefined,
@@ -124,16 +125,18 @@ export class ListingsService {
     return this.findById(id);
   }
 
-  async softDelete(id: string): Promise<void> {
-    await this.ensureListingExists(id);
+  async softDelete(id: string, userId: string): Promise<void> {
+    const listing = await this.ensureListingExists(id);
+    if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');
     await this.prisma.listing.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
   }
 
-  async attachImage(id: string, file: Express.Multer.File): Promise<SafeListingImage> {
+  async attachImage(id: string, file: Express.Multer.File, userId: string): Promise<SafeListingImage> {
     const listing = await this.ensureListingExists(id);
+    if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');
     const desiredStatus = listing.status;
     const shouldPause = listing.status === ListingStatus.PUBLISHED;
     await this.prisma.listing.update({

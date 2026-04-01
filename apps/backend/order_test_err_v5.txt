@@ -1,0 +1,360 @@
+
+> backend@0.1.0 pretest C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> pnpm run prisma:generate
+
+
+> backend@0.1.0 prisma:generate C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> prisma generate --schema prisma/schema.prisma
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Ô£ö Generated Prisma Client (v5.22.0) to .\..\..\node_modules\.pnpm\@prisma+client@5.22.0_prisma@5.22.0\node_modules\@prisma\client in 394ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+> backend@0.1.0 test C:\Users\ABADO\Desktop\forumo2\forumo2\apps\backend
+> jest --runInBand "src/modules/orders/orders.flows.spec.ts"
+
+FAIL src/modules/orders/orders.flows.spec.ts
+  OrdersModule flows
+    ├ù returns seeded paid/cancelled/refunded orders (13 ms)
+    ├ù runs the pay ÔåÆ fulfill ÔåÆ release happy path (4 ms)
+    ├ù cancels and refunds via webhook + cancellation (3 ms)
+    ├ù captures provider statuses from Stripe webhook callbacks (5 ms)
+    ├ù releases escrow via controller shortcut (3 ms)
+    ├ù refunds escrow via controller shortcut (3 ms)
+
+  ÔùÅ OrdersModule flows ÔÇ║ returns seeded paid/cancelled/refunded orders
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ returns seeded paid/cancelled/refunded orders
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+  ÔùÅ OrdersModule flows ÔÇ║ runs the pay ÔåÆ fulfill ÔåÆ release happy path
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ runs the pay ÔåÆ fulfill ÔåÆ release happy path
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+  ÔùÅ OrdersModule flows ÔÇ║ cancels and refunds via webhook + cancellation
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ cancels and refunds via webhook + cancellation
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+  ÔùÅ OrdersModule flows ÔÇ║ captures provider statuses from Stripe webhook callbacks
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ captures provider statuses from Stripe webhook callbacks
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+  ÔùÅ OrdersModule flows ÔÇ║ releases escrow via controller shortcut
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ releases escrow via controller shortcut
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+  ÔùÅ OrdersModule flows ÔÇ║ refunds escrow via controller shortcut
+
+    Nest can't resolve dependencies of the PaymentsController (OrdersService, PaymentsService, RateLimitService, AuditLogService, ?). Please make sure that the argument ConfigService at index [4] is available in the OrdersModule context.
+
+    Potential solutions:
+    - Is OrdersModule a valid NestJS module?
+    - If ConfigService is a provider, is it part of the current OrdersModule?
+    - If ConfigService is exported from a separate @Module, is that module imported within OrdersModule?
+      @Module({
+        imports: [ /* the Module containing ConfigService */ ]
+      })
+
+      39 |   beforeEach(async () => {
+      40 |     prismaMock = new InMemoryPrismaService();
+    > 41 |     const moduleRef = await Test.createTestingModule({
+         |                       ^
+      42 |       imports: [ConfigModule, OrdersModule],
+      43 |     })
+      44 |       .overrideProvider(PrismaService)
+
+      at TestingInjector.lookupComponentInParentModules (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:262:19)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:215:33)
+      at TestingInjector.resolveComponentInstance (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-injector.js:19:45)
+      at resolveParam (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:129:38)
+          at async Promise.all (index 4)
+      at TestingInjector.resolveConstructorParams (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:144:27)
+      at TestingInjector.loadInstance (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:70:13)
+      at TestingInjector.loadController (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/injector.js:89:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+          at async Promise.all (index 1)
+      at TestingInstanceLoader.createInstancesOfControllers (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:67:9)
+      at ../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:42:13
+          at async Promise.all (index 4)
+      at TestingInstanceLoader.createInstances (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:39:9)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+core@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_re_gdpssuai5slqtllmuhnltv5yme/node_modules/@nestjs/core/injector/instance-loader.js:22:13)
+      at TestingInstanceLoader.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-instance-loader.js:9:9)
+      at TestingModuleBuilder.createInstancesOfDependencies (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:118:9)
+      at TestingModuleBuilder.compile (../../node_modules/.pnpm/@nestjs+testing@10.4.20_@nestjs+common@10.4.20_class-transformer@0.5.1_class-validator@0.14.2_rkjadnbnqwzka64cimwtygnkgi/node_modules/@nestjs/testing/testing-module.builder.js:74:9)
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:41:23)
+
+  ÔùÅ OrdersModule flows ÔÇ║ refunds escrow via controller shortcut
+
+    TypeError: Cannot read properties of undefined (reading 'close')
+
+      53 |
+      54 |   afterEach(async () => {
+    > 55 |     await app.close();
+         |               ^
+      56 |   });
+      57 |
+      58 |   it('returns seeded paid/cancelled/refunded orders', async () => {
+
+      at Object.<anonymous> (src/modules/orders/orders.flows.spec.ts:55:15)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 6 total
+Snapshots:   0 total
+Time:        4.458 s, estimated 6 s
+Ran all test suites matching /src\\modules\\orders\\orders.flows.spec.ts/i.
+ÔÇëELIFECYCLEÔÇë Test failed. See above for more details.

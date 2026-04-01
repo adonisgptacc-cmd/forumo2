@@ -7,6 +7,7 @@ import {
   ListingStatus,
   ListingVariant,
   Prisma,
+  ListingType,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
@@ -127,11 +128,14 @@ class InMemoryPrismaService {
         description: data.description!,
         priceCents: data.priceCents!,
         currency: data.currency ?? 'USD',
+        type: data.type ?? ListingType.FIXED_PRICE,
         status: data.status ?? ListingStatus.DRAFT,
         moderationStatus: data.moderationStatus!,
         moderationNotes: data.moderationNotes ?? null,
         metadata: data.metadata ?? null,
         location: data.location ?? null,
+        latitude: null,
+        longitude: null,
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
@@ -228,7 +232,7 @@ class InMemoryPrismaService {
 }
 
 class ImmediateModerationQueueService {
-  constructor(private readonly prisma: InMemoryPrismaService) {}
+  constructor(private readonly prisma: InMemoryPrismaService) { }
 
   async enqueueListingScan(payload: { listingId: string; desiredStatus?: ListingStatus }): Promise<void> {
     await this.prisma.listing.update({

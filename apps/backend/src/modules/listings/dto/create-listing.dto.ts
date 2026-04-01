@@ -43,10 +43,6 @@ export class CreateListingVariantDto {
 
 export class CreateListingDto {
   @IsString()
-  @IsNotEmpty()
-  sellerId!: string;
-
-  @IsString()
   @MinLength(3)
   title!: string;
 

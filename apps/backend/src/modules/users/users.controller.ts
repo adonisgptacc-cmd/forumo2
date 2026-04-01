@@ -17,6 +17,25 @@ import { UsersService, UserProfileResponse } from "./users.service";
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // ── "me" routes must come before ":id" routes to prevent ParseUUIDPipe collision ──
+
+  @Get('me/profile')
+  getOwnProfile(@Req() req: any): Promise<UserProfileResponse> {
+    return this.usersService.getProfile(req.user.id);
+  }
+
+  @Patch('me/profile')
+  updateOwnProfile(@Req() req: any, @Body() dto: UpdateProfileDto): Promise<SafeUser> {
+    return this.usersService.updateProfile(req.user.id, dto);
+  }
+
+  @Delete('me/avatar')
+  deleteOwnAvatar(@Req() req: any): Promise<SafeUser> {
+    return this.usersService.removeAvatar(req.user.id);
+  }
+
+  // ── Admin routes ──
+
   @Get()
   @Roles('ADMIN')
   findAll(): Promise<SafeUser[]> {
@@ -45,21 +64,6 @@ export class UsersController {
   @Roles('ADMIN')
   remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     return this.usersService.softDelete(id);
-  }
-
-  @Get('me/profile')
-  getOwnProfile(@Req() req: any): Promise<UserProfileResponse> {
-    return this.usersService.getProfile(req.user.id);
-  }
-
-  @Patch('me/profile')
-  updateOwnProfile(@Req() req: any, @Body() dto: UpdateProfileDto): Promise<SafeUser> {
-    return this.usersService.updateProfile(req.user.id, dto);
-  }
-
-  @Delete('me/avatar')
-  deleteOwnAvatar(@Req() req: any): Promise<SafeUser> {
-    return this.usersService.removeAvatar(req.user.id);
   }
 
   @Get(':id/trust-seeds')

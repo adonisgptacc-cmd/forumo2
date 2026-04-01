@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { mobileNavigationTheme } from '@forumo/config';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
@@ -10,6 +10,15 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ListingDiscoveryScreen } from '../screens/ListingDiscoveryScreen';
 import { MessagingInboxScreen } from '../screens/MessagingInboxScreen';
 import { MessageThreadScreen } from '../screens/MessageThreadScreen';
+import { AuctionDetailScreen } from '../screens/AuctionDetailScreen';
+import { AuctionsTab } from '../screens/AuctionsScreen';
+import { CartScreen } from '../screens/CartScreen';
+import { CheckoutScreen } from '../screens/CheckoutScreen';
+import { OrdersTab } from '../screens/OrdersScreen';
+import { OrderDetailScreen } from '../screens/OrderDetailScreen';
+import { ProfileTab } from '../screens/ProfileScreen';
+import { OffersScreen } from '../screens/OffersScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -17,17 +26,100 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
 
+// Simple icon helper (text-based, no icon library required)
+function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+  const icons: Record<string, string> = {
+    Discover: '🔍',
+    Auctions: '⚡',
+    Orders: '📦',
+    Inbox: '💬',
+    Profile: '👤',
+  };
+  return (
+    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
+      {icons[label] ?? '•'}
+    </Text>
+  );
+}
+
 const MainTabs = () => (
-  <Tabs.Navigator>
-    <Tabs.Screen name="Discover" component={ListingDiscoveryScreen} />
-    <Tabs.Screen name="Inbox" component={MessagingInboxScreen} />
+  <Tabs.Navigator
+    screenOptions={({ route }) => ({
+      tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
+      tabBarLabelStyle: { fontSize: 11 },
+      headerShown: true,
+    })}
+  >
+    <Tabs.Screen
+      name="Discover"
+      component={ListingDiscoveryScreen}
+      options={{ title: 'Discover' }}
+    />
+    <Tabs.Screen
+      name="Auctions"
+      component={AuctionsTab}
+      options={{ title: 'Auctions' }}
+    />
+    <Tabs.Screen
+      name="Orders"
+      component={OrdersTab}
+      options={{ title: 'Orders' }}
+    />
+    <Tabs.Screen
+      name="Inbox"
+      component={MessagingInboxScreen}
+      options={{ title: 'Inbox' }}
+    />
+    <Tabs.Screen
+      name="Profile"
+      component={ProfileTab}
+      options={{ title: 'Profile' }}
+    />
   </Tabs.Navigator>
 );
 
 const MainNavigator = () => (
   <MainStack.Navigator>
-    <MainStack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
-    <MainStack.Screen name="Thread" component={MessageThreadScreen} options={{ title: 'Conversation' }} />
+    <MainStack.Screen
+      name="Tabs"
+      component={MainTabs}
+      options={{ headerShown: false }}
+    />
+    <MainStack.Screen
+      name="Thread"
+      component={MessageThreadScreen}
+      options={{ title: 'Conversation' }}
+    />
+    <MainStack.Screen
+      name="AuctionDetail"
+      component={AuctionDetailScreen}
+      options={{ title: 'Auction' }}
+    />
+    <MainStack.Screen
+      name="OrderDetail"
+      component={OrderDetailScreen}
+      options={{ title: 'Order' }}
+    />
+    <MainStack.Screen
+      name="Cart"
+      component={CartScreen}
+      options={{ title: 'Cart' }}
+    />
+    <MainStack.Screen
+      name="Checkout"
+      component={CheckoutScreen}
+      options={{ title: 'Checkout' }}
+    />
+    <MainStack.Screen
+      name="Offers"
+      component={OffersScreen}
+      options={{ title: 'Offers' }}
+    />
+    <MainStack.Screen
+      name="Notifications"
+      component={NotificationsScreen}
+      options={{ title: 'Notifications' }}
+    />
   </MainStack.Navigator>
 );
 

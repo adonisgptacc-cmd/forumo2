@@ -38,7 +38,8 @@ export class PaymentsController {
     @Headers('stripe-signature') signature?: string,
   ): Promise<{ received: boolean }> {
     this.applyRateLimit(req);
-    const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? payload);
+    // rawBody is a Buffer attached by NestJS when `rawBody: true` is set in NestFactory.create()
+    const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
     const eventRecord = await this.paymentsService.recordWebhookEvent(payload?.type ?? 'stripe', payload);
     const event = this.paymentsService.validateStripeEvent(payload, signature, rawBody);
     const intent = event?.data?.object as Stripe.PaymentIntent | undefined;

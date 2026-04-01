@@ -10,10 +10,13 @@ export const disputeStatusSchema = z.enum(['OPEN', 'UNDER_REVIEW', 'RESOLVED', '
 export type DisputeStatus = z.infer<typeof disputeStatusSchema>;
 
 export const safeUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   email: z.string().email(),
   name: z.string().nullable().optional(),
   role: userRoleSchema,
+  avatarUrl: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  trustScore: z.number().int().optional(),
 });
 export type SafeUser = z.infer<typeof safeUserSchema>;
 
@@ -76,8 +79,8 @@ export const listingImageSchema = z.object({
 export type ListingImage = z.infer<typeof listingImageSchema>;
 
 export const safeListingSchema = z.object({
-  id: z.string().uuid(),
-  sellerId: z.string().uuid(),
+  id: z.string(),
+  sellerId: z.string(),
   title: z.string(),
   description: z.string(),
   priceCents: z.number().nonnegative(),
@@ -86,8 +89,8 @@ export const safeListingSchema = z.object({
   moderationStatus: z.string().optional(),
   location: z.string().nullable().optional(),
   metadata: z.record(z.any()).nullable().optional(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.string().datetime().or(z.string()),
+  updatedAt: z.string().datetime().or(z.string()),
   variants: z.array(listingVariantSchema).default([]),
   images: z.array(listingImageSchema).default([]),
 });
@@ -95,10 +98,10 @@ export type SafeListing = z.infer<typeof safeListingSchema>;
 
 export const listingSearchResponseSchema = z.object({
   data: z.array(safeListingSchema),
-  total: z.number().int(),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-  pageCount: z.number().int(),
+  total: z.coerce.number().int(),
+  page: z.coerce.number().int(),
+  pageSize: z.coerce.number().int(),
+  pageCount: z.coerce.number().int(),
 });
 export type ListingSearchResponse = z.infer<typeof listingSearchResponseSchema>;
 
@@ -405,15 +408,39 @@ export const createThreadSchema = z.object({
 });
 export type CreateThreadDto = z.infer<typeof createThreadSchema>;
 
+export const notificationTemplateSchema = z.enum([
+  'ORDER_STATUS',
+  'NEW_MESSAGE',
+  'AUCTION_OUTBID',
+  'ESCROW_UPDATE',
+  'REVIEW_RECEIVED',
+]);
+export type NotificationTemplate = z.infer<typeof notificationTemplateSchema>;
+
+export const safeNotificationSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  channel: z.string(),
+  template: z.string(),
+  payload: z.record(z.any()),
+  status: z.string(),
+  sentAt: z.string().nullable().optional(),
+  readAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type SafeNotification = z.infer<typeof safeNotificationSchema>;
+
 export const listingSearchParamsSchema = z.object({
   keyword: z.string().optional(),
-  sellerId: z.string().uuid().optional(),
+  sellerId: z.string().optional(),
   status: listingStatusSchema.optional(),
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(50).default(12),
-  minPriceCents: z.number().int().nonnegative().optional(),
-  maxPriceCents: z.number().int().nonnegative().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(12),
+  minPriceCents: z.coerce.number().int().nonnegative().optional(),
+  maxPriceCents: z.coerce.number().int().nonnegative().optional(),
   tags: z.array(z.string()).optional(),
+  sort: z.enum(['relevance', 'price_asc', 'price_desc', 'date_new', 'date_old', 'title']).optional(),
+  categories: z.array(z.string()).optional(),
 });
 export type ListingSearchParams = z.infer<typeof listingSearchParamsSchema>;
 
@@ -482,3 +509,163 @@ export const adminDisputeSchema = z.object({
   messageCount: z.number().int().nonnegative().default(0),
 });
 export type AdminDisputeSummary = z.infer<typeof adminDisputeSchema>;
+
+export const adminUserDetailSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string().email(),
+  role: z.string(),
+  kycStatus: z.string(),
+  listingsCount: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+});
+export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;
+
+export const adminOrderSummarySchema = z.object({
+  id: z.string().uuid(),
+  orderNumber: z.string(),
+  buyerName: z.string().nullable().optional(),
+  buyerEmail: z.string().nullable().optional(),
+  totalItemCents: z.number().int().nonnegative(),
+  currency: z.string(),
+  status: z.string(),
+  paymentStatus: z.string(),
+  placedAt: z.string().datetime().nullable().optional(),
+});
+export type AdminOrderSummary = z.infer<typeof adminOrderSummarySchema>;
+
+// --- Storefronts ---
+
+export const storefrontSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().nullable().optional(),
+  logoUrl: z.string().nullable().optional(),
+  bannerUrl: z.string().nullable().optional(),
+  themeConfig: z.record(z.any()).nullable().optional(),
+  status: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  user: adminUserSummarySchema.optional(),
+  collections: z.array(z.any()).default([]),
+});
+export type Storefront = z.infer<typeof storefrontSchema>;
+
+export const createStorefrontSchema = z.object({
+  name: z.string().min(1).max(50),
+  slug: z
+    .string()
+    .min(1)
+    .max(30)
+    .regex(/^[a-z0-9-]+$/),
+  description: z.string().max(500).optional(),
+});
+export type CreateStorefrontDto = z.infer<typeof createStorefrontSchema>;
+
+// --- Auctions ---
+
+export const auctionStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED']);
+export type AuctionStatus = z.infer<typeof auctionStatusSchema>;
+
+export const auctionSchema = z.object({
+  id: z.string().uuid(),
+  listingId: z.string().uuid(),
+  sellerId: z.string().uuid(),
+  status: auctionStatusSchema,
+  startingBidCents: z.number().int().nonnegative(),
+  currency: z.string().length(3),
+  reserveCents: z.number().int().nonnegative().nullable(),
+  buyNowCents: z.number().int().nonnegative().nullable(),
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  currentBidCents: z.number().int().nonnegative().optional(),
+  bidCount: z.number().int().nonnegative().optional(),
+  listing: safeListingSchema.optional(),
+});
+export type Auction = z.infer<typeof auctionSchema>;
+
+export const createAuctionSchema = z.object({
+  listingId: z.string().uuid(),
+  startingBidCents: z.number().int().nonnegative(),
+  durationDays: z.number().int().min(1),
+  reserveCents: z.number().int().nonnegative().optional(),
+  buyNowCents: z.number().int().nonnegative().optional(),
+});
+export type CreateAuctionDto = z.infer<typeof createAuctionSchema>;
+
+export const placeBidSchema = z.object({
+  amountCents: z.number().int().positive(),
+  maxAutoBidCents: z.number().int().positive().optional(),
+});
+export type PlaceBidDto = z.infer<typeof placeBidSchema>;
+
+export const offerStatusSchema = z.enum(['PENDING', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CANCELLED']);
+export type OfferStatus = z.infer<typeof offerStatusSchema>;
+
+export const safeOfferSchema = z.object({
+  id: z.string().uuid(),
+  listingId: z.string().uuid(),
+  buyerId: z.string().uuid(),
+  sellerId: z.string().uuid(),
+  amountCents: z.number().int(),
+  currency: z.string(),
+  message: z.string().nullable().optional(),
+  status: offerStatusSchema,
+  expiresAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  listing: z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    images: z.array(z.object({ url: z.string() })).optional(),
+  }).optional(),
+  buyer: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+  seller: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+});
+export type SafeOffer = z.infer<typeof safeOfferSchema>;
+
+export const createOfferSchema = z.object({
+  listingId: z.string().uuid(),
+  amountCents: z.number().int().positive(),
+  message: z.string().max(500).optional(),
+});
+export type CreateOfferDto = z.infer<typeof createOfferSchema>;
+
+export const listingCategorySchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
+  position: z.number().int(),
+  createdAt: z.string().datetime(),
+  children: z.array(z.lazy((): z.ZodTypeAny => listingCategorySchema)).optional(),
+});
+export type ListingCategory = z.infer<typeof listingCategorySchema>;
+
+export const listingTagSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  label: z.string(),
+  createdAt: z.string().datetime(),
+});
+export type ListingTag = z.infer<typeof listingTagSchema>;
+
+export const savedListingSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  listingId: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  listing: z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    priceCents: z.number().int(),
+    currency: z.string(),
+    status: z.string(),
+    images: z.array(z.object({ url: z.string() })).optional(),
+  }).optional(),
+});
+export type SavedListing = z.infer<typeof savedListingSchema>;

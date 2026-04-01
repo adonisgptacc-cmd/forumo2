@@ -1,3 +1,5 @@
+import type { Auction, SafeOffer, SafeOrder } from '@forumo/shared';
+
 export type AuthStackParamList = {
   Onboarding: undefined;
   Login: undefined;
@@ -7,10 +9,19 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Discover: undefined;
+  Auctions: undefined;
+  Orders: undefined;
   Inbox: undefined;
+  Profile: undefined;
 };
 
 export type MainStackParamList = {
   Tabs: undefined;
   Thread: { threadId: string; thread?: import('@forumo/shared').SafeMessageThread };
+  AuctionDetail: { auctionId: string; auction?: Auction };
+  OrderDetail: { orderId: string; order?: SafeOrder };
+  Cart: undefined;
+  Checkout: { sellerId: string; sellerName?: string };
+  Offers: undefined;
+  Notifications: undefined;
 };

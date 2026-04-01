@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
 import { PrismaModule } from "../../prisma/prisma.module";
 import { OrdersController } from "./orders.controller";
@@ -14,4 +15,4 @@ import { ObservabilityModule } from "../observability/observability.module";
   providers: [OrdersService, PaymentsService, RateLimitService],
   exports: [OrdersService, PaymentsService],
 })
-export class OrdersModule {}
+export class OrdersModule { }

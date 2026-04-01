@@ -1,5 +1,5 @@
-import type { Express } from 'express';
-import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
@@ -24,16 +24,21 @@ interface AttachmentInput {
 }
 
 @Injectable()
-export class MessagingService {
+export class MessagingService implements OnModuleInit {
+  private messagingGateway?: MessagingGateway;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly moderation: MessageModerationService,
-    @Inject(forwardRef(() => MessagingGateway))
-    private readonly messagingGateway: MessagingGateway,
+    private readonly moduleRef: ModuleRef,
     private readonly cache: CacheService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
+
+  onModuleInit() {
+    this.messagingGateway = this.moduleRef.get(MessagingGateway, { strict: false });
+  }
 
   async listThreads(query: ThreadQueryDto): Promise<{
     data: SafeMessageThread[];
@@ -159,16 +164,16 @@ export class MessagingService {
         moderationNotes: moderationDecision.notes ?? null,
         attachments: storedAttachments.length
           ? {
-              create: storedAttachments.map((attachment) => ({
-                bucket: attachment.bucket,
-                storageKey: attachment.storageKey,
-                url: attachment.url,
-                fileName: attachment.fileName,
-                mimeType: attachment.mimeType,
-                fileSize: attachment.fileSize,
-                metadata: this.toJsonInput(attachment.metadata),
-              })),
-            }
+            create: storedAttachments.map((attachment) => ({
+              bucket: attachment.bucket,
+              storageKey: attachment.storageKey,
+              url: attachment.url,
+              fileName: attachment.fileName,
+              mimeType: attachment.mimeType,
+              fileSize: attachment.fileSize,
+              metadata: this.toJsonInput(attachment.metadata),
+            })),
+          }
           : undefined,
         receipts: {
           create: thread.participants.map((participant) => ({
@@ -185,7 +190,7 @@ export class MessagingService {
 
     const updatedThread = await this.getThread(id);
     if (moderationDecision.status === MessageModerationStatus.APPROVED) {
-      await this.messagingGateway.emitNewMessage(updatedThread, message.id);
+      await this.messagingGateway?.emitNewMessage(updatedThread, message.id);
     }
 
     return updatedThread;

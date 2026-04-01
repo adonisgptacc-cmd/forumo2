@@ -5,10 +5,43 @@ import { AppModule } from './modules/app.module';
 import { ConfigService } from '@nestjs/config';
 import { startTracing } from './telemetry/tracer';
 import { TelemetryLogger } from './telemetry/logger';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+
+function validateEnv() {
+  const required = ['DATABASE_URL', 'JWT_SECRET'];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`[startup] Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
 
 async function bootstrap() {
+  validateEnv();
   const logger = new TelemetryLogger();
-  const app = await NestFactory.create(AppModule, { cors: true, logger });
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim());
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true, // Required for Stripe webhook signature verification
+    cors: {
+      origin: (origin, cb) => {
+        // Allow requests with no origin (mobile apps, curl, server-to-server)
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        cb(new Error(`Origin ${origin} not allowed by CORS`));
+      },
+      credentials: true,
+    },
+    logger,
+  });
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow images to load cross-origin
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false, // relax CSP in dev
+  }));
+  app.use(cookieParser());
+  app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ZodValidationPipe());
@@ -30,7 +63,9 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, cleanupOpenApiDoc(document));
+  if (process.env.NODE_ENV !== 'production') {
+    SwaggerModule.setup('docs', app, cleanupOpenApiDoc(document));
+  }
 
   const port = process.env.PORT ?? 4000;
   const server = await app.listen(port, '0.0.0.0');

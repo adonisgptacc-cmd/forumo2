@@ -1,13 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAdminDashboardStats, AdminDashboardStats, useAdminUsers, useAdminListings, useAdminOrders } from "../../../lib/react-query/hooks";
+import type { AdminUserDetail, AdminListingModeration, AdminOrderSummary } from '@forumo/shared';
 
-const metrics = [
-  { label: "Total users", value: "128,940", delta: "+3.2%", tone: "emerald" },
-  { label: "Active listings", value: "42,380", delta: "+1.8%", tone: "amber" },
-  { label: "Completed transactions", value: "287,451", delta: "+5.6%", tone: "emerald" },
-  { label: "Revenue", value: "$12.4M", delta: "+4.1%", tone: "emerald" },
-];
+type DashboardStats = AdminDashboardStats;
+
+function buildMetrics(stats: DashboardStats | null) {
+  if (!stats) {
+    return [
+      { label: "Total users", value: "...", delta: "", tone: "emerald" },
+      { label: "Active listings", value: "...", delta: "", tone: "amber" },
+      { label: "Total orders", value: "...", delta: "", tone: "emerald" },
+      { label: "Open disputes", value: "...", delta: "", tone: "rose" },
+    ];
+  }
+  return [
+    { label: "Total users", value: stats.totalUsers.toLocaleString(), delta: `${stats.pendingKyc} KYC pending`, tone: "emerald" },
+    { label: "Active listings", value: stats.activeListings.toLocaleString(), delta: `${stats.pendingModeration} need review`, tone: "amber" },
+    { label: "Total orders", value: stats.totalOrders.toLocaleString(), delta: "All time", tone: "emerald" },
+    { label: "Open disputes", value: stats.openDisputes.toLocaleString(), delta: stats.openDisputes > 0 ? "Needs attention" : "All clear", tone: stats.openDisputes > 0 ? "rose" : "emerald" },
+  ];
+}
 
 const salesTrend = [
   { label: "Mon", value: 42000 },
@@ -45,29 +59,6 @@ const recentActivity = [
   { title: "New buyer", meta: "Account created: @urbanpicker", time: "58m ago", tone: "sky" },
 ];
 
-const users = [
-  { name: "Amelia Chen", role: "Seller", status: "Active", registered: "2024-08-12", listings: 142, country: "US" },
-  { name: "Diego Martinez", role: "Buyer", status: "Pending", registered: "2024-09-01", listings: 0, country: "MX" },
-  { name: "Sofia Rossi", role: "Seller", status: "Active", registered: "2024-07-05", listings: 89, country: "IT" },
-  { name: "Hannah Lee", role: "Buyer", status: "Flagged", registered: "2024-06-14", listings: 0, country: "KR" },
-  { name: "Marcus Holt", role: "Seller", status: "Suspended", registered: "2024-08-29", listings: 37, country: "GB" },
-];
-
-const listings = [
-  { title: "Refurbished MacBook Pro 14" , category: "Electronics", status: "Active", price: "$1,350", seller: "@revive-tech", flagged: false },
-  { title: "Designer Leather Tote", category: "Fashion", status: "Pending", price: "$410", seller: "@atelier-studio", flagged: false },
-  { title: "Signed Baseball Card", category: "Collectibles", status: "Flagged", price: "$920", seller: "@memorabilia", flagged: true },
-  { title: "Modular Sofa Set", category: "Home", status: "Active", price: "$2,480", seller: "@loft-living", flagged: false },
-  { title: "Carbon Road Bike", category: "Motors", status: "Removed", price: "$3,900", seller: "@velohaus", flagged: true },
-];
-
-const transactions = [
-  { id: "48291", buyer: "@urbanpicker", amount: "$420.00", status: "Completed", method: "Card", date: "Sep 14" },
-  { id: "48276", buyer: "@aurora-trends", amount: "$1,120.00", status: "Pending", method: "PayPal", date: "Sep 14" },
-  { id: "48255", buyer: "@memorabilia", amount: "$920.00", status: "Disputed", method: "Card", date: "Sep 13" },
-  { id: "48241", buyer: "@loft-living", amount: "$2,480.00", status: "Completed", method: "Wire", date: "Sep 13" },
-  { id: "48230", buyer: "@velohaus", amount: "$3,900.00", status: "Refunded", method: "Card", date: "Sep 12" },
-];
 
 const reports = [
   { title: "Daily revenue", detail: "Export CSV", action: "Download" },
@@ -95,14 +86,31 @@ const toneDots: Record<string, string> = {
 
 function StatusBadge({ label }: { label: string }) {
   const palette: Record<string, string> = {
+    // order/listing statuses
+    PUBLISHED: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
     Active: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
+    PENDING: "bg-amber-500/15 text-amber-100 border-amber-500/40",
     Pending: "bg-amber-500/15 text-amber-100 border-amber-500/40",
+    CONFIRMED: "bg-sky-500/15 text-sky-100 border-sky-500/40",
+    PAID: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
+    COMPLETED: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
     Completed: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
+    CANCELLED: "bg-slate-500/15 text-slate-100 border-slate-500/40",
+    FLAGGED: "bg-rose-500/15 text-rose-100 border-rose-500/40",
     Flagged: "bg-rose-500/15 text-rose-100 border-rose-500/40",
+    REMOVED: "bg-slate-500/15 text-slate-100 border-slate-500/40",
     Removed: "bg-slate-500/15 text-slate-100 border-slate-500/40",
+    SUSPENDED: "bg-rose-500/15 text-rose-100 border-rose-500/40",
     Suspended: "bg-rose-500/15 text-rose-100 border-rose-500/40",
+    DISPUTED: "bg-amber-500/15 text-amber-100 border-amber-500/40",
     Disputed: "bg-amber-500/15 text-amber-100 border-amber-500/40",
+    REFUNDED: "bg-sky-500/15 text-sky-100 border-sky-500/40",
     Refunded: "bg-sky-500/15 text-sky-100 border-sky-500/40",
+    DRAFT: "bg-slate-500/15 text-slate-100 border-slate-500/40",
+    PAUSED: "bg-amber-500/15 text-amber-100 border-amber-500/40",
+    // KYC statuses
+    APPROVED: "bg-emerald-500/15 text-emerald-100 border-emerald-500/40",
+    REJECTED: "bg-rose-500/15 text-rose-100 border-rose-500/40",
   };
 
   return <span className={`rounded-full border px-2.5 py-1 text-xs ${palette[label] ?? "bg-slate-700 text-slate-200"}`}>{label}</span>;
@@ -204,45 +212,53 @@ function DonutChart({ data }: { data: { label: string; value: number; tone: stri
   );
 }
 
+function fmt(cents: number, currency: string) {
+  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
+}
+
 export default function AdminHome() {
+  const { data: stats = null } = useAdminDashboardStats();
+  const metrics = buildMetrics(stats);
+  const { data: allUsers = [] } = useAdminUsers();
+  const { data: allListings = [] } = useAdminListings();
+  const { data: allOrders = [] } = useAdminOrders();
+
   const [userQuery, setUserQuery] = useState("");
   const [userRole, setUserRole] = useState("all");
-  const [userStatus, setUserStatus] = useState("all");
+  const [userKyc, setUserKyc] = useState("all");
 
   const [listingQuery, setListingQuery] = useState("");
-  const [listingCategory, setListingCategory] = useState("all");
   const [listingStatus, setListingStatus] = useState("all");
 
   const [transactionStatus, setTransactionStatus] = useState("all");
 
   const filteredUsers = useMemo(
     () =>
-      users.filter((user) => {
-        const matchesQuery = user.name.toLowerCase().includes(userQuery.toLowerCase());
-        const matchesRole = userRole === "all" || user.role.toLowerCase() === userRole;
-        const matchesStatus = userStatus === "all" || user.status.toLowerCase() === userStatus;
-        return matchesQuery && matchesRole && matchesStatus;
+      (allUsers as AdminUserDetail[]).filter((u) => {
+        const matchesQuery = u.name.toLowerCase().includes(userQuery.toLowerCase()) || u.email.toLowerCase().includes(userQuery.toLowerCase());
+        const matchesRole = userRole === "all" || u.role.toLowerCase() === userRole.toLowerCase();
+        const matchesKyc = userKyc === "all" || u.kycStatus.toLowerCase() === userKyc.toLowerCase();
+        return matchesQuery && matchesRole && matchesKyc;
       }),
-    [userQuery, userRole, userStatus],
+    [allUsers, userQuery, userRole, userKyc],
   );
 
   const filteredListings = useMemo(
     () =>
-      listings.filter((listing) => {
-        const matchesQuery = listing.title.toLowerCase().includes(listingQuery.toLowerCase());
-        const matchesCategory = listingCategory === "all" || listing.category.toLowerCase() === listingCategory;
-        const matchesStatus = listingStatus === "all" || listing.status.toLowerCase() === listingStatus;
-        return matchesQuery && matchesCategory && matchesStatus;
+      (allListings as AdminListingModeration[]).filter((l) => {
+        const matchesQuery = l.title.toLowerCase().includes(listingQuery.toLowerCase());
+        const matchesStatus = listingStatus === "all" || l.status.toLowerCase() === listingStatus.toLowerCase();
+        return matchesQuery && matchesStatus;
       }),
-    [listingQuery, listingCategory, listingStatus],
+    [allListings, listingQuery, listingStatus],
   );
 
   const filteredTransactions = useMemo(
     () =>
-      transactions.filter((txn) =>
-        transactionStatus === "all" ? true : txn.status.toLowerCase() === transactionStatus,
+      (allOrders as AdminOrderSummary[]).filter((o) =>
+        transactionStatus === "all" ? true : o.status.toLowerCase() === transactionStatus.toLowerCase(),
       ),
-    [transactionStatus],
+    [allOrders, transactionStatus],
   );
 
   return (
@@ -367,15 +383,15 @@ export default function AdminHome() {
               </div>
             </div>
             <div className="space-y-2">
-              <button className="flex w-full items-center justify-between rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-50">
-                Approve verified sellers <span className="text-xs">Process 8 →</span>
-              </button>
-              <button className="flex w-full items-center justify-between rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
-                Review flagged listings <span className="text-xs">12 pending →</span>
-              </button>
-              <button className="flex w-full items-center justify-between rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-50">
-                Resolve disputes <span className="text-xs">4 escalations →</span>
-              </button>
+              <a href="/admin/kyc" className="flex w-full items-center justify-between rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-50">
+                Approve verified sellers <span className="text-xs">{stats?.pendingKyc ?? '...'} pending →</span>
+              </a>
+              <a href="/admin/moderations" className="flex w-full items-center justify-between rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
+                Review flagged listings <span className="text-xs">{stats?.pendingModeration ?? '...'} pending →</span>
+              </a>
+              <a href="/admin/disputes" className="flex w-full items-center justify-between rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-50">
+                Resolve disputes <span className="text-xs">{stats?.openDisputes ?? '...'} open →</span>
+              </a>
             </div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
@@ -421,19 +437,19 @@ export default function AdminHome() {
                 onChange={(e) => setUserRole(e.target.value)}
               >
                 <option value="all">All roles</option>
-                <option value="seller">Sellers</option>
-                <option value="buyer">Buyers</option>
+                <option value="SELLER">Sellers</option>
+                <option value="BUYER">Buyers</option>
+                <option value="ADMIN">Admins</option>
               </select>
               <select
                 className="input w-32 border-slate-800 bg-slate-950/60"
-                value={userStatus}
-                onChange={(e) => setUserStatus(e.target.value)}
+                value={userKyc}
+                onChange={(e) => setUserKyc(e.target.value)}
               >
-                <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="flagged">Flagged</option>
-                <option value="suspended">Suspended</option>
+                <option value="all">All KYC</option>
+                <option value="APPROVED">Approved</option>
+                <option value="PENDING">Pending</option>
+                <option value="REJECTED">Rejected</option>
               </select>
             </div>
           </div>
@@ -443,27 +459,30 @@ export default function AdminHome() {
                 <tr className="border-b border-slate-800 text-slate-300">
                   <th className="px-3 py-2">User</th>
                   <th className="px-3 py-2">Role</th>
-                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">KYC</th>
                   <th className="px-3 py-2">Listings</th>
                   <th className="px-3 py-2">Registered</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-slate-100">
-                {filteredUsers.map((user) => (
-                  <tr key={user.name} className="hover:bg-slate-900/60">
+                {filteredUsers.length === 0 && (
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500 text-sm">No users found</td></tr>
+                )}
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-900/60">
                     <td className="px-3 py-2">
                       <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-xs text-slate-400">{user.country}</p>
+                        <p className="font-medium">{u.name}</p>
+                        <p className="text-xs text-slate-400">{u.email}</p>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-300">{user.role}</td>
+                    <td className="px-3 py-2 text-slate-300">{u.role}</td>
                     <td className="px-3 py-2">
-                      <StatusBadge label={user.status} />
+                      <StatusBadge label={u.kycStatus} />
                     </td>
-                    <td className="px-3 py-2 text-slate-300">{user.listings}</td>
-                    <td className="px-3 py-2 text-slate-300">{user.registered}</td>
+                    <td className="px-3 py-2 text-slate-300">{u.listingsCount}</td>
+                    <td className="px-3 py-2 text-slate-300">{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td className="px-3 py-2 text-right text-xs text-amber-200">Manage →</td>
                   </tr>
                 ))}
@@ -487,26 +506,13 @@ export default function AdminHome() {
               />
               <select
                 className="input w-32 border-slate-800 bg-slate-950/60"
-                value={listingCategory}
-                onChange={(e) => setListingCategory(e.target.value)}
-              >
-                <option value="all">All categories</option>
-                <option value="electronics">Electronics</option>
-                <option value="fashion">Fashion</option>
-                <option value="collectibles">Collectibles</option>
-                <option value="home">Home</option>
-                <option value="motors">Motors</option>
-              </select>
-              <select
-                className="input w-32 border-slate-800 bg-slate-950/60"
                 value={listingStatus}
                 onChange={(e) => setListingStatus(e.target.value)}
               >
                 <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="flagged">Flagged</option>
-                <option value="removed">Removed</option>
+                <option value="PUBLISHED">Published</option>
+                <option value="DRAFT">Draft</option>
+                <option value="PAUSED">Paused</option>
               </select>
             </div>
           </div>
@@ -515,25 +521,24 @@ export default function AdminHome() {
               <thead className="text-xs uppercase tracking-wide text-slate-400">
                 <tr className="border-b border-slate-800 text-slate-300">
                   <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Seller</th>
+                  <th className="px-3 py-2">Moderation</th>
+                  <th className="px-3 py-2">Created</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-slate-100">
-                {filteredListings.map((listing) => (
-                  <tr key={listing.title} className="hover:bg-slate-900/60">
-                    <td className="px-3 py-2">{listing.title}</td>
-                    <td className="px-3 py-2 text-slate-300">{listing.category}</td>
-                    <td className="px-3 py-2">
-                      <StatusBadge label={listing.status} />
-                    </td>
-                    <td className="px-3 py-2 text-slate-300">{listing.price}</td>
-                    <td className="px-3 py-2 text-slate-300">{listing.seller}</td>
+                {filteredListings.length === 0 && (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500 text-sm">No listings found</td></tr>
+                )}
+                {filteredListings.map((l) => (
+                  <tr key={l.id} className="hover:bg-slate-900/60">
+                    <td className="px-3 py-2 font-medium">{l.title}</td>
+                    <td className="px-3 py-2"><StatusBadge label={l.status} /></td>
+                    <td className="px-3 py-2"><StatusBadge label={l.moderationStatus} /></td>
+                    <td className="px-3 py-2 text-slate-300">{new Date(l.createdAt).toLocaleDateString()}</td>
                     <td className="px-3 py-2 text-right text-xs text-amber-200">
-                      {listing.flagged ? "Review" : "Flag"} →
+                      {l.moderationStatus === 'PENDING' ? "Review" : "View"} →
                     </td>
                   </tr>
                 ))}
@@ -557,10 +562,13 @@ export default function AdminHome() {
                 onChange={(e) => setTransactionStatus(e.target.value)}
               >
                 <option value="all">All status</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="disputed">Disputed</option>
-                <option value="refunded">Refunded</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PAID">Paid</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="DISPUTED">Disputed</option>
+                <option value="REFUNDED">Refunded</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
               <button className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:border-amber-400/60">
                 Export CSV
@@ -574,22 +582,23 @@ export default function AdminHome() {
                   <th className="px-3 py-2">Order</th>
                   <th className="px-3 py-2">Buyer</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Method</th>
+                  <th className="px-3 py-2">Payment</th>
                   <th className="px-3 py-2">Amount</th>
                   <th className="px-3 py-2">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-slate-100">
-                {filteredTransactions.map((txn) => (
-                  <tr key={txn.id} className="hover:bg-slate-900/60">
-                    <td className="px-3 py-2 font-medium">#{txn.id}</td>
-                    <td className="px-3 py-2 text-slate-300">{txn.buyer}</td>
-                    <td className="px-3 py-2">
-                      <StatusBadge label={txn.status} />
-                    </td>
-                    <td className="px-3 py-2 text-slate-300">{txn.method}</td>
-                    <td className="px-3 py-2 text-slate-300">{txn.amount}</td>
-                    <td className="px-3 py-2 text-slate-300">{txn.date}</td>
+                {filteredTransactions.length === 0 && (
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500 text-sm">No orders found</td></tr>
+                )}
+                {filteredTransactions.map((o) => (
+                  <tr key={o.id} className="hover:bg-slate-900/60">
+                    <td className="px-3 py-2 font-medium font-mono text-xs">#{o.orderNumber}</td>
+                    <td className="px-3 py-2 text-slate-300">{o.buyerName ?? o.buyerEmail ?? '—'}</td>
+                    <td className="px-3 py-2"><StatusBadge label={o.status} /></td>
+                    <td className="px-3 py-2"><StatusBadge label={o.paymentStatus} /></td>
+                    <td className="px-3 py-2 text-slate-300">{fmt(o.totalItemCents, o.currency)}</td>
+                    <td className="px-3 py-2 text-slate-300">{o.placedAt ? new Date(o.placedAt).toLocaleDateString() : '—'}</td>
                   </tr>
                 ))}
               </tbody>

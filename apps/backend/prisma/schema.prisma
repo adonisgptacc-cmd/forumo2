@@ -51,6 +51,12 @@ enum ListingStatus {
   PAUSED
 }
 
+enum ListingType {
+  FIXED_PRICE
+  AUCTION
+  CLASSIFIED
+}
+
 enum ListingModerationStatus {
   PENDING
   APPROVED
@@ -227,8 +233,13 @@ model User {
   orderEvents     OrderTimelineEvent[] @relation("OrderTimelineActor")
   disputesOpened  EscrowDispute[]      @relation("EscrowDisputeOpener")
   disputeMessages DisputeMessage[]     @relation("DisputeMessageAuthor")
+  offersMade      Offer[]              @relation("OfferBuyer")
+  offersReceived  Offer[]              @relation("OfferSeller")
+
   trustSeeds      TrustScoreSeed[]
   escrowTransactions EscrowTransaction[] @relation("EscrowTransactionActor")
+  storefront      Storefront?
+  savedListings   SavedListing[]
 }
 
 model UserProfile {
@@ -339,11 +350,14 @@ model Listing {
   description       String
   priceCents        Int
   currency          String                  @default("USD")
+  type              ListingType             @default(FIXED_PRICE)
   status            ListingStatus           @default(DRAFT)
   moderationStatus  ListingModerationStatus @default(PENDING)
   moderationNotes   String?
   metadata          Json?
   location          String?
+  latitude          Float?
+  longitude         Float?
   searchVector      Unsupported("tsvector")?
   deletedAt         DateTime?
   createdAt         DateTime                @default(now())
@@ -357,13 +371,15 @@ model Listing {
   moderationEvents ListingModerationEvent[]
   orders      OrderItem[]
   reviews     Review[]
-  auctions    Auction[]
-  threads     MessageThread[]       @relation("ListingThreadMessages")
+  auctions     Auction[]
+  offers       Offer[]
+  threads      MessageThread[]       @relation("ListingThreadMessages")
+  savedBy      SavedListing[]
 
   @@index([sellerId])
   @@index([status])
   @@index([moderationStatus])
-  @@index([title, description, location], map: "listing_search_fts_idx")
+  // @@index([title, description, location], map: "listing_search_fts_idx")
   @@index([status, priceCents, sellerId], map: "listing_status_price_seller_idx")
 }
 
@@ -600,6 +616,30 @@ model EscrowHolding {
   transactions EscrowTransaction[]
 }
 
+model Offer {
+  id             String   @id @default(uuid())
+  listingId      String
+  buyerId        String
+  sellerId       String
+  amountCents    Int
+  currency       String   @default("USD")
+  status         String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, COUNTERED
+  expiresAt      DateTime
+  message        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  buyer   User    @relation("OfferBuyer", fields: [buyerId], references: [id])
+  seller  User    @relation("OfferSeller", fields: [sellerId], references: [id])
+  
+  @@index([listingId, status])
+  @@index([buyerId])
+  @@index([sellerId])
+}
+
+
+
 model EscrowDispute {
   id          String       @id @default(uuid())
   escrowId    String
@@ -827,27 +867,31 @@ model SellerReviewRollup {
 }
 
 model InventoryItem {
-  id            String   @id @default(uuid())
-  variantId     String
-  quantity      Int      @default(0)
-  location      String?
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(uuid())
+  variantId         String
+  quantity          Int      @default(0)
+  availableQuantity Int      @default(0)
+  reservedQuantity  Int      @default(0)
+  damagedQuantity   Int      @default(0)
+  location          String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  variant ListingVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variant     ListingVariant        @relation(fields: [variantId], references: [id], onDelete: Cascade)
   adjustments InventoryAdjustment[]
 }
 
 model InventoryReservation {
-  id         String                     @id @default(uuid())
-  variantId  String
-  orderId    String?
-  quantity   Int                        @default(1)
-  status     InventoryReservationStatus @default(PENDING)
-  expiresAt  DateTime?
-  createdAt  DateTime                   @default(now())
-  releasedAt DateTime?
+  id          String                     @id @default(uuid())
+  variantId   String
+  orderId     String?
+  quantity    Int                        @default(1)
+  status      InventoryReservationStatus @default(PENDING)
+  expiresAt   DateTime?
+  confirmedAt DateTime?
+  releasedAt  DateTime?
+  createdAt   DateTime                   @default(now())
 
   variant ListingVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   order   Order?         @relation("OrderInventoryReservations", fields: [orderId], references: [id])
@@ -954,4 +998,49 @@ model OutboxEvent {
   occurredAt  DateTime @default(now())
   processedAt DateTime?
   attempts    Int      @default(0)
+}
+
+model Storefront {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  name           String
+  slug           String   @unique
+  description    String?
+  logoUrl        String?
+  bannerUrl      String?
+  themeConfig    Json?
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id])
+  collections Collection[]
+}
+
+model Collection {
+  id           String   @id @default(uuid())
+  storefrontId String
+  name         String
+  slug         String
+  description  String?
+  productIds   String[] // Array of Listing IDs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  storefront Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+
+  @@unique([storefrontId, slug])
+}
+
+model SavedListing {
+  id        String   @id @default(uuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt])
 }

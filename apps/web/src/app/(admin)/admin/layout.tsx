@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/kyc', label: 'KYC Queue', roles: ['ADMIN'] },
   { href: '/admin/moderations', label: 'Listing Moderation', roles: ['ADMIN', 'MODERATOR'] },
   { href: '/admin/disputes', label: 'Disputes', roles: ['ADMIN', 'MODERATOR'] },
+  { href: '/admin/categories', label: 'Categories & Tags', roles: ['ADMIN'] },
 ];
 
 const allowedRoles = ['ADMIN', 'MODERATOR'];
