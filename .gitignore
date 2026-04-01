@@ -8,3 +8,24 @@ apps/**/dist
 apps/**/.expo
 apps/**/build
 artifacts
+
+# Logs
+*.log
+*.log.*
+*_log.txt
+backend_build*.log
+backend_dev.log
+build_output.log
+build_test.log
+build_v*.log
+dev-output.log
+web_build.log
+
+# Turbo cache & daemon
+.turbo/
+
+# Temp/debug files
+*.txt
+!README.txt
+seller_token.txt
+env_example_copy.txt
