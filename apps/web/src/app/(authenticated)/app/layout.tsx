@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
 import { SignOutButton } from '../../../components/signout-button';
+import { NotificationNavLink } from '../../../components/notification-badge';
 import { authOptions } from '../../../lib/auth';
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
   { href: '/app/orders', label: 'Orders' },
   { href: '/app/offers', label: 'Offers' },
   { href: '/app/wishlist', label: 'Wishlist' },
+  { href: '/app/inventory', label: 'Inventory' },
   { href: '/app/messages', label: 'Messages' },
   { href: '/app/cart', label: 'Cart' },
   { href: '/app/profile', label: 'Profile' },
@@ -48,6 +50,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+          <NotificationNavLink />
         </nav>
       </header>
       <section>{children}</section>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute } from '../../../../../lib/react-query/hooks';
+import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage } from '../../../../../lib/react-query/hooks';
 import { useCurrentUser } from '../../../../../lib/react-query/hooks';
 import { useState } from 'react';
 import type { SafeOrder } from '@forumo/shared';
@@ -31,9 +31,12 @@ export function OrderDetail({ id }: { id: string }) {
   const updateStatus = useUpdateOrderStatus();
   const initiatePayment = useInitiatePayment();
   const openDispute = useOpenDispute();
+  const { data: escrowDetails } = useEscrowDetails(order?.status === 'DISPUTED' ? id : null);
+  const addDisputeMessage = useAddDisputeMessage();
   const [statusNote, setStatusNote] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
   const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeMsg, setDisputeMsg] = useState('');
 
   if (isLoading) {
     return (
@@ -159,6 +162,61 @@ export function OrderDetail({ id }: { id: string }) {
           )}
         </section>
       )}
+
+      {/* Dispute thread */}
+      {order.status === 'DISPUTED' && escrowDetails && (() => {
+        const details = escrowDetails as any;
+        const dispute = details?.disputes?.[0];
+        if (!dispute) return null;
+        return (
+          <section className="rounded-xl border border-orange-800 bg-orange-950/20 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-orange-300">Active Dispute</h3>
+              <span className="text-xs rounded-full border border-orange-700 px-2 py-0.5 text-orange-400">{dispute.status}</span>
+            </div>
+            <p className="text-xs text-slate-400">Reason: <span className="text-slate-200">{dispute.reason}</span></p>
+
+            {/* Messages */}
+            <div className="space-y-2">
+              {(dispute.messages ?? []).length === 0 && (
+                <p className="text-xs text-slate-500">No messages yet. Add a message below to communicate with the admin.</p>
+              )}
+              {(dispute.messages ?? []).map((msg: any) => (
+                <div
+                  key={msg.id}
+                  className={`rounded-lg p-3 text-sm ${msg.authorId === user?.id ? 'bg-orange-900/30 ml-8' : 'bg-slate-800 mr-8'}`}
+                >
+                  <p className="text-xs text-slate-400 mb-1">{msg.author?.name ?? 'Unknown'}</p>
+                  <p className="text-slate-200">{msg.body}</p>
+                  <p className="text-xs text-slate-500 mt-1">{new Date(msg.createdAt).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Send message */}
+            <div className="flex gap-2">
+              <textarea
+                value={disputeMsg}
+                onChange={(e) => setDisputeMsg(e.target.value)}
+                placeholder="Add a message to the dispute…"
+                rows={2}
+                className="flex-1 rounded-lg border border-orange-800 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none"
+              />
+              <button
+                onClick={async () => {
+                  if (!disputeMsg.trim()) return;
+                  await addDisputeMessage.mutateAsync({ disputeId: dispute.id, orderId: id, body: disputeMsg });
+                  setDisputeMsg('');
+                }}
+                disabled={!disputeMsg.trim() || addDisputeMessage.isPending}
+                className="self-end rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
+              >
+                {addDisputeMessage.isPending ? '…' : 'Send'}
+              </button>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Payments */}
       {order.payments && order.payments.length > 0 && (

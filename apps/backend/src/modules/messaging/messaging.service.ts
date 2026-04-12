@@ -4,6 +4,7 @@ import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { sanitizeText } from "../../common/utils/sanitize";
 import { StorageService } from "../storage/storage.service";
 import { CreateThreadDto } from "./dto/create-thread.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
@@ -157,7 +158,7 @@ export class MessagingService implements OnModuleInit {
       data: {
         threadId: id,
         authorId: dto.authorId,
-        body: dto.body,
+        body: sanitizeText(dto.body),
         status: MessageStatus.SENT,
         metadata: this.toJsonInput(dto.metadata),
         moderationStatus: moderationDecision.status,

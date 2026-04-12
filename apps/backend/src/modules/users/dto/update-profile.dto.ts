@@ -14,4 +14,18 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsPhoneNumber('GH', { message: 'phone must be a valid international number' })
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bio?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  location?: string;
+
+  @IsOptional()
+  @IsUrl()
+  website?: string;
 }

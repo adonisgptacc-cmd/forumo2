@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma, ReviewStatus } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { sanitizeText } from "../../common/utils/sanitize";
 import { CreateReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
 import { ReviewModerationService } from "./moderation.service";
 import { ListingReviewResponse, ReviewRollup, SafeReview, serializeReview, serializeRollup } from "./review.serializer";
@@ -63,7 +64,7 @@ export class ReviewsService {
           listingId: dto.listingId,
           orderId: dto.orderId,
           rating: dto.rating,
-          comment: dto.comment,
+          comment: dto.comment != null ? sanitizeText(dto.comment) : dto.comment,
           status: moderation.status,
           moderationNotes: moderation.notes,
           metadata: this.buildMetadata(dto.metadata),
@@ -110,7 +111,7 @@ export class ReviewsService {
         where: { id },
         data: {
           rating: dto.rating ?? existing.rating,
-          comment: dto.comment ?? existing.comment,
+          comment: dto.comment != null ? sanitizeText(dto.comment) : existing.comment,
           status,
           moderationNotes: moderation.notes ?? existing.moderationNotes,
           metadata: (this.buildMetadata(dto.metadata) ?? existing.metadata) as Prisma.InputJsonValue,

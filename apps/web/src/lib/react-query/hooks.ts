@@ -21,6 +21,7 @@ import type {
   SendMessageDto,
   UpdateListingDto,
   ListingReviewResponse,
+  ReviewRollup,
   PaginatedResponse,
   UpdateProfilePayload,
   UserProfileData,
@@ -80,7 +81,7 @@ export function useReviewMutations() {
   const client = useQueryClient();
 
   const createReview = useMutation({
-    mutationFn: (payload: CreateReviewDto) => (api as any).reviews.create(payload),
+    mutationFn: (payload: CreateReviewDto) => api.reviews.create(payload),
     onSuccess: (review: SafeReview) => {
       client.invalidateQueries({ queryKey: queryKeys.listingReviews(review.listingId) });
       client.invalidateQueries({ queryKey: queryKeys.sellerReviewRollup(review.recipientId) });
@@ -88,6 +89,15 @@ export function useReviewMutations() {
   });
 
   return { createReview };
+}
+
+export function useSellerReviewRollup(sellerId: string | null) {
+  const api = useApi();
+  return useQuery<ReviewRollup | null>({
+    queryKey: sellerId ? queryKeys.sellerReviewRollup(sellerId) : ['seller', null, 'reviews'],
+    queryFn: () => (sellerId ? api.reviews.rollup(sellerId) : Promise.resolve(null)),
+    enabled: Boolean(sellerId),
+  });
 }
 
 export function useListingMutations() {
@@ -137,8 +147,8 @@ export function useUpdateOrderStatus() {
   const api = useApi(accessToken);
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: { id: string; status: string; note?: string }) =>
-      api.orders.updateStatus(id, payload as any),
+    mutationFn: ({ id, ...payload }: { id: string; status: import('@forumo/shared').OrderStatus; note?: string }) =>
+      api.orders.updateStatus(id, payload),
     onSuccess: (_, { id }) => {
       client.invalidateQueries({ queryKey: queryKeys.orders });
       client.invalidateQueries({ queryKey: queryKeys.order(id) });
@@ -279,6 +289,36 @@ export function useDeleteAvatar() {
     onSuccess: () => {
       client.invalidateQueries({ queryKey: queryKeys.profile });
     },
+  });
+}
+
+export function useAddresses() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<any[]>({
+    queryKey: ['addresses'],
+    queryFn: () => api.users.listAddresses(),
+    enabled: !!accessToken,
+  });
+}
+
+export function useAddressMutations() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  const invalidate = () => client.invalidateQueries({ queryKey: ['addresses'] });
+  return {
+    create: useMutation({ mutationFn: (payload: any) => api.users.createAddress(payload), onSuccess: invalidate }),
+    update: useMutation({ mutationFn: ({ id, ...payload }: any) => api.users.updateAddress(id, payload), onSuccess: invalidate }),
+    remove: useMutation({ mutationFn: (id: string) => api.users.deleteAddress(id), onSuccess: invalidate }),
+  };
+}
+
+export function useChangePassword() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<{ message: string }, Error, { currentPassword: string; newPassword: string }>({
+    mutationFn: (payload) => api.auth.changePassword(payload),
   });
 }
 
@@ -590,6 +630,23 @@ export function useAdminDashboardStats() {
   });
 }
 
+export interface AdminAnalytics {
+  salesTrend: { label: string; value: number }[];
+  userGrowth: { label: string; value: number }[];
+  recentActivity: { title: string; meta: string; time: string; tone: string }[];
+}
+
+export function useAdminAnalytics() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<AdminAnalytics>({
+    queryKey: ['admin', 'dashboard', 'analytics'],
+    queryFn: () => api.get<AdminAnalytics>('/admin/dashboard/analytics', { auth: true }),
+    enabled: !!accessToken,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
 export function useAdminUsers() {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
@@ -621,6 +678,15 @@ export function useAdminOrders() {
 }
 
 // --- Auctions ---
+
+export function useAuctions(params: { page?: number; pageSize?: number; status?: string } = {}) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<import('@forumo/shared').PaginatedResponse<import('@forumo/shared').Auction>>({
+    queryKey: queryKeys.auctions(params),
+    queryFn: () => api.auctions.list(params),
+  });
+}
 
 export function useCreateAuction() {
   const { accessToken } = useCurrentUser();
@@ -661,6 +727,39 @@ export function useDeleteListing() {
 
 // --- Escrow Dispute ---
 
+// --- Inventory ---
+
+export function useVariantInventory(variantId: string | null | undefined) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery({
+    queryKey: ['inventory', 'variant', variantId],
+    queryFn: () => api.inventory.getByVariant(variantId!),
+    enabled: !!accessToken && !!variantId,
+  });
+}
+
+export function useInventoryMutations(variantId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  const invalidate = () => {
+    client.invalidateQueries({ queryKey: ['inventory', 'variant', variantId] });
+    client.invalidateQueries({ queryKey: queryKeys.myListings });
+  };
+  const addStock = useMutation({
+    mutationFn: (payload: { quantity: number; location?: string }) =>
+      api.inventory.addStock(variantId, payload),
+    onSuccess: invalidate,
+  });
+  const adjustStock = useMutation({
+    mutationFn: (payload: { adjustment: number; reason: string }) =>
+      api.inventory.adjustStock(variantId, payload),
+    onSuccess: invalidate,
+  });
+  return { addStock, adjustStock };
+}
+
 export function useOpenDispute() {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
@@ -672,5 +771,46 @@ export function useOpenDispute() {
       client.invalidateQueries({ queryKey: queryKeys.order(orderId) });
       client.invalidateQueries({ queryKey: queryKeys.orders });
     },
+  });
+}
+
+export function useEscrowDetails(orderId: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<unknown>({
+    queryKey: orderId ? queryKeys.escrowDetails(orderId) : ['escrow', null],
+    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }),
+    enabled: Boolean(accessToken) && Boolean(orderId),
+  });
+}
+
+export function useAddDisputeMessage() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation<unknown, Error, { disputeId: string; orderId: string; body: string }>({
+    mutationFn: ({ disputeId, body }) =>
+      api.post(`/escrow/disputes/${disputeId}/messages`, { body }, { auth: true }),
+    onSuccess: (_, { orderId }) => {
+      client.invalidateQueries({ queryKey: queryKeys.escrowDetails(orderId) });
+    },
+  });
+}
+
+export function useAcceptTerms() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<void, Error, void>({
+    mutationFn: () => api.users.acceptTerms(),
+  });
+}
+
+export function useExportMyData() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<Record<string, unknown>>({
+    queryKey: ['user', 'export'],
+    queryFn: () => api.users.exportData(),
+    enabled: false,
   });
 }

@@ -196,6 +196,22 @@ export const ProfileTab: React.FC = () => {
         <Text style={styles.sectionTitle}>Activity</Text>
         <TouchableOpacity
           style={styles.linkRow}
+          onPress={() => navigation.push('MyListings')}
+          testID="profile-my-listings-link"
+        >
+          <Text style={styles.linkText}>My Listings</Text>
+          <Text style={styles.linkChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.push('CreateListing')}
+          testID="profile-create-listing-link"
+        >
+          <Text style={styles.linkText}>+ Create Listing</Text>
+          <Text style={styles.linkChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
           onPress={() => navigation.push('Offers')}
           testID="profile-offers-link"
         >
@@ -208,6 +224,14 @@ export const ProfileTab: React.FC = () => {
           testID="profile-notifications-link"
         >
           <Text style={styles.linkText}>Notifications</Text>
+          <Text style={styles.linkChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.push('Wishlist')}
+          testID="profile-wishlist-link"
+        >
+          <Text style={styles.linkText}>Wishlist</Text>
           <Text style={styles.linkChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity

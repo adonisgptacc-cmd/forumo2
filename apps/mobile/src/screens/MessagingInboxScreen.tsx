@@ -36,7 +36,7 @@ export const MessagingInboxScreen: React.FC = () => {
         setThreads(demoThreads);
       } else {
         const response = await apiClient.messaging.listThreads();
-        setThreads(response);
+        setThreads(response.data);
       }
     } catch (err) {
       setError('Unable to sync inbox. Showing cached demo threads.');

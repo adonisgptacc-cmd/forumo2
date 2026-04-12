@@ -19,6 +19,11 @@ import { OrderDetailScreen } from '../screens/OrderDetailScreen';
 import { ProfileTab } from '../screens/ProfileScreen';
 import { OffersScreen } from '../screens/OffersScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ListingDetailScreen } from '../screens/ListingDetailScreen';
+import { WishlistScreen } from '../screens/WishlistScreen';
+import { CreateListingScreen } from '../screens/CreateListingScreen';
+import { MyListingsScreen } from '../screens/MyListingsScreen';
+import { EditListingScreen } from '../screens/EditListingScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -119,6 +124,31 @@ const MainNavigator = () => (
       name="Notifications"
       component={NotificationsScreen}
       options={{ title: 'Notifications' }}
+    />
+    <MainStack.Screen
+      name="ListingDetail"
+      component={ListingDetailScreen}
+      options={{ title: 'Listing' }}
+    />
+    <MainStack.Screen
+      name="Wishlist"
+      component={WishlistScreen}
+      options={{ title: 'Wishlist' }}
+    />
+    <MainStack.Screen
+      name="CreateListing"
+      component={CreateListingScreen}
+      options={{ title: 'New Listing' }}
+    />
+    <MainStack.Screen
+      name="MyListings"
+      component={MyListingsScreen}
+      options={{ title: 'My Listings' }}
+    />
+    <MainStack.Screen
+      name="EditListing"
+      component={EditListingScreen}
+      options={{ title: 'Edit Listing' }}
     />
   </MainStack.Navigator>
 );

@@ -1,9 +1,49 @@
 import type { Express } from 'express';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+// Allowed MIME types per upload category and their magic-byte signatures.
+// Format: [byteOffset, expectedBytes[]]
+type MagicEntry = { offset: number; bytes: number[] };
+
+const IMAGE_SIGNATURES: Record<string, MagicEntry[]> = {
+  'image/jpeg': [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
+  'image/png': [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }],
+  'image/gif': [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38] }],
+  'image/webp': [{ offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] }], // RIFF header; full WebP check needs bytes[8-11]=WEBP
+};
+
+const KYC_SIGNATURES: Record<string, MagicEntry[]> = {
+  ...IMAGE_SIGNATURES,
+  'application/pdf': [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }], // %PDF
+};
+
+function matchesMagic(buf: Buffer, entries: MagicEntry[]): boolean {
+  return entries.every(({ offset, bytes }) =>
+    bytes.every((b, i) => buf[offset + i] === b),
+  );
+}
+
+function validateMimeType(
+  file: Express.Multer.File,
+  allowed: Record<string, MagicEntry[]>,
+  label: string,
+): void {
+  const signatures = allowed[file.mimetype];
+  if (!signatures) {
+    throw new BadRequestException(
+      `${label}: unsupported file type "${file.mimetype}". Allowed: ${Object.keys(allowed).join(', ')}`,
+    );
+  }
+  if (!matchesMagic(file.buffer, signatures)) {
+    throw new BadRequestException(
+      `${label}: file content does not match declared MIME type "${file.mimetype}"`,
+    );
+  }
+}
 
 interface StoredObjectReference {
   bucket: string;
@@ -39,17 +79,20 @@ export class StorageService {
   }
 
   async saveListingImage(listingId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
-    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    validateMimeType(file, IMAGE_SIGNATURES, 'Listing image');
+    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}`;
     return this.persistFile(key, file);
   }
 
   async saveMessageAttachment(threadId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
-    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    validateMimeType(file, IMAGE_SIGNATURES, 'Message attachment');
+    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}`;
     return this.persistFile(key, file);
   }
 
   async saveKycDocument(userId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
-    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    validateMimeType(file, KYC_SIGNATURES, 'KYC document');
+    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}`;
     return this.persistFile(key, file);
   }
 

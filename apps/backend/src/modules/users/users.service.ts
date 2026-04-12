@@ -52,12 +52,26 @@ export class UsersService {
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<SafeUser> {
     await this.ensureExists(id);
+
+    const { bio, location, website, ...userFields } = dto;
+
     const updated = await this.prisma.user.update({
       where: { id },
-      data: {
-        ...dto,
-      },
+      data: { ...userFields },
     });
+
+    if (bio !== undefined || location !== undefined || website !== undefined) {
+      await this.prisma.userProfile.upsert({
+        where: { userId: id },
+        create: { userId: id, bio, location, website },
+        update: {
+          ...(bio !== undefined ? { bio } : {}),
+          ...(location !== undefined ? { location } : {}),
+          ...(website !== undefined ? { website } : {}),
+        },
+      });
+    }
+
     return sanitizeUser(updated)!;
   }
 
@@ -73,6 +87,86 @@ export class UsersService {
     ]);
 
     return { user: sanitizeUser(user)!, profile, trustSeeds };
+  }
+
+  async listAddresses(userId: string) {
+    await this.ensureExists(userId);
+    return this.prisma.userAddress.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createAddress(userId: string, dto: {
+    label?: string; fullName: string; phone?: string;
+    line1: string; line2?: string; city: string; state?: string;
+    postalCode?: string; country: string; type?: string; isDefault?: boolean;
+  }) {
+    await this.ensureExists(userId);
+    if (dto.isDefault) {
+      await this.prisma.userAddress.updateMany({ where: { userId }, data: { isDefault: false } });
+    }
+    return this.prisma.userAddress.create({
+      data: { userId, ...dto, type: (dto.type as any) ?? 'SHIPPING' },
+    });
+  }
+
+  async updateAddress(userId: string, addressId: string, dto: {
+    label?: string; fullName?: string; phone?: string;
+    line1?: string; line2?: string; city?: string; state?: string;
+    postalCode?: string; country?: string; isDefault?: boolean;
+  }) {
+    await this.ensureExists(userId);
+    const address = await this.prisma.userAddress.findFirst({ where: { id: addressId, userId } });
+    if (!address) throw new NotFoundException('Address not found');
+    if (dto.isDefault) {
+      await this.prisma.userAddress.updateMany({ where: { userId }, data: { isDefault: false } });
+    }
+    return this.prisma.userAddress.update({ where: { id: addressId }, data: dto });
+  }
+
+  async deleteAddress(userId: string, addressId: string) {
+    await this.ensureExists(userId);
+    const address = await this.prisma.userAddress.findFirst({ where: { id: addressId, userId } });
+    if (!address) throw new NotFoundException('Address not found');
+    await this.prisma.userAddress.delete({ where: { id: addressId } });
+  }
+
+  async recordConsent(id: string): Promise<void> {
+    await this.ensureExists(id);
+    const now = new Date();
+    await this.prisma.user.update({
+      where: { id },
+      data: { termsAcceptedAt: now, privacyAcceptedAt: now },
+    });
+  }
+
+  async exportUserData(id: string): Promise<Record<string, unknown>> {
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const [profile, addresses, listings, ordersAsBuyer, ordersAsSeller, reviews, savedListings] =
+      await this.prisma.$transaction([
+        this.prisma.userProfile.findUnique({ where: { userId: id } }),
+        this.prisma.userAddress.findMany({ where: { userId: id } }),
+        this.prisma.listing.findMany({ where: { userId: id }, select: { id: true, title: true, price: true, status: true, createdAt: true } }),
+        this.prisma.order.findMany({ where: { buyerId: id }, select: { id: true, status: true, totalAmount: true, createdAt: true } }),
+        this.prisma.order.findMany({ where: { sellerId: id }, select: { id: true, status: true, totalAmount: true, createdAt: true } }),
+        this.prisma.review.findMany({ where: { authorId: id }, select: { id: true, rating: true, comment: true, createdAt: true } }),
+        this.prisma.savedListing.findMany({ where: { userId: id }, select: { listingId: true, createdAt: true } }),
+      ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      account: sanitizeUser(user),
+      profile,
+      addresses,
+      listings,
+      ordersAsBuyer,
+      ordersAsSeller,
+      reviews,
+      savedListings,
+    };
   }
 
   async removeAvatar(id: string): Promise<SafeUser> {

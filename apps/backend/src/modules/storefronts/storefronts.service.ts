@@ -25,7 +25,7 @@ export class StorefrontsService {
     const storefront = await this.prisma.storefront.findUnique({
       where: { slug },
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true } },
+        user: { select: { id: true, email: true, name: true, avatarUrl: true } },
         collections: { orderBy: { createdAt: 'desc' } },
       },
     });

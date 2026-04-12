@@ -196,6 +196,13 @@ export class ForumoApiClient {
       });
       return authResponseSchema.parse(response);
     },
+    changePassword: async (payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/password/change', {
+        method: 'POST',
+        body: payload,
+        auth: true,
+      });
+    },
   };
 
   readonly listings = {
@@ -588,6 +595,43 @@ export class ForumoApiClient {
     deleteAvatar: async (): Promise<SafeUser> => {
       const result = await this.request<SafeUser>('/users/me/avatar', { method: 'DELETE', auth: true });
       return safeUserSchema.parse(result);
+    },
+    listAddresses: async () => {
+      return this.request<any[]>('/users/me/addresses', { method: 'GET', auth: true });
+    },
+    createAddress: async (payload: any) => {
+      return this.requestJson<any>('/users/me/addresses', { method: 'POST', auth: true, body: payload });
+    },
+    updateAddress: async (id: string, payload: any) => {
+      return this.requestJson<any>(`/users/me/addresses/${id}`, { method: 'PATCH', auth: true, body: payload });
+    },
+    deleteAddress: async (id: string) => {
+      await this.request<void>(`/users/me/addresses/${id}`, { method: 'DELETE', auth: true });
+    },
+    acceptTerms: async (): Promise<void> => {
+      await this.request<void>('/users/me/accept-terms', { method: 'POST', auth: true });
+    },
+    exportData: async (): Promise<Record<string, unknown>> => {
+      return this.request<Record<string, unknown>>('/users/me/export', { method: 'GET', auth: true });
+    },
+  };
+
+  readonly inventory = {
+    getByVariant: async (variantId: string): Promise<{
+      variantId: string;
+      items: Array<{ id: string; quantity: number; availableQuantity: number; reservedQuantity: number; damagedQuantity: number; location: string; metadata: any; createdAt: string }>;
+      summary: { totalQuantity: number; availableQuantity: number; reservedQuantity: number; damagedQuantity: number };
+    }> => {
+      return this.request(`/inventory/variant/${variantId}`, { method: 'GET', auth: true });
+    },
+    addStock: async (variantId: string, payload: { quantity: number; location?: string; metadata?: any }) => {
+      return this.requestJson(`/inventory/variant/${variantId}/add`, { method: 'POST', auth: true, body: payload });
+    },
+    adjustStock: async (variantId: string, payload: { adjustment: number; reason: string }) => {
+      return this.requestJson(`/inventory/variant/${variantId}/adjust`, { method: 'POST', auth: true, body: payload });
+    },
+    markDamaged: async (itemId: string, payload: { quantity: number; reason?: string }) => {
+      return this.requestJson(`/inventory/items/${itemId}/damage`, { method: 'POST', auth: true, body: payload });
     },
   };
 

@@ -26,9 +26,9 @@ export interface ListingSearchParams {
   createdAfter?: Date;
   createdBefore?: Date;
   sellerId?: string;
-  sellerIds?: string[];
-  tags?: string[];
-  categories?: string[];
+  sellerIds?: string | string[];
+  tags?: string | string[];
+  categories?: string | string[];
   sort?: ListingSearchSort;
 }
 
@@ -182,8 +182,10 @@ export class ListingSearchService {
     return (Number.isNaN(ttlSeconds) ? 30 : ttlSeconds) * 1000;
   }
 
-  private normalizeStrings(values?: string[]): string[] {
-    return (values ?? [])
+  private normalizeStrings(values?: string | string[]): string[] {
+    if (!values) return [];
+    const arr = Array.isArray(values) ? values : String(values).split(',');
+    return arr
       .map((value) => value?.trim())
       .filter((value): value is string => Boolean(value))
       .map((value) => value.toLowerCase());

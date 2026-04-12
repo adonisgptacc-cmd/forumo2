@@ -133,14 +133,34 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="12. Changes to This Policy">
+      <Section title="12. California Privacy Rights (CCPA)">
+        <p>
+          If you are a California resident, the California Consumer Privacy Act (CCPA) grants you the
+          following rights in addition to those listed above:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li><strong>Right to Know:</strong> You may request disclosure of the categories and specific pieces of personal information we have collected about you in the past 12 months.</li>
+          <li><strong>Right to Delete:</strong> You may request deletion of personal information we have collected, subject to certain legal exceptions.</li>
+          <li><strong>Right to Opt-Out of Sale:</strong> We do <strong>not</strong> sell your personal information to third parties. You do not need to opt out.</li>
+          <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for exercising any of your CCPA rights.</li>
+        </ul>
+        <p className="mt-2">
+          To submit a verifiable CCPA request, contact us at{' '}
+          <a href="mailto:privacy@forumo.africa" className="text-amber-600 hover:underline">
+            privacy@forumo.africa
+          </a>{' '}
+          with the subject line &quot;CCPA Request&quot;. We will respond within 45 days.
+        </p>
+      </Section>
+
+      <Section title="13. Changes to This Policy">
         <p>
           We may update this Privacy Policy periodically. We will notify you of material changes by email
           or by a prominent notice on the Platform at least 30 days before the change takes effect.
         </p>
       </Section>
 
-      <Section title="13. Contact Us">
+      <Section title="14. Contact Us">
         <p>
           For privacy questions or to exercise your rights, contact our Data Protection Officer at:{' '}
           <a href="mailto:privacy@forumo.africa" className="text-amber-600 hover:underline">

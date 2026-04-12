@@ -3,7 +3,10 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 
 import { createApiClient } from './api-client';
 
-const allowMockAuth = process.env.NEXT_PUBLIC_USE_API_MOCKS === 'true';
+// Mock auth is only allowed in local development — never in production builds
+const allowMockAuth =
+  process.env.NODE_ENV === 'development' &&
+  process.env.NEXT_PUBLIC_USE_API_MOCKS === 'true';
 
 export const authOptions: NextAuthOptions = {
   session: {

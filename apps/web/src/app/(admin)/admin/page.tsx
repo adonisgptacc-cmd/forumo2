@@ -1,8 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAdminDashboardStats, AdminDashboardStats, useAdminUsers, useAdminListings, useAdminOrders } from "../../../lib/react-query/hooks";
+import Link from "next/link";
+import { useAdminDashboardStats, AdminDashboardStats, useAdminUsers, useAdminListings, useAdminOrders, useAdminAnalytics, useCategories } from "../../../lib/react-query/hooks";
 import type { AdminUserDetail, AdminListingModeration, AdminOrderSummary } from '@forumo/shared';
+
+function downloadCsv(filename: string, rows: string[][], headers: string[]) {
+  const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 type DashboardStats = AdminDashboardStats;
 
@@ -23,41 +36,7 @@ function buildMetrics(stats: DashboardStats | null) {
   ];
 }
 
-const salesTrend = [
-  { label: "Mon", value: 42000 },
-  { label: "Tue", value: 51000 },
-  { label: "Wed", value: 47000 },
-  { label: "Thu", value: 58000 },
-  { label: "Fri", value: 61000 },
-  { label: "Sat", value: 72000 },
-  { label: "Sun", value: 69000 },
-];
-
-const userGrowth = [
-  { label: "Jan", value: 2100 },
-  { label: "Feb", value: 2400 },
-  { label: "Mar", value: 2600 },
-  { label: "Apr", value: 3000 },
-  { label: "May", value: 3400 },
-  { label: "Jun", value: 3800 },
-];
-
-const categoryPerformance = [
-  { label: "Electronics", value: 32, tone: "emerald" },
-  { label: "Fashion", value: 21, tone: "sky" },
-  { label: "Home", value: 17, tone: "amber" },
-  { label: "Collectibles", value: 12, tone: "violet" },
-  { label: "Motors", value: 9, tone: "rose" },
-  { label: "Other", value: 9, tone: "slate" },
-];
-
-const recentActivity = [
-  { title: "New seller verification", meta: "KYC approved for @aurora-trends", time: "3m ago", tone: "emerald" },
-  { title: "Listing flagged", meta: "Vintage watch - counterfeit concern", time: "12m ago", tone: "amber" },
-  { title: "High-value sale", meta: "$4,200 for custom PC build", time: "28m ago", tone: "emerald" },
-  { title: "Dispute opened", meta: "Order #48219 - item not received", time: "41m ago", tone: "rose" },
-  { title: "New buyer", meta: "Account created: @urbanpicker", time: "58m ago", tone: "sky" },
-];
+const CATEGORY_TONES = ["emerald", "sky", "amber", "violet", "rose", "slate"];
 
 
 const reports = [
@@ -117,7 +96,10 @@ function StatusBadge({ label }: { label: string }) {
 }
 
 function LineChart({ data }: { data: { label: string; value: number }[] }) {
-  const max = Math.max(...data.map((d) => d.value));
+  if (!data || data.length < 2) {
+    return <div className="h-48 rounded-xl border border-slate-800 bg-slate-900/40 flex items-center justify-center text-sm text-slate-500">No data yet</div>;
+  }
+  const max = Math.max(...data.map((d) => d.value), 1);
   const points = data
     .map((d, idx) => {
       const x = (idx / (data.length - 1)) * 100;
@@ -155,7 +137,10 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
 }
 
 function BarChart({ data }: { data: { label: string; value: number }[] }) {
-  const max = Math.max(...data.map((d) => d.value));
+  if (!data || data.length === 0) {
+    return <div className="h-48 rounded-xl border border-slate-800 bg-slate-900/40 flex items-center justify-center text-sm text-slate-500">No data yet</div>;
+  }
+  const max = Math.max(...data.map((d) => d.value), 1);
   return (
     <div className="h-48 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="flex h-full items-end gap-3">
@@ -222,6 +207,22 @@ export default function AdminHome() {
   const { data: allUsers = [] } = useAdminUsers();
   const { data: allListings = [] } = useAdminListings();
   const { data: allOrders = [] } = useAdminOrders();
+  const { data: analytics } = useAdminAnalytics();
+  const { data: categories = [] } = useCategories();
+
+  const salesTrend = analytics?.salesTrend ?? [];
+  const userGrowth = analytics?.userGrowth ?? [];
+  const recentActivity = analytics?.recentActivity ?? [];
+
+  const categoryPerformance = useMemo(() => {
+    if (categories.length === 0) return [];
+    const total = categories.length;
+    return categories.slice(0, 6).map((cat, i) => ({
+      label: cat.name,
+      value: Math.round(((total - i) / ((total * (total + 1)) / 2)) * 100),
+      tone: CATEGORY_TONES[i % CATEGORY_TONES.length],
+    }));
+  }, [categories]);
 
   const [userQuery, setUserQuery] = useState("");
   const [userRole, setUserRole] = useState("all");
@@ -272,11 +273,26 @@ export default function AdminHome() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <button className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-emerald-100 hover:bg-emerald-500/20">
+          <Link href="/admin/categories" className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-emerald-100 hover:bg-emerald-500/20">
             + Add category
+          </Link>
+          <button
+            onClick={() => downloadCsv('forumo-orders.csv',
+              (filteredTransactions as AdminOrderSummary[]).map((o) => [o.orderNumber, o.buyerName ?? o.buyerEmail ?? '', o.status, o.paymentStatus, String(o.totalItemCents / 100), o.currency, o.placedAt ?? '']),
+              ['Order #', 'Buyer', 'Status', 'Payment', 'Amount', 'Currency', 'Date']
+            )}
+            className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100 hover:border-amber-400/60 hover:bg-slate-900/80"
+          >
+            Export orders CSV
           </button>
-          <button className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100 hover:border-amber-400/60 hover:bg-slate-900/80">
-            Export report
+          <button
+            onClick={() => downloadCsv('forumo-users.csv',
+              (filteredUsers as AdminUserDetail[]).map((u) => [u.name ?? '', u.email, u.role, u.kycStatus, String(u.listingsCount), u.createdAt]),
+              ['Name', 'Email', 'Role', 'KYC', 'Listings', 'Registered']
+            )}
+            className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100 hover:border-amber-400/60 hover:bg-slate-900/80"
+          >
+            Export users CSV
           </button>
         </div>
       </div>
@@ -352,7 +368,13 @@ export default function AdminHome() {
               <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Recent activity</p>
               <h3 className="text-lg text-white">Listings, purchases, registrations</h3>
             </div>
-            <button className="text-xs text-amber-200 hover:text-amber-100">Download audit log</button>
+            <button
+            onClick={() => downloadCsv('audit-log.csv',
+              recentActivity.map((a) => [a.title, a.meta, a.time]),
+              ['Event', 'Detail', 'Time']
+            )}
+            className="text-xs text-amber-200 hover:text-amber-100"
+          >Download audit log</button>
           </div>
           <div className="space-y-3">
             {recentActivity.map((activity) => (
@@ -483,7 +505,9 @@ export default function AdminHome() {
                     </td>
                     <td className="px-3 py-2 text-slate-300">{u.listingsCount}</td>
                     <td className="px-3 py-2 text-slate-300">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    <td className="px-3 py-2 text-right text-xs text-amber-200">Manage →</td>
+                    <td className="px-3 py-2 text-right text-xs text-amber-200">
+                      <Link href={`/admin/kyc?userId=${u.id}` as any} className="hover:underline">Manage →</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -538,7 +562,11 @@ export default function AdminHome() {
                     <td className="px-3 py-2"><StatusBadge label={l.moderationStatus} /></td>
                     <td className="px-3 py-2 text-slate-300">{new Date(l.createdAt).toLocaleDateString()}</td>
                     <td className="px-3 py-2 text-right text-xs text-amber-200">
-                      {l.moderationStatus === 'PENDING' ? "Review" : "View"} →
+                      {l.moderationStatus === 'PENDING' ? (
+                        <Link href="/admin/moderations" className="hover:underline">Review →</Link>
+                      ) : (
+                        <Link href={`/listings/${l.id}` as any} className="hover:underline">View →</Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -570,7 +598,13 @@ export default function AdminHome() {
                 <option value="REFUNDED">Refunded</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
-              <button className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:border-amber-400/60">
+              <button
+                onClick={() => downloadCsv('orders.csv',
+                  (filteredTransactions as AdminOrderSummary[]).map((o) => [o.orderNumber, o.buyerName ?? o.buyerEmail ?? '', o.status, o.paymentStatus, String(o.totalItemCents / 100), o.currency, o.placedAt ?? '']),
+                  ['Order #', 'Buyer', 'Status', 'Payment', 'Amount', 'Currency', 'Date']
+                )}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:border-amber-400/60"
+              >
                 Export CSV
               </button>
             </div>

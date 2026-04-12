@@ -173,6 +173,124 @@ export class AdminService {
     }));
   }
 
+  async getAnalytics() {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    // Daily revenue (last 7 days) — sum of totalItemCents per day
+    const dailyOrders = await this.prisma.order.findMany({
+      where: { createdAt: { gte: sevenDaysAgo }, status: { notIn: ['CANCELLED', 'REFUNDED'] } },
+      select: { createdAt: true, totalItemCents: true },
+    });
+
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dailyRevenue: Record<string, number> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgo);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      dailyRevenue[key] = 0;
+    }
+    for (const order of dailyOrders) {
+      const key = order.createdAt.toISOString().slice(0, 10);
+      if (key in dailyRevenue) dailyRevenue[key] += order.totalItemCents;
+    }
+    const salesTrend = Object.entries(dailyRevenue).map(([date, value]) => ({
+      label: dayLabels[new Date(date).getDay()],
+      value,
+    }));
+
+    // Monthly user registrations (last 6 months)
+    const monthlyUsers = await this.prisma.user.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    });
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyCount: Record<string, number> = {};
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(sixMonthsAgo);
+      d.setMonth(d.getMonth() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthlyCount[key] = 0;
+    }
+    for (const user of monthlyUsers) {
+      const key = `${user.createdAt.getFullYear()}-${String(user.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      if (key in monthlyCount) monthlyCount[key]++;
+    }
+    const userGrowth = Object.entries(monthlyCount).map(([key, value]) => ({
+      label: monthLabels[parseInt(key.split('-')[1], 10) - 1],
+      value,
+    }));
+
+    // Recent activity (last 10 orders + KYC reviews + disputes)
+    const [recentOrders, recentKyc, recentDisputes] = await Promise.all([
+      this.prisma.order.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 4,
+        select: { orderNumber: true, createdAt: true, status: true, totalItemCents: true, currency: true },
+      }),
+      this.prisma.kycSubmission.findMany({
+        where: { reviewedAt: { not: null } },
+        orderBy: { reviewedAt: 'desc' },
+        take: 3,
+        select: { status: true, reviewedAt: true, user: { select: { name: true, email: true } } },
+      }),
+      this.prisma.escrowDispute.findMany({
+        orderBy: { openedAt: 'desc' },
+        take: 3,
+        select: { reason: true, openedAt: true, status: true, escrow: { select: { order: { select: { orderNumber: true } } } } },
+      }),
+    ]);
+
+    const recentActivity = [
+      ...recentOrders.map((o) => ({
+        title: `Order #${o.orderNumber}`,
+        meta: `${o.status} · ${(o.totalItemCents / 100).toFixed(2)} ${o.currency}`,
+        time: o.createdAt.toISOString(),
+        tone: o.status === 'COMPLETED' ? 'emerald' : o.status === 'DISPUTED' ? 'rose' : 'amber',
+      })),
+      ...recentKyc.map((k) => ({
+        title: `KYC ${k.status.toLowerCase()}`,
+        meta: k.user?.name ?? k.user?.email ?? 'Unknown user',
+        time: (k.reviewedAt ?? new Date()).toISOString(),
+        tone: k.status === 'APPROVED' ? 'emerald' : 'rose',
+      })),
+      ...recentDisputes.map((d) => ({
+        title: `Dispute ${d.status.toLowerCase()}`,
+        meta: `Order #${d.escrow?.order?.orderNumber ?? '—'}: ${d.reason.slice(0, 60)}`,
+        time: d.openedAt.toISOString(),
+        tone: 'rose',
+      })),
+    ]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 8)
+      .map((item) => ({
+        ...item,
+        time: this.formatRelativeTime(new Date(item.time)),
+      }));
+
+    return { salesTrend, userGrowth, recentActivity };
+  }
+
+  private formatRelativeTime(date: Date): string {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60_000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDays = Math.floor(diffHr / 24);
+    return `${diffDays}d ago`;
+  }
+
   async reviewKycSubmission(
     id: string,
     body: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string | null },

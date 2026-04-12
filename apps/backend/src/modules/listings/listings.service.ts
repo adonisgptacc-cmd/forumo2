@@ -3,6 +3,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { sanitizeText } from "../../common/utils/sanitize";
 import { CreateListingDto, CreateListingVariantDto } from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
 import {
@@ -55,8 +56,8 @@ export class ListingsService {
     const listing = await this.prisma.listing.create({
       data: {
         sellerId,
-        title: dto.title,
-        description: dto.description,
+        title: sanitizeText(dto.title),
+        description: dto.description ? sanitizeText(dto.description) : dto.description,
         priceCents: dto.priceCents,
         currency: dto.currency ?? 'USD',
         status: initialStatus,
@@ -86,8 +87,8 @@ export class ListingsService {
     if (current.sellerId !== userId) throw new ForbiddenException('Not your listing');
     const desiredStatus = dto.status ?? current.status;
     const data: Prisma.ListingUpdateInput = {
-      title: dto.title ?? undefined,
-      description: dto.description ?? undefined,
+      title: dto.title != null ? sanitizeText(dto.title) : undefined,
+      description: dto.description != null ? sanitizeText(dto.description) : undefined,
       priceCents: dto.priceCents ?? undefined,
       currency: dto.currency ?? undefined,
       status: dto.status ?? undefined,

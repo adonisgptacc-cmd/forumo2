@@ -6,6 +6,7 @@ import { apiClient } from '../../../lib/api-client';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Storefront, SafeListing, ListingSearchResponse } from '@forumo/shared';
+import { useSellerReviewRollup, useListingReviews } from '../../../lib/react-query/hooks';
 
 function formatPrice(priceCents: number, currency: string) {
   return new Intl.NumberFormat('en', { style: 'currency', currency }).format(priceCents / 100);
@@ -80,6 +81,71 @@ function SellerListings({ sellerId }: { sellerId: string }) {
         <p className="text-center text-sm text-slate-500">
           Showing 24 of {data.total} listings
         </p>
+      )}
+    </div>
+  );
+}
+
+function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
+  const full = Math.round(rating);
+  return (
+    <span className="text-amber-400">
+      {'★'.repeat(full)}{'☆'.repeat(max - full)}
+    </span>
+  );
+}
+
+function SellerReviewsSection({ sellerId }: { sellerId: string }) {
+  const { data: rollup, isLoading: rollupLoading } = useSellerReviewRollup(sellerId);
+  // Pull reviews via the first listing query is not ideal; use the rollup + a dedicated listing id
+  // We show rollup stats + link to individual listing reviews instead
+  if (rollupLoading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        <div className="h-5 bg-slate-800 rounded w-40" />
+        <div className="h-16 bg-slate-800 rounded" />
+      </div>
+    );
+  }
+
+  if (!rollup || rollup.publishedCount === 0) {
+    return (
+      <div className="py-10 text-center border border-dashed border-slate-800 rounded-xl">
+        <p className="text-slate-500 text-sm">No reviews yet.</p>
+      </div>
+    );
+  }
+
+  const pct = (n: number) => rollup.reviewCount > 0 ? Math.round((n / rollup.reviewCount) * 100) : 0;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">
+      {/* Summary */}
+      <div className="flex items-center gap-6">
+        <div className="text-center">
+          <p className="text-5xl font-bold text-white">{rollup.averageRating.toFixed(1)}</p>
+          <StarRating rating={rollup.averageRating} />
+          <p className="text-xs text-slate-400 mt-1">{rollup.publishedCount} review{rollup.publishedCount !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex-1 space-y-1.5 text-sm">
+          {[5, 4, 3, 2, 1].map((star) => (
+            <div key={star} className="flex items-center gap-2">
+              <span className="text-slate-400 w-3">{star}</span>
+              <span className="text-amber-400 text-xs">★</span>
+              <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-400 rounded-full"
+                  style={{ width: `${pct(rollup.reviewCount)}%` }}
+                />
+              </div>
+              <span className="text-slate-500 text-xs w-8 text-right">{pct(rollup.reviewCount)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {rollup.pendingCount > 0 && (
+        <p className="text-xs text-slate-500">{rollup.pendingCount} review{rollup.pendingCount !== 1 ? 's' : ''} pending moderation</p>
       )}
     </div>
   );
@@ -188,7 +254,7 @@ export function StorefrontView() {
         )}
 
         {/* Listings grid */}
-        <div className="mt-10 pb-12">
+        <div className="mt-10">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-white">
               {storefront.user ? `All listings by ${storefront.user.name ?? storefront.name}` : 'Listings'}
@@ -200,6 +266,14 @@ export function StorefrontView() {
             <div className="py-12 text-center text-slate-500 text-sm">Unable to load listings.</div>
           )}
         </div>
+
+        {/* Seller Reviews */}
+        {storefront.user?.id && (
+          <div className="mt-10 pb-12">
+            <h2 className="text-lg font-semibold text-white mb-4">Seller Reviews</h2>
+            <SellerReviewsSection sellerId={storefront.user.id} />
+          </div>
+        )}
       </div>
     </div>
   );

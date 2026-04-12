@@ -3,6 +3,7 @@ import './globals.css';
 import { AppProviders } from '../components/app-providers';
 import { ForumoHeader } from '../components/forumo-header';
 import { ForumoFooter } from '../components/forumo-footer';
+import { CookieConsent } from '../components/cookie-consent';
 
 export const metadata: Metadata = {
   title: 'Forumo Marketplace',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <ForumoFooter />
+          <CookieConsent />
         </AppProviders>
       </body>
     </html>

@@ -1,4 +1,6 @@
 import { Logger, Inject, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -17,23 +19,38 @@ interface MessageAckPayload {
   messageId: string;
 }
 
-@WebSocketGateway({ namespace: '/messages', cors: { origin: '*' } })
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim());
+
+// Rate limit: max messages per user per window
+const WS_MESSAGE_LIMIT = 20;
+const WS_MESSAGE_WINDOW_MS = 10_000;
+
+@WebSocketGateway({
+  namespace: '/messages',
+  cors: { origin: allowedOrigins, credentials: true },
+})
 export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server?: Server;
 
   private readonly logger = new Logger(MessagingGateway.name);
   private readonly clientUserIds = new Map<string, string>();
+  /** userId → { count, windowStart } for outbound message rate limiting */
+  private readonly messageCounts = new Map<string, { count: number; windowStart: number }>();
 
   constructor(
     @Inject(forwardRef(() => MessagingService))
     private readonly messagingService: MessagingService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) { }
 
   handleConnection(client: Socket): void {
-    const userId = this.extractUserId(client);
+    const userId = this.verifyAndExtractUserId(client);
     if (!userId) {
-      this.logger.warn('Socket connection rejected due to missing userId');
+      this.logger.warn(`Socket connection rejected — invalid or missing JWT (id=${client.id})`);
       client.disconnect(true);
       return;
     }
@@ -74,6 +91,10 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     if (!userId || !payload?.messageId) {
       return;
     }
+    if (!this.isWithinMessageRateLimit(userId)) {
+      client.emit('error', { message: 'Rate limit exceeded. Slow down.' });
+      return;
+    }
     await this.messagingService.markDelivered(payload.messageId, userId);
   }
 
@@ -83,12 +104,50 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     if (!userId || !payload?.messageId) {
       return;
     }
+    if (!this.isWithinMessageRateLimit(userId)) {
+      client.emit('error', { message: 'Rate limit exceeded. Slow down.' });
+      return;
+    }
     await this.messagingService.markRead(payload.messageId, userId);
   }
 
-  private extractUserId(client: Socket): string | null {
-    const authUser = typeof client.handshake.auth?.userId === 'string' ? client.handshake.auth.userId : undefined;
-    const queryUser = typeof client.handshake.query.userId === 'string' ? (client.handshake.query.userId as string) : undefined;
-    return authUser ?? queryUser ?? null;
+  /** Verifies the JWT from the handshake and returns the confirmed userId, or null on failure. */
+  private verifyAndExtractUserId(client: Socket): string | null {
+    const token = this.extractToken(client);
+    if (!token) return null;
+    try {
+      const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+      const payload = this.jwtService.verify<{ sub: string; tokenVersion: number }>(token, { secret });
+      if (!payload?.sub) return null;
+      return payload.sub;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Extracts the raw Bearer token from Authorization header or socket auth object. */
+  private extractToken(client: Socket): string | null {
+    const authHeader = client.handshake.headers?.authorization;
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      return authHeader.slice(7);
+    }
+    const authToken = client.handshake.auth?.token;
+    if (typeof authToken === 'string' && authToken.length > 0) return authToken;
+    return null;
+  }
+
+  /** Returns true if the user is within the outbound message rate limit. */
+  private isWithinMessageRateLimit(userId: string): boolean {
+    const now = Date.now();
+    const entry = this.messageCounts.get(userId);
+    if (!entry || now - entry.windowStart > WS_MESSAGE_WINDOW_MS) {
+      this.messageCounts.set(userId, { count: 1, windowStart: now });
+      return true;
+    }
+    if (entry.count >= WS_MESSAGE_LIMIT) {
+      return false;
+    }
+    entry.count += 1;
+    return true;
   }
 }

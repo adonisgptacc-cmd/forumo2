@@ -2,33 +2,66 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useProfile, useUpdateProfile, useDeleteAvatar } from '../../../../lib/react-query/hooks';
+import { useProfile, useUpdateProfile, useDeleteAvatar, useChangePassword, useAcceptTerms, useExportMyData } from '../../../../lib/react-query/hooks';
 
 export function ProfileForm() {
   const { data, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
   const deleteAvatar = useDeleteAvatar();
+  const acceptTerms = useAcceptTerms();
+  const exportData = useExportMyData();
+  const [termsDone, setTermsDone] = useState(false);
+
+  async function handleExport() {
+    const result = await exportData.refetch();
+    if (result.data) {
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'forumo-my-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [website, setWebsite] = useState('');
   const [saved, setSaved] = useState(false);
+
+  const changePassword = useChangePassword();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   useEffect(() => {
     if (data?.user) {
       setName(data.user.name ?? '');
-      setAvatarUrl('');
+      setPhone((data.user as any).phone ?? '');
+    }
+    if (data?.profile) {
+      setBio(data.profile.bio ?? '');
+      setLocation(data.profile.location ?? '');
+      setWebsite(data.profile.website ?? '');
     }
   }, [data]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload: { name?: string; phone?: string; avatarUrl?: string } = {};
+    const payload: Record<string, string> = {};
     if (name.trim()) payload.name = name.trim();
     if (phone.trim()) payload.phone = phone.trim();
     if (avatarUrl.trim()) payload.avatarUrl = avatarUrl.trim();
+    if (bio.trim() !== (data?.profile?.bio ?? '')) payload.bio = bio.trim();
+    if (location.trim() !== (data?.profile?.location ?? '')) payload.location = location.trim();
+    if (website.trim() !== (data?.profile?.website ?? '')) payload.website = website.trim();
 
-    await updateProfile.mutateAsync(payload);
+    await updateProfile.mutateAsync(payload as any);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -90,31 +123,33 @@ export function ProfileForm() {
 
       {/* Edit form */}
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-300">
-            Display name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={user?.name ?? 'Your name'}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
-          />
-        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-300">
+              Display name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={user?.name ?? 'Your name'}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+          </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-300">
-            Phone number
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+233 XX XXX XXXX"
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
-          />
-          <p className="mt-1 text-xs text-slate-500">International format, e.g. +233241234567</p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-300">
+              Phone number
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+233 XX XXX XXXX"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+            <p className="mt-1 text-xs text-slate-500">International format, e.g. +233241234567</p>
+          </div>
         </div>
 
         <div>
@@ -125,9 +160,47 @@ export function ProfileForm() {
             type="url"
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://example.com/avatar.jpg"
+            placeholder={user?.avatarUrl ?? 'https://example.com/avatar.jpg'}
             className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
           />
+          <p className="mt-1 text-xs text-slate-500">Leave blank to keep current avatar</p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-300">Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Tell buyers a bit about yourself…"
+            rows={3}
+            maxLength={500}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none resize-none"
+          />
+          <p className="mt-1 text-xs text-slate-500 text-right">{bio.length}/500</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-300">Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Accra, Ghana"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-300">Website</label>
+            <input
+              type="url"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://yoursite.com"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+          </div>
         </div>
 
         {updateProfile.isError && (
@@ -150,34 +223,6 @@ export function ProfileForm() {
         </div>
       </form>
 
-      {/* Profile extras */}
-      {data?.profile && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-3">
-          <h3 className="text-sm font-medium text-slate-300">Profile details</h3>
-          {data.profile.bio && (
-            <p className="text-sm text-slate-400">{data.profile.bio}</p>
-          )}
-          {data.profile.location && (
-            <p className="text-xs text-slate-500">
-              Location: <span className="text-slate-300">{data.profile.location}</span>
-            </p>
-          )}
-          {data.profile.website && (
-            <p className="text-xs text-slate-500">
-              Website:{' '}
-              <a
-                href={data.profile.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-400 hover:underline"
-              >
-                {data.profile.website}
-              </a>
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Trust seeds */}
       {(data?.trustSeeds ?? []).length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
@@ -194,6 +239,97 @@ export function ProfileForm() {
           </ul>
         </div>
       )}
+
+      {/* Data & Privacy */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <h3 className="text-sm font-medium text-slate-300">Data &amp; Privacy</h3>
+        <p className="text-xs text-slate-500">
+          Under GDPR and CCPA you have the right to export a copy of your personal data. You can also
+          re-confirm your acceptance of our current Terms of Service and Privacy Policy.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exportData.isFetching}
+            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:border-slate-400 hover:text-white disabled:opacity-50 transition-colors"
+          >
+            {exportData.isFetching ? 'Preparing…' : 'Download my data'}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              await acceptTerms.mutateAsync();
+              setTermsDone(true);
+              setTimeout(() => setTermsDone(false), 3000);
+            }}
+            disabled={acceptTerms.isPending || termsDone}
+            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:border-slate-400 hover:text-white disabled:opacity-50 transition-colors"
+          >
+            {termsDone ? 'Confirmed' : acceptTerms.isPending ? 'Saving…' : 'Re-accept Terms & Privacy'}
+          </button>
+        </div>
+      </div>
+
+      {/* Change password */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
+        <h3 className="text-sm font-medium text-slate-300">Change password</h3>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (newPassword !== confirmPassword) return;
+            await changePassword.mutateAsync({ currentPassword, newPassword });
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setPasswordSaved(true);
+            setTimeout(() => setPasswordSaved(false), 3000);
+          }}
+          className="space-y-3"
+        >
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Current password"
+            required
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="New password"
+            required
+            minLength={8}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+          />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm new password"
+            required
+            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+          />
+          {confirmPassword && newPassword !== confirmPassword && (
+            <p className="text-xs text-red-400">Passwords do not match</p>
+          )}
+          {changePassword.isError && (
+            <p className="text-xs text-red-400">{(changePassword.error as Error)?.message ?? 'Failed to change password'}</p>
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={changePassword.isPending || newPassword !== confirmPassword || !currentPassword}
+              className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+            >
+              {changePassword.isPending ? 'Updating…' : 'Update password'}
+            </button>
+            {passwordSaved && <span className="text-sm text-emerald-400">Password updated</span>}
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

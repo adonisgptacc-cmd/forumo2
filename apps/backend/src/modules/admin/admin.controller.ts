@@ -17,6 +17,11 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
+  @Get('dashboard/analytics')
+  getAnalytics() {
+    return this.adminService.getAnalytics();
+  }
+
   @Get('kyc/submissions')
   listKycSubmissions(): Promise<AdminKycSubmission[]> {
     return this.adminService.listKycSubmissions();

@@ -123,6 +123,23 @@ export class AuthController {
     return result;
   }
 
+  @Post('password/change')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Req() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
+    this.applyRateLimit('password-reset', req);
+    const result = await this.authService.changePassword(req.user.id, body);
+    await this.auditLog.record({
+      actorId: req.user.id,
+      action: 'auth.password.change',
+      entityType: 'user',
+      entityId: req.user.id,
+      payload: {},
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    return result;
+  }
+
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   listOwnSessions(@Req() req: any) {

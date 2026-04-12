@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SafeListing } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
@@ -23,12 +24,34 @@ export interface CartItem {
   quantity: number;
 }
 
-// Simple in-memory cart store (app-level singleton)
+const CART_STORAGE_KEY = '@forumo/cart';
+
+// Persisted cart store singleton
 let globalCart: CartItem[] = [];
 const cartListeners: Array<(items: CartItem[]) => void> = [];
 
+function persist(cart: CartItem[]) {
+  AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)).catch(() => {});
+}
+
+function notify() {
+  cartListeners.forEach((fn) => fn([...globalCart]));
+}
+
 export const cartStore = {
   getItems: () => globalCart,
+  // Called once at app start to rehydrate from storage
+  hydrate: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
+      if (raw) {
+        globalCart = JSON.parse(raw) as CartItem[];
+        notify();
+      }
+    } catch {
+      // ignore parse errors
+    }
+  },
   addItem: (listing: SafeListing, quantity = 1) => {
     const existing = globalCart.find((i) => i.listingId === listing.id);
     if (existing) {
@@ -38,11 +61,13 @@ export const cartStore = {
     } else {
       globalCart = [...globalCart, { listingId: listing.id, listing, quantity }];
     }
-    cartListeners.forEach((fn) => fn([...globalCart]));
+    persist(globalCart);
+    notify();
   },
   removeItem: (listingId: string) => {
     globalCart = globalCart.filter((i) => i.listingId !== listingId);
-    cartListeners.forEach((fn) => fn([...globalCart]));
+    persist(globalCart);
+    notify();
   },
   updateQuantity: (listingId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -50,11 +75,13 @@ export const cartStore = {
       return;
     }
     globalCart = globalCart.map((i) => (i.listingId === listingId ? { ...i, quantity } : i));
-    cartListeners.forEach((fn) => fn([...globalCart]));
+    persist(globalCart);
+    notify();
   },
   clear: () => {
     globalCart = [];
-    cartListeners.forEach((fn) => fn([]));
+    persist(globalCart);
+    notify();
   },
   subscribe: (fn: (items: CartItem[]) => void) => {
     cartListeners.push(fn);

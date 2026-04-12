@@ -64,6 +64,12 @@ export class AuthService {
 
   async login(dto: LoginInput): Promise<AuthResponse> {
     const normalizedEmail = this.normalizeEmail(dto.email);
+
+    // Reject immediately if the account is in a lockout period
+    if (this.rateLimitService.isLocked(`login-lockout:${normalizedEmail}`)) {
+      throw new HttpException('Account temporarily locked due to too many failed attempts', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const user = await this.findActiveUserByEmail(normalizedEmail);
     if (!user) {
       this.enforceLoginAttemptLimit(normalizedEmail);
@@ -199,6 +205,26 @@ export class AuthService {
     ]);
 
     return { message: 'Password reset successful' };
+  }
+
+  async changePassword(userId: string, dto: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (!user.passwordHash) {
+      throw new UnauthorizedException('Password change is not supported for accounts created via OAuth');
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    });
+
+    return { message: 'Password changed successfully' };
   }
 
   async listDeviceSessions(userId: string) {
@@ -389,6 +415,20 @@ export class AuthService {
     const windowValue = Number(this.configService.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000);
     const limit = Number.isNaN(limitValue) ? 5 : limitValue;
     const windowMs = Number.isNaN(windowValue) ? 900_000 : windowValue;
+
+    // Check explicit lockout first (set when limit is reached)
+    if (this.rateLimitService.isLocked(`login-lockout:${email}`)) {
+      throw new HttpException('Account temporarily locked due to too many failed attempts', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    // Enforce sliding-window rate limit; when limit is hit, apply a lockout
+    const currentCount = this.rateLimitService.getCount(`login-fail:${email}`, windowMs);
+    if (currentCount >= limit - 1) {
+      // This attempt will push us to or past the limit — apply lockout
+      const lockoutMs = windowMs * 2; // lock for twice the window
+      this.rateLimitService.lock(`login-lockout:${email}`, lockoutMs);
+    }
+
     this.rateLimitService.enforce(`login-fail:${email}`, limit, windowMs);
   }
 

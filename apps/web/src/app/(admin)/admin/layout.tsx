@@ -7,6 +7,7 @@ import { SignOutButton } from '../../../components/signout-button';
 import { authOptions } from '../../../lib/auth';
 
 const navItems = [
+  { href: '/admin/users', label: 'Users', roles: ['ADMIN'] },
   { href: '/admin/kyc', label: 'KYC Queue', roles: ['ADMIN'] },
   { href: '/admin/moderations', label: 'Listing Moderation', roles: ['ADMIN', 'MODERATOR'] },
   { href: '/admin/disputes', label: 'Disputes', roles: ['ADMIN', 'MODERATOR'] },

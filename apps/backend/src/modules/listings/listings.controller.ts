@@ -22,7 +22,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateListingDto } from "./dto/create-listing.dto";
-import { ListingSearchQueryDto } from "./dto/listing-search.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
 import { SafeListing, SafeListingImage } from "./listing.serializer";
 import { ListingsService } from "./listings.service";
@@ -58,22 +57,28 @@ export class ListingsController {
   }
 
   @Get('search')
-  search(@Query() query: ListingSearchQueryDto) {
+  search(@Query() query: Record<string, unknown>) {
+    const toInt = (v: unknown): number | undefined => { const n = Number(v); return Number.isFinite(n) ? n : undefined; };
+    const toDate = (v: unknown): Date | undefined => { if (!v) return undefined; const d = new Date(String(v)); return isNaN(d.getTime()) ? undefined : d; };
+    const VALID_SORTS = ['relevance', 'price_asc', 'price_desc', 'date_new', 'date_old', 'title'] as const;
+    type Sort = typeof VALID_SORTS[number];
+    const toSort = (v: unknown): Sort => (VALID_SORTS.includes(v as Sort) ? (v as Sort) : 'relevance');
+
     return this.listingSearchService.search({
-      keyword: query.keyword?.trim() || undefined,
-      page: query.page ?? 1,
-      pageSize: query.pageSize ?? 20,
-      status: query.status,
-      moderationStatus: query.moderationStatus,
-      minPriceCents: query.minPriceCents,
-      maxPriceCents: query.maxPriceCents,
-      sellerId: query.sellerId,
-      sellerIds: query.sellerIds,
-      tags: query.tags,
-      categories: query.categories,
-      createdAfter: query.createdAfter,
-      createdBefore: query.createdBefore,
-      sort: query.sort ?? 'relevance',
+      keyword: typeof query.keyword === 'string' ? query.keyword.trim() || undefined : undefined,
+      page: toInt(query.page) ?? 1,
+      pageSize: toInt(query.pageSize) ?? 20,
+      status: query.status as any,
+      moderationStatus: query.moderationStatus as any,
+      minPriceCents: toInt(query.minPriceCents),
+      maxPriceCents: toInt(query.maxPriceCents),
+      sellerId: typeof query.sellerId === 'string' ? query.sellerId : undefined,
+      sellerIds: query.sellerIds as any,
+      tags: query.tags as any,
+      categories: query.categories as any,
+      createdAfter: toDate(query.createdAfter),
+      createdBefore: toDate(query.createdBefore),
+      sort: toSort(query.sort),
     });
   }
 

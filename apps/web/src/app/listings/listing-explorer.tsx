@@ -4,12 +4,7 @@ import type { ListingSearchParams } from '@forumo/shared';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { useListings } from '../../lib/react-query/hooks';
-
-const CATEGORIES = [
-  'Electronics', 'Fashion', 'Home & Kitchen', 'Health & Beauty',
-  'Sports & Outdoors', 'Books', 'Automotive',
-];
+import { useListings, useCategories } from '../../lib/react-query/hooks';
 
 const DEFAULTS: ListingSearchParams = {
   keyword: undefined,
@@ -26,6 +21,7 @@ const DEFAULTS: ListingSearchParams = {
 
 export function ListingExplorer({ initialParams }: { initialParams: Partial<ListingSearchParams> }) {
   const [filters, setFilters] = useState<Partial<ListingSearchParams>>({ ...DEFAULTS, ...initialParams });
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { data, isLoading, isError, error, isFetching } = useListings(filters);
 
   const { showingFrom, showingTo } = useMemo(() => {
@@ -108,10 +104,26 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
             >
               Clear
             </button>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50 flex items-center gap-1"
+            >
+              <span>Filters</span>
+              {activeFilterCount(filters) > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-forumo-orange text-white text-[10px] font-bold">
+                  {activeFilterCount(filters)}
+                </span>
+              )}
+              <span className="text-xs">{filtersOpen ? '▲' : '▼'}</span>
+            </button>
           </div>
         </div>
 
-        <FilterPanel filters={filters} />
+        {filtersOpen && <FilterPanel filters={filters} />}
+
+        {/* Active filter chips */}
+        <ActiveFilterChips filters={filters} onRemove={(key) => setFilters((prev) => ({ ...prev, [key]: undefined, page: 1 }))} />
       </form>
 
       {/* Results */}
@@ -218,13 +230,16 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
 }
 
 function FilterPanel({ filters }: { filters: Partial<ListingSearchParams> }) {
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData ?? [];
+
   return (
-    <div className="space-y-3">
+    <div className="border-t border-slate-100 pt-4 space-y-4">
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <label className="block">
           <span className="text-sm font-medium text-slate-700">Status</span>
           <select className="input-forumo mt-1" name="status" defaultValue={filters.status ?? ''}>
-            <option value="">Any</option>
+            <option value="">Any status</option>
             <option value="PUBLISHED">Published</option>
             <option value="PAUSED">Paused</option>
             <option value="DRAFT">Draft</option>
@@ -265,23 +280,75 @@ function FilterPanel({ filters }: { filters: Partial<ListingSearchParams> }) {
           />
         </label>
       </div>
-      <div>
-        <span className="text-sm font-medium text-slate-700">Categories</span>
-        <div className="flex flex-wrap gap-2 mt-1">
-          {CATEGORIES.map((cat) => (
-            <label key={cat} className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="checkbox"
-                name="categories"
-                value={cat}
-                defaultChecked={(filters.categories ?? []).includes(cat)}
-                className="rounded border-slate-300 text-forumo-orange focus:ring-forumo-orange"
-              />
-              <span className="text-sm text-slate-600">{cat}</span>
-            </label>
-          ))}
+
+      {categories.length > 0 && (
+        <div>
+          <span className="text-sm font-medium text-slate-700">Categories</span>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {categories.map((cat) => (
+              <label key={cat.id} className="flex items-center gap-1.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  name="categories"
+                  value={cat.name}
+                  defaultChecked={(filters.categories ?? []).includes(cat.name)}
+                  className="rounded border-slate-300 text-forumo-orange focus:ring-forumo-orange"
+                />
+                <span className="text-sm text-slate-600 group-hover:text-slate-900">{cat.name}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function activeFilterCount(filters: Partial<ListingSearchParams>) {
+  let count = 0;
+  if (filters.status) count++;
+  if (filters.minPriceCents) count++;
+  if (filters.maxPriceCents) count++;
+  if (filters.tags && filters.tags.length > 0) count++;
+  if (filters.categories && filters.categories.length > 0) count++;
+  return count;
+}
+
+function ActiveFilterChips({
+  filters,
+  onRemove,
+}: {
+  filters: Partial<ListingSearchParams>;
+  onRemove: (key: keyof ListingSearchParams) => void;
+}) {
+  const chips: { label: string; key: keyof ListingSearchParams }[] = [];
+  if (filters.status) chips.push({ label: `Status: ${filters.status}`, key: 'status' });
+  if (filters.minPriceCents) chips.push({ label: `Min: $${(filters.minPriceCents / 100).toFixed(0)}`, key: 'minPriceCents' });
+  if (filters.maxPriceCents) chips.push({ label: `Max: $${(filters.maxPriceCents / 100).toFixed(0)}`, key: 'maxPriceCents' });
+  if (filters.tags && filters.tags.length > 0) chips.push({ label: `Tags: ${filters.tags.join(', ')}`, key: 'tags' });
+  if (filters.categories && filters.categories.length > 0)
+    chips.push({ label: `Categories: ${filters.categories.join(', ')}`, key: 'categories' });
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 pt-1">
+      {chips.map((chip) => (
+        <span
+          key={chip.key}
+          className="inline-flex items-center gap-1 text-xs bg-forumo-orange/10 text-forumo-orange border border-forumo-orange/30 rounded-full px-3 py-1"
+        >
+          {chip.label}
+          <button
+            type="button"
+            onClick={() => onRemove(chip.key)}
+            className="ml-1 text-forumo-orange/70 hover:text-forumo-orange font-bold"
+            aria-label={`Remove ${chip.label} filter`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
     </div>
   );
 }

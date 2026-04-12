@@ -18,4 +18,6 @@ export const queryKeys = {
   myStorefront: ['storefront', 'me'] as const,
   myCollections: ['storefront', 'me', 'collections'] as const,
   myListings: ['listings', 'mine'] as const,
+  auctions: (params: Record<string, unknown>) => ['auctions', params] as const,
+  escrowDetails: (orderId: string) => ['escrow', orderId] as const,
 };

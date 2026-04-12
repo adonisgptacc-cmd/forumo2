@@ -13,7 +13,10 @@ export const useAuctionSocket = (auctionId: string) => {
         // Initialize socket connection
         // In dev, Next.js might effectively be on listing 3000, backend on 3001
         // Adjust URL as per env
-        const socketUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const socketUrl =
+          process.env.NEXT_PUBLIC_WS_URL ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          'http://localhost:4000';
 
         socketRef.current = io(`${socketUrl}/auctions`, {
             query: { auctionId },

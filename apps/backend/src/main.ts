@@ -38,7 +38,22 @@ async function bootstrap() {
   });
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow images to load cross-origin
-    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false, // relax CSP in dev
+    contentSecurityPolicy: process.env.NODE_ENV === 'production'
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'", ...allowedOrigins],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+          },
+        }
+      : false,
   }));
   app.use(cookieParser());
   app.useGlobalFilters(new AllExceptionsFilter());

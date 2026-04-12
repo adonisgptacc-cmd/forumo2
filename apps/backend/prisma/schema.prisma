@@ -207,8 +207,10 @@ model User {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
-  tokenVersion   Int             @default(0)
-  lastLoginAt    DateTime?
+  tokenVersion      Int             @default(0)
+  lastLoginAt       DateTime?
+  termsAcceptedAt   DateTime?
+  privacyAcceptedAt DateTime?
   profile        UserProfile?
   otpCodes       OtpCode[]
   deviceSessions DeviceSession[]

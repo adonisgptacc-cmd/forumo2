@@ -20,8 +20,13 @@ export type MainStackParamList = {
   Thread: { threadId: string; thread?: import('@forumo/shared').SafeMessageThread };
   AuctionDetail: { auctionId: string; auction?: Auction };
   OrderDetail: { orderId: string; order?: SafeOrder };
+  ListingDetail: { listingId: string; listing?: import('@forumo/shared').SafeListing };
   Cart: undefined;
   Checkout: { sellerId: string; sellerName?: string };
   Offers: undefined;
   Notifications: undefined;
+  Wishlist: undefined;
+  CreateListing: undefined;
+  MyListings: undefined;
+  EditListing: { listingId: string; listing?: import('@forumo/shared').SafeListing };
 };
