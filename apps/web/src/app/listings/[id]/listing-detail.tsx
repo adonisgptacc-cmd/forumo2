@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
 
-import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing } from '../../../lib/react-query/hooks';
+import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations } from '../../../lib/react-query/hooks';
 import { useCart } from '../../../lib/cart-context';
 
 export function ListingDetail({ id }: { id: string }) {
   const { data, isLoading } = useListing(id);
   const { user } = useCurrentUser();
+  const { data: sellerStorefront } = useSellerStorefront(data?.sellerId ?? null);
   const { addItem } = useCart();
   const router = useRouter();
   const { data: reviewData, isLoading: reviewsLoading } = useListingReviews(id);
@@ -24,9 +25,12 @@ export function ListingDetail({ id }: { id: string }) {
   const [offerAmount, setOfferAmount] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
   const createOffer = useCreateOffer();
+  const { reportListingMutation } = useListingMutations();
   const { data: wishlistCheck } = useWishlistCheck(user ? (data?.id ?? null) : null);
   const saveListing = useSaveListing();
   const removeSaved = useRemoveSavedListing();
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('Prohibited item');
   const isSaved = wishlistCheck?.saved ?? false;
 
   const isSubmitting = createReview.isPending;
@@ -257,7 +261,82 @@ export function ListingDetail({ id }: { id: string }) {
               >
                 Contact Seller
               </Link>
+              {sellerStorefront?.slug && (
+                <Link
+                  href={`/shops/${sellerStorefront.slug}` as any}
+                  className="block text-center w-full py-3 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+                >
+                  View seller&apos;s shop →
+                </Link>
+              )}
             </div>
+
+            {/* Report listing — only for logged-in non-owners */}
+            {user && user.id !== data.sellerId && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="text-xs text-slate-400 hover:text-red-400 hover:underline"
+                >
+                  Report this listing
+                </button>
+              </div>
+            )}
+
+            {/* Report modal */}
+            {showReportModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-950 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Report listing</h3>
+                  <p className="text-sm text-slate-400">
+                    Tell us why this listing violates Forumo&apos;s policies. Our team will review it.
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-300">Reason</label>
+                    <select
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    >
+                      <option>Prohibited item</option>
+                      <option>Counterfeit / fake product</option>
+                      <option>Misleading description</option>
+                      <option>Spam or duplicate listing</option>
+                      <option>Offensive content</option>
+                      <option>Suspected scam</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  {reportListingMutation.isError && (
+                    <p className="text-sm text-red-400">{(reportListingMutation.error as Error)?.message}</p>
+                  )}
+                  {reportListingMutation.isSuccess && (
+                    <p className="text-sm text-emerald-400">Thanks — our team will review this listing.</p>
+                  )}
+                  <div className="flex gap-3">
+                    {!reportListingMutation.isSuccess && (
+                      <button
+                        onClick={async () => {
+                          await reportListingMutation.mutateAsync({ listingId: data.id, reason: reportReason });
+                          setTimeout(() => { setShowReportModal(false); reportListingMutation.reset(); }, 1800);
+                        }}
+                        disabled={reportListingMutation.isPending}
+                        className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {reportListingMutation.isPending ? 'Submitting…' : 'Submit report'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setShowReportModal(false); reportListingMutation.reset(); }}
+                      className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                    >
+                      {reportListingMutation.isSuccess ? 'Close' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Make an offer modal */}
             {showOfferModal && (

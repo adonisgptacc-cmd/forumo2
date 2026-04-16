@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage } from '../../../../../lib/react-query/hooks';
+import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage, useShipmentMutations } from '../../../../../lib/react-query/hooks';
 import { useCurrentUser } from '../../../../../lib/react-query/hooks';
 import { useState } from 'react';
 import type { SafeOrder } from '@forumo/shared';
@@ -33,10 +33,15 @@ export function OrderDetail({ id }: { id: string }) {
   const openDispute = useOpenDispute();
   const { data: escrowDetails } = useEscrowDetails(order?.status === 'DISPUTED' ? id : null);
   const addDisputeMessage = useAddDisputeMessage();
+  const { createShipment, updateShipment } = useShipmentMutations(id);
   const [statusNote, setStatusNote] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeMsg, setDisputeMsg] = useState('');
+  const [showShipForm, setShowShipForm] = useState(false);
+  const [shipCarrier, setShipCarrier] = useState('');
+  const [shipTracking, setShipTracking] = useState('');
+  const [shipEta, setShipEta] = useState('');
 
   if (isLoading) {
     return (
@@ -235,22 +240,148 @@ export function OrderDetail({ id }: { id: string }) {
         </section>
       )}
 
-      {/* Shipments */}
-      {order.shipments && order.shipments.length > 0 && (
-        <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-300">Shipments</h3>
-          {order.shipments.map((s) => (
-            <div key={s.id} className="space-y-1 text-sm">
-              {s.carrier && <p className="text-slate-400">Carrier: {s.carrier}</p>}
-              {s.trackingNumber && (
-                <p className="text-slate-400">
-                  Tracking: <span className="text-white font-mono">{s.trackingNumber}</span>
+      {/* Shipment tracking */}
+      {(order.status === 'FULFILLED' || order.status === 'DELIVERED' || order.status === 'COMPLETED' || (order.shipments && order.shipments.length > 0)) && (
+        <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-300">Shipment &amp; Tracking</h3>
+            {isSeller && order.shipments && order.shipments.length > 0 && !showShipForm && (
+              <button
+                onClick={() => {
+                  const s = order.shipments[0];
+                  setShipCarrier(s.carrier ?? '');
+                  setShipTracking(s.trackingNumber ?? '');
+                  setShipEta(s.estimatedDelivery ? new Date(s.estimatedDelivery).toISOString().split('T')[0] : '');
+                  setShowShipForm(true);
+                }}
+                className="text-xs text-amber-400 hover:underline"
+              >
+                Edit tracking
+              </button>
+            )}
+          </div>
+
+          {/* Existing shipment display */}
+          {order.shipments && order.shipments.length > 0 && !showShipForm && (
+            order.shipments.map((s) => (
+              <div key={s.id} className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                    s.status === 'DELIVERED' ? 'border-emerald-700 text-emerald-400' :
+                    s.status === 'IN_TRANSIT' ? 'border-blue-700 text-blue-400' :
+                    'border-slate-700 text-slate-400'
+                  }`}>{s.status}</span>
+                </div>
+                {s.carrier && (
+                  <p className="text-slate-400">Carrier: <span className="text-white">{s.carrier}</span></p>
+                )}
+                {s.trackingNumber && (
+                  <p className="text-slate-400">
+                    Tracking #:{' '}
+                    <span className="font-mono text-white">{s.trackingNumber}</span>
+                  </p>
+                )}
+                {s.estimatedDelivery && (
+                  <p className="text-xs text-slate-500">
+                    Estimated delivery: {new Date(s.estimatedDelivery).toLocaleDateString()}
+                  </p>
+                )}
+                {s.deliveredAt && (
+                  <p className="text-xs text-emerald-400">
+                    Delivered: {new Date(s.deliveredAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+
+          {/* No shipment yet — seller add form trigger */}
+          {isSeller && (!order.shipments || order.shipments.length === 0) && !showShipForm && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">No tracking info added yet.</p>
+              <button
+                onClick={() => setShowShipForm(true)}
+                className="rounded-lg border border-dashed border-slate-600 px-4 py-2 text-sm text-slate-400 hover:border-amber-500 hover:text-amber-400"
+              >
+                + Add tracking info
+              </button>
+            </div>
+          )}
+
+          {/* Buyer with no shipment */}
+          {isBuyer && (!order.shipments || order.shipments.length === 0) && (
+            <p className="text-xs text-slate-500">The seller hasn&apos;t added tracking info yet.</p>
+          )}
+
+          {/* Seller tracking form */}
+          {showShipForm && (
+            <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <p className="text-sm font-medium text-slate-200">
+                {order.shipments && order.shipments.length > 0 ? 'Update tracking' : 'Add tracking info'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Carrier</label>
+                  <input
+                    value={shipCarrier}
+                    onChange={(e) => setShipCarrier(e.target.value)}
+                    placeholder="e.g. DHL, FedEx, GIG"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Tracking number</label>
+                  <input
+                    value={shipTracking}
+                    onChange={(e) => setShipTracking(e.target.value)}
+                    placeholder="e.g. 1Z999AA10123456784"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-400">Estimated delivery date</label>
+                <input
+                  type="date"
+                  value={shipEta}
+                  onChange={(e) => setShipEta(e.target.value)}
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+              {(createShipment.isError || updateShipment.isError) && (
+                <p className="text-xs text-red-400">
+                  {((createShipment.error ?? updateShipment.error) as Error)?.message}
                 </p>
               )}
-              {s.shippedAt && <p className="text-xs text-slate-500">Shipped: {new Date(s.shippedAt).toLocaleString()}</p>}
-              {s.deliveredAt && <p className="text-xs text-slate-500">Delivered: {new Date(s.deliveredAt).toLocaleString()}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const payload = {
+                      carrier: shipCarrier || undefined,
+                      trackingNumber: shipTracking || undefined,
+                      estimatedDelivery: shipEta || undefined,
+                    };
+                    if (order.shipments && order.shipments.length > 0) {
+                      await updateShipment.mutateAsync(payload);
+                    } else {
+                      await createShipment.mutateAsync(payload);
+                    }
+                    setShowShipForm(false);
+                  }}
+                  disabled={createShipment.isPending || updateShipment.isPending}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {createShipment.isPending || updateShipment.isPending ? 'Saving…' : 'Save tracking'}
+                </button>
+                <button
+                  onClick={() => setShowShipForm(false)}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          ))}
+          )}
         </section>
       )}
 

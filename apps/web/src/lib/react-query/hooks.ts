@@ -120,7 +120,27 @@ export function useListingMutations() {
     },
   });
 
-  return { createMutation, updateMutation };
+  const uploadImageMutation = useMutation({
+    mutationFn: ({ listingId, file }: { listingId: string; file: File }) =>
+      api.listings.uploadImage(listingId, file),
+    onSuccess: (_, { listingId }) => {
+      client.invalidateQueries({ queryKey: queryKeys.listing(listingId) });
+    },
+  });
+
+  const reportListingMutation = useMutation({
+    mutationFn: ({ listingId, reason }: { listingId: string; reason: string }) =>
+      api.listings.report(listingId, reason),
+  });
+
+  const deleteListingMutation = useMutation({
+    mutationFn: (id: string) => api.listings.delete(id),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['listings'], exact: false });
+    },
+  });
+
+  return { createMutation, updateMutation, uploadImageMutation, deleteListingMutation, reportListingMutation };
 }
 
 export function useOrders() {
@@ -172,6 +192,26 @@ export function useInitiatePayment() {
   return useMutation({
     mutationFn: (orderId: string) => api.orders.initiatePayment(orderId),
   });
+}
+
+export function useShipmentMutations(orderId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+
+  const createShipment = useMutation({
+    mutationFn: (payload: { carrier?: string; trackingNumber?: string; serviceLevel?: string; estimatedDelivery?: string }) =>
+      api.orders.createShipment(orderId, payload),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.order(orderId) }),
+  });
+
+  const updateShipment = useMutation({
+    mutationFn: (payload: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: string; estimatedDelivery?: string; deliveredAt?: string }) =>
+      api.orders.updateShipment(orderId, payload),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.order(orderId) }),
+  });
+
+  return { createShipment, updateShipment };
 }
 
 export function useMessageThreads(userId?: string, page = 1) {
@@ -485,6 +525,16 @@ export function useMyStorefront() {
   });
 }
 
+export function useSellerStorefront(sellerId: string | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['storefront', 'seller', sellerId],
+    queryFn: () => api.storefronts.getBySeller(sellerId!),
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useStorefrontMutations() {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
@@ -677,9 +727,19 @@ export function useAdminOrders() {
   });
 }
 
+export function useAdminOrder(id: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<import('@forumo/shared').SafeOrder>({
+    queryKey: ['admin', 'orders', id],
+    queryFn: () => api.get(`/admin/orders/${id}`, { auth: true }),
+    enabled: !!accessToken && !!id,
+  });
+}
+
 // --- Auctions ---
 
-export function useAuctions(params: { page?: number; pageSize?: number; status?: string } = {}) {
+export function useAuctions(params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string } = {}) {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
   return useQuery<import('@forumo/shared').PaginatedResponse<import('@forumo/shared').Auction>>({
@@ -812,5 +872,19 @@ export function useExportMyData() {
     queryKey: ['user', 'export'],
     queryFn: () => api.users.exportData(),
     enabled: false,
+  });
+}
+
+export function useBecomeSeller() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.users.becomeSeller(),
+    onSuccess: () => {
+      // Bust all user-related caches so the new role is reflected everywhere
+      client.invalidateQueries({ queryKey: ['user'], exact: false });
+      client.invalidateQueries({ queryKey: ['profile'], exact: false });
+    },
   });
 }

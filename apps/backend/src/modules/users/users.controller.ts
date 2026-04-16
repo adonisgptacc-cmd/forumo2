@@ -45,6 +45,12 @@ export class UsersController {
     return this.usersService.recordConsent(req.user.id);
   }
 
+  @Post('me/become-seller')
+  @HttpCode(HttpStatus.OK)
+  becomeSeller(@Req() req: any): Promise<SafeUser> {
+    return this.usersService.becomeSeller(req.user.id);
+  }
+
   @Get('me/addresses')
   listAddresses(@Req() req: any) {
     return this.usersService.listAddresses(req.user.id);

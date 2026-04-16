@@ -627,7 +627,11 @@ export default function AdminHome() {
                 )}
                 {filteredTransactions.map((o) => (
                   <tr key={o.id} className="hover:bg-slate-900/60">
-                    <td className="px-3 py-2 font-medium font-mono text-xs">#{o.orderNumber}</td>
+                    <td className="px-3 py-2 font-medium font-mono text-xs">
+                      <Link href={`/admin/orders/${o.id}` as any} className="text-amber-400 hover:underline">
+                        #{o.orderNumber}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2 text-slate-300">{o.buyerName ?? o.buyerEmail ?? '—'}</td>
                     <td className="px-3 py-2"><StatusBadge label={o.status} /></td>
                     <td className="px-3 py-2"><StatusBadge label={o.paymentStatus} /></td>

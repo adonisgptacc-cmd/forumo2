@@ -16,12 +16,14 @@ import { OrderWithRelations, SafeOrder, serializeOrder } from "./order.serialize
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
+    private readonly notifications: NotificationsService,
   ) { }
 
   async findAll(userId: string): Promise<SafeOrder[]> {
@@ -205,8 +207,126 @@ export class OrdersService {
         include: this.defaultInclude,
       })) as OrderWithRelations;
 
-      return serializeOrder(updated);
+      const serialized = serializeOrder(updated);
+
+      // Fire email notifications outside the transaction (non-blocking, non-fatal)
+      void this.fireOrderNotifications(serialized, dto.status).catch(() => undefined);
+
+      return serialized;
     });
+  }
+
+  /** Fire transactional emails for key order status transitions. Never throws. */
+  private async fireOrderNotifications(order: SafeOrder, status: OrderStatus): Promise<void> {
+    try {
+      const [buyer, seller] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: order.buyerId }, select: { id: true, email: true, name: true } }),
+        this.prisma.user.findUnique({ where: { id: order.sellerId }, select: { id: true, email: true, name: true } }),
+      ]);
+      if (!buyer || !seller) return;
+
+      const ref = order.orderNumber;
+      const total = `${order.currency} ${(order.totalItemCents / 100).toFixed(2)}`;
+      const orderUrl = `${process.env.APP_URL ?? ''}/app/orders/${order.id}`;
+
+      switch (status) {
+        case OrderStatus.CONFIRMED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              buyer.email,
+              `Order confirmed — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been confirmed by the seller. Total: ${total}.</p><p><a href="${orderUrl}">View your order</a></p>`,
+            ),
+            this.notifications.sendEmail(
+              seller.email,
+              `New order received — ${ref}`,
+              `<p>Hi ${seller.name},</p><p>You have a new confirmed order <strong>${ref}</strong>. Total: ${total}.</p><p><a href="${orderUrl}">Manage this order</a></p>`,
+            ),
+            this.notifications.createInApp(buyer.id, 'order.confirmed', { orderId: order.id, ref }),
+          ]);
+          break;
+
+        case OrderStatus.PAID:
+          await Promise.all([
+            this.notifications.sendEmail(
+              seller.email,
+              `Payment received — ${ref}`,
+              `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
+            ),
+            this.notifications.createInApp(seller.id, 'order.paid', { orderId: order.id, ref }),
+          ]);
+          break;
+
+        case OrderStatus.FULFILLED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              buyer.email,
+              `Your order has shipped — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been shipped. Check your order page for tracking details.</p><p><a href="${orderUrl}">Track your order</a></p>`,
+            ),
+            this.notifications.createInApp(buyer.id, 'order.shipped', { orderId: order.id, ref }),
+          ]);
+          break;
+
+        case OrderStatus.DELIVERED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              buyer.email,
+              `Confirm delivery — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been marked as delivered. Please confirm receipt to release payment to the seller.</p><p><a href="${orderUrl}">Confirm delivery</a></p>`,
+            ),
+            this.notifications.createInApp(buyer.id, 'order.delivered', { orderId: order.id, ref }),
+          ]);
+          break;
+
+        case OrderStatus.COMPLETED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              seller.email,
+              `Funds released — ${ref}`,
+              `<p>Hi ${seller.name},</p><p>The buyer has confirmed delivery for order <strong>${ref}</strong>. ${total} has been released from escrow to your account.</p>`,
+            ),
+            this.notifications.sendEmail(
+              buyer.email,
+              `Order complete — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> is complete. Thank you for shopping on Forumo!</p>`,
+            ),
+          ]);
+          break;
+
+        case OrderStatus.CANCELLED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              buyer.email,
+              `Order cancelled — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been cancelled. Any payment will be refunded shortly.</p>`,
+            ),
+            this.notifications.sendEmail(
+              seller.email,
+              `Order cancelled — ${ref}`,
+              `<p>Hi ${seller.name},</p><p>Order <strong>${ref}</strong> has been cancelled.</p>`,
+            ),
+          ]);
+          break;
+
+        case OrderStatus.DISPUTED:
+          await Promise.all([
+            this.notifications.sendEmail(
+              seller.email,
+              `Dispute opened — ${ref}`,
+              `<p>Hi ${seller.name},</p><p>A dispute has been raised for order <strong>${ref}</strong>. An admin will review shortly. <a href="${orderUrl}">View dispute</a></p>`,
+            ),
+            this.notifications.createInApp(seller.id, 'order.disputed', { orderId: order.id, ref }),
+            this.notifications.createInApp(buyer.id, 'order.disputed', { orderId: order.id, ref }),
+          ]);
+          break;
+
+        default:
+          break;
+      }
+    } catch {
+      // swallow — notifications must never break the order flow
+    }
   }
 
   async updateStatusFromProvider(id: string, dto: UpdateOrderStatusInput): Promise<SafeOrder | null> {
@@ -532,6 +652,67 @@ export class OrdersService {
       ordersByStatus,
       revenueByMonth,
     };
+  }
+
+  async createShipment(
+    orderId: string,
+    actorId: string,
+    dto: {
+      carrier?: string;
+      trackingNumber?: string;
+      serviceLevel?: string;
+      estimatedDelivery?: string;
+    },
+  ) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.sellerId !== actorId) throw new ForbiddenException('Only the seller can add shipment info');
+
+    const existing = await this.prisma.orderShipment.findFirst({ where: { orderId } });
+    if (existing) throw new BadRequestException('Shipment already exists. Use PATCH to update.');
+
+    return this.prisma.orderShipment.create({
+      data: {
+        orderId,
+        carrier: dto.carrier,
+        trackingNumber: dto.trackingNumber,
+        serviceLevel: dto.serviceLevel,
+        estimatedDelivery: dto.estimatedDelivery ? new Date(dto.estimatedDelivery) : undefined,
+        status: 'IN_TRANSIT',
+      },
+    });
+  }
+
+  async updateShipment(
+    orderId: string,
+    actorId: string,
+    dto: {
+      carrier?: string;
+      trackingNumber?: string;
+      serviceLevel?: string;
+      status?: string;
+      estimatedDelivery?: string;
+      deliveredAt?: string;
+    },
+  ) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.sellerId !== actorId) throw new ForbiddenException('Only the seller can update shipment info');
+
+    const shipment = await this.prisma.orderShipment.findFirst({ where: { orderId } });
+    if (!shipment) throw new NotFoundException('No shipment found for this order');
+
+    return this.prisma.orderShipment.update({
+      where: { id: shipment.id },
+      data: {
+        ...(dto.carrier !== undefined && { carrier: dto.carrier }),
+        ...(dto.trackingNumber !== undefined && { trackingNumber: dto.trackingNumber }),
+        ...(dto.serviceLevel !== undefined && { serviceLevel: dto.serviceLevel }),
+        ...(dto.status !== undefined && { status: dto.status as any }),
+        ...(dto.estimatedDelivery !== undefined && { estimatedDelivery: new Date(dto.estimatedDelivery) }),
+        ...(dto.deliveredAt !== undefined && { deliveredAt: new Date(dto.deliveredAt) }),
+      },
+    });
   }
 
   private generateOrderNumber(): string {

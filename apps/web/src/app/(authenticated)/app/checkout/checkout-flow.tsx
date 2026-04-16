@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../../../../lib/cart-context';
-import { useCurrentUser, useCreateOrder, useInitiatePayment } from '../../../../lib/react-query/hooks';
+import { useCurrentUser, useCreateOrder, useInitiatePayment, useAddresses } from '../../../../lib/react-query/hooks';
 import { StripeProvider } from '../../../../components/stripe-provider';
 import { PaymentForm } from '../../../../components/payment-form';
 import type { SafeOrder } from '@forumo/shared';
@@ -19,11 +19,16 @@ export function CheckoutFlow() {
   const { user } = useCurrentUser();
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiatePayment();
+  const { data: addresses = [] } = useAddresses();
   const [step, setStep] = useState<CheckoutStep>('review');
   const [confirmedOrders, setConfirmedOrders] = useState<SafeOrder[]>([]);
   const [pendingPayments, setPendingPayments] = useState<{ orderId: string; clientSecret: string }[]>([]);
   const [placingFor, setPlacingFor] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const shippingAddresses = addresses.filter((a) => a.type === 'SHIPPING' || a.type === 'PICKUP' || !a.type);
+  const defaultAddr = shippingAddresses.find((a) => a.isDefault) ?? shippingAddresses[0] ?? null;
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const effectiveAddressId = selectedAddressId ?? defaultAddr?.id ?? null;
 
   if (itemCount === 0 && step === 'review') {
     return (
@@ -96,6 +101,7 @@ export function CheckoutFlow() {
         buyerId: user.id,
         sellerId,
         currency: sellerItems[0]?.currency ?? 'USD',
+        shippingAddressId: effectiveAddressId ?? undefined,
         items: sellerItems.map((item) => ({
           listingId: item.listingId,
           variantId: item.variantId ?? undefined,
@@ -164,6 +170,45 @@ export function CheckoutFlow() {
           </div>
         );
       })}
+
+      {/* Shipping address picker */}
+      <div className="card-forumo space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700">Shipping address</p>
+          <Link href="/app/profile" className="text-xs text-forumo-link hover:underline">
+            Manage addresses
+          </Link>
+        </div>
+        {shippingAddresses.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No saved addresses.{' '}
+            <Link href="/app/profile" className="text-forumo-link hover:underline">Add one in your profile</Link>.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {shippingAddresses.map((addr) => {
+              const isSelected = (selectedAddressId ?? defaultAddr?.id) === addr.id;
+              return (
+                <button
+                  key={addr.id}
+                  type="button"
+                  onClick={() => setSelectedAddressId(addr.id)}
+                  className={`w-full text-left rounded-lg border p-3 text-sm transition-colors ${
+                    isSelected
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-slate-200 hover:border-amber-300'
+                  }`}
+                >
+                  <p className="font-medium">{addr.label ?? addr.fullName}</p>
+                  <p className="text-slate-500 text-xs">{addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}</p>
+                  <p className="text-slate-500 text-xs">{addr.city}, {addr.state} {addr.postalCode}, {addr.country}</p>
+                  {addr.isDefault && <span className="text-xs text-amber-600">Default</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="card-forumo space-y-3">
         <div className="flex justify-between font-bold text-lg">

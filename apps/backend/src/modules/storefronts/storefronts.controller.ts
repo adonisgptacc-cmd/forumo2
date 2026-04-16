@@ -67,6 +67,11 @@ export class StorefrontsController {
     return this.storefrontsService.deleteCollection((req as any).user.id, id);
   }
 
+  @Get('seller/:userId')
+  findBySeller(@Param('userId') userId: string) {
+    return this.storefrontsService.findByUser(userId);
+  }
+
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.storefrontsService.findBySlug(slug);

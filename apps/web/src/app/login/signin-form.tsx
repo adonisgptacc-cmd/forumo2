@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useState } from 'react';
@@ -18,6 +19,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const resetSuccess = searchParams?.get('reset') === 'success';
 
   const persistAuth = useCallback((auth: AuthResponse) => {
     try {
@@ -66,6 +68,11 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-6">
+      {resetSuccess ? (
+        <p className="rounded-md border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-300">
+          Password reset successfully. Sign in with your new password.
+        </p>
+      ) : null}
       <label className="space-y-2 text-sm">
         <span className="text-slate-300">Email</span>
         <input
@@ -88,6 +95,11 @@ export function LoginForm() {
           required
         />
       </label>
+      <div className="flex justify-end">
+        <Link className="text-xs text-amber-300 hover:underline" href="/forgot-password">
+          Forgot password?
+        </Link>
+      </div>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
       <button
         type="submit"

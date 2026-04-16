@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 
-import { useListings, useMessageThreads, useOrders } from '../../../lib/react-query/hooks';
+import { useListings, useMessageThreads, useOrders, useCurrentUser, useBecomeSeller } from '../../../lib/react-query/hooks';
 
 export function DashboardOverview() {
+  const { user } = useCurrentUser();
+  const becomeSeller = useBecomeSeller();
   const { data: listings, isLoading: listingsLoading } = useListings({ page: 1, pageSize: 5 });
   const { data: orders, isLoading: ordersLoading } = useOrders();
   const { data: threads, isLoading: threadsLoading } = useMessageThreads(undefined, 1);
@@ -19,6 +21,23 @@ export function DashboardOverview() {
 
   return (
     <div className="grid gap-6">
+      {/* Become a Seller banner — only shown to BUYER accounts */}
+      {user?.role === 'BUYER' && (
+        <section className="rounded-2xl border border-amber-700/50 bg-amber-900/20 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-amber-300">Ready to sell on Forumo?</p>
+            <p className="text-sm text-slate-400 mt-0.5">Upgrade your account to list items, receive payments, and manage orders.</p>
+          </div>
+          <button
+            onClick={() => becomeSeller.mutate()}
+            disabled={becomeSeller.isPending || becomeSeller.isSuccess}
+            className="shrink-0 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+          >
+            {becomeSeller.isPending ? 'Activating…' : becomeSeller.isSuccess ? 'Activated!' : 'Become a Seller'}
+          </button>
+        </section>
+      )}
+
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {statsLoading ? (
           <>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useListingMutations,
@@ -16,13 +17,25 @@ interface Props {
 
 export function ListingForm({ listing }: Props) {
   const router = useRouter();
-  const { createMutation, updateMutation } = useListingMutations();
+  const { createMutation, updateMutation, uploadImageMutation } = useListingMutations();
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!listing;
   const pending = isEdit ? updateMutation.isPending : createMutation.isPending;
   const error = isEdit ? updateMutation.error : createMutation.error;
+
+  // After create we hold the new listing ID here so we can upload images before navigating away
+  const [savedListingId, setSavedListingId] = useState<string | null>(
+    isEdit ? listing.id : null,
+  );
+  // Local preview blobs before upload
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Uploaded images (from API)
+  const [uploadedImages, setUploadedImages] = useState(listing?.images ?? []);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Form fields
   const [title, setTitle] = useState(listing?.title ?? '');
@@ -37,9 +50,7 @@ export function ListingForm({ listing }: Props) {
   );
 
   // Variants
-  const [variants, setVariants] = useState<
-    { label: string; priceCents: string }[]
-  >(
+  const [variants, setVariants] = useState<{ label: string; priceCents: string }[]>(
     listing?.variants?.map((v) => ({
       label: v.label,
       priceCents: (v.priceCents / 100).toFixed(2),
@@ -60,6 +71,8 @@ export function ListingForm({ listing }: Props) {
           priceCents: (v.priceCents / 100).toFixed(2),
         })) ?? [],
       );
+      setUploadedImages(listing.images ?? []);
+      setSavedListingId(listing.id);
     }
   }, [listing]);
 
@@ -75,6 +88,37 @@ export function ListingForm({ listing }: Props) {
     setVariants((prev) =>
       prev.map((v, i) => (i === idx ? { ...v, [field]: value } : v)),
     );
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const allowed = files.filter((f) => f.type.startsWith('image/'));
+    setPendingFiles((prev) => [...prev, ...allowed]);
+    // reset input so the same file can be re-added if removed
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removePendingFile(idx: number) {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function uploadPendingFiles(listingId: string) {
+    if (!pendingFiles.length) return;
+    setUploading(true);
+    setUploadError(null);
+    const results: typeof uploadedImages = [];
+    for (const file of pendingFiles) {
+      try {
+        const img = await uploadImageMutation.mutateAsync({ listingId, file });
+        results.push(img);
+      } catch {
+        setUploadError(`Failed to upload "${file.name}". Other images were saved.`);
+      }
+    }
+    setUploadedImages((prev) => [...prev, ...results]);
+    setPendingFiles([]);
+    setUploading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -100,16 +144,26 @@ export function ListingForm({ listing }: Props) {
 
     if (isEdit && listing) {
       await updateMutation.mutateAsync({ id: listing.id, payload });
+      await uploadPendingFiles(listing.id);
       router.push('/app/listings' as any);
     } else {
-      await createMutation.mutateAsync(payload);
-      router.push('/app/listings' as any);
+      const created = await createMutation.mutateAsync(payload);
+      setSavedListingId(created.id);
+      if (pendingFiles.length) {
+        await uploadPendingFiles(created.id);
+      } else {
+        router.push('/app/listings' as any);
+      }
     }
   }
 
   const inputCls =
     'w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none';
   const labelCls = 'mb-1 block text-sm font-medium text-slate-300';
+
+  // After a new listing is saved and pending uploads were flushed, show done state
+  const showUploadDone =
+    !isEdit && savedListingId && pendingFiles.length === 0 && !uploading && !createMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -255,6 +309,93 @@ export function ListingForm({ listing }: Props) {
         )}
       </div>
 
+      {/* Images */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className={labelCls + ' mb-0'}>Photos</label>
+          <span className="text-xs text-slate-500">
+            {uploadedImages.length + pendingFiles.length} / 10
+          </span>
+        </div>
+
+        {/* Existing uploaded images */}
+        {uploadedImages.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {uploadedImages.map((img, idx) => (
+              <div
+                key={img.url ?? idx}
+                className="relative h-20 w-20 rounded-lg overflow-hidden border border-slate-700"
+              >
+                <Image
+                  src={img.url}
+                  alt={`Photo ${idx + 1}`}
+                  fill
+                  className="object-cover"
+                />
+                {idx === 0 && (
+                  <span className="absolute bottom-0 left-0 right-0 bg-amber-500/80 text-center text-[10px] font-semibold text-black py-0.5">
+                    Cover
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pending (not yet uploaded) previews */}
+        {pendingFiles.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {pendingFiles.map((file, idx) => (
+              <div
+                key={idx}
+                className="relative h-20 w-20 rounded-lg overflow-hidden border border-dashed border-amber-600"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(idx)}
+                  className="absolute top-0.5 right-0.5 rounded-full bg-black/70 px-1 text-xs text-white hover:bg-red-700"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Upload button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadedImages.length + pendingFiles.length >= 10}
+          className="flex items-center gap-2 rounded-lg border border-dashed border-slate-600 px-4 py-3 text-sm text-slate-400 hover:border-amber-500 hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add photos
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <p className="mt-1 text-xs text-slate-500">
+          JPG, PNG, WebP — max 10 photos. First photo is the cover image.
+        </p>
+        {uploadError && (
+          <p className="mt-1 text-xs text-red-400">{uploadError}</p>
+        )}
+      </div>
+
       {/* Error */}
       {error && (
         <p className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-sm text-red-400">
@@ -266,11 +407,26 @@ export function ListingForm({ listing }: Props) {
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || uploading}
           className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
         >
-          {pending ? 'Saving…' : isEdit ? 'Save changes' : 'Create listing'}
+          {uploading
+            ? 'Uploading photos…'
+            : pending
+            ? 'Saving…'
+            : isEdit
+            ? 'Save changes'
+            : 'Create listing'}
         </button>
+        {showUploadDone && (
+          <button
+            type="button"
+            onClick={() => router.push('/app/listings' as any)}
+            className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
+          >
+            Done — view listings
+          </button>
+        )}
         <button
           type="button"
           onClick={() => router.push('/app/listings' as any)}

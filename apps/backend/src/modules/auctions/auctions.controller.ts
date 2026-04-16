@@ -15,15 +15,21 @@ export class AuctionsController {
     @ApiQuery({ name: 'status', required: false, enum: ['ACTIVE', 'ENDED', 'CANCELLED'] })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'pageSize', required: false, type: Number })
+    @ApiQuery({ name: 'sort', required: false, enum: ['endingSoon', 'newest', 'priceAsc', 'priceDesc'] })
+    @ApiQuery({ name: 'keyword', required: false, type: String })
     findAll(
         @Query('status') status?: string,
         @Query('page') page?: string,
         @Query('pageSize') pageSize?: string,
+        @Query('sort') sort?: string,
+        @Query('keyword') keyword?: string,
     ) {
         return this.auctionsService.findAll({
             status,
             page: page ? parseInt(page, 10) : 1,
             pageSize: pageSize ? parseInt(pageSize, 10) : 12,
+            sort,
+            keyword,
         });
     }
 

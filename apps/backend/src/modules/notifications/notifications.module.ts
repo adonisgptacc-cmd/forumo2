@@ -4,10 +4,11 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { RateLimitService } from '../../common/services/rate-limit.service';
 
 @Module({
   imports: [HttpModule, PrismaModule],
-  providers: [NotificationsService, NotificationsGateway],
+  providers: [NotificationsService, NotificationsGateway, RateLimitService],
   controllers: [NotificationsController],
   exports: [NotificationsService, NotificationsGateway],
 })

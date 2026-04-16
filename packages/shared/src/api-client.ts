@@ -203,6 +203,18 @@ export class ForumoApiClient {
         auth: true,
       });
     },
+    requestPasswordReset: async (payload: { email: string }): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/password/reset/request', {
+        method: 'POST',
+        body: payload,
+      });
+    },
+    confirmPasswordReset: async (payload: { email: string; code: string; newPassword: string }): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/password/reset/confirm', {
+        method: 'POST',
+        body: payload,
+      });
+    },
   };
 
   readonly listings = {
@@ -259,6 +271,13 @@ export class ForumoApiClient {
         body: formData,
       });
     },
+    report: async (listingId: string, reason: string): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>(`/listings/${listingId}/report`, {
+        method: 'POST',
+        auth: true,
+        body: { reason },
+      });
+    },
   };
 
   readonly orders = {
@@ -292,6 +311,26 @@ export class ForumoApiClient {
         auth: true,
       });
       return response;
+    },
+    createShipment: async (
+      orderId: string,
+      payload: { carrier?: string; trackingNumber?: string; serviceLevel?: string; estimatedDelivery?: string },
+    ) => {
+      return this.requestJson<Record<string, unknown>>(`/orders/${orderId}/shipment`, {
+        method: 'POST',
+        auth: true,
+        body: payload,
+      });
+    },
+    updateShipment: async (
+      orderId: string,
+      payload: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: string; estimatedDelivery?: string; deliveredAt?: string },
+    ) => {
+      return this.requestJson<Record<string, unknown>>(`/orders/${orderId}/shipment`, {
+        method: 'PATCH',
+        auth: true,
+        body: payload,
+      });
     },
   };
 
@@ -452,7 +491,7 @@ export class ForumoApiClient {
   };
 
   readonly auctions = {
-    list: async (params: { page?: number; pageSize?: number; status?: string } = {}): Promise<PaginatedResponse<Auction>> => {
+    list: async (params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string } = {}): Promise<PaginatedResponse<Auction>> => {
       const result = await this.request<PaginatedResponse<Auction>>(
         `/auctions${buildQuery(params)}`,
         { method: 'GET' },
@@ -614,6 +653,10 @@ export class ForumoApiClient {
     exportData: async (): Promise<Record<string, unknown>> => {
       return this.request<Record<string, unknown>>('/users/me/export', { method: 'GET', auth: true });
     },
+    becomeSeller: async (): Promise<SafeUser> => {
+      const result = await this.requestJson<SafeUser>('/users/me/become-seller', { method: 'POST', auth: true });
+      return safeUserSchema.parse(result);
+    },
   };
 
   readonly inventory = {
@@ -648,6 +691,14 @@ export class ForumoApiClient {
     get: async (slug: string): Promise<Storefront> => {
       const result = await this.requestJson<Storefront>(`/storefronts/${slug}`, { method: 'GET' });
       return storefrontSchema.parse(result);
+    },
+    getBySeller: async (userId: string): Promise<Storefront | null> => {
+      try {
+        const result = await this.requestJson<Storefront>(`/storefronts/seller/${userId}`, { method: 'GET' });
+        return result ? storefrontSchema.parse(result) : null;
+      } catch {
+        return null;
+      }
     },
     getMine: async (): Promise<Storefront | null> => {
       try {

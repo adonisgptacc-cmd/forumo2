@@ -24,6 +24,7 @@ import { WishlistScreen } from '../screens/WishlistScreen';
 import { CreateListingScreen } from '../screens/CreateListingScreen';
 import { MyListingsScreen } from '../screens/MyListingsScreen';
 import { EditListingScreen } from '../screens/EditListingScreen';
+import { ReviewsScreen } from '../screens/ReviewsScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -149,6 +150,11 @@ const MainNavigator = () => (
       name="EditListing"
       component={EditListingScreen}
       options={{ title: 'Edit Listing' }}
+    />
+    <MainStack.Screen
+      name="Reviews"
+      component={ReviewsScreen}
+      options={{ title: 'Reviews' }}
     />
   </MainStack.Navigator>
 );

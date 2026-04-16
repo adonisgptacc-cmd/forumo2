@@ -12,6 +12,55 @@ const STATUS_COLORS: Record<string, string> = {
   PAUSED: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
 };
 
+const MODERATION_COLORS: Record<string, string> = {
+  PENDING: 'text-amber-300 bg-amber-400/10 border-amber-400/20',
+  APPROVED: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
+  REJECTED: 'text-red-400 bg-red-400/10 border-red-400/20',
+  FLAGGED: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+};
+
+function ModerationBanner({ listing }: { listing: SafeListing }) {
+  const mod = (listing as any).moderationStatus as string | undefined;
+  if (!mod || mod === 'APPROVED') return null;
+
+  if (mod === 'PENDING') {
+    return (
+      <div className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${MODERATION_COLORS.PENDING}`}>
+        <span className="mt-px shrink-0">⏳</span>
+        <span>
+          <strong>Under review</strong> — Your listing is being reviewed by our team. It will go live once approved.
+        </span>
+      </div>
+    );
+  }
+
+  if (mod === 'REJECTED') {
+    const notes = (listing as any).moderationNotes as string | undefined;
+    return (
+      <div className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${MODERATION_COLORS.REJECTED}`}>
+        <span className="mt-px shrink-0">🚫</span>
+        <span>
+          <strong>Review failed</strong>
+          {notes ? ` — ${notes}` : ' — This listing did not pass our content review. Edit and resubmit to try again.'}
+        </span>
+      </div>
+    );
+  }
+
+  if (mod === 'FLAGGED') {
+    return (
+      <div className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${MODERATION_COLORS.FLAGGED}`}>
+        <span className="mt-px shrink-0">⚠️</span>
+        <span>
+          <strong>Flagged for review</strong> — This listing has been reported and is under investigation.
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export function ListingsManager() {
   const { data, isLoading } = useMyListings();
   const deleteListing = useDeleteListing();
@@ -101,15 +150,25 @@ export function ListingsManager() {
                 {listing.description && (
                   <p className="mt-0.5 text-xs text-slate-500 truncate">{listing.description}</p>
                 )}
+                <ModerationBanner listing={listing} />
               </div>
 
               {/* Actions */}
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   onClick={() => toggleStatus(listing)}
-                  disabled={updateMutation.isPending}
-                  className="rounded px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-                  title={listing.status === 'PUBLISHED' ? 'Pause listing' : 'Publish listing'}
+                  disabled={
+                    updateMutation.isPending ||
+                    (listing as any).moderationStatus === 'PENDING'
+                  }
+                  className="rounded px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={
+                    (listing as any).moderationStatus === 'PENDING'
+                      ? 'Waiting for moderation approval'
+                      : listing.status === 'PUBLISHED'
+                      ? 'Pause listing'
+                      : 'Publish listing'
+                  }
                 >
                   {listing.status === 'PUBLISHED' ? 'Pause' : 'Publish'}
                 </button>

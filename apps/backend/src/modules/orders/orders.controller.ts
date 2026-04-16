@@ -101,4 +101,24 @@ export class OrdersController {
       providerStatus: body.providerStatus,
     });
   }
+
+  @Post(':id/shipment')
+  @HttpCode(HttpStatus.CREATED)
+  createShipment(
+    @Param('id') id: string,
+    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; estimatedDelivery?: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.ordersService.createShipment(id, req.user.id, body);
+  }
+
+  @Patch(':id/shipment')
+  @HttpCode(HttpStatus.OK)
+  updateShipment(
+    @Param('id') id: string,
+    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: string; estimatedDelivery?: string; deliveredAt?: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.ordersService.updateShipment(id, req.user.id, body);
+  }
 }

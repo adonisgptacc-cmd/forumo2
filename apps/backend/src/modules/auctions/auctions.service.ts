@@ -14,14 +14,29 @@ export class AuctionsService {
         private auctionsGateway: AuctionsGateway,
     ) { }
 
-    async findAll(params: { status?: string; page: number; pageSize: number }) {
-        const { status, page, pageSize } = params;
+    async findAll(params: { status?: string; page: number; pageSize: number; sort?: string; keyword?: string }) {
+        const { status, page, pageSize, sort, keyword } = params;
         const where: any = {};
         if (status) {
             where.status = status;
         } else {
             where.status = AuctionStatus.ACTIVE;
         }
+
+        if (keyword?.trim()) {
+            where.listing = {
+                OR: [
+                    { title: { contains: keyword.trim(), mode: 'insensitive' } },
+                    { description: { contains: keyword.trim(), mode: 'insensitive' } },
+                ],
+            };
+        }
+
+        const orderBy: any =
+            sort === 'newest' ? { createdAt: 'desc' } :
+            sort === 'priceAsc' ? { startingBidCents: 'asc' } :
+            sort === 'priceDesc' ? { startingBidCents: 'desc' } :
+            { endAt: 'asc' }; // default: ending soonest first
 
         const [data, total] = await Promise.all([
             this.prisma.auction.findMany({
@@ -31,7 +46,7 @@ export class AuctionsService {
                     seller: { select: { id: true, name: true, avatarUrl: true } },
                     _count: { select: { bids: true } },
                 },
-                orderBy: { endAt: 'asc' },
+                orderBy,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
             }),

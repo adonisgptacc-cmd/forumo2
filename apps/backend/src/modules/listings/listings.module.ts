@@ -5,6 +5,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
 import { PrismaModule } from "../../prisma/prisma.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { ListingsController } from "./listings.controller";
 import { ListingsService } from "./listings.service";
 import { ModerationQueueService } from "./moderation-queue.service";
@@ -22,6 +23,7 @@ import { CategoriesService } from "./categories.service";
     HttpModule.register({ timeout: 5000 }),
     MulterModule.register({ storage: memoryStorage() }),
     StorageModule,
+    NotificationsModule,
   ],
   controllers: [ListingsController, CategoriesController],
   providers: [ListingsService, ListingSearchService, ModerationQueueService, CacheService, LocalSearchService, CategoriesService],

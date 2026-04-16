@@ -269,6 +269,14 @@ export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           <Text style={styles.contactBtnText}>💬 Contact Seller</Text>
         </TouchableOpacity>
+
+        {/* Reviews */}
+        <TouchableOpacity
+          style={styles.contactBtn}
+          onPress={() => navigation.push('Reviews', { sellerId: listing.sellerId, listingId: listing.id })}
+        >
+          <Text style={styles.contactBtnText}>⭐ View Reviews</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Offer modal */}

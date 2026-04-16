@@ -3,6 +3,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
 import { CreateListingDto, CreateListingVariantDto } from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
@@ -25,6 +26,7 @@ export class ListingsService {
     private readonly prisma: PrismaService,
     private readonly moderationQueue: ModerationQueueService,
     private readonly storageService: StorageService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async findAll(): Promise<SafeListing[]> {
@@ -223,6 +225,44 @@ export class ListingsService {
       return Prisma.JsonNull;
     }
     return value as Prisma.InputJsonValue;
+  }
+
+  async reportListing(
+    listingId: string,
+    reporterId: string,
+    reason: string,
+  ): Promise<{ message: string }> {
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, deletedAt: null },
+      select: { id: true, title: true, sellerId: true, moderationStatus: true },
+    });
+    if (!listing) throw new NotFoundException('Listing not found');
+
+    // Flag the listing for admin review
+    await this.prisma.listing.update({
+      where: { id: listingId },
+      data: { moderationStatus: ListingModerationStatus.FLAGGED },
+    });
+
+    // Write to audit log
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: reporterId,
+        action: 'listing.report',
+        entityType: 'listing',
+        entityId: listingId,
+        payload: this.toJsonInput({ reason, listingTitle: listing.title }) ?? Prisma.JsonNull,
+      },
+    });
+
+    // Notify admin
+    void this.notifications.notifyDisputeOpened(
+      listingId,
+      `report:${listingId}`,
+      `User report on listing "${listing.title}": ${reason}`,
+    ).catch(() => undefined);
+
+    return { message: 'Report submitted. Our team will review this listing.' };
   }
 
 }

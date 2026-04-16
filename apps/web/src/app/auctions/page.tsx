@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuctions } from '../../lib/react-query/hooks';
 import type { Auction } from '@forumo/shared';
@@ -72,18 +72,34 @@ function AuctionCard({ auction }: { auction: Auction }) {
   );
 }
 
+const SORT_OPTIONS = [
+  { value: 'endingSoon', label: 'Ending soon' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'priceAsc', label: 'Price: low to high' },
+  { value: 'priceDesc', label: 'Price: high to low' },
+];
+
 const PAGE_SIZE = 12;
 
 export default function AuctionsPage() {
   const [status, setStatus] = useState<string>('ACTIVE');
+  const [sort, setSort] = useState<string>('endingSoon');
+  const [keyword, setKeyword] = useState('');
+  const [keywordInput, setKeywordInput] = useState('');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError } = useAuctions({ status, page, pageSize: PAGE_SIZE });
+  const { data, isLoading, isError } = useAuctions({ status, page, pageSize: PAGE_SIZE, sort, keyword: keyword || undefined });
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
   function handleStatusChange(newStatus: string) {
     setStatus(newStatus);
+    setPage(1);
+  }
+
+  function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    setKeyword(keywordInput.trim());
     setPage(1);
   }
 
@@ -110,7 +126,37 @@ export default function AuctionsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search + Sort row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1 min-w-0">
+          <input
+            type="text"
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            placeholder="Search auctions…"
+            className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+          />
+          <button type="submit" className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium border border-slate-300 hover:border-amber-400">
+            Search
+          </button>
+          {keyword && (
+            <button type="button" onClick={() => { setKeyword(''); setKeywordInput(''); setPage(1); }} className="text-sm text-slate-500 hover:text-red-500">
+              ✕ Clear
+            </button>
+          )}
+        </form>
+        <select
+          value={sort}
+          onChange={(e) => { setSort(e.target.value); setPage(1); }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Status Filters */}
       <div className="flex flex-wrap gap-2">
         {STATUS_OPTIONS.map((opt) => (
           <button

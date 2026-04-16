@@ -4,13 +4,17 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AdminService } from "./admin.service";
+import { OrdersService } from "../orders/orders.service";
 import type { AdminDisputeSummary, AdminKycSubmission, AdminListingModeration, AdminUserDetail, AdminOrderSummary } from '@forumo/shared';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   @Get('dashboard/stats')
   getDashboardStats() {
@@ -69,5 +73,11 @@ export class AdminController {
   @Get('orders')
   listOrders(): Promise<AdminOrderSummary[]> {
     return this.adminService.listOrders();
+  }
+
+  @Get('orders/:id')
+  getOrder(@Param('id') id: string) {
+    // No userId param → skips ownership check, admin can view any order
+    return this.ordersService.findById(id);
   }
 }

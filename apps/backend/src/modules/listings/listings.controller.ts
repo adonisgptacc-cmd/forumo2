@@ -116,6 +116,17 @@ export class ListingsController {
     return this.listingsService.softDelete(id, req.user.id);
   }
 
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  reportListing(
+    @Param('id') id: string,
+    @Body() body: { reason: string },
+    @Request() req: { user: { id: string } },
+  ): Promise<{ message: string }> {
+    return this.listingsService.reportListing(id, req.user.id, body.reason ?? 'No reason given');
+  }
+
   @Post(':id/images')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))

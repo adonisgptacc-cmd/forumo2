@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TrustScoreSeed, UserProfile } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
@@ -223,6 +223,19 @@ export class UsersService {
       where: { id: userId },
       data: { trustScore: aggregate._sum.value ?? 0 },
     });
+  }
+
+  async becomeSeller(id: string): Promise<SafeUser> {
+    const user = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === 'SELLER' || user.role === 'ADMIN' || user.role === 'MODERATOR') {
+      throw new BadRequestException('Account is already a seller or higher role');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { role: 'SELLER' },
+    });
+    return sanitizeUser(updated)!;
   }
 
   private buildMetadata(metadata?: Record<string, unknown>): Prisma.JsonObject | undefined {
