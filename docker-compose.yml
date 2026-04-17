@@ -59,7 +59,7 @@ services:
   # --- Applications ---
   moderation:
     build:
-      context: ./apps/moderation
+      context: ./apps/moderation-service
       dockerfile: Dockerfile
     container_name: forumo-moderation
     ports:

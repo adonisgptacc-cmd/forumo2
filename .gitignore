@@ -1,6 +1,13 @@
 node_modules
 pnpm-debug.log*
-.env*
+
+# Environment files — keep .env.example files tracked
+.env
+.env.local
+.env.*.local
+apps/**/.env
+apps/**/.env.local
+
 dist
 coverage
 apps/web/.next
@@ -23,6 +30,15 @@ web_build.log
 
 # Turbo cache & daemon
 .turbo/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local Docker volume data — never commit these
+docker/postgres-data/
+docker/redis-data/
+docker/minio-data/
 
 # Temp/debug files
 *.txt

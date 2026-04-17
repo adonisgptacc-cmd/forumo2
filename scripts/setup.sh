@@ -24,4 +24,4 @@ pnpm install
 echo "Applying database migrations..."
 npm run db:migrate
 
-echo "Setup complete. Start the stack with 'docker-compose -f docker-compose.dev.yml up -d' and 'npm run dev'."
+echo "Setup complete. Start the stack with 'pnpm docker:up' and then 'pnpm dev'."

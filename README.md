@@ -1,126 +1,201 @@
 # Forumo
 
-Forumo is a pan-African social marketplace that combines traditional e-commerce with auctions, escrow-protected payments, rich messaging, and AI-assisted moderation. This repository contains the multi-platform implementation of the 2025 PRD that spans the web client, mobile experience, backend services, and an admin console.
+A peer-to-peer marketplace with escrow-protected payments, seller verification, and in-app messaging — built for trust-first commerce between individuals.
 
-## Monorepo layout
+## What it does
 
-```
-apps/
-  backend/      # NestJS API gateway + domain services (Auth, Listings, Orders, etc.)
-  web/          # Next.js web client for buyers, sellers, and auctions
-  mobile/       # React Native app (Expo) – scaffold coming soon
-  admin/        # Admin console (shares the web Next.js runtime)
-packages/
-  shared/       # Cross-platform utilities, schemas, and generated API clients
-  config/       # Shared eslint/tsconfig/prettier rules
-```
+- Buyers discover and purchase items via fixed-price listings or auctions, with funds held in escrow until delivery is confirmed
+- Sellers create verified storefronts, manage inventory, and receive offers — getting paid only when the buyer confirms receipt
+- Messaging, offer negotiation, and dispute resolution are built into the order flow
+- A moderation pipeline reviews listings for policy compliance before they go live
+- Admins manage KYC submissions, flagged listings, and escrow disputes via a built-in dashboard
 
-Each application is independently deployable but shares linting rules, code generation, and design tokens through the `packages/` folder.
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend API | NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, BullMQ, Socket.IO |
+| Frontend | Next.js 15, React 18, TailwindCSS 4, NextAuth v4, TanStack Query v5 |
+| Payments | Stripe (escrow + capture) |
+| Storage | MinIO (S3-compatible) |
+| Moderation | FastAPI (Python 3) — separate service |
+| Mobile | Expo 50 / React Native 0.73 (pre-alpha — not functional yet) |
+| Shared | Zod schemas + typed API client (`packages/shared`) |
+| Infra | Docker Compose (dev), Kubernetes (planned) |
 
 ## Getting started
 
+### Prerequisites
+
+- [Node.js 20+](https://nodejs.org)
+- [pnpm 9+](https://pnpm.io/installation)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+### 1. Clone the repo
+
 ```bash
-# install pnpm if you don't already have it
-npm install -g pnpm
-
-# install all dependencies for the workspace
-pnpm install
-
-# run the NestJS API on http://localhost:4000
-pnpm dev:backend
-
-# boot the moderation service on http://localhost:5005
-cd apps/moderation && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && \
-  uvicorn moderation_service.main:app --reload
-
-# run the Next.js web client on http://localhost:3000
-pnpm dev:web
+git clone https://github.com/adonisgptacc-cmd/forumo2.git
+cd forumo2
 ```
 
-> **Note**: The mobile app and admin console will be wired up after the core buyer/seller flows stabilize. Until then they exist as documented placeholders inside `docs/` (see `docs/ROADMAP.md` for the rollout plan and `docs/ARCHITECTURE.md` for how they will attach to the backend).
+### 2. Install dependencies
 
-## Getting Started - Local Development
+```bash
+pnpm install
+```
 
-Spin up the full local stack with Docker, install dependencies, run pending database migrations, and start the monorepo processes in parallel:
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+cp apps/backend/.env.example apps/backend/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+The defaults work for local development without any changes. See [Environment variables](#environment-variables) if you need to customise anything.
+
+### 4. Start local infrastructure
 
 ```bash
 pnpm docker:up
-pnpm install
-pnpm db:migrate
+```
+
+This starts PostgreSQL, Redis, MinIO, Mailpit, and the moderation service. Wait ~30 seconds for all services to become healthy.
+
+### 5. Run database migrations and seed data
+
+```bash
+pnpm db:setup
+```
+
+### 6. Start the development servers
+
+```bash
 pnpm dev
 ```
 
-### Service URLs & Credentials
+| Service | URL |
+|---------|-----|
+| Web app | http://localhost:3000 |
+| Backend API | http://localhost:4000 |
+| API docs (Swagger) | http://localhost:4000/docs |
+| MinIO console | http://localhost:9001 |
+| Email viewer (Mailpit) | http://localhost:8025 |
 
-- PostgreSQL: `localhost:5432` (user: `forumo`, password: `forumo`, db: `forumo`)
-- pgAdmin: http://localhost:5050 (email: `admin@local.test`, password: `password`)
-- Redis: `localhost:6379`
-- MinIO API: http://localhost:9000 (key: `minioadmin`, secret: `minioadmin`)
-- MinIO Console: http://localhost:9001
-- Mailpit SMTP: `localhost:1025`, Web UI: http://localhost:8025
+---
 
-### Troubleshooting Docker
+## Environment variables
 
-- **Port conflicts**: stop other services using 5432/6379/9000/9001/1025/8025/5050 or override ports in `docker-compose.dev.yml`.
-- **Volume permissions**: ensure the `docker/*-data` directories are writable by Docker; removing them and letting Docker recreate can resolve stale permissions.
-- **Cold start failures**: restart individual services with `docker-compose -f docker-compose.dev.yml restart <service>` to retry initialization scripts like `pg_stat_statements`.
+### `apps/backend/.env`
 
-### Environment configuration
+| Variable | What it does | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `REDIS_URL` | Redis connection string | Yes |
+| `JWT_SECRET` | Signs access tokens — **change in production** | Yes |
+| `JWT_EXPIRES_IN` | Access token TTL (default: `7d`) | Yes |
+| `STRIPE_SECRET_KEY` | Stripe API key for payment capture | Yes |
+| `MINIO_ENDPOINT` | MinIO / S3 host | Yes |
+| `MINIO_ACCESS_KEY` | MinIO access key | Yes |
+| `MINIO_SECRET_KEY` | MinIO secret key | Yes |
+| `SMTP_HOST` | SMTP server for transactional email | Yes |
+| `FRONTEND_URL` | Allowed CORS origin | Yes |
+| `MAILGUN_API_KEY` | Mailgun for email — falls back to SMTP if absent | Optional |
+| `SNS_ACCESS_KEY_ID` | AWS SNS for SMS OTP — falls back to dev simulator | Optional |
+| `SNS_SECRET_ACCESS_KEY` | AWS SNS secret | Optional |
+| `GOOGLE_CLIENT_ID` | Google OAuth — omit to disable | Optional |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | Optional |
 
-- Copy `.env.example` files (root + each app) to `.env` via `./scripts/setup.sh`; the script also installs dependencies and runs migrations.
-- Environment variable precedence: explicit shell exports override `.env` files, which override hard-coded defaults in code/config schemas.
-- Validate required entries before boot: `./scripts/validate-env.sh apps/backend/.env`.
+### `apps/web/.env`
 
-### Architecture Diagram
+| Variable | What it does | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL | Yes |
+| `NEXT_PUBLIC_WS_URL` | WebSocket server URL | Yes |
+| `NEXTAUTH_URL` | NextAuth canonical URL | Yes |
+| `NEXTAUTH_SECRET` | NextAuth session signing key — **change in production** | Yes |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key for checkout | Yes |
+| `NEXT_PUBLIC_USE_API_MOCKS` | Enable frontend mocks (development only) | Optional |
 
-```mermaid
-flowchart LR
-  Web[Next.js web] -->|REST/WS| Backend[NestJS API]
-  Mobile[React Native] -->|REST/WS| Backend
-  Backend -->|SQL| Postgres[(PostgreSQL)]
-  Backend -->|Cache/Queues| Redis[(Redis)]
-  Backend -->|S3 API| MinIO[(MinIO)]
-  Backend -->|SMTP| Mailpit[Mailpit]
-  Postgres --> pgAdmin[pgAdmin]
+---
+
+## Project structure
+
+```
+forumo/
+├── apps/
+│   ├── backend/                 # NestJS API — business logic, REST + WebSocket
+│   ├── web/                     # Next.js frontend — buyer, seller, and admin UI
+│   ├── mobile/                  # Expo app — pre-alpha, scaffold only
+│   └── moderation-service/      # FastAPI service — listing content moderation
+├── packages/
+│   └── shared/                  # Zod schemas + typed API client shared across apps
+├── docs/                        # Architecture, API reference, roadmap
+├── scripts/                     # Dev utility scripts (setup, validate-env)
+├── docker-compose.yml           # Base service definitions
+├── docker-compose.override.yml  # Dev overrides (auto-loaded by Docker Compose)
+└── turbo.json                   # Monorepo build orchestration
 ```
 
-### Observability
+---
 
-- Health: `GET /api/v1/health`, `GET /api/v1/health/live`, `GET /api/v1/health/ready`
-- Metrics: `GET /metrics` (API-key gated outside development)
-- Dashboards & alerts: see `monitoring/dashboards` and `monitoring/alerts` for Grafana and Prometheus examples.
+## Deployment
 
-## Database migrations & uploads
+> Production deployment is not yet fully documented. The Docker Compose stack covers local development. Kubernetes manifests are planned.
 
-1. Copy `.env.example` or export `DATABASE_URL=postgres://user:pass@localhost:5432/forumo`.
-2. Apply the Prisma schema (users + listings, variants, and images) with `pnpm --filter backend prisma migrate deploy`.
-3. Generate the latest Prisma client for the NestJS API via `pnpm --filter backend prisma:generate` whenever the schema changes.
-4. Local uploads are written to `apps/backend/uploads/<bucket>`; set `UPLOADS_BUCKET` to mirror your S3 bucket name and point the Nest API at a MinIO/S3 endpoint if desired.
-5. Listing image uploads use in-process memory storage plus a background write to disk. In production swap the `StorageService` implementation for signed URL uploads and ensure AI moderation jobs consume the queue exposed by `ModerationQueueService`.
-6. The Python moderation microservice lives in `apps/moderation`. Point `MODERATION_SERVICE_URL` (default `http://localhost:5005`) at the FastAPI instance so that listing and image uploads are automatically scanned before publication.
+For a minimal production setup:
 
-## Auth & OTP configuration
+1. Provision PostgreSQL 16 and Redis 7
+2. Deploy MinIO or use an S3-compatible service (AWS S3, Cloudflare R2)
+3. Set all environment variables to production values — especially `JWT_SECRET`, `NEXTAUTH_SECRET`, and `STRIPE_SECRET_KEY`
+4. Run `pnpm build` then deploy each app as a container (`apps/backend`, `apps/web`, `apps/moderation-service`)
 
-- Set `JWT_SECRET` (and optionally `JWT_TTL`) for API-issued bearer tokens used by the web and admin clients.
-- Configure rate limits and expirations with `OTP_TTL`, `OTP_DEVICE_RATE_LIMIT`, and `OTP_DEVICE_RATE_WINDOW`.
-- Email OTPs are delivered via Mailgun. Provide `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, and `MAILGUN_EMAIL_FROM` (default `no-reply@forumo.dev`). Override the region base with `MAILGUN_API_BASE` (e.g., `https://api.eu.mailgun.net`) if needed.
-- SMS OTPs go through AWS SNS. Provide `SNS_REGION`, `SNS_ACCESS_KEY_ID`, and `SNS_SECRET_ACCESS_KEY`, plus optional `SNS_SMS_SENDER_ID` for branded messaging where supported. Missing or invalid credentials fall back to a local simulator for development.
-- The Next.js client reads `NEXT_PUBLIC_API_BASE_URL` to call the NestJS API and `NEXTAUTH_SECRET` for session integrity. Login/sign-up forms persist the issued JWT and user profile to `localStorage` so subsequent REST calls can reuse the bearer token.
-- `.env.example` in the repo root contains all of the variables above plus API mock toggles for local testing. Copy it to `.env` when bootstrapping a new environment.
+---
+
+## Known issues / limitations
+
+- **Search filtering is incomplete** — sort and category filters are accepted by the API but not yet applied
+- **KYC submission UI is missing** — sellers cannot complete verification through the frontend (backend API works)
+- **Escrow dispute UI is missing** — dispute resolution requires direct API calls
+- **Cart variant integration is incomplete** — variant selection does not correctly update the cart payload
+- **Mobile app is pre-alpha** — navigation scaffold only, no screens implemented
+- **No error boundaries** — a component error causes a blank page rather than a graceful fallback
+- **No silent token refresh** — JWTs expire after 7 days; the next API call silently fails rather than prompting re-login
+
+---
+
+## Roadmap
+
+**Next (before public launch)**
+- Search with working sort + category filters
+- KYC document submission form
+- Escrow dispute UI
+- Error boundaries on all routes
+- Cart variant payload fix
+
+**Soon**
+- Seller analytics dashboard
+- Shipping label generation (Shippo / EasyPost)
+- Counter-offer negotiation
+- Post-purchase review prompts
+- Real-time auction bid updates via WebSocket
+
+**Later**
+- Mobile app (React Native / Expo)
+- Promoted listings
+- Bundle discounts
+- Price-drop alerts for wishlisted items
+
+---
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) – end-to-end systems design.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) – MVP, V1, and V2 delivery plan derived from the PRD.
-- [`docs/API-GATEWAY.md`](docs/API-GATEWAY.md) – HTTP and WebSocket route overview.
-- [`docs/TESTING.md`](docs/TESTING.md) – how to run backend, web, and mobile test suites.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — end-to-end system design
+- [`docs/API-GATEWAY.md`](docs/API-GATEWAY.md) — HTTP and WebSocket route overview
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — full delivery plan
+- [`docs/TESTING.md`](docs/TESTING.md) — how to run tests
 
-## Code style & tooling
-
-- TypeScript everywhere.
-- ESLint + Prettier (shared configs live under `packages/config`).
-- pnpm workspaces with scripts defined in the root `package.json`.
-- Husky + lint-staged (coming soon) for pre-commit consistency.
+---
 
 ## License
 

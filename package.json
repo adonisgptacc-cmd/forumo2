@@ -14,10 +14,10 @@
     "db:seed": "turbo run seed --filter=backend",
     "db:studio": "turbo run studio --filter=backend",
     
-    "docker:up": "docker-compose -f docker-compose.dev.yml up -d",
-    "docker:down": "docker-compose -f docker-compose.dev.yml down",
-    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
-    "docker:clean": "docker-compose -f docker-compose.dev.yml down -v",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v",
     
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
