@@ -107,7 +107,7 @@ jobs:
         with:
           scan-type: 'fs'
           severity: 'CRITICAL,HIGH'
-      - uses: GitGuardian/ggshield-action@v1.29.0
+      - uses: GitGuardian/ggshield-action@v1.49.0
         env:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
 
