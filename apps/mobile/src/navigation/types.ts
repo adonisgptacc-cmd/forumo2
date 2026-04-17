@@ -30,4 +30,6 @@ export type MainStackParamList = {
   MyListings: undefined;
   EditListing: { listingId: string; listing?: import('@forumo/shared').SafeListing };
   Reviews: { sellerId: string; listingId?: string };
+  SellerDashboard: undefined;
+  KYC: undefined;
 };

@@ -9,7 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
@@ -34,6 +36,32 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
   const [published, setPublished] = useState(false);
   const [variants, setVariants] = useState<VariantDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingImages, setPendingImages] = useState<{ uri: string; mimeType?: string; fileName?: string }[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const pickImages = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow photo library access to add photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setPendingImages((prev) => [
+        ...prev,
+        ...result.assets.map((a) => ({ uri: a.uri, mimeType: a.mimeType, fileName: a.fileName ?? undefined })),
+      ].slice(0, 8));
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    setPendingImages((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const addVariant = () => {
     setVariants((prev) => [...prev, { label: '', priceCents: '', sku: '' }]);
@@ -68,7 +96,7 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
 
     setSubmitting(true);
     try {
-      await apiClient.listings.create({
+      const created = await apiClient.listings.create({
         title: title.trim(),
         description: description.trim() || undefined,
         priceCents: Math.round(parseFloat(price) * 100),
@@ -84,6 +112,22 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
             }))
           : undefined,
       });
+
+      // Upload pending images sequentially
+      if (pendingImages.length > 0) {
+        setUploadingImages(true);
+        for (const img of pendingImages) {
+          try {
+            const fd = new FormData();
+            fd.append('file', { uri: img.uri, type: img.mimeType ?? 'image/jpeg', name: img.fileName ?? 'photo.jpg' } as any);
+            await apiClient.post(`/listings/${created.id}/images`, fd, { auth: true });
+          } catch {
+            // non-fatal: continue
+          }
+        }
+        setUploadingImages(false);
+      }
+
       Alert.alert('Success', 'Listing created!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -91,6 +135,7 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Error', e.message ?? 'Could not create listing.');
     } finally {
       setSubmitting(false);
+      setUploadingImages(false);
     }
   };
 
@@ -217,6 +262,45 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </View>
 
+      {/* Photos */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Photos</Text>
+          <TouchableOpacity onPress={pickImages} disabled={submitting} testID="add-photos-btn">
+            <Text style={styles.addLink}>+ Add Photos</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.sectionSub}>Up to 8 photos. First photo is the cover.</Text>
+        {pendingImages.length > 0 ? (
+          <View style={styles.imageGrid}>
+            {pendingImages.map((img, idx) => (
+              <View key={idx} style={styles.imageThumb}>
+                <Image source={{ uri: img.uri }} style={styles.thumbImg} />
+                {idx === 0 && (
+                  <View style={styles.coverBadge}>
+                    <Text style={styles.coverBadgeText}>Cover</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removeImgBtn} onPress={() => removeImage(idx)}>
+                  <Text style={styles.removeImgText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.photoPlaceholder} onPress={pickImages}>
+            <Text style={styles.photoPlaceholderIcon}>📷</Text>
+            <Text style={styles.photoPlaceholderText}>Tap to add photos</Text>
+          </TouchableOpacity>
+        )}
+        {uploadingImages && (
+          <View style={styles.uploadingRow}>
+            <ActivityIndicator size="small" color={brandColors.primary} />
+            <Text style={styles.uploadingText}>Uploading photos…</Text>
+          </View>
+        )}
+      </View>
+
       {/* Submit */}
       <TouchableOpacity
         style={[styles.submitBtn, submitting && styles.btnDisabled]}
@@ -301,4 +385,17 @@ const styles = StyleSheet.create({
   submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   cancelBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
   cancelText: { color: brandColors.muted, fontWeight: '600' },
+
+  imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  imageThumb: { width: 76, height: 76, borderRadius: 8, overflow: 'hidden', position: 'relative' },
+  thumbImg: { width: 76, height: 76 },
+  coverBadge: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, alignItems: 'center' },
+  coverBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  removeImgBtn: { position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.55)', width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  removeImgText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  photoPlaceholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderStyle: 'dashed', borderRadius: 10, paddingVertical: 24 },
+  photoPlaceholderIcon: { fontSize: 28, marginBottom: 6 },
+  photoPlaceholderText: { fontSize: 13, color: brandColors.muted },
+  uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  uploadingText: { fontSize: 13, color: brandColors.muted },
 });

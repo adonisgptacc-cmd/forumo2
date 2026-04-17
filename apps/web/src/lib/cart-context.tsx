@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 export interface CartItem {
   listingId: string;
@@ -29,11 +30,15 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const STORAGE_KEY = 'forumo.cart';
+const BASE_KEY = 'forumo.cart';
 
-function loadFromStorage(): CartItem[] {
+function storageKey(userId?: string | null) {
+  return userId ? `${BASE_KEY}.${userId}` : BASE_KEY;
+}
+
+function loadFromStorage(userId?: string | null): CartItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(userId));
     if (!raw) return [];
     return JSON.parse(raw) as CartItem[];
   } catch {
@@ -41,9 +46,9 @@ function loadFromStorage(): CartItem[] {
   }
 }
 
-function saveToStorage(items: CartItem[]) {
+function saveToStorage(items: CartItem[], userId?: string | null) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(storageKey(userId), JSON.stringify(items));
   } catch {
     // ignore
   }
@@ -54,17 +59,27 @@ function itemKey(listingId: string, variantId?: string) {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id as string | undefined;
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const prevUserIdRef = useRef<string | undefined>(undefined);
+
+  // Load (or reload) when userId is known or changes
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      prevUserIdRef.current = userId;
+      setItems(loadFromStorage(userId));
+      setHydrated(true);
+    } else if (!hydrated) {
+      setItems(loadFromStorage(userId));
+      setHydrated(true);
+    }
+  }, [userId, hydrated]);
 
   useEffect(() => {
-    setItems(loadFromStorage());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) saveToStorage(items);
-  }, [items, hydrated]);
+    if (hydrated) saveToStorage(items, userId);
+  }, [items, hydrated, userId]);
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
     setItems((prev) => {

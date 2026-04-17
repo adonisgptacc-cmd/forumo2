@@ -198,27 +198,42 @@ export function OrderDetail({ id }: { id: string }) {
               ))}
             </div>
 
-            {/* Send message */}
-            <div className="flex gap-2">
-              <textarea
-                value={disputeMsg}
-                onChange={(e) => setDisputeMsg(e.target.value)}
-                placeholder="Add a message to the dispute…"
-                rows={2}
-                className="flex-1 rounded-lg border border-orange-800 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none"
-              />
-              <button
-                onClick={async () => {
-                  if (!disputeMsg.trim()) return;
-                  await addDisputeMessage.mutateAsync({ disputeId: dispute.id, orderId: id, body: disputeMsg });
-                  setDisputeMsg('');
-                }}
-                disabled={!disputeMsg.trim() || addDisputeMessage.isPending}
-                className="self-end rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
-              >
-                {addDisputeMessage.isPending ? '…' : 'Send'}
-              </button>
-            </div>
+            {/* Resolution banner */}
+            {dispute.status === 'RESOLVED' && (
+              <div className="rounded-lg border border-emerald-700 bg-emerald-950/30 px-4 py-3 space-y-1">
+                <p className="text-sm font-semibold text-emerald-400">✅ Dispute resolved</p>
+                {dispute.resolutionNotes && (
+                  <p className="text-xs text-slate-300">{dispute.resolutionNotes}</p>
+                )}
+                <p className="text-xs text-slate-400">
+                  Resolved {dispute.resolvedAt ? new Date(dispute.resolvedAt).toLocaleString() : ''}
+                </p>
+              </div>
+            )}
+
+            {/* Send message — only while active */}
+            {dispute.status !== 'RESOLVED' && (
+              <div className="flex gap-2">
+                <textarea
+                  value={disputeMsg}
+                  onChange={(e) => setDisputeMsg(e.target.value)}
+                  placeholder="Add a message to the dispute…"
+                  rows={2}
+                  className="flex-1 rounded-lg border border-orange-800 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none"
+                />
+                <button
+                  onClick={async () => {
+                    if (!disputeMsg.trim()) return;
+                    await addDisputeMessage.mutateAsync({ disputeId: dispute.id, orderId: id, body: disputeMsg });
+                    setDisputeMsg('');
+                  }}
+                  disabled={!disputeMsg.trim() || addDisputeMessage.isPending}
+                  className="self-end rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50"
+                >
+                  {addDisputeMessage.isPending ? '…' : 'Send'}
+                </button>
+              </div>
+            )}
           </section>
         );
       })()}

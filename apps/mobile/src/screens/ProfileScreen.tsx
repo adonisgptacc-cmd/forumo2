@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { SafeUser } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
@@ -71,6 +73,41 @@ export const ProfileTab: React.FC = () => {
     }
   };
 
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAndUploadAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow photo library access to update your avatar.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingAvatar(true);
+    try {
+      const asset = result.assets[0];
+      const formData = new FormData();
+      formData.append('avatar', {
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? 'avatar.jpg',
+      } as any);
+      await apiClient.post('/users/me/avatar', formData, { auth: true });
+      await loadProfile();
+      Alert.alert('Updated', 'Avatar updated successfully.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not upload avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -86,13 +123,30 @@ export const ProfileTab: React.FC = () => {
       testID="profile-tab"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {/* Avatar placeholder */}
+      {/* Avatar */}
       <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarLetter}>
-            {(displayUser?.name ?? displayUser?.email ?? 'U')[0].toUpperCase()}
-          </Text>
-        </View>
+        <TouchableOpacity onPress={pickAndUploadAvatar} disabled={uploadingAvatar} testID="avatar-upload-btn">
+          <View style={styles.avatarWrapper}>
+            {displayUser?.avatarUrl ? (
+              <Image source={{ uri: displayUser.avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarLetter}>
+                  {(displayUser?.name ?? displayUser?.email ?? 'U')[0].toUpperCase()}
+                </Text>
+              </View>
+            )}
+            {uploadingAvatar ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : (
+              <View style={styles.avatarEditBadge}>
+                <Text style={styles.avatarEditBadgeText}>✏️</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
         <Text style={styles.userName}>{displayUser?.name ?? 'Anonymous'}</Text>
         <Text style={styles.userEmail}>{displayUser?.email}</Text>
         <View style={styles.roleBadge}>
@@ -242,6 +296,22 @@ export const ProfileTab: React.FC = () => {
           <Text style={styles.linkText}>Cart</Text>
           <Text style={styles.linkChevron}>›</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.push('SellerDashboard')}
+          testID="profile-seller-dashboard-link"
+        >
+          <Text style={styles.linkText}>Seller Dashboard</Text>
+          <Text style={styles.linkChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.push('KYC')}
+          testID="profile-kyc-link"
+        >
+          <Text style={styles.linkText}>Identity Verification (KYC)</Text>
+          <Text style={styles.linkChevron}>›</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Sign out */}
@@ -259,6 +329,7 @@ export const ProfileTab: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: brandColors.background },
   avatarSection: { alignItems: 'center', paddingVertical: spacing.lg },
+  avatarWrapper: { position: 'relative', marginBottom: 12 },
   avatar: {
     width: 80,
     height: 80,
@@ -266,8 +337,20 @@ const styles = StyleSheet.create({
     backgroundColor: brandColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
+  avatarOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 40, backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  avatarEditBadgeText: { fontSize: 12 },
   avatarLetter: { color: '#fff', fontSize: 32, fontWeight: '700' },
   userName: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
   userEmail: { fontSize: 14, color: brandColors.muted, marginBottom: 8 },

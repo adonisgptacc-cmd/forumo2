@@ -25,6 +25,8 @@ import { CreateListingScreen } from '../screens/CreateListingScreen';
 import { MyListingsScreen } from '../screens/MyListingsScreen';
 import { EditListingScreen } from '../screens/EditListingScreen';
 import { ReviewsScreen } from '../screens/ReviewsScreen';
+import { SellerDashboardScreen } from '../screens/SellerDashboardScreen';
+import { KYCScreen } from '../screens/KYCScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -155,6 +157,16 @@ const MainNavigator = () => (
       name="Reviews"
       component={ReviewsScreen}
       options={{ title: 'Reviews' }}
+    />
+    <MainStack.Screen
+      name="SellerDashboard"
+      component={SellerDashboardScreen}
+      options={{ title: 'Seller Dashboard' }}
+    />
+    <MainStack.Screen
+      name="KYC"
+      component={KYCScreen}
+      options={{ title: 'Identity Verification' }}
     />
   </MainStack.Navigator>
 );

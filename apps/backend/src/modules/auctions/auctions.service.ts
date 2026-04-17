@@ -14,13 +14,16 @@ export class AuctionsService {
         private auctionsGateway: AuctionsGateway,
     ) { }
 
-    async findAll(params: { status?: string; page: number; pageSize: number; sort?: string; keyword?: string }) {
-        const { status, page, pageSize, sort, keyword } = params;
+    async findAll(params: { status?: string; page: number; pageSize: number; sort?: string; keyword?: string; sellerId?: string }) {
+        const { status, page, pageSize, sort, keyword, sellerId } = params;
         const where: any = {};
         if (status) {
             where.status = status;
         } else {
             where.status = AuctionStatus.ACTIVE;
+        }
+        if (sellerId) {
+            where.sellerId = sellerId;
         }
 
         if (keyword?.trim()) {

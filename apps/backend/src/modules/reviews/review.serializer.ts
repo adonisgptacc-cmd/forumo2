@@ -32,6 +32,11 @@ export interface ReviewRollup {
   publishedCount: number;
   pendingCount: number;
   flaggedCount: number;
+  star1: number;
+  star2: number;
+  star3: number;
+  star4: number;
+  star5: number;
   lastReviewAt?: Date | null;
 }
 
@@ -80,5 +85,10 @@ export const serializeRollup = (rollup: SellerReviewRollup | null, sellerId: str
   publishedCount: rollup?.publishedCount ?? 0,
   pendingCount: rollup?.pendingCount ?? 0,
   flaggedCount: rollup?.flaggedCount ?? 0,
+  star1: (rollup as any)?.star1 ?? 0,
+  star2: (rollup as any)?.star2 ?? 0,
+  star3: (rollup as any)?.star3 ?? 0,
+  star4: (rollup as any)?.star4 ?? 0,
+  star5: (rollup as any)?.star5 ?? 0,
   lastReviewAt: rollup?.lastReviewAt ?? null,
 });

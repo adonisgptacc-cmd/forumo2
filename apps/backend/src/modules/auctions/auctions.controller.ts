@@ -23,6 +23,7 @@ export class AuctionsController {
         @Query('pageSize') pageSize?: string,
         @Query('sort') sort?: string,
         @Query('keyword') keyword?: string,
+        @Query('sellerId') sellerId?: string,
     ) {
         return this.auctionsService.findAll({
             status,
@@ -30,6 +31,7 @@ export class AuctionsController {
             pageSize: pageSize ? parseInt(pageSize, 10) : 12,
             sort,
             keyword,
+            sellerId,
         });
     }
 

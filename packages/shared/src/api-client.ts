@@ -491,7 +491,7 @@ export class ForumoApiClient {
   };
 
   readonly auctions = {
-    list: async (params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string } = {}): Promise<PaginatedResponse<Auction>> => {
+    list: async (params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string; sellerId?: string } = {}): Promise<PaginatedResponse<Auction>> => {
       const result = await this.request<PaginatedResponse<Auction>>(
         `/auctions${buildQuery(params)}`,
         { method: 'GET' },

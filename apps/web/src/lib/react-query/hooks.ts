@@ -739,7 +739,7 @@ export function useAdminOrder(id: string | null) {
 
 // --- Auctions ---
 
-export function useAuctions(params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string } = {}) {
+export function useAuctions(params: { page?: number; pageSize?: number; status?: string; sort?: string; keyword?: string; sellerId?: string } = {}) {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
   return useQuery<import('@forumo/shared').PaginatedResponse<import('@forumo/shared').Auction>>({

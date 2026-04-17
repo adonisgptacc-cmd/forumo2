@@ -116,7 +116,8 @@ function SellerReviewsSection({ sellerId }: { sellerId: string }) {
     );
   }
 
-  const pct = (n: number) => rollup.reviewCount > 0 ? Math.round((n / rollup.reviewCount) * 100) : 0;
+  const starKey = (s: number): keyof typeof rollup => `star${s}` as keyof typeof rollup;
+  const pct = (n: number) => rollup.publishedCount > 0 ? Math.round((n / rollup.publishedCount) * 100) : 0;
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">
@@ -128,19 +129,22 @@ function SellerReviewsSection({ sellerId }: { sellerId: string }) {
           <p className="text-xs text-slate-400 mt-1">{rollup.publishedCount} review{rollup.publishedCount !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex-1 space-y-1.5 text-sm">
-          {[5, 4, 3, 2, 1].map((star) => (
-            <div key={star} className="flex items-center gap-2">
-              <span className="text-slate-400 w-3">{star}</span>
-              <span className="text-amber-400 text-xs">★</span>
-              <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-amber-400 rounded-full"
-                  style={{ width: `${pct(rollup.reviewCount)}%` }}
-                />
+          {[5, 4, 3, 2, 1].map((star) => {
+            const count = (rollup as any)[starKey(star)] as number ?? 0;
+            return (
+              <div key={star} className="flex items-center gap-2">
+                <span className="text-slate-400 w-3">{star}</span>
+                <span className="text-amber-400 text-xs">★</span>
+                <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400 rounded-full"
+                    style={{ width: `${pct(count)}%` }}
+                  />
+                </div>
+                <span className="text-slate-500 text-xs w-8 text-right">{pct(count)}%</span>
               </div>
-              <span className="text-slate-500 text-xs w-8 text-right">{pct(rollup.reviewCount)}%</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

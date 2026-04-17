@@ -174,7 +174,7 @@ export class ReviewsService {
   }
 
   private async refreshRollups(prisma: Prisma.TransactionClient, sellerId: string): Promise<void> {
-    const [published, pendingCount, flaggedCount, totalCount] = await Promise.all([
+    const [published, pendingCount, flaggedCount, totalCount, starCounts] = await Promise.all([
       prisma.review.aggregate({
         where: { recipientId: sellerId, status: ReviewStatus.PUBLISHED },
         _avg: { rating: true },
@@ -184,27 +184,37 @@ export class ReviewsService {
       prisma.review.count({ where: { recipientId: sellerId, status: ReviewStatus.PENDING } }),
       prisma.reviewFlag.count({ where: { review: { recipientId: sellerId } } }),
       prisma.review.count({ where: { recipientId: sellerId } }),
+      prisma.review.groupBy({
+        by: ['rating'],
+        where: { recipientId: sellerId, status: ReviewStatus.PUBLISHED },
+        _count: { _all: true },
+      }),
     ]);
+
+    const starMap: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const row of starCounts) {
+      const r = Math.round(row.rating);
+      if (r >= 1 && r <= 5) starMap[r] = row._count._all;
+    }
+
+    const rollupData = {
+      averageRating: new Prisma.Decimal(published._avg.rating ?? 0),
+      reviewCount: totalCount,
+      publishedCount: published._count._all,
+      pendingCount,
+      flaggedCount,
+      star1: starMap[1],
+      star2: starMap[2],
+      star3: starMap[3],
+      star4: starMap[4],
+      star5: starMap[5],
+      lastReviewAt: published._max.createdAt ?? null,
+    };
 
     await prisma.sellerReviewRollup.upsert({
       where: { sellerId },
-      create: {
-        sellerId,
-        averageRating: new Prisma.Decimal(published._avg.rating ?? 0),
-        reviewCount: totalCount,
-        publishedCount: published._count._all,
-        pendingCount,
-        flaggedCount,
-        lastReviewAt: published._max.createdAt ?? null,
-      },
-      update: {
-        averageRating: new Prisma.Decimal(published._avg.rating ?? 0),
-        reviewCount: totalCount,
-        publishedCount: published._count._all,
-        pendingCount,
-        flaggedCount,
-        lastReviewAt: published._max.createdAt ?? null,
-      },
+      create: { sellerId, ...rollupData },
+      update: rollupData,
     });
 
     await this.syncTrustSeed(prisma, sellerId);
