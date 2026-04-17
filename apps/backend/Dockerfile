@@ -1,5 +1,5 @@
 # Base image
-FROM node:20-slim AS base
+FROM node:25-slim AS base
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
