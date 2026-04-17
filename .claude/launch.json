@@ -6,6 +6,24 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev:web"],
       "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev:backend"],
+      "port": 4000
+    },
+    {
+      "name": "mobile",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev:mobile"],
+      "port": 8081
+    },
+    {
+      "name": "prisma-studio",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "backend", "run", "studio"],
+      "port": 5555
     }
   ]
 }
