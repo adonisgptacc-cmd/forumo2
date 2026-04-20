@@ -194,6 +194,13 @@ enum WebhookEventStatus {
   FAILED
 }
 
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
 model User {
   id             String          @id @default(uuid())
   name           String
@@ -242,6 +249,10 @@ model User {
   escrowTransactions EscrowTransaction[] @relation("EscrowTransactionActor")
   storefront      Storefront?
   savedListings   SavedListing[]
+  payouts         Payout[]
+
+  stripeConnectAccountId String?
+  stripeConnectOnboarded Boolean  @default(false)
 }
 
 model UserProfile {
@@ -1050,4 +1061,25 @@ model SavedListing {
 
   @@unique([userId, listingId])
   @@index([userId, createdAt])
+}
+
+model Payout {
+  id                     String       @id @default(uuid())
+  sellerId               String
+  amount                 Int
+  currency               String       @default("zar")
+  stripeTransferId       String?      @unique
+  stripeConnectAccountId String?
+  status                 PayoutStatus @default(PENDING)
+  retryCount             Int          @default(0)
+  scheduledAt            DateTime?
+  processedAt            DateTime?
+  failureReason          String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([sellerId, status])
+  @@index([status, scheduledAt])
 }

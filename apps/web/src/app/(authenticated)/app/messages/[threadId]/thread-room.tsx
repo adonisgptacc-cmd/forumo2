@@ -32,6 +32,19 @@ export function ThreadRoom({ threadId }: { threadId: string }) {
     };
   }, [refetch, threadId, user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || !data?.messages.length) return;
+    const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1').replace(/\/api\/v1$/, '');
+    const socket: Socket = io(`${base}/messages`, { auth: { userId: user.id } });
+    const unread = data.messages.filter(
+      (m) => m.authorId !== user.id && !m.receipts.some((r) => r.userId === user.id && r.readAt != null),
+    );
+    for (const msg of unread) {
+      socket.emit('messages:read', { messageId: msg.id });
+    }
+    socket.disconnect();
+  }, [data?.messages, user?.id]);
+
   if (isLoading) {
     return <p className="text-slate-400">Loading thread…</p>;
   }

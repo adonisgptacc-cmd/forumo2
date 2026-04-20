@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useProfile, useUpdateProfile, useDeleteAvatar, useChangePassword, useAcceptTerms, useExportMyData } from '../../../../lib/react-query/hooks';
+import { useProfile, useUpdateProfile, useDeleteAvatar, useChangePassword, useAcceptTerms, useExportMyData, useBecomeSeller } from '../../../../lib/react-query/hooks';
 
 export function ProfileForm() {
   const { data, isLoading } = useProfile();
@@ -10,7 +10,9 @@ export function ProfileForm() {
   const deleteAvatar = useDeleteAvatar();
   const acceptTerms = useAcceptTerms();
   const exportData = useExportMyData();
+  const becomeSeller = useBecomeSeller();
   const [termsDone, setTermsDone] = useState(false);
+  const [sellerDone, setSellerDone] = useState(false);
 
   async function handleExport() {
     const result = await exportData.refetch();
@@ -237,6 +239,45 @@ export function ProfileForm() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Become a Seller */}
+      {data?.user?.role === 'BUYER' && (
+        <div className="rounded-xl border border-amber-800/40 bg-amber-900/10 p-5 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-amber-300">Become a Seller</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Unlock seller tools — create listings, manage orders, set up your storefront, and start earning.
+              </p>
+            </div>
+            <span className="flex-shrink-0 rounded-full border border-amber-700 px-2 py-0.5 text-xs text-amber-400">
+              {data.user.role}
+            </span>
+          </div>
+          {sellerDone ? (
+            <p className="text-sm text-emerald-400">
+              ✅ You&apos;re now a seller! Refresh the page to access seller tools.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={async () => {
+                await becomeSeller.mutateAsync();
+                setSellerDone(true);
+              }}
+              disabled={becomeSeller.isPending}
+              className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50 transition-colors"
+            >
+              {becomeSeller.isPending ? 'Upgrading account…' : 'Unlock Seller Account'}
+            </button>
+          )}
+          {becomeSeller.isError && (
+            <p className="text-xs text-red-400">
+              {(becomeSeller.error as Error)?.message ?? 'Failed to upgrade account. Please try again.'}
+            </p>
+          )}
         </div>
       )}
 

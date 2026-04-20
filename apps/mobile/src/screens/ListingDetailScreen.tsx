@@ -262,6 +262,14 @@ export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* View Shop */}
+        <TouchableOpacity
+          style={styles.contactBtn}
+          onPress={() => navigation.push('Storefront', { sellerId: listing.sellerId })}
+        >
+          <Text style={styles.contactBtnText}>🛍 View Shop</Text>
+        </TouchableOpacity>
+
         {/* Contact seller */}
         <TouchableOpacity
           style={styles.contactBtn}

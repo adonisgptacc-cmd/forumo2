@@ -32,4 +32,5 @@ export type MainStackParamList = {
   Reviews: { sellerId: string; listingId?: string };
   SellerDashboard: undefined;
   KYC: undefined;
+  Storefront: { sellerId?: string; slug?: string };
 };

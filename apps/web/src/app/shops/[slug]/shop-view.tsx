@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { apiClient } from '../../../lib/api-client';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -155,6 +156,37 @@ function SellerReviewsSection({ sellerId }: { sellerId: string }) {
   );
 }
 
+function MobileAppBanner({ slug }: { slug: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="flex items-center justify-between gap-3 bg-slate-900 border-b border-slate-800 px-4 py-2.5">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-2xl flex-shrink-0">📱</span>
+        <p className="text-xs text-slate-300 leading-snug">
+          Open this shop in the <span className="font-semibold text-white">Forumo app</span> for the best experience
+        </p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <a
+          href={`forumo://shop/${slug}`}
+          className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 transition-colors"
+        >
+          Open app
+        </a>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="text-slate-500 hover:text-slate-300 text-lg leading-none"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function StorefrontView() {
   const params = useParams();
   const slug = params.slug as string;
@@ -203,6 +235,7 @@ export function StorefrontView() {
 
   return (
     <div className="min-h-screen bg-slate-950">
+      <MobileAppBanner slug={slug} />
       {/* Banner */}
       <div className="relative h-56 w-full overflow-hidden bg-slate-900">
         {storefront.bannerUrl ? (

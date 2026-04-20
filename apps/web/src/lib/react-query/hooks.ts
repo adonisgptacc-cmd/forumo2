@@ -6,6 +6,7 @@ import type {
   CreateOfferDto,
   CreateOrderDto,
   CreateReviewDto,
+  CreateThreadDto,
   ListingCategory,
   ListingSearchParams,
   ListingSearchResponse,
@@ -248,6 +249,31 @@ export function useSendMessage(threadId: string) {
       client.invalidateQueries({ queryKey: ['threads'], exact: false });
     },
   });
+}
+
+export function useCreateThread() {
+  const { accessToken } = useCurrentUser();
+  const messaging = useMessagingLayer(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateThreadDto) => messaging.createThread(dto),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['threads'], exact: false });
+    },
+  });
+}
+
+export function useUnreadMessageCount() {
+  const { user } = useCurrentUser();
+  const { data } = useMessageThreads();
+  return useMemo(() => {
+    if (!data?.data || !user?.id) return 0;
+    return data.data.filter((thread) => {
+      const lastMsg = thread.messages.at(-1);
+      if (!lastMsg || lastMsg.authorId === user.id) return false;
+      return !lastMsg.receipts.some((r) => r.userId === user.id && r.readAt != null);
+    }).length;
+  }, [data, user?.id]);
 }
 
 export function useNotifications() {

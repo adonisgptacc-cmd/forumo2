@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../providers/AuthProvider';
+import { navigationRef } from '../navigation/AppNavigator';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -37,20 +38,27 @@ export const usePushNotifications = () => {
       await apiClient.notifications.registerExpoPushToken(token);
     };
 
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      const type = notification.request.content.data?.type as string | undefined;
-      const title = notification.request.content.title ?? 'Inbox update';
-      if (type === 'message') {
-        Alert.alert(title, 'You have a new message.');
-      } else if (type === 'order') {
-        Alert.alert(title, 'An order status was updated.');
-      }
+    const subscription = Notifications.addNotificationReceivedListener((_notification) => {
+      // Foreground: the OS won't show a banner automatically — handled by setNotificationHandler above.
     });
 
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const type = response.notification.request.content.data?.type as string | undefined;
-      if (type === 'message') {
-        Alert.alert('Opening inbox', 'We will take you to your messages when online.');
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      const type = data?.type as string | undefined;
+      const id = data?.id as string | undefined;
+
+      if (!navigationRef.isReady()) return;
+
+      if (type === 'message' && id) {
+        navigationRef.navigate('Thread', { threadId: id });
+      } else if (type === 'order' && id) {
+        navigationRef.navigate('OrderDetail', { orderId: id });
+      } else if (type === 'auction' && id) {
+        navigationRef.navigate('AuctionDetail', { auctionId: id });
+      } else if (type === 'listing' && id) {
+        navigationRef.navigate('ListingDetail', { listingId: id });
+      } else {
+        navigationRef.navigate('Notifications', undefined);
       }
     });
 

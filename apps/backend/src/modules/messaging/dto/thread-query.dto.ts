@@ -4,10 +4,6 @@ import { IsInt, Max, Min } from 'class-validator';
 export class ThreadQueryDto {
   @IsOptional()
   @IsUUID()
-  userId?: string;
-
-  @IsOptional()
-  @IsUUID()
   listingId?: string;
 
   @IsOptional()

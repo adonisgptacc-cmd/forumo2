@@ -9,7 +9,7 @@ import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { KycModule } from './kyc.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { StorageService } from '../storage/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 

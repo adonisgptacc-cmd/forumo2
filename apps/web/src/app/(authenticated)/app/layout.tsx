@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { SignOutButton } from '../../../components/signout-button';
 import { NotificationNavLink } from '../../../components/notification-badge';
+import { MessagesNavLink } from '../../../components/messages-nav-link';
 import { authOptions } from '../../../lib/auth';
 
 const navItems = [
@@ -17,8 +18,9 @@ const navItems = [
   { href: '/app/offers', label: 'Offers' },
   { href: '/app/wishlist', label: 'Wishlist' },
   { href: '/app/inventory', label: 'Inventory' },
-  { href: '/app/messages', label: 'Messages' },
   { href: '/app/cart', label: 'Cart' },
+  { href: '/app/analytics', label: 'Analytics' },
+  { href: '/app/reviews', label: 'My Reviews' },
   { href: '/app/profile', label: 'Profile' },
   { href: '/app/kyc', label: 'Verification' },
 ];
@@ -50,6 +52,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+          <MessagesNavLink />
           <NotificationNavLink />
         </nav>
       </header>

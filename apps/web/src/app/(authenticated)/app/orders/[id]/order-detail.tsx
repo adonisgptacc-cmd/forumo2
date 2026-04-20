@@ -42,6 +42,8 @@ export function OrderDetail({ id }: { id: string }) {
   const [shipCarrier, setShipCarrier] = useState('');
   const [shipTracking, setShipTracking] = useState('');
   const [shipEta, setShipEta] = useState('');
+  const [showRefundForm, setShowRefundForm] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
 
   if (isLoading) {
     return (
@@ -81,6 +83,11 @@ export function OrderDetail({ id }: { id: string }) {
     order.status !== 'PENDING' &&
     order.escrow != null &&
     order.escrow.status === 'HOLDING';
+  const canRequestRefund =
+    isBuyer &&
+    order.escrow?.status === 'HOLDING' &&
+    !['CANCELLED', 'REFUNDED', 'DISPUTED', 'COMPLETED', 'PENDING'].includes(order.status);
+
   const needsPayment =
     isBuyer &&
     order.status !== 'CANCELLED' &&
@@ -522,6 +529,53 @@ export function OrderDetail({ id }: { id: string }) {
               </button>
               <button
                 onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Refund request */}
+        {canRequestRefund && !showRefundForm && (
+          <button
+            onClick={() => setShowRefundForm(true)}
+            className="text-sm text-red-400 hover:text-red-300 hover:underline"
+          >
+            Request a refund →
+          </button>
+        )}
+
+        {showRefundForm && (
+          <div className="rounded-lg border border-red-800 bg-red-950/30 p-4 space-y-3">
+            <p className="text-sm font-medium text-red-300">Request Refund</p>
+            <p className="text-xs text-slate-400">
+              Describe the issue. The seller will be notified and an admin may review the request.
+            </p>
+            <textarea
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              placeholder="e.g. Item not as described, damaged on arrival, never received…"
+              rows={3}
+              className="w-full rounded-lg border border-red-800 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-red-500 focus:outline-none"
+            />
+            {updateStatus.isError && (
+              <p className="text-xs text-red-400">{(updateStatus.error as Error)?.message}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (!refundReason.trim()) return;
+                  updateStatus.mutate({ id: order.id, status: 'REFUNDED', note: refundReason });
+                }}
+                disabled={!refundReason.trim() || updateStatus.isPending}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {updateStatus.isPending ? 'Processing…' : 'Submit refund request'}
+              </button>
+              <button
+                onClick={() => { setShowRefundForm(false); setRefundReason(''); }}
                 className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
               >
                 Cancel

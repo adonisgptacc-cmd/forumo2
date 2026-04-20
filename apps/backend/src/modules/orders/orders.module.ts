@@ -9,9 +9,10 @@ import { PaymentsService } from "./payments.service";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { ObservabilityModule } from "../observability/observability.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { PayoutsModule } from "../payouts/payouts.module";
 
 @Module({
-  imports: [PrismaModule, ObservabilityModule, NotificationsModule],
+  imports: [PrismaModule, ObservabilityModule, NotificationsModule, PayoutsModule],
   controllers: [OrdersController, PaymentsController],
   providers: [OrdersService, PaymentsService, RateLimitService],
   exports: [OrdersService, PaymentsService],

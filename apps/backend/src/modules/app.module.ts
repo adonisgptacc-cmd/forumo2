@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
@@ -21,6 +22,7 @@ import { StorefrontsModule } from "./storefronts/storefronts.module";
 import { OffersModule } from "./offers/offers.module";
 import { WishlistModule } from "./wishlist/wishlist.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { PayoutsModule } from "./payouts/payouts.module";
 
 @Module({
   imports: [
@@ -28,6 +30,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
       isGlobal: true,
       validate: (env) => configSchema.parse(env),
     }),
+    ScheduleModule.forRoot(),
     HealthModule,
     ObservabilityModule,
     NotificationsModule,
@@ -45,6 +48,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     StorefrontsModule,
     OffersModule,
     WishlistModule,
+    PayoutsModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor }],
 })

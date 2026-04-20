@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
 
-import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations } from '../../../lib/react-query/hooks';
+import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations, useCreateThread } from '../../../lib/react-query/hooks';
 import { useCart } from '../../../lib/cart-context';
 
 export function ListingDetail({ id }: { id: string }) {
@@ -31,6 +31,9 @@ export function ListingDetail({ id }: { id: string }) {
   const removeSaved = useRemoveSavedListing();
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('Prohibited item');
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageBody, setMessageBody] = useState('');
+  const createThread = useCreateThread();
   const isSaved = wishlistCheck?.saved ?? false;
 
   const isSubmitting = createReview.isPending;
@@ -255,12 +258,15 @@ export function ListingDetail({ id }: { id: string }) {
                   Make an offer
                 </button>
               )}
-              <Link
-                href={`/app/messages`}
-                className="block text-center w-full py-3 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
-              >
-                Contact Seller
-              </Link>
+              {user && user.id !== data.sellerId && (
+                <button
+                  type="button"
+                  onClick={() => setShowMessageModal(true)}
+                  className="block text-center w-full py-3 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+                >
+                  Contact Seller
+                </button>
+              )}
               {sellerStorefront?.slug && (
                 <Link
                   href={`/shops/${sellerStorefront.slug}` as any}
@@ -270,6 +276,61 @@ export function ListingDetail({ id }: { id: string }) {
                 </Link>
               )}
             </div>
+
+            {/* Contact Seller modal */}
+            {showMessageModal && user && data && user.id !== data.sellerId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-950 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Message seller</h3>
+                  <p className="text-sm text-slate-400 truncate">{data.title}</p>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-300">Message</label>
+                    <textarea
+                      value={messageBody}
+                      onChange={(e) => setMessageBody(e.target.value)}
+                      placeholder="Hi, I have a question about this listing…"
+                      rows={4}
+                      maxLength={2000}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  {createThread.isError && (
+                    <p className="text-sm text-red-400">{(createThread.error as Error)?.message}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={async () => {
+                        const thread = await createThread.mutateAsync({
+                          listingId: data.id,
+                          subject: `Re: ${data.title.slice(0, 100)}`,
+                          participants: [
+                            { userId: user.id, role: 'BUYER' },
+                            { userId: data.sellerId, role: 'SELLER' },
+                          ],
+                          initialMessage: messageBody.trim()
+                            ? { authorId: user.id, body: messageBody.trim() }
+                            : undefined,
+                        });
+                        setShowMessageModal(false);
+                        setMessageBody('');
+                        createThread.reset();
+                        router.push(`/app/messages/${thread.id}` as any);
+                      }}
+                      disabled={createThread.isPending}
+                      className="flex-1 rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {createThread.isPending ? 'Starting…' : 'Start conversation'}
+                    </button>
+                    <button
+                      onClick={() => { setShowMessageModal(false); setMessageBody(''); createThread.reset(); }}
+                      className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Report listing — only for logged-in non-owners */}
             {user && user.id !== data.sellerId && (

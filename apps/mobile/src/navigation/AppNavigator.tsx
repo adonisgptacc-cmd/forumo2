@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavigationContainer, type Theme } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer, createNavigationContainerRef, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
@@ -27,8 +27,40 @@ import { EditListingScreen } from '../screens/EditListingScreen';
 import { ReviewsScreen } from '../screens/ReviewsScreen';
 import { SellerDashboardScreen } from '../screens/SellerDashboardScreen';
 import { KYCScreen } from '../screens/KYCScreen';
+import { StorefrontScreen } from '../screens/StorefrontScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
+
+export const navigationRef = createNavigationContainerRef<MainStackParamList>();
+
+const linking = {
+  prefixes: ['forumo://', 'https://forumo.app'],
+  config: {
+    screens: {
+      Main: {
+        screens: {
+          Tabs: {
+            screens: {
+              Discover: 'discover',
+              Auctions: 'auctions',
+              Orders: 'orders',
+              Inbox: 'inbox',
+              Profile: 'profile',
+            },
+          },
+          ListingDetail: 'listing/:listingId',
+          AuctionDetail: 'auction/:auctionId',
+          OrderDetail: 'order/:orderId',
+          Thread: 'messages/:threadId',
+          Storefront: 'shop/:slug',
+          Notifications: 'notifications',
+          Wishlist: 'wishlist',
+          Reviews: 'reviews/:sellerId',
+        },
+      },
+    },
+  },
+};
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
@@ -50,41 +82,61 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
-const MainTabs = () => (
-  <Tabs.Navigator
-    screenOptions={({ route }) => ({
-      tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
-      tabBarLabelStyle: { fontSize: 11 },
-      headerShown: true,
-    })}
-  >
-    <Tabs.Screen
-      name="Discover"
-      component={ListingDiscoveryScreen}
-      options={{ title: 'Discover' }}
-    />
-    <Tabs.Screen
-      name="Auctions"
-      component={AuctionsTab}
-      options={{ title: 'Auctions' }}
-    />
-    <Tabs.Screen
-      name="Orders"
-      component={OrdersTab}
-      options={{ title: 'Orders' }}
-    />
-    <Tabs.Screen
-      name="Inbox"
-      component={MessagingInboxScreen}
-      options={{ title: 'Inbox' }}
-    />
-    <Tabs.Screen
-      name="Profile"
-      component={ProfileTab}
-      options={{ title: 'Profile' }}
-    />
-  </Tabs.Navigator>
-);
+const MainTabs = () => {
+  const { apiClient, accessToken } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const fetch = async () => {
+      try {
+        const data = await apiClient.notifications.unreadCount();
+        setUnreadCount(data.count ?? 0);
+      } catch {
+        // silently ignore — badge just won't show
+      }
+    };
+    fetch();
+    const interval = setInterval(fetch, 30_000);
+    return () => clearInterval(interval);
+  }, [apiClient, accessToken]);
+
+  return (
+    <Tabs.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
+        tabBarLabelStyle: { fontSize: 11 },
+        headerShown: true,
+      })}
+    >
+      <Tabs.Screen
+        name="Discover"
+        component={ListingDiscoveryScreen}
+        options={{ title: 'Discover' }}
+      />
+      <Tabs.Screen
+        name="Auctions"
+        component={AuctionsTab}
+        options={{ title: 'Auctions' }}
+      />
+      <Tabs.Screen
+        name="Orders"
+        component={OrdersTab}
+        options={{ title: 'Orders' }}
+      />
+      <Tabs.Screen
+        name="Inbox"
+        component={MessagingInboxScreen}
+        options={{ title: 'Inbox', tabBarBadge: unreadCount > 0 ? unreadCount : undefined }}
+      />
+      <Tabs.Screen
+        name="Profile"
+        component={ProfileTab}
+        options={{ title: 'Profile' }}
+      />
+    </Tabs.Navigator>
+  );
+};
 
 const MainNavigator = () => (
   <MainStack.Navigator>
@@ -168,6 +220,11 @@ const MainNavigator = () => (
       component={KYCScreen}
       options={{ title: 'Identity Verification' }}
     />
+    <MainStack.Screen
+      name="Storefront"
+      component={StorefrontScreen}
+      options={{ title: 'Shop' }}
+    />
   </MainStack.Navigator>
 );
 
@@ -175,7 +232,7 @@ export const AppNavigator: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <NavigationContainer theme={mobileNavigationTheme as Theme}>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={mobileNavigationTheme as Theme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           <>

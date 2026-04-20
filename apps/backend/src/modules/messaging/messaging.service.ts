@@ -41,7 +41,7 @@ export class MessagingService implements OnModuleInit {
     this.messagingGateway = this.moduleRef.get(MessagingGateway, { strict: false });
   }
 
-  async listThreads(query: ThreadQueryDto): Promise<{
+  async listThreads(query: ThreadQueryDto, userId: string): Promise<{
     data: SafeMessageThread[];
     total: number;
     page: number;
@@ -51,7 +51,7 @@ export class MessagingService implements OnModuleInit {
     const page = query.page && query.page > 0 ? query.page : 1;
     const pageSize = query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
     const where: Prisma.MessageThreadWhereInput = {
-      participants: query.userId ? { some: { userId: query.userId } } : undefined,
+      participants: { some: { userId } },
       listingId: query.listingId ?? undefined,
     };
 
@@ -91,9 +91,9 @@ export class MessagingService implements OnModuleInit {
     return response;
   }
 
-  async getThread(id: string): Promise<SafeMessageThread> {
+  async getThread(id: string, userId: string): Promise<SafeMessageThread> {
     const thread = await this.prisma.messageThread.findFirst({
-      where: { id },
+      where: { id, participants: { some: { userId } } },
       include: this.defaultInclude,
     });
     if (!thread) {
@@ -102,17 +102,17 @@ export class MessagingService implements OnModuleInit {
     return serializeThread(thread);
   }
 
-  async createThread(dto: CreateThreadDto): Promise<SafeMessageThread> {
+  async createThread(dto: CreateThreadDto, userId: string): Promise<SafeMessageThread> {
+    if (!dto.participants.some((p) => p.userId === userId)) {
+      throw new BadRequestException('Authenticated user must be a participant in the thread');
+    }
     await this.ensureParticipantsExist(dto.participants.map((p) => p.userId));
     if (dto.listingId) {
       await this.ensureListingExists(dto.listingId);
     }
 
     if (dto.initialMessage) {
-      const allowed = dto.participants.some((participant) => participant.userId === dto.initialMessage?.authorId);
-      if (!allowed) {
-        throw new BadRequestException('Initial message author must be a participant');
-      }
+      dto.initialMessage.authorId = userId;
     }
 
     const thread = await this.prisma.messageThread.create({
@@ -135,7 +135,7 @@ export class MessagingService implements OnModuleInit {
       await this.addMessage(thread.id, dto.initialMessage);
     }
 
-    return this.getThread(thread.id);
+    return this.getThread(thread.id, userId);
   }
 
   async addMessage(id: string, dto: SendMessageDto, attachments: Express.Multer.File[] = []): Promise<SafeMessageThread> {
@@ -189,7 +189,7 @@ export class MessagingService implements OnModuleInit {
 
     await this.prisma.messageThread.update({ where: { id }, data: { updatedAt: new Date() } });
 
-    const updatedThread = await this.getThread(id);
+    const updatedThread = await this.getThread(id, dto.authorId);
     if (moderationDecision.status === MessageModerationStatus.APPROVED) {
       await this.messagingGateway?.emitNewMessage(updatedThread, message.id);
     }

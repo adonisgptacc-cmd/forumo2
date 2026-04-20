@@ -15,8 +15,8 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { KycService } from './kyc.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { StorageService } from '../storage/storage.service';
 
 @ApiTags('kyc')

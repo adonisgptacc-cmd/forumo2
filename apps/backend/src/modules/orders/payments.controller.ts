@@ -8,6 +8,7 @@ import { OrdersService } from "./orders.service";
 import { PaymentsService } from "./payments.service";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { AuditLogService } from "../observability/audit-log.service";
+import { PayoutsService } from "../payouts/payouts.service";
 
 interface StripeIntentPayload {
   id: string;
@@ -28,6 +29,7 @@ export class PaymentsController {
     private readonly rateLimit: RateLimitService,
     private readonly auditLog: AuditLogService,
     private readonly configService: ConfigService,
+    private readonly payoutsService: PayoutsService,
   ) {}
 
   @Post('stripe/webhook')
@@ -46,6 +48,31 @@ export class PaymentsController {
     const orderId = intent?.metadata?.orderId ?? payload?.data?.object?.metadata?.orderId;
 
     try {
+      // ── Stripe Connect events (transfer / account) — no orderId needed ──
+      if (event.type === 'transfer.paid') {
+        const transfer = event.data.object as Stripe.Transfer;
+        await this.payoutsService.handleTransferPaid(transfer.id);
+        await this.paymentsService.markWebhookProcessed(eventRecord?.id);
+        return { received: true };
+      }
+
+      if (event.type === 'transfer.failed') {
+        const transfer = event.data.object as Stripe.Transfer;
+        const reason = (transfer as unknown as { failure_message?: string }).failure_message
+          ?? 'Transfer failed';
+        await this.payoutsService.handleTransferFailed(transfer.id, reason);
+        await this.paymentsService.markWebhookProcessed(eventRecord?.id);
+        return { received: true };
+      }
+
+      if (event.type === 'account.updated') {
+        const account = event.data.object as Stripe.Account;
+        await this.payoutsService.handleAccountUpdated(account);
+        await this.paymentsService.markWebhookProcessed(eventRecord?.id);
+        return { received: true };
+      }
+
+      // ── Payment-intent events — require orderId ──
       if (!orderId) {
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
         return { received: true };

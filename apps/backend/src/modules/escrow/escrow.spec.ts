@@ -9,7 +9,7 @@ import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EscrowModule } from './escrow.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const BUYER_ID = 'buyer-escrow-1';

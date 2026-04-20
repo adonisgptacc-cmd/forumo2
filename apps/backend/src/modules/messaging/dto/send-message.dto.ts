@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class SendMessageDto {
+  @IsOptional()
   @IsUUID()
   authorId!: string;
 

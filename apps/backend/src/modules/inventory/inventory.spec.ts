@@ -7,7 +7,7 @@ import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryModule } from './inventory.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 const VARIANT_ID = 'variant-inv-1';
 const ORDER_ID = 'order-inv-1';
