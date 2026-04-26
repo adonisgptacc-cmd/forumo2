@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { webcrypto } from 'node:crypto';
 import { ZodValidationPipe, cleanupOpenApiDoc } from 'nestjs-zod';
 import { AppModule } from './modules/app.module';
 import { ConfigService } from '@nestjs/config';
@@ -8,6 +9,12 @@ import { TelemetryLogger } from './telemetry/logger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+
+if (!globalThis.crypto) {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+  });
+}
 
 function validateEnv() {
   const required = ['DATABASE_URL', 'JWT_SECRET'];

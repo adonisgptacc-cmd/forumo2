@@ -58,10 +58,11 @@ async function main() {
   // ── Categories ───────────────────────────────────────────────────
   const categories = ['Electronics', 'Fashion', 'Home & Kitchen', 'Sports', 'Books', 'Vehicles', 'Agriculture'];
   for (const name of categories) {
+    const slug = name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     await prisma.listingCategory.upsert({
-      where: { name },
-      update: {},
-      create: { name, description: `${name} listings` },
+      where: { slug },
+      update: { name, description: `${name} listings` },
+      create: { slug, name, description: `${name} listings` },
     });
   }
   console.log(`✓ Categories: ${categories.join(', ')}`);

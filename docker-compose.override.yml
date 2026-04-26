@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./docker/postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
 
@@ -37,7 +37,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./docker/redis-data:/data
+      - redis-data:/data
 
   minio:
     image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
@@ -56,7 +56,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - ./docker/minio-data:/data
+      - minio-data:/data
 
   mailpit:
     image: axllent/mailpit:latest
