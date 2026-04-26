@@ -20,4 +20,7 @@ export const queryKeys = {
   myListings: ['listings', 'mine'] as const,
   auctions: (params: Record<string, unknown>) => ['auctions', params] as const,
   escrowDetails: (orderId: string) => ['escrow', orderId] as const,
+  payoutBalance: ['payouts', 'balance'] as const,
+  payouts: (page: number) => ['payouts', 'list', page] as const,
+  payoutOnboard: ['payouts', 'onboard'] as const,
 };

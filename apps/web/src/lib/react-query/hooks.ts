@@ -627,13 +627,13 @@ export function useCollectionMutations() {
 // --- KYC ---
 
 export interface KycSubmission {
-  id: string;
-  userId: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  submittedAt: string;
+  id?: string;
+  userId?: string;
+  status: 'unverified' | 'pending' | 'approved' | 'rejected' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  submittedAt?: string;
   reviewedAt?: string | null;
   rejectionReason?: string | null;
-  documents: Array<{ id: string; type: string; url: string; status: string }>;
+  documents?: Array<{ id: string; type: string; url: string; status: string }>;
 }
 
 export function useKycStatus() {
@@ -649,6 +649,10 @@ export function useKycStatus() {
       }
     },
     enabled: !!accessToken,
+    refetchInterval: (query) => {
+      const status = (query.state.data?.status ?? '').toLowerCase();
+      return status === 'pending' ? 30_000 : false;
+    },
   });
 }
 
@@ -874,11 +878,43 @@ export function useAddDisputeMessage() {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
   const client = useQueryClient();
-  return useMutation<unknown, Error, { disputeId: string; orderId: string; body: string }>({
-    mutationFn: ({ disputeId, body }) =>
-      api.post(`/escrow/disputes/${disputeId}/messages`, { body }, { auth: true }),
+  return useMutation<unknown, Error, { disputeId: string; orderId: string; body: string; attachments?: string[] }>({
+    mutationFn: ({ disputeId, body, attachments }) =>
+      api.post(`/escrow/disputes/${disputeId}/messages`, { body, attachments }, { auth: true }),
     onSuccess: (_, { orderId }) => {
       client.invalidateQueries({ queryKey: queryKeys.escrowDetails(orderId) });
+    },
+  });
+}
+
+export function useDisputeDetails(orderId: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<unknown>({
+    queryKey: orderId ? queryKeys.escrowDetails(orderId) : ['escrow', null],
+    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }),
+    enabled: Boolean(accessToken) && Boolean(orderId),
+    refetchInterval: 10_000,
+  });
+}
+
+export function useResolveDispute() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation<unknown, Error, {
+    disputeId: string;
+    orderId: string;
+    resolution: string;
+    action: 'RELEASE' | 'REFUND' | 'PARTIAL_REFUND';
+    refundAmountCents?: number;
+  }>({
+    mutationFn: ({ disputeId, resolution, action, refundAmountCents }) =>
+      api.patch(`/escrow/disputes/${disputeId}/resolve`, { resolution, action, refundAmountCents }, { auth: true }),
+    onSuccess: (_, { orderId }) => {
+      client.invalidateQueries({ queryKey: queryKeys.escrowDetails(orderId) });
+      client.invalidateQueries({ queryKey: queryKeys.order(orderId) });
+      client.invalidateQueries({ queryKey: queryKeys.orders });
     },
   });
 }
@@ -898,6 +934,51 @@ export function useExportMyData() {
     queryKey: ['user', 'export'],
     queryFn: () => api.users.exportData(),
     enabled: false,
+  });
+}
+
+// --- Payouts ---
+
+export function usePayoutBalance() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery({
+    queryKey: queryKeys.payoutBalance,
+    queryFn: () => api.payouts.getBalance(),
+    enabled: !!accessToken,
+  });
+}
+
+export function usePayouts(page = 1) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery({
+    queryKey: queryKeys.payouts(page),
+    queryFn: () => api.payouts.list(page),
+    enabled: !!accessToken,
+  });
+}
+
+export function usePayoutOnboard() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery({
+    queryKey: queryKeys.payoutOnboard,
+    queryFn: () => api.payouts.getOnboardStatus(),
+    enabled: !!accessToken,
+  });
+}
+
+export function useRequestPayout() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (amountCents: number) => api.payouts.requestPayout(amountCents),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.payoutBalance });
+      client.invalidateQueries({ queryKey: ['payouts', 'list'], exact: false });
+    },
   });
 }
 

@@ -15,6 +15,7 @@ const navItems = [
   { href: '/app/storefront', label: 'Storefront' },
   { href: '/app/auctions/new', label: 'Create Auction' },
   { href: '/app/orders', label: 'Orders' },
+  { href: '/app/disputes', label: 'Disputes' },
   { href: '/app/offers', label: 'Offers' },
   { href: '/app/wishlist', label: 'Wishlist' },
   { href: '/app/inventory', label: 'Inventory' },

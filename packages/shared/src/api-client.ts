@@ -678,6 +678,52 @@ export class ForumoApiClient {
     },
   };
 
+  readonly payouts = {
+    getBalance: async (): Promise<{
+      availableCents: number;
+      currency: string;
+      nextPayoutDate: string | null;
+      totalPaidCents: number;
+      minimumPayoutCents: number;
+      completedPayoutCount: number;
+    }> => {
+      return this.request('/payouts/balance', { method: 'GET', auth: true });
+    },
+    list: async (page = 1): Promise<{
+      data: Array<{
+        id: string;
+        amountCents: number;
+        currency: string;
+        status: 'pending' | 'processing' | 'paid' | 'failed';
+        transferId: string | null;
+        notes: string | null;
+        createdAt: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }> => {
+      return this.request(`/payouts?page=${page}`, { method: 'GET', auth: true });
+    },
+    getOnboardStatus: async (): Promise<{
+      status: 'incomplete' | 'pending' | 'connected';
+      onboardingUrl?: string;
+    }> => {
+      return this.request('/payouts/onboard', { method: 'GET', auth: true });
+    },
+    requestPayout: async (amountCents: number): Promise<{
+      id: string;
+      amountCents: number;
+      currency: string;
+      status: 'pending' | 'processing' | 'paid' | 'failed';
+      transferId: string | null;
+      notes: string | null;
+      createdAt: string;
+    }> => {
+      return this.requestJson('/payouts/request', { method: 'POST', auth: true, body: { amountCents } });
+    },
+  };
+
   readonly storefronts = {
     create: async (payload: CreateStorefrontDto): Promise<Storefront> => {
       const parsed = createStorefrontSchema.parse(payload);
