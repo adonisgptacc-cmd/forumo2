@@ -30,6 +30,8 @@ enum OtpPurpose {
 enum AccountStatus {
   ACTIVE
   SUSPENDED
+  BANNED
+  PENDING_VERIFICATION
   DELETED
 }
 
@@ -49,6 +51,7 @@ enum ListingStatus {
   DRAFT
   PUBLISHED
   PAUSED
+  SUSPENDED
 }
 
 enum ListingType {
@@ -214,6 +217,10 @@ model User {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
+  accountStatus     AccountStatus   @default(ACTIVE)
+  suspensionReason  String?
+  suspendedUntil    DateTime?
+  banReason         String?
   tokenVersion      Int             @default(0)
   lastLoginAt       DateTime?
   termsAcceptedAt   DateTime?
@@ -249,7 +256,9 @@ model User {
   escrowTransactions EscrowTransaction[] @relation("EscrowTransactionActor")
   storefront      Storefront?
   savedListings   SavedListing[]
+  cart            Cart?
   payouts         Payout[]
+  createdFeeSchedules FeeSchedule[] @relation("FeeScheduleCreator")
 
   stripeConnectAccountId String?
   stripeConnectOnboarded Boolean  @default(false)
@@ -388,6 +397,7 @@ model Listing {
   offers       Offer[]
   threads      MessageThread[]       @relation("ListingThreadMessages")
   savedBy      SavedListing[]
+  cartItems    CartItem[]
 
   @@index([sellerId])
   @@index([status])
@@ -449,6 +459,7 @@ model ListingCategory {
   parent   ListingCategory?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children ListingCategory[]    @relation("CategoryHierarchy")
   listings ListingCategoryAssignment[]
+  feeSchedules FeeSchedule[]
 }
 
 model ListingCategoryAssignment {
@@ -509,6 +520,7 @@ model Order {
   totalItemCents   Int
   shippingCents    Int          @default(0)
   feeCents         Int          @default(0)
+  feePercent       Float        @default(0)
   currency         String       @default("USD")
   shippingAddressId String?
   billingAddressId String?
@@ -817,18 +829,19 @@ model MessageDeliveryReceipt {
 }
 
 model Review {
-  id          String       @id @default(uuid())
-  reviewerId  String
-  recipientId String
-  listingId   String
-  orderId     String
-  rating      Int
-  comment     String?
-  status      ReviewStatus @default(PENDING)
-  moderationNotes String?
-  metadata    Json?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id               String       @id @default(uuid())
+  reviewerId       String
+  recipientId      String
+  listingId        String
+  orderId          String
+  rating           Int
+  comment          String?
+  status           ReviewStatus @default(PENDING)
+  moderationNotes  String?
+  metadata         Json?
+  verifiedPurchase Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   reviewer  User    @relation("ReviewAuthor", fields: [reviewerId], references: [id])
   recipient User    @relation("ReviewRecipient", fields: [recipientId], references: [id])
@@ -1082,4 +1095,48 @@ model Payout {
 
   @@index([sellerId, status])
   @@index([status, scheduledAt])
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id            String   @id @default(uuid())
+  cartId        String
+  listingId     String
+  quantity      Int
+  priceSnapshot Int
+  addedAt       DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, listingId])
+  @@index([cartId])
+}
+
+model FeeSchedule {
+  id            String          @id @default(uuid())
+  name          String
+  categoryId    String?
+  feePercent    Decimal         @db.Decimal(5, 2)
+  fixedFeeCents Int             @default(0)
+  minFeeCents   Int             @default(0)
+  maxFeeCents   Int?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  createdBy     String
+
+  category ListingCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  creator  User             @relation("FeeScheduleCreator", fields: [createdBy], references: [id])
+
+  @@index([categoryId, isActive])
 }

@@ -17,6 +17,7 @@ import { OrderWithRelations, SafeOrder, serializeOrder } from "./order.serialize
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { FeeService } from "../fees/fee.service";
 
 @Injectable()
 export class OrdersService {
@@ -24,11 +25,19 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
     private readonly notifications: NotificationsService,
+    private readonly feeService: FeeService,
   ) { }
 
-  async findAll(userId: string): Promise<SafeOrder[]> {
+  async findAll(userId: string, filters?: { listingId?: string; status?: string }): Promise<SafeOrder[]> {
+    const where: Record<string, unknown> = { OR: [{ buyerId: userId }, { sellerId: userId }] };
+    if (filters?.status) {
+      where['status'] = filters.status;
+    }
+    if (filters?.listingId) {
+      where['items'] = { some: { listingId: filters.listingId } };
+    }
     const orders = (await this.prisma.order.findMany({
-      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
+      where,
       orderBy: { createdAt: 'desc' },
       include: this.defaultInclude,
     })) as OrderWithRelations[];
@@ -57,7 +66,12 @@ export class OrdersService {
     const currency = dto.currency ?? lineItems[0]?.currency ?? 'USD';
 
     const shippingCents = dto.shippingCents ?? 0;
-    const feeCents = dto.feeCents ?? 0;
+
+    // Auto-calculate platform fee from the fee schedule (use first listing as proxy for category lookup)
+    const primaryListingId = lineItems[0]?.listingId;
+    const { feeAmountCents: feeCents, feePercent } = primaryListingId
+      ? await this.feeService.calculateFee(totalItemCents, primaryListingId)
+      : { feeAmountCents: 0, feePercent: 0 };
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -68,6 +82,7 @@ export class OrdersService {
           totalItemCents,
           shippingCents,
           feeCents,
+          feePercent,
           currency,
           shippingAddressId: dto.shippingAddressId ?? null,
           billingAddressId: dto.billingAddressId ?? null,

@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin/moderations', label: 'Listing Moderation', roles: ['ADMIN', 'MODERATOR'] },
   { href: '/admin/disputes', label: 'Disputes', roles: ['ADMIN', 'MODERATOR'] },
   { href: '/admin/categories', label: 'Categories & Tags', roles: ['ADMIN'] },
+  { href: '/admin/fees', label: 'Fee Schedules', roles: ['ADMIN'] },
 ];
 
 const allowedRoles = ['ADMIN', 'MODERATOR'];

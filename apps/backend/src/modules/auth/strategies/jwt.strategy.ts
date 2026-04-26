@@ -2,9 +2,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { Request } from 'express';
 
 import { UsersService } from "../../users/users.service";
 import { SafeUser } from "../../users/user.serializer";
+import { assertAccountActive } from "../../../common/guards/account-status.guard";
 
 export interface JwtPayload {
   sub: string;
@@ -14,18 +16,23 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly configService: ConfigService, private readonly usersService: UsersService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: JwtPayload): Promise<SafeUser> {
+  async validate(req: Request, payload: JwtPayload): Promise<SafeUser> {
     const user = await this.usersService.findById(payload.sub);
     if (user.tokenVersion !== payload.tokenVersion) {
       throw new UnauthorizedException('Session expired');
     }
+    assertAccountActive(user, req);
     return user;
   }
 }

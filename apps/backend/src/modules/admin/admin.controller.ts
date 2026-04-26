@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -79,5 +79,31 @@ export class AdminController {
   getOrder(@Param('id') id: string) {
     // No userId param → skips ownership check, admin can view any order
     return this.ordersService.findById(id);
+  }
+
+  // ─── Account Status ───────────────────────────────────────────────────────
+
+  @Post('users/:id/suspend')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  suspendUser(
+    @Param('id') id: string,
+    @Body() body: { reason: string; durationDays?: number | null },
+  ): Promise<void> {
+    return this.adminService.suspendUser(id, body.reason, body.durationDays ?? null);
+  }
+
+  @Post('users/:id/unsuspend')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unsuspendUser(@Param('id') id: string): Promise<void> {
+    return this.adminService.unsuspendUser(id);
+  }
+
+  @Post('users/:id/ban')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  banUser(
+    @Param('id') id: string,
+    @Body() body: { reason: string },
+  ): Promise<void> {
+    return this.adminService.banUser(id, body.reason);
   }
 }

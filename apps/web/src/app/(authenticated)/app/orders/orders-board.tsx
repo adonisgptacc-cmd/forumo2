@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { useOrders } from '../../../../lib/react-query/hooks';
+import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 
 export function OrdersBoard() {
   const { data, isLoading } = useOrders();
@@ -47,7 +48,15 @@ export function OrdersBoard() {
   return (
     <div className="space-y-4">
       {data.map((order) => (
-        <article key={order.id} className="grid-card space-y-3">
+        <ErrorBoundary
+          key={order.id}
+          fallback={
+            <div className="grid-card py-4 text-center text-sm text-slate-400">
+              Could not load this order
+            </div>
+          }
+        >
+        <article className="grid-card space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{order.status}</p>
@@ -87,6 +96,7 @@ export function OrdersBoard() {
             </div>
           </div>
         </article>
+        </ErrorBoundary>
       ))}
     </div>
   );

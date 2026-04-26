@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../../../../lib/cart-context';
-import { useCurrentUser, useCreateOrder, useInitiatePayment, useAddresses } from '../../../../lib/react-query/hooks';
+import { useCurrentUser, useCreateOrder, useInitiatePayment, useAddresses, useFeePreview } from '../../../../lib/react-query/hooks';
 import { StripeProvider } from '../../../../components/stripe-provider';
 import { PaymentForm } from '../../../../components/payment-form';
+import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import type { SafeOrder } from '@forumo/shared';
 
 function formatPrice(cents: number, currency: string) {
@@ -13,6 +14,57 @@ function formatPrice(cents: number, currency: string) {
 }
 
 type CheckoutStep = 'review' | 'payment' | 'confirmed';
+
+function SellerOrderCard({
+  sellerId,
+  sellerItems,
+  error,
+}: {
+  sellerId: string;
+  sellerItems: ReturnType<typeof useCart>['items'];
+  error?: string;
+}) {
+  const subtotal = sellerItems.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+  const currency = sellerItems[0]?.currency ?? 'USD';
+  const primaryListingId = sellerItems[0]?.listingId ?? null;
+  const { data: feePreview } = useFeePreview(primaryListingId, subtotal);
+
+  return (
+    <div className="card-forumo space-y-3">
+      <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+        Seller: {sellerItems[0]?.sellerName ?? sellerId.slice(0, 8)}
+      </p>
+      {sellerItems.map((item) => (
+        <div
+          key={`${item.listingId}:${item.variantId ?? ''}`}
+          className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0"
+        >
+          <div>
+            <p className="font-medium">{item.title}</p>
+            {item.variantLabel && <p className="text-slate-400 text-xs">{item.variantLabel}</p>}
+            <p className="text-slate-500">Qty: {item.quantity}</p>
+          </div>
+          <p className="font-semibold">{formatPrice(item.priceCents * item.quantity, item.currency)}</p>
+        </div>
+      ))}
+      <div className="flex justify-between text-sm pt-1 text-slate-600">
+        <span>Subtotal</span>
+        <span>{formatPrice(subtotal, currency)}</span>
+      </div>
+      {feePreview && feePreview.feeAmountCents > 0 && (
+        <div className="flex justify-between text-sm text-slate-500">
+          <span>Platform fee ({feePreview.feePercent}%)</span>
+          <span>{formatPrice(feePreview.feeAmountCents, currency)}</span>
+        </div>
+      )}
+      <div className="flex justify-between font-bold pt-1 border-t border-slate-100">
+        <span>Order total</span>
+        <span>{formatPrice(subtotal + (feePreview?.feeAmountCents ?? 0), currency)}</span>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 export function CheckoutFlow() {
   const { items, groupedBySeller, clearSellerItems, itemCount } = useCart();
@@ -49,12 +101,21 @@ export function CheckoutFlow() {
           <p className="text-sm text-slate-500 mt-1">Your order has been created. Please complete payment to confirm.</p>
         </div>
         <div className="card-forumo">
-          <StripeProvider clientSecret={payment.clientSecret}>
-            <PaymentForm
-              onSuccess={() => setStep('confirmed')}
-              onError={(msg) => setErrors((prev) => ({ ...prev, stripe: msg }))}
-            />
-          </StripeProvider>
+          <ErrorBoundary
+            fallback={
+              <div className="py-8 text-center space-y-2">
+                <p className="text-sm font-medium text-slate-700">Payment form couldn&apos;t load</p>
+                <p className="text-xs text-slate-500">Please refresh the page and try again, or contact support.</p>
+              </div>
+            }
+          >
+            <StripeProvider clientSecret={payment.clientSecret}>
+              <PaymentForm
+                onSuccess={() => setStep('confirmed')}
+                onError={(msg) => setErrors((prev) => ({ ...prev, stripe: msg }))}
+              />
+            </StripeProvider>
+          </ErrorBoundary>
           {errors.stripe && <p className="text-sm text-red-600 mt-2">{errors.stripe}</p>}
         </div>
       </div>
@@ -143,33 +204,14 @@ export function CheckoutFlow() {
         <h1 className="text-2xl font-bold">Review your order</h1>
       </div>
 
-      {Array.from(groupedBySeller.entries()).map(([sellerId, sellerItems]) => {
-        const subtotal = sellerItems.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
-        const currency = sellerItems[0]?.currency ?? 'USD';
-        const isPlacing = placingFor === sellerId;
-        return (
-          <div key={sellerId} className="card-forumo space-y-3">
-            <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-              Seller: {sellerItems[0]?.sellerName ?? sellerId.slice(0, 8)}
-            </p>
-            {sellerItems.map((item) => (
-              <div key={`${item.listingId}:${item.variantId ?? ''}`} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
-                <div>
-                  <p className="font-medium">{item.title}</p>
-                  {item.variantLabel && <p className="text-slate-400 text-xs">{item.variantLabel}</p>}
-                  <p className="text-slate-500">Qty: {item.quantity}</p>
-                </div>
-                <p className="font-semibold">{formatPrice(item.priceCents * item.quantity, item.currency)}</p>
-              </div>
-            ))}
-            <div className="flex justify-between font-bold pt-1">
-              <span>Subtotal</span>
-              <span>{formatPrice(subtotal, currency)}</span>
-            </div>
-            {errors[sellerId] && <p className="text-sm text-red-600">{errors[sellerId]}</p>}
-          </div>
-        );
-      })}
+      {Array.from(groupedBySeller.entries()).map(([sellerId, sellerItems]) => (
+        <SellerOrderCard
+          key={sellerId}
+          sellerId={sellerId}
+          sellerItems={sellerItems}
+          error={errors[sellerId]}
+        />
+      ))}
 
       {/* Shipping address picker */}
       <div className="card-forumo space-y-3">
@@ -211,13 +253,14 @@ export function CheckoutFlow() {
       </div>
 
       <div className="card-forumo space-y-3">
-        <div className="flex justify-between font-bold text-lg">
-          <span>Grand Total</span>
+        <div className="flex justify-between text-sm text-slate-500">
+          <span>Items subtotal</span>
           <span>{formatPrice(
             Array.from(groupedBySeller.values()).flat().reduce((sum, i) => sum + i.priceCents * i.quantity, 0),
             items[0]?.currency ?? 'USD'
           )}</span>
         </div>
+        <p className="text-xs text-slate-400">Platform fees and order totals are shown per seller above.</p>
         <button
           type="button"
           className="btn-forumo w-full py-3 text-lg font-bold"

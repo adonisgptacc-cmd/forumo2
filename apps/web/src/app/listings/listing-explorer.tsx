@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { useListings, useCategories } from '../../lib/react-query/hooks';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 const DEFAULTS: ListingSearchParams = {
   keyword: undefined,
@@ -185,34 +186,16 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" aria-busy={isFetching}>
             {data.data.map((listing) => (
-              <Link key={listing.id} href={`/listings/${listing.id}`} className="card-forumo group hover:shadow-lg transition-shadow">
-                <div className="relative aspect-square bg-slate-100 rounded overflow-hidden mb-3">
-                  {listing.images && listing.images.length > 0 ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={listing.images[0].url}
-                      alt={listing.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
-                  {listing.status === 'DRAFT' && (
-                    <span className="absolute top-2 left-2 bg-slate-600 text-white text-xs px-2 py-0.5 rounded">Draft</span>
-                  )}
-                </div>
-                <h3 className="text-sm font-medium line-clamp-2 group-hover:text-forumo-link min-h-[2.5rem]">
-                  {listing.title}
-                </h3>
-                {listing.location && (
-                  <p className="text-xs text-slate-400 mt-1">{listing.location}</p>
-                )}
-                <p className="text-lg font-bold mt-1">{formatPrice(listing.priceCents, listing.currency ?? 'USD')}</p>
-              </Link>
+              <ErrorBoundary
+                key={listing.id}
+                fallback={
+                  <div className="card-forumo flex items-center justify-center aspect-square text-xs text-slate-400 text-center p-4">
+                    Could not load this item
+                  </div>
+                }
+              >
+                <ListingCard listing={listing} />
+              </ErrorBoundary>
             ))}
           </div>
         </div>
@@ -226,6 +209,39 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
         </div>
       )}
     </div>
+  );
+}
+
+function ListingCard({ listing }: { listing: { id: string; title: string; images?: { url: string }[] | null; location?: string | null; status: string; priceCents: number; currency?: string | null } }) {
+  return (
+    <Link href={`/listings/${listing.id}`} className="card-forumo group hover:shadow-lg transition-shadow">
+      <div className="relative aspect-square bg-slate-100 rounded overflow-hidden mb-3">
+        {listing.images && listing.images.length > 0 ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.images[0].url}
+            alt={listing.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-300">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        )}
+        {listing.status === 'DRAFT' && (
+          <span className="absolute top-2 left-2 bg-slate-600 text-white text-xs px-2 py-0.5 rounded">Draft</span>
+        )}
+      </div>
+      <h3 className="text-sm font-medium line-clamp-2 group-hover:text-forumo-link min-h-[2.5rem]">
+        {listing.title}
+      </h3>
+      {listing.location && (
+        <p className="text-xs text-slate-400 mt-1">{listing.location}</p>
+      )}
+      <p className="text-lg font-bold mt-1">{formatPrice(listing.priceCents, listing.currency ?? 'USD')}</p>
+    </Link>
   );
 }
 

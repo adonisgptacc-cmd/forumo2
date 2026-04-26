@@ -223,6 +223,7 @@ export const reviewSchema = z.object({
   moderationNotes: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  verifiedPurchase: z.boolean().default(false),
   reviewer: safeUserSchema.nullable().optional(),
   flags: z.array(reviewFlagSchema).default([]),
 });
@@ -256,6 +257,43 @@ export const createReviewSchema = z.object({
 });
 export type CreateReviewDto = z.infer<typeof createReviewSchema>;
 
+export const feeScheduleSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  categoryId: z.string().uuid().nullable(),
+  feePercent: z.number(),
+  fixedFeeCents: z.number().int(),
+  minFeeCents: z.number().int(),
+  maxFeeCents: z.number().int().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+  createdBy: z.string().uuid(),
+  category: z.object({ id: z.string(), name: z.string(), slug: z.string() }).nullable().optional(),
+});
+export type FeeSchedule = z.infer<typeof feeScheduleSchema>;
+
+export const createFeeScheduleSchema = z.object({
+  name: z.string().min(1),
+  categoryId: z.string().uuid().nullable().optional(),
+  feePercent: z.number().min(0).max(50),
+  fixedFeeCents: z.number().int().nonnegative().optional(),
+  minFeeCents: z.number().int().nonnegative().optional(),
+  maxFeeCents: z.number().int().nonnegative().nullable().optional(),
+});
+export type CreateFeeScheduleDto = z.infer<typeof createFeeScheduleSchema>;
+
+export const updateFeeScheduleSchema = createFeeScheduleSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdateFeeScheduleDto = z.infer<typeof updateFeeScheduleSchema>;
+
+export const feePreviewSchema = z.object({
+  feeAmountCents: z.number().int(),
+  feePercent: z.number(),
+  breakdown: z.object({ percentPart: z.number().int(), fixedPart: z.number().int() }),
+});
+export type FeePreview = z.infer<typeof feePreviewSchema>;
+
 export const safeOrderSchema = z.object({
   id: z.string().uuid(),
   orderNumber: z.string(),
@@ -266,6 +304,7 @@ export const safeOrderSchema = z.object({
   totalItemCents: z.number().int(),
   shippingCents: z.number().int(),
   feeCents: z.number().int(),
+  feePercent: z.number().default(0),
   currency: z.string(),
   metadata: z.record(z.any()).nullable().optional(),
   placedAt: z.string().datetime().nullable().optional(),

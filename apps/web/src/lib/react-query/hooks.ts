@@ -5,6 +5,10 @@ import type {
   CreateListingDto,
   CreateOfferDto,
   CreateOrderDto,
+  CreateFeeScheduleDto,
+  UpdateFeeScheduleDto,
+  FeeSchedule,
+  FeePreview,
   CreateReviewDto,
   CreateThreadDto,
   ListingCategory,
@@ -73,6 +77,16 @@ export function useListingReviews(listingId: string | null) {
     queryKey: listingId ? queryKeys.listingReviews(listingId) : ['listing', null, 'reviews'],
     queryFn: () => (listingId ? api.reviews.forListing(listingId) : Promise.resolve(null)),
     enabled: Boolean(listingId),
+  });
+}
+
+export function useDeliveredOrdersForListing(listingId: string | null) {
+  const { accessToken, user } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SafeOrder[]>({
+    queryKey: listingId ? queryKeys.deliveredOrdersForListing(listingId) : ['orders', 'delivered', null],
+    queryFn: () => api.orders.listFiltered({ listingId: listingId!, status: 'DELIVERED' }),
+    enabled: Boolean(listingId) && Boolean(user),
   });
 }
 
@@ -993,5 +1007,47 @@ export function useBecomeSeller() {
       client.invalidateQueries({ queryKey: ['user'], exact: false });
       client.invalidateQueries({ queryKey: ['profile'], exact: false });
     },
+  });
+}
+
+export function useFeeSchedules() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<FeeSchedule[]>({
+    queryKey: queryKeys.feeSchedules,
+    queryFn: () => api.adminFeeSchedules.list(),
+    enabled: !!accessToken,
+  });
+}
+
+export function useFeeScheduleMutations() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  const invalidate = () => client.invalidateQueries({ queryKey: queryKeys.feeSchedules });
+
+  const create = useMutation({
+    mutationFn: (payload: CreateFeeScheduleDto) => api.adminFeeSchedules.create(payload),
+    onSuccess: invalidate,
+  });
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateFeeScheduleDto }) =>
+      api.adminFeeSchedules.update(id, payload),
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.adminFeeSchedules.remove(id),
+    onSuccess: invalidate,
+  });
+  return { create, update, remove };
+}
+
+export function useFeePreview(listingId: string | null, subtotalCents: number) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<FeePreview>({
+    queryKey: queryKeys.feePreview(listingId ?? '', subtotalCents),
+    queryFn: () => api.fees.preview(listingId!, subtotalCents),
+    enabled: !!accessToken && !!listingId && subtotalCents > 0,
   });
 }

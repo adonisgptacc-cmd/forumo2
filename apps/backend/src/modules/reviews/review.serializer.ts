@@ -19,6 +19,7 @@ export interface SafeReview {
   comment?: string | null;
   status: ReviewStatus;
   moderationNotes?: string | null;
+  verifiedPurchase: boolean;
   createdAt: Date;
   updatedAt: Date;
   reviewer?: SafeUser | null;
@@ -55,6 +56,7 @@ type ReviewWithRelations = {
   comment: string | null;
   status: ReviewStatus;
   moderationNotes: string | null;
+  verifiedPurchase: boolean;
   createdAt: Date;
   updatedAt: Date;
   reviewer?: SafeUser | null;
@@ -71,6 +73,7 @@ export const serializeReview = (review: ReviewWithRelations): SafeReview => ({
   comment: review.comment,
   status: review.status,
   moderationNotes: review.moderationNotes,
+  verifiedPurchase: review.verifiedPurchase,
   createdAt: review.createdAt,
   updatedAt: review.updatedAt,
   reviewer: sanitizeUser(review.reviewer ?? null),

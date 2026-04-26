@@ -144,6 +144,29 @@ export class NotificationsService {
     await this.sendEmail(buyerEmail, `Refund processed — Order ${orderId}`, html);
   }
 
+  async notifyAccountSuspended(
+    toEmail: string,
+    toName: string,
+    reason: string,
+    suspendedUntil: Date | null,
+  ): Promise<void> {
+    const duration = suspendedUntil
+      ? `until ${suspendedUntil.toUTCString()}`
+      : 'indefinitely';
+    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been suspended ${duration}.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please <a href="https://forumo.app/appeal">submit an appeal</a>.</p>`;
+    await this.sendEmail(toEmail, 'Your account has been suspended', html);
+  }
+
+  async notifyAccountUnsuspended(toEmail: string, toName: string): Promise<void> {
+    const html = `<p>Hi ${toName},</p><p>Your Forumo account suspension has been lifted. You can now log in and resume activity.</p>`;
+    await this.sendEmail(toEmail, 'Your account suspension has been lifted', html);
+  }
+
+  async notifyAccountBanned(toEmail: string, toName: string, reason: string): Promise<void> {
+    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been permanently banned.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please contact <a href="mailto:support@forumo.app">support@forumo.app</a>.</p>`;
+    await this.sendEmail(toEmail, 'Your account has been banned', html);
+  }
+
   async notifyDisputeOpened(orderId: string, disputeId: string, reason: string): Promise<void> {
     const adminEmail = this.config.get<string>('ADMIN_NOTIFICATION_EMAIL');
     if (!adminEmail) {

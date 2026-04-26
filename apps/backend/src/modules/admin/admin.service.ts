@@ -1,11 +1,123 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PrismaService } from "../../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { AdminDisputeSummary, AdminKycSubmission, AdminListingModeration, AdminUserDetail, AdminOrderSummary } from '@forumo/shared';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  // ─── Account Status Management ───────────────────────────────────────────────
+
+  async suspendUser(
+    userId: string,
+    reason: string,
+    durationDays?: number | null,
+  ): Promise<void> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const suspendedUntil =
+      durationDays != null ? new Date(Date.now() + durationDays * 86_400_000) : null;
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          accountStatus: 'SUSPENDED',
+          suspensionReason: reason,
+          suspendedUntil,
+          tokenVersion: { increment: 1 },
+        },
+      }),
+      // Cancel all published listings; use SUSPENDED status so they can be identified later
+      this.prisma.listing.updateMany({
+        where: { sellerId: userId, status: 'PUBLISHED', deletedAt: null },
+        data: { status: 'SUSPENDED' },
+      }),
+    ]);
+
+    await this.notifications.notifyAccountSuspended(user.email, user.name, reason, suspendedUntil);
+  }
+
+  async unsuspendUser(userId: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountStatus: 'ACTIVE',
+        suspensionReason: null,
+        suspendedUntil: null,
+      },
+    });
+
+    await this.notifications.notifyAccountUnsuspended(user.email, user.name);
+  }
+
+  async banUser(userId: string, reason: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          accountStatus: 'BANNED',
+          banReason: reason,
+          suspensionReason: null,
+          suspendedUntil: null,
+          tokenVersion: { increment: 1 },
+        },
+      }),
+      // Cancel all published listings
+      this.prisma.listing.updateMany({
+        where: { sellerId: userId, status: 'PUBLISHED', deletedAt: null },
+        data: { status: 'SUSPENDED' },
+      }),
+      // Cancel open orders where the banned user is the buyer or seller
+      this.prisma.order.updateMany({
+        where: {
+          status: { in: ['PENDING', 'CONFIRMED'] },
+          OR: [{ buyerId: userId }, { sellerId: userId }],
+        },
+        data: { status: 'CANCELLED' },
+      }),
+    ]);
+
+    await this.notifications.notifyAccountBanned(user.email, user.name, reason);
+  }
+
+  // ─── Cron: auto-lift expired temporary suspensions ───────────────────────────
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async liftExpiredSuspensions(): Promise<void> {
+    const expired = await this.prisma.user.findMany({
+      where: {
+        accountStatus: 'SUSPENDED',
+        suspendedUntil: { lte: new Date() },
+        deletedAt: null,
+      },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (expired.length === 0) return;
+
+    await this.prisma.user.updateMany({
+      where: { id: { in: expired.map((u) => u.id) } },
+      data: { accountStatus: 'ACTIVE', suspensionReason: null, suspendedUntil: null },
+    });
+
+    await Promise.all(
+      expired.map((u) => this.notifications.notifyAccountUnsuspended(u.email, u.name)),
+    );
+  }
 
   async getDashboardStats() {
     const [userCount, listingCount, orderCount, disputeCount, pendingKyc, pendingModeration] = await Promise.all([

@@ -375,6 +375,13 @@ class MockApiClient {
     list: async (): Promise<SafeOrder[]> => {
       return this.state.orders;
     },
+    listFiltered: async (params: { listingId?: string; status?: string }): Promise<SafeOrder[]> => {
+      return this.state.orders.filter((o) => {
+        if (params.status && o.status !== params.status) return false;
+        if (params.listingId && !o.items.some((item) => item.listingId === params.listingId)) return false;
+        return true;
+      });
+    },
     get: async (id: string): Promise<SafeOrder> => {
       const order = this.state.orders.find((item) => item.id === id);
       if (!order) throw new Error('Order not found');

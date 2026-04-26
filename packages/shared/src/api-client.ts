@@ -4,6 +4,10 @@ import {
   UpdateListingDto,
   CreateOrderDto,
   CreateOfferDto,
+  CreateFeeScheduleDto,
+  UpdateFeeScheduleDto,
+  FeeSchedule,
+  FeePreview,
   CreateThreadDto,
   ListingCategory,
   ListingImage,
@@ -283,6 +287,13 @@ export class ForumoApiClient {
   readonly orders = {
     list: async (): Promise<SafeOrder[]> => {
       const response = await this.requestJson<SafeOrder[]>('/orders', { method: 'GET', auth: true });
+      return response.map((order) => safeOrderSchema.parse(order));
+    },
+    listFiltered: async (params: { listingId?: string; status?: string }): Promise<SafeOrder[]> => {
+      const qs = new URLSearchParams();
+      if (params.listingId) qs.set('listingId', params.listingId);
+      if (params.status) qs.set('status', params.status);
+      const response = await this.requestJson<SafeOrder[]>(`/orders?${qs.toString()}`, { method: 'GET', auth: true });
       return response.map((order) => safeOrderSchema.parse(order));
     },
     get: async (id: string): Promise<SafeOrder> => {
@@ -721,6 +732,30 @@ export class ForumoApiClient {
       createdAt: string;
     }> => {
       return this.requestJson('/payouts/request', { method: 'POST', auth: true, body: { amountCents } });
+    },
+  };
+
+  readonly fees = {
+    preview: async (listingId: string, subtotalCents: number): Promise<FeePreview> => {
+      return this.request<FeePreview>(`/fees/preview?listingId=${encodeURIComponent(listingId)}&subtotalCents=${subtotalCents}`, {
+        method: 'GET',
+        auth: true,
+      });
+    },
+  };
+
+  readonly adminFeeSchedules = {
+    list: async (): Promise<FeeSchedule[]> => {
+      return this.request<FeeSchedule[]>('/admin/fee-schedules', { method: 'GET', auth: true });
+    },
+    create: async (payload: CreateFeeScheduleDto): Promise<FeeSchedule> => {
+      return this.requestJson<FeeSchedule>('/admin/fee-schedules', { method: 'POST', auth: true, body: payload });
+    },
+    update: async (id: string, payload: UpdateFeeScheduleDto): Promise<FeeSchedule> => {
+      return this.requestJson<FeeSchedule>(`/admin/fee-schedules/${id}`, { method: 'PUT', auth: true, body: payload });
+    },
+    remove: async (id: string): Promise<void> => {
+      await this.request<void>(`/admin/fee-schedules/${id}`, { method: 'DELETE', auth: true });
     },
   };
 

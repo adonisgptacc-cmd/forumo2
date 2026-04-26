@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards, Request } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, Request } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -22,8 +22,12 @@ export class OrdersController {
 
 
   @Get()
-  findAll(@Request() req: { user: { id: string } }): Promise<SafeOrder[]> {
-    return this.ordersService.findAll(req.user.id);
+  findAll(
+    @Request() req: { user: { id: string } },
+    @Query('listingId') listingId?: string,
+    @Query('status') status?: string,
+  ): Promise<SafeOrder[]> {
+    return this.ordersService.findAll(req.user.id, { listingId, status });
   }
 
   @Get('seller/analytics')

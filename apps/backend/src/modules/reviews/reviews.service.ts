@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ReviewStatus } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus, Prisma, ReviewStatus } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { sanitizeText } from "../../common/utils/sanitize";
@@ -52,7 +52,7 @@ export class ReviewsService {
 
   async create(dto: CreateReviewDto): Promise<SafeReview> {
     await this.ensureListing(dto.listingId, dto.recipientId);
-    await this.ensureOrder(dto.orderId, dto.reviewerId, dto.recipientId, dto.listingId);
+    await this.checkPurchaseEligibility(dto.reviewerId, dto.listingId, dto.orderId);
 
     const moderation = this.moderation.evaluate(dto.comment ?? '', dto.rating);
 
@@ -68,6 +68,7 @@ export class ReviewsService {
           status: moderation.status,
           moderationNotes: moderation.notes,
           metadata: this.buildMetadata(dto.metadata),
+          verifiedPurchase: true,
         },
         include: { reviewer: true },
       });
@@ -166,10 +167,27 @@ export class ReviewsService {
     }
   }
 
-  private async ensureOrder(orderId: string, buyerId: string, sellerId: string, listingId: string): Promise<void> {
-    const order = await this.prisma.order.findFirst({ where: { id: orderId, buyerId, sellerId, items: { some: { listingId } } } });
+  private async checkPurchaseEligibility(reviewerId: string, listingId: string, orderId: string): Promise<void> {
+    const existing = await this.prisma.review.findFirst({ where: { reviewerId, listingId } });
+    if (existing) {
+      throw new ForbiddenException({ code: 'PURCHASE_REQUIRED', message: 'You can only review items you have purchased' });
+    }
+
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        buyerId: reviewerId,
+        status: OrderStatus.DELIVERED,
+        updatedAt: { gte: cutoff },
+        items: { some: { listingId } },
+      },
+    });
+
     if (!order) {
-      throw new BadRequestException('Order not found for reviewer and seller');
+      throw new ForbiddenException({ code: 'PURCHASE_REQUIRED', message: 'You can only review items you have purchased' });
     }
   }
 

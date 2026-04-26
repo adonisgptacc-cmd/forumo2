@@ -23,6 +23,8 @@ import { OffersModule } from "./offers/offers.module";
 import { WishlistModule } from "./wishlist/wishlist.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PayoutsModule } from "./payouts/payouts.module";
+import { CartModule } from "./cart/cart.module";
+import { FeesModule } from "./fees/fees.module";
 
 @Module({
   imports: [
@@ -49,6 +51,8 @@ import { PayoutsModule } from "./payouts/payouts.module";
     OffersModule,
     WishlistModule,
     PayoutsModule,
+    CartModule,
+    FeesModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor }],
 })

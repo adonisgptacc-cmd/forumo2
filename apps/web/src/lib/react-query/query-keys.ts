@@ -5,6 +5,7 @@ export const queryKeys = {
   sellerReviewRollup: (sellerId: string) => ['seller', sellerId, 'reviews'] as const,
   orders: ['orders'] as const,
   order: (id: string) => ['orders', id] as const,
+  deliveredOrdersForListing: (listingId: string) => ['orders', 'delivered', listingId] as const,
   threads: (userId?: string | null, page = 1) => ['threads', userId ?? 'self', page] as const,
   thread: (id: string) => ['thread', id] as const,
   notifications: ['notifications'] as const,
@@ -23,4 +24,6 @@ export const queryKeys = {
   payoutBalance: ['payouts', 'balance'] as const,
   payouts: (page: number) => ['payouts', 'list', page] as const,
   payoutOnboard: ['payouts', 'onboard'] as const,
+  feeSchedules: ['admin', 'fee-schedules'] as const,
+  feePreview: (listingId: string, subtotalCents: number) => ['fees', 'preview', listingId, subtotalCents] as const,
 };

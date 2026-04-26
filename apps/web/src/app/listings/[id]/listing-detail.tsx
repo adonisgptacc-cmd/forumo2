@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
 
-import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations, useCreateThread } from '../../../lib/react-query/hooks';
+import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useDeliveredOrdersForListing, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations, useCreateThread } from '../../../lib/react-query/hooks';
 import { useCart } from '../../../lib/cart-context';
 
 export function ListingDetail({ id }: { id: string }) {
@@ -15,9 +15,10 @@ export function ListingDetail({ id }: { id: string }) {
   const router = useRouter();
   const { data: reviewData, isLoading: reviewsLoading } = useListingReviews(id);
   const { createReview } = useReviewMutations();
+  const { data: deliveredOrders } = useDeliveredOrdersForListing(user ? id : null);
+  const eligibleOrder = deliveredOrders?.[0] ?? null;
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  const [orderId, setOrderId] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -76,12 +77,12 @@ export function ListingDetail({ id }: { id: string }) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!data || !user) return;
+    if (!data || !user || !eligibleOrder) return;
     createReview.mutate({
       reviewerId: user.id,
       recipientId: data.sellerId,
       listingId: data.id,
-      orderId,
+      orderId: eligibleOrder.id,
       rating,
       comment,
     });
@@ -496,6 +497,12 @@ export function ListingDetail({ id }: { id: string }) {
                     <span className="text-forumo-orange font-bold">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
                     <span className="font-medium">{review.reviewer?.name ?? 'Anonymous'}</span>
                   </div>
+                  {review.verifiedPurchase && (
+                    <div className="flex items-center gap-1 mt-1" title="This reviewer purchased and received this item">
+                      <span className="text-emerald-600 text-xs">✓</span>
+                      <span className="text-xs font-medium text-emerald-600">Verified Purchase</span>
+                    </div>
+                  )}
                   {review.comment ? (
                     <p className="text-sm text-slate-600 mt-1">{review.comment}</p>
                   ) : (
@@ -517,6 +524,10 @@ export function ListingDetail({ id }: { id: string }) {
                 <p className="text-sm text-slate-500">Sign in to leave a review</p>
                 <Link href="/login" className="btn-forumo inline-block mt-2 text-sm">Sign in</Link>
               </div>
+            ) : !eligibleOrder ? (
+              <div className="py-6 bg-slate-50 rounded px-4">
+                <p className="text-sm text-slate-500">You can only review products you&apos;ve purchased and received</p>
+              </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-3">
                 <label className="block">
@@ -531,18 +542,6 @@ export function ListingDetail({ id }: { id: string }) {
                       <option key={value} value={value}>{value} star{value !== 1 ? 's' : ''}</option>
                     ))}
                   </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-medium text-slate-700">Order ID</span>
-                  <input
-                    className="input-forumo mt-1"
-                    required
-                    value={orderId}
-                    onChange={(event) => setOrderId(event.target.value)}
-                    placeholder="Your order ID"
-                    disabled={isSubmitting}
-                  />
                 </label>
 
                 <label className="block">
