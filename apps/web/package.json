@@ -23,7 +23,7 @@
     "clsx": "^2.1.1",
     "critters": "^0.0.25",
     "framer-motion": "^12.23.26",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.14.0",
     "next": "^15.0.0-canary.36",
     "next-auth": "^4.24.13",
     "postcss": "^8.5.6",
