@@ -1,9 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCart } from '../../../../lib/cart-context';
-import { useCurrentUser, useCreateOrder, useInitiatePayment, useAddresses, useFeePreview } from '../../../../lib/react-query/hooks';
+import {
+  useCurrentUser,
+  useCreateOrder,
+  useInitiatePayment,
+  useVerifyPaystackPayment,
+  useAddresses,
+  useFeePreview,
+} from '../../../../lib/react-query/hooks';
 import { StripeProvider } from '../../../../components/stripe-provider';
 import { PaymentForm } from '../../../../components/payment-form';
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
@@ -13,7 +21,30 @@ function formatPrice(cents: number, currency: string) {
   return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
 }
 
-type CheckoutStep = 'review' | 'payment' | 'confirmed';
+type CheckoutStep = 'review' | 'payment' | 'verifying' | 'confirmed';
+
+const PAYSTACK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
+
+function PaymentProviderLogo({ provider }: { provider: 'stripe' | 'paystack' }) {
+  if (provider === 'paystack') {
+    return (
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#00c3f7]/10 text-[#00c3f7] rounded font-semibold text-xs tracking-wide">
+          Paystack
+        </span>
+        <span>Secure African payment</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 text-xs text-slate-500">
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#635BFF]/10 text-[#635BFF] rounded font-semibold text-xs tracking-wide">
+        Stripe
+      </span>
+      <span>Secure payment</span>
+    </div>
+  );
+}
 
 function SellerOrderCard({
   sellerId,
@@ -28,6 +59,7 @@ function SellerOrderCard({
   const currency = sellerItems[0]?.currency ?? 'USD';
   const primaryListingId = sellerItems[0]?.listingId ?? null;
   const { data: feePreview } = useFeePreview(primaryListingId, subtotal);
+  const isPaystack = PAYSTACK_CURRENCIES.has(currency.toUpperCase());
 
   return (
     <div className="card-forumo space-y-3">
@@ -61,6 +93,7 @@ function SellerOrderCard({
         <span>Order total</span>
         <span>{formatPrice(subtotal + (feePreview?.feeAmountCents ?? 0), currency)}</span>
       </div>
+      <PaymentProviderLogo provider={isPaystack ? 'paystack' : 'stripe'} />
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
@@ -71,7 +104,9 @@ export function CheckoutFlow() {
   const { user } = useCurrentUser();
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiatePayment();
+  const verifyPaystack = useVerifyPaystackPayment();
   const { data: addresses = [] } = useAddresses();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<CheckoutStep>('review');
   const [confirmedOrders, setConfirmedOrders] = useState<SafeOrder[]>([]);
   const [pendingPayments, setPendingPayments] = useState<{ orderId: string; clientSecret: string }[]>([]);
@@ -81,6 +116,40 @@ export function CheckoutFlow() {
   const defaultAddr = shippingAddresses.find((a) => a.isDefault) ?? shippingAddresses[0] ?? null;
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const effectiveAddressId = selectedAddressId ?? defaultAddr?.id ?? null;
+  const paystackVerifyAttempted = useRef(false);
+
+  // Handle Paystack redirect callback: /app/checkout?reference=xxx
+  useEffect(() => {
+    const reference = searchParams?.get('reference');
+    const mock = searchParams?.get('mock');
+    if (!reference || paystackVerifyAttempted.current) return;
+    paystackVerifyAttempted.current = true;
+    setStep('verifying');
+
+    if (mock === 'true') {
+      // Dev mock — skip real verify
+      setStep('confirmed');
+      return;
+    }
+
+    verifyPaystack.mutate(reference, {
+      onSuccess: () => setStep('confirmed'),
+      onError: (err) => {
+        setErrors({ verify: err instanceof Error ? err.message : 'Payment verification failed' });
+        setStep('review');
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (step === 'verifying') {
+    return (
+      <div className="card-forumo text-center py-16 space-y-3">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500 mx-auto" />
+        <p className="text-slate-600 font-medium">Verifying your payment…</p>
+      </div>
+    );
+  }
 
   if (itemCount === 0 && step === 'review') {
     return (
@@ -101,6 +170,9 @@ export function CheckoutFlow() {
           <p className="text-sm text-slate-500 mt-1">Your order has been created. Please complete payment to confirm.</p>
         </div>
         <div className="card-forumo">
+          <div className="mb-4">
+            <PaymentProviderLogo provider="stripe" />
+          </div>
           <ErrorBoundary
             fallback={
               <div className="py-8 text-center space-y-2">
@@ -172,12 +244,15 @@ export function CheckoutFlow() {
       setConfirmedOrders((prev) => [...prev, order]);
       clearSellerItems(sellerId);
 
-      // Try to initiate payment (get Stripe clientSecret)
       try {
-        const { clientSecret } = await initiatePayment.mutateAsync(order.id);
-        // Only add real Stripe secrets (not mock pi_ values that need Elements)
-        if (clientSecret && (clientSecret.startsWith('pi_') || clientSecret.startsWith('cs_'))) {
-          setPendingPayments((prev) => [...prev, { orderId: order.id, clientSecret }]);
+        const result = await initiatePayment.mutateAsync(order.id);
+        if (result.provider === 'paystack' && result.authorizationUrl) {
+          // Redirect to Paystack hosted checkout page
+          window.location.href = result.authorizationUrl;
+          return; // navigation in progress — don't continue
+        }
+        if (result.provider === 'stripe' && result.clientSecret) {
+          setPendingPayments((prev) => [...prev, { orderId: order.id, clientSecret: result.clientSecret! }]);
         }
       } catch {
         // Payment initiation failure is non-fatal — order was still created
@@ -191,10 +266,49 @@ export function CheckoutFlow() {
 
   async function placeAllOrders() {
     if (!user) return;
+    const newPending: { orderId: string; clientSecret: string }[] = [];
+
     for (const [sellerId, sellerItems] of groupedBySeller.entries()) {
-      await placeOrderForSeller(sellerId, sellerItems);
+      if (!user) return;
+      setPlacingFor(sellerId);
+      setErrors((prev) => ({ ...prev, [sellerId]: '' }));
+      try {
+        const order = await createOrder.mutateAsync({
+          buyerId: user.id,
+          sellerId,
+          currency: sellerItems[0]?.currency ?? 'USD',
+          shippingAddressId: effectiveAddressId ?? undefined,
+          items: sellerItems.map((item) => ({
+            listingId: item.listingId,
+            variantId: item.variantId ?? undefined,
+            quantity: item.quantity,
+          })),
+        });
+        setConfirmedOrders((prev) => [...prev, order]);
+        clearSellerItems(sellerId);
+
+        try {
+          const result = await initiatePayment.mutateAsync(order.id);
+          if (result.provider === 'paystack' && result.authorizationUrl) {
+            // Redirect immediately — Paystack will bring the user back
+            window.location.href = result.authorizationUrl;
+            return;
+          }
+          if (result.provider === 'stripe' && result.clientSecret) {
+            newPending.push({ orderId: order.id, clientSecret: result.clientSecret });
+          }
+        } catch {
+          // non-fatal
+        }
+      } catch (err) {
+        setErrors((prev) => ({ ...prev, [sellerId]: err instanceof Error ? err.message : 'Order failed. Please try again.' }));
+      } finally {
+        setPlacingFor(null);
+      }
     }
-    setStep(pendingPayments.length > 0 ? 'payment' : 'confirmed');
+
+    setPendingPayments(newPending);
+    setStep(newPending.length > 0 ? 'payment' : 'confirmed');
   }
 
   return (
@@ -203,6 +317,12 @@ export function CheckoutFlow() {
         <p className="text-xs uppercase tracking-widest text-slate-500">Checkout</p>
         <h1 className="text-2xl font-bold">Review your order</h1>
       </div>
+
+      {errors.verify && (
+        <div className="card-forumo border border-red-200 bg-red-50">
+          <p className="text-sm text-red-600">{errors.verify}</p>
+        </div>
+      )}
 
       {Array.from(groupedBySeller.entries()).map(([sellerId, sellerItems]) => (
         <SellerOrderCard

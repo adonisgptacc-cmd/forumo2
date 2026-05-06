@@ -96,72 +96,119 @@ export function DisputesBoard() {
       )}
 
       {!isLoading && filtered.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/60">
-                {['Order', 'Item', 'Opened', 'Your Role', 'Status', ''].map((h) => (
-                  <th
-                    key={h}
-                    className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {filtered.map((order) => {
-                const status = disputeStatusLabel(order);
-                const role =
-                  user?.id === order.buyerId
-                    ? 'Buyer'
-                    : user?.id === order.sellerId
-                      ? 'Seller'
-                      : user?.role === 'ADMIN' || user?.role === 'MODERATOR'
-                        ? 'Admin'
-                        : '—';
-                const opened = disputeOpenedAt(order);
-                const firstItem = order.items[0];
-                const badgeCls = BADGE[status] ?? BADGE.CLOSED;
+        <div className="rounded-xl border border-slate-800">
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-900/60">
+                  {['Order', 'Item', 'Opened', 'Your Role', 'Status', ''].map((h) => (
+                    <th
+                      key={h}
+                      className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {filtered.map((order) => {
+                  const status = disputeStatusLabel(order);
+                  const role =
+                    user?.id === order.buyerId
+                      ? 'Buyer'
+                      : user?.id === order.sellerId
+                        ? 'Seller'
+                        : user?.role === 'ADMIN' || user?.role === 'MODERATOR'
+                          ? 'Admin'
+                          : '—';
+                  const opened = disputeOpenedAt(order);
+                  const firstItem = order.items[0];
+                  const badgeCls = BADGE[status] ?? BADGE.CLOSED;
 
-                return (
-                  <tr
-                    key={order.id}
-                    className="bg-slate-950/40 transition-colors hover:bg-slate-900/60"
+                  return (
+                    <tr
+                      key={order.id}
+                      className="bg-slate-950/40 transition-colors hover:bg-slate-900/60"
+                    >
+                      <td className="px-5 py-4">
+                        <span className="font-mono text-xs text-slate-300">{order.orderNumber}</span>
+                      </td>
+                      <td className="max-w-[180px] truncate px-5 py-4 text-slate-200">
+                        {firstItem?.listingTitle ?? '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-400">
+                        {opened ? new Date(opened).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="rounded-full border border-slate-700 px-3 py-0.5 text-xs text-slate-300">
+                          {role}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${badgeCls}`}>
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <Link
+                          href={`/app/disputes/${order.id}` as any}
+                          className="rounded-lg border border-amber-500/50 px-3 py-1.5 text-xs text-amber-400 hover:border-amber-400"
+                        >
+                          View →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="sm:hidden divide-y divide-slate-800">
+            {filtered.map((order) => {
+              const status = disputeStatusLabel(order);
+              const role =
+                user?.id === order.buyerId
+                  ? 'Buyer'
+                  : user?.id === order.sellerId
+                    ? 'Seller'
+                    : user?.role === 'ADMIN' || user?.role === 'MODERATOR'
+                      ? 'Admin'
+                      : '—';
+              const opened = disputeOpenedAt(order);
+              const firstItem = order.items[0];
+              const badgeCls = BADGE[status] ?? BADGE.CLOSED;
+
+              return (
+                <div key={order.id} className="px-4 py-4 space-y-2 bg-slate-950/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-slate-300">{order.orderNumber}</span>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeCls}`}>
+                      {status}
+                    </span>
+                  </div>
+                  {firstItem && (
+                    <p className="text-sm text-slate-200 truncate">{firstItem.listingTitle}</p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+                    <span>{opened ? new Date(opened).toLocaleDateString() : '—'}</span>
+                    <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-300">
+                      {role}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/app/disputes/${order.id}` as any}
+                    className="inline-flex items-center rounded-lg border border-amber-500/50 px-3 min-h-[44px] text-xs text-amber-400 hover:border-amber-400"
                   >
-                    <td className="px-5 py-4">
-                      <span className="font-mono text-xs text-slate-300">{order.orderNumber}</span>
-                    </td>
-                    <td className="max-w-[180px] truncate px-5 py-4 text-slate-200">
-                      {firstItem?.listingTitle ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-400">
-                      {opened ? new Date(opened).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full border border-slate-700 px-3 py-0.5 text-xs text-slate-300">
-                        {role}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${badgeCls}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/app/disputes/${order.id}` as any}
-                        className="rounded-lg border border-amber-500/50 px-3 py-1.5 text-xs text-amber-400 hover:border-amber-400"
-                      >
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    View dispute →
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

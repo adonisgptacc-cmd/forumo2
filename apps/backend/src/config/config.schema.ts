@@ -56,6 +56,10 @@ export const configSchema = z
     ENABLE_METRICS: z.string().transform((value) => value === 'true').optional(),
     LOG_LEVEL: optionalString,
     METRICS_API_KEY: optionalString,
+    SHIPPO_API_KEY: optionalString,
+    SHIPPO_WEBHOOK_SECRET: optionalString,
+    ESCROW_AUTO_RELEASE_DAYS: z.coerce.number().int().positive().default(5),
+    TOS_VERSION: z.string().default('2024-01-01'),
   })
   .superRefine((value, ctx) => {
     const mailgunValues = [value.MAILGUN_API_KEY, value.MAILGUN_DOMAIN];

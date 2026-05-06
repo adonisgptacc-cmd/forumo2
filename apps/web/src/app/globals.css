@@ -69,3 +69,12 @@ body {
   padding: 20px;
   border-radius: 4px;
 }
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, Request } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -8,11 +8,15 @@ import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { SafeOrder } from "./order.serializer";
 import { OrdersService } from "./orders.service";
+import { TaxService, CartLineItem, TaxShippingAddress } from "./tax.service";
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly taxService: TaxService,
+  ) { }
 
   @Post(':id/initiate-payment')
   @HttpCode(HttpStatus.OK)
@@ -20,6 +24,43 @@ export class OrdersController {
     return this.ordersService.initiatePayment(id, req.user.id);
   }
 
+  /**
+   * POST /orders/tax-estimate
+   * Estimate tax for a cart before the order is created. Returns { available: false }
+   * when Stripe Tax is not enabled for the buyer's region — display
+   * "Tax calculated at checkout" in that case.
+   */
+  @Post('tax-estimate')
+  @HttpCode(HttpStatus.OK)
+  async estimateTax(
+    @Body()
+    body: {
+      cartItems: CartLineItem[];
+      shippingAddress: TaxShippingAddress;
+      currency?: string;
+    },
+  ) {
+    if (!body.cartItems?.length) {
+      throw new BadRequestException('cartItems is required');
+    }
+    if (!body.shippingAddress?.country) {
+      throw new BadRequestException('shippingAddress.country is required');
+    }
+    return this.taxService.estimateTax(
+      body.cartItems,
+      body.shippingAddress,
+      body.currency ?? 'usd',
+    );
+  }
+
+  /**
+   * GET /orders/:id/receipt
+   * Returns the tax receipt for an order. Accessible by buyer or seller only.
+   */
+  @Get(':id/receipt')
+  getReceipt(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.ordersService.getReceipt(id, req.user.id);
+  }
 
   @Get()
   findAll(
@@ -104,6 +145,31 @@ export class OrdersController {
       actorId: req.user.id,
       providerStatus: body.providerStatus,
     });
+  }
+
+  /**
+   * POST /orders/:id/label
+   * Seller purchases a Shippo shipping label for the selected rate (obtained from POST /shipping/rates).
+   * Returns the PDF label URL and tracking number.
+   */
+  @Post(':id/label')
+  @HttpCode(HttpStatus.CREATED)
+  purchaseLabel(
+    @Param('id') id: string,
+    @Body() body: { rateId: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.ordersService.purchaseLabel(id, req.user.id, body.rateId);
+  }
+
+  /**
+   * GET /orders/:id/tracking
+   * Returns carrier, tracking number, estimated delivery, and all tracking events.
+   * Accessible by buyer or seller.
+   */
+  @Get(':id/tracking')
+  getTracking(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.ordersService.getTrackingEvents(id, req.user.id);
   }
 
   @Post(':id/shipment')

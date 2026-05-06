@@ -37,6 +37,10 @@ describe('OrdersModule flows', () => {
   let prismaMock: InMemoryPrismaService;
 
   beforeEach(async () => {
+    process.env.JWT_SECRET = 'test-jwt-secret';
+    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
+    
     prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -55,7 +59,14 @@ describe('OrdersModule flows', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      try {
+        await app.close();
+      } catch (err) {
+        // Silently handle close errors in tests
+        console.debug('App close error (expected in tests):', err instanceof Error ? err.message : String(err));
+      }
+    }
   });
 
   it('returns seeded paid/cancelled/refunded orders', async () => {

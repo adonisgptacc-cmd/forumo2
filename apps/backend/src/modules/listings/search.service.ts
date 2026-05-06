@@ -192,7 +192,8 @@ export class ListingSearchService {
   }
 
   private normalizeKeyword(keyword?: string): string {
-    return (keyword ?? '').trim().replace(/\s+/g, ' ');
+    if (!keyword) return '';
+    return keyword.trim().replace(/\s+/g, ' ');
   }
 
   private buildKeywordQueries(rawKeyword: string) {

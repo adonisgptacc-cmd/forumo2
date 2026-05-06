@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api-client';
+import { useApiClient } from '../../lib/use-api-client';
 import { Button } from '@forumo/design-system';
 
 interface PlaceBidFormProps {
@@ -15,6 +15,7 @@ interface BidFormData {
 }
 
 export function PlaceBidForm({ auctionId, minBidCents }: PlaceBidFormProps) {
+    const api = useApiClient();
     const queryClient = useQueryClient();
     const { register, handleSubmit, reset, formState: { errors } } = useForm<BidFormData>();
 
@@ -22,9 +23,7 @@ export function PlaceBidForm({ auctionId, minBidCents }: PlaceBidFormProps) {
         mutationFn: async (data: BidFormData) => {
             // Amount in dollars to cents
             const amountCents = Math.round(data.amount * 100);
-            return apiClient.post(`/auctions/${auctionId}/bids`, {
-                amountCents,
-            });
+            return api.auctions.placeBid(auctionId, { amountCents });
         },
         onSuccess: () => {
             reset();

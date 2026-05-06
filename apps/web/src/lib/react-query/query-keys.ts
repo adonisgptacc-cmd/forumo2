@@ -26,4 +26,10 @@ export const queryKeys = {
   payoutOnboard: ['payouts', 'onboard'] as const,
   feeSchedules: ['admin', 'fee-schedules'] as const,
   feePreview: (listingId: string, subtotalCents: number) => ['fees', 'preview', listingId, subtotalCents] as const,
+  returns: ['returns'] as const,
+  return: (id: string) => ['returns', id] as const,
+  sellerAnalyticsOverview: (period: string) => ['seller', 'analytics', 'overview', period] as const,
+  sellerAnalyticsRevenue: (period: string, groupBy: string) => ['seller', 'analytics', 'revenue', period, groupBy] as const,
+  sellerAnalyticsTopListings: ['seller', 'analytics', 'top-listings'] as const,
+  sellerAnalyticsReviews: ['seller', 'analytics', 'reviews-summary'] as const,
 };

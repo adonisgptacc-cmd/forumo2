@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../../lib/api-client';
+import { useApiClient } from '../../../lib/use-api-client';
 import { formatCurrency } from '../../../lib/format-currency';
 import Image from 'next/image';
 import { useAuctionSocket } from '../../../lib/realtime/use-auction-socket';
@@ -48,13 +48,14 @@ function AuctionTimer({ endAt }: { endAt: string }) {
 }
 
 export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
+  const api = useApiClient();
   const queryClient = useQueryClient();
   const socket = useAuctionSocket(auctionId);
   const [lastEvent, setLastEvent] = useState<string | null>(null);
 
   const { data: auction, isLoading, error } = useQuery<AuctionDetail>({
     queryKey: ['auction', auctionId],
-    queryFn: () => apiClient.get(`/auctions/${auctionId}`),
+    queryFn: () => api.auctions.get(auctionId),
     enabled: !!auctionId,
   });
 

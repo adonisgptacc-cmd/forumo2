@@ -88,6 +88,8 @@ export function OrderDetail({ id }: { id: string }) {
     order.escrow?.status === 'HOLDING' &&
     !['CANCELLED', 'REFUNDED', 'DISPUTED', 'COMPLETED', 'PENDING'].includes(order.status);
 
+  const canReturn = isBuyer && order.status === 'DELIVERED';
+
   const needsPayment =
     isBuyer &&
     order.status !== 'CANCELLED' &&
@@ -341,7 +343,7 @@ export function OrderDetail({ id }: { id: string }) {
               <p className="text-sm font-medium text-slate-200">
                 {order.shipments && order.shipments.length > 0 ? 'Update tracking' : 'Add tracking info'}
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Carrier</label>
                   <input
@@ -487,6 +489,16 @@ export function OrderDetail({ id }: { id: string }) {
             )}
           </div>
         </div>
+
+        {/* Return request */}
+        {canReturn && (
+          <Link
+            href={`/app/orders/${order.id}/return` as any}
+            className="inline-block text-sm text-indigo-400 hover:text-indigo-300 hover:underline"
+          >
+            Request a return →
+          </Link>
+        )}
 
         {/* Dispute */}
         {canDispute && !showDisputeForm && (

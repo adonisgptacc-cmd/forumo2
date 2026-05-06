@@ -17,6 +17,9 @@ export const safeUserSchema = z.object({
   avatarUrl: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   trustScore: z.number().int().optional(),
+  tosVersion: z.string().nullable().optional(),
+  termsAcceptedAt: z.union([z.string(), z.date()]).nullable().optional(),
+  deletionScheduledAt: z.union([z.string(), z.date()]).nullable().optional(),
 });
 export type SafeUser = z.infer<typeof safeUserSchema>;
 
@@ -394,6 +397,9 @@ export const authResponseSchema = z.object({
     email: z.string().email(),
     name: z.string().nullable().optional(),
     role: z.string().optional(),
+    tosVersion: z.string().nullable().optional(),
+    termsAcceptedAt: z.union([z.string(), z.date()]).nullable().optional(),
+    deletionScheduledAt: z.union([z.string(), z.date()]).nullable().optional(),
   }),
 });
 export type AuthResponse = z.infer<typeof authResponseSchema>;
@@ -708,3 +714,61 @@ export const savedListingSchema = z.object({
   }).optional(),
 });
 export type SavedListing = z.infer<typeof savedListingSchema>;
+
+// --- Returns ---
+
+export const returnReasonSchema = z.enum([
+  'not_as_described',
+  'damaged',
+  'not_received',
+  'changed_mind',
+  'other',
+]);
+export type ReturnReason = z.infer<typeof returnReasonSchema>;
+
+export const returnStatusSchema = z.enum([
+  'requested',
+  'awaiting_seller',
+  'approved',
+  'rejected',
+  'shipped',
+  'received',
+  'refunded',
+]);
+export type ReturnStatus = z.infer<typeof returnStatusSchema>;
+
+export const safeReturnSchema = z.object({
+  id: z.string().uuid(),
+  orderId: z.string().uuid(),
+  buyerId: z.string().uuid(),
+  sellerId: z.string().uuid(),
+  reason: returnReasonSchema,
+  conditionNotes: z.string().nullable().optional(),
+  items: z.array(z.object({ orderItemId: z.string(), quantity: z.number() })).nullable().optional(),
+  status: returnStatusSchema,
+  trackingNumber: z.string().nullable().optional(),
+  refundAmount: z.number().int(),
+  sellerResponseDeadline: z.string().datetime(),
+  rejectionReason: z.string().nullable().optional(),
+  resolvedAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  order: z.object({
+    id: z.string(),
+    orderNumber: z.string(),
+    deliveredAt: z.string().nullable().optional(),
+    totalItemCents: z.number().int(),
+    currency: z.string(),
+  }).optional(),
+  buyer: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+  seller: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+});
+export type SafeReturn = z.infer<typeof safeReturnSchema>;
+
+export const initiateReturnSchema = z.object({
+  reason: returnReasonSchema,
+  conditionNotes: z.string().max(1000).optional(),
+  items: z.array(z.object({ orderItemId: z.string(), quantity: z.number().int().positive() })).optional(),
+  photos: z.array(z.string()).max(5).optional(),
+});
+export type InitiateReturnDto = z.infer<typeof initiateReturnSchema>;

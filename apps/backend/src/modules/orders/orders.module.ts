@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
@@ -6,16 +7,21 @@ import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
 import { PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
+import { PaystackService } from "./paystack.service";
+import { PaymentProviderFactory } from "./payment-provider.factory";
+import { TaxService } from "./tax.service";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { ObservabilityModule } from "../observability/observability.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { PayoutsModule } from "../payouts/payouts.module";
 import { FeesModule } from "../fees/fees.module";
+import { ShippingModule } from "../shipping/shipping.module";
+import { ShippoWebhookController } from "./shippo-webhook.controller";
 
 @Module({
-  imports: [PrismaModule, ObservabilityModule, NotificationsModule, PayoutsModule, FeesModule],
-  controllers: [OrdersController, PaymentsController],
-  providers: [OrdersService, PaymentsService, RateLimitService],
-  exports: [OrdersService, PaymentsService],
+  imports: [HttpModule, PrismaModule, ObservabilityModule, NotificationsModule, PayoutsModule, FeesModule, ShippingModule],
+  controllers: [OrdersController, PaymentsController, ShippoWebhookController],
+  providers: [OrdersService, PaymentsService, PaystackService, PaymentProviderFactory, TaxService, RateLimitService],
+  exports: [OrdersService, PaymentsService, TaxService],
 })
 export class OrdersModule { }

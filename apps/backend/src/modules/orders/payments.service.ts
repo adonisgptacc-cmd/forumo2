@@ -41,12 +41,42 @@ export class PaymentsService {
     }
   }
 
-  async mintPaymentIntent(orderId: string, amountCents: number, currency: string): Promise<Stripe.PaymentIntent> {
+  async mintPaymentIntent(
+    orderId: string,
+    amountCents: number,
+    currency: string,
+    options?: {
+      shippingAddress?: {
+        name: string;
+        line1: string;
+        line2?: string;
+        city: string;
+        state?: string;
+        postalCode?: string;
+        country: string;
+      };
+    },
+  ): Promise<Stripe.PaymentIntent> {
     if (this.stripe) {
+      const shipping = options?.shippingAddress;
       return this.stripe.paymentIntents.create({
         amount: amountCents,
         currency: currency.toLowerCase(),
         automatic_payment_methods: { enabled: true },
+        ...(shipping && {
+          automatic_tax: { enabled: true },
+          shipping: {
+            name: shipping.name,
+            address: {
+              line1: shipping.line1,
+              ...(shipping.line2 && { line2: shipping.line2 }),
+              city: shipping.city,
+              ...(shipping.state && { state: shipping.state }),
+              ...(shipping.postalCode && { postal_code: shipping.postalCode }),
+              country: shipping.country,
+            },
+          },
+        }),
         description: `Order ${orderId} checkout`,
         metadata: { orderId },
         payment_method_types: ['card'],

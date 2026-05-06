@@ -25,6 +25,11 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { PayoutsModule } from "./payouts/payouts.module";
 import { CartModule } from "./cart/cart.module";
 import { FeesModule } from "./fees/fees.module";
+import { ReturnsModule } from "./returns/returns.module";
+import { ShippingModule } from "./shipping/shipping.module";
+import { AnalyticsModule } from "./analytics/analytics.module";
+import { LegalModule } from "./legal/legal.module";
+import { TosInterceptor } from "../common/interceptors/tos.interceptor";
 
 @Module({
   imports: [
@@ -53,7 +58,14 @@ import { FeesModule } from "./fees/fees.module";
     PayoutsModule,
     CartModule,
     FeesModule,
+    ReturnsModule,
+    ShippingModule,
+    AnalyticsModule,
+    LegalModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor }],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: TosInterceptor },
+  ],
 })
 export class AppModule { }

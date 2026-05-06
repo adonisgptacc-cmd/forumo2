@@ -30,6 +30,6 @@ import { CacheService } from "../../common/services/cache.service";
   ],
   controllers: [MessagingController],
   providers: [MessagingService, MessagingGateway, MessageModerationService, CacheService],
-  exports: [MessagingService],
+  exports: [MessagingService, MessagingGateway],
 })
 export class MessagingModule {}

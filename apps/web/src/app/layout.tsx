@@ -4,6 +4,7 @@ import { AppProviders } from '../components/app-providers';
 import { ForumoHeader } from '../components/forumo-header';
 import { ForumoFooter } from '../components/forumo-footer';
 import { CookieConsent } from '../components/cookie-consent';
+import { TosModal } from '../components/tos-modal';
 
 export const metadata: Metadata = {
   title: 'Forumo Marketplace',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <ForumoFooter />
           <CookieConsent />
+          <TosModal />
         </AppProviders>
       </body>
     </html>

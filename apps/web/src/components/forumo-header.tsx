@@ -69,13 +69,13 @@ export function ForumoHeader() {
                 </form>
 
                 {/* Account & Orders */}
-                <div className="flex items-center gap-4">
-                    <Link href={(user ? "/app" : "/login") as any} className="flex flex-col hover:outline outline-1 outline-white p-1">
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <Link href={(user ? "/app" : "/login") as any} className="hidden sm:flex flex-col hover:outline outline-1 outline-white p-1">
                         <span className="text-xs">{user ? `Hello, ${user.name}` : 'Hello, sign in'}</span>
                         <span className="text-sm font-bold">Account & Lists</span>
                     </Link>
 
-                    <Link href={"/app/orders" as any} className="flex flex-col hover:outline outline-1 outline-white p-1">
+                    <Link href={"/app/orders" as any} className="hidden sm:flex flex-col hover:outline outline-1 outline-white p-1">
                         <span className="text-xs">Returns</span>
                         <span className="text-sm font-bold">& Orders</span>
                     </Link>
@@ -101,19 +101,19 @@ export function ForumoHeader() {
             </div>
 
             {/* Navigation Bar */}
-            <div className="forumo-sub-header flex items-center gap-4 px-4 py-1 text-sm font-medium">
-                <button className="flex items-center gap-1 hover:outline outline-1 outline-white px-2 py-1">
+            <div className="forumo-sub-header flex items-center gap-4 px-4 py-1 text-sm font-medium overflow-x-auto scrollbar-none">
+                <button className="flex shrink-0 items-center gap-1 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                     All
                 </button>
-                <Link href={"/listings" as any} className="hover:outline outline-1 outline-white px-2 py-1">All Listings</Link>
-                <Link href={"/auctions" as any} className="hover:outline outline-1 outline-white px-2 py-1">Auctions</Link>
-                <Link href={"/app/messages" as any} className="hover:outline outline-1 outline-white px-2 py-1">Messages</Link>
-                <Link href={"/listings/new" as any} className="hover:outline outline-1 outline-white px-2 py-1 font-bold">Sell on Forumo</Link>
+                <Link href={"/listings" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">All Listings</Link>
+                <Link href={"/auctions" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">Auctions</Link>
+                <Link href={"/app/messages" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">Messages</Link>
+                <Link href={"/listings/new" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 font-bold whitespace-nowrap">Sell on Forumo</Link>
                 {user && (user as any).role === 'ADMIN' && (
-                    <Link href={"/admin" as any} className="hover:outline outline-1 outline-white px-2 py-1 text-forumo-gold">Admin</Link>
+                    <Link href={"/admin" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 text-forumo-gold whitespace-nowrap">Admin</Link>
                 )}
             </div>
         </header>

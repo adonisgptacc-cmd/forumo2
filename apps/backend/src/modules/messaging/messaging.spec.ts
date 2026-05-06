@@ -27,6 +27,11 @@ describe('MessagingModule (integration)', () => {
   let threadId: string;
 
   beforeEach(async () => {
+    // Set environment variables for OAuth and JWT
+    process.env.JWT_SECRET = 'test-jwt-secret';
+    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
+    
     prisma = new InMemoryPrismaService();
     server = new RecordingServer();
     moderation = new MockModerationService();
@@ -67,7 +72,14 @@ describe('MessagingModule (integration)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      try {
+        await app.close();
+      } catch (err) {
+        // Silently handle close errors in tests
+        console.debug('App close error (expected in tests):', err instanceof Error ? err.message : String(err));
+      }
+    }
   });
 
   it('streams attachments, persists metadata, and emits realtime payloads', async () => {

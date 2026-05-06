@@ -96,7 +96,7 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
               placeholder="Search titles, descriptions, or tags"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button className="btn-forumo px-6" type="submit">Search</button>
             <button
               className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
@@ -161,7 +161,7 @@ export function ListingExplorer({ initialParams }: { initialParams: Partial<List
         </div>
       ) : data && data.data.length > 0 ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-y-2 text-sm text-slate-500">
             <p>Showing {showingFrom}–{showingTo} of {data.total} results</p>
             <div className="flex items-center gap-3">
               <button

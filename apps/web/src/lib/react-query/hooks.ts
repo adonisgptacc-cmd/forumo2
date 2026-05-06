@@ -11,6 +11,7 @@ import type {
   FeePreview,
   CreateReviewDto,
   CreateThreadDto,
+  InitiateReturnDto,
   ListingCategory,
   ListingSearchParams,
   ListingSearchResponse,
@@ -20,6 +21,7 @@ import type {
   SafeNotification,
   SafeOffer,
   SafeOrder,
+  SafeReturn,
   SafeReview,
   SafeUser,
   SavedListing,
@@ -30,6 +32,10 @@ import type {
   PaginatedResponse,
   UpdateProfilePayload,
   UserProfileData,
+  SellerAnalyticsOverview,
+  SellerRevenuePoint,
+  SellerTopListing,
+  SellerReviewsSummary,
 } from '@forumo/shared';
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
@@ -206,6 +212,16 @@ export function useInitiatePayment() {
   const api = useApi(accessToken);
   return useMutation({
     mutationFn: (orderId: string) => api.orders.initiatePayment(orderId),
+  });
+}
+
+export function useVerifyPaystackPayment() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (reference: string) => api.orders.verifyPaystackPayment(reference),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.orders }),
   });
 }
 
@@ -643,7 +659,7 @@ export function useCollectionMutations() {
 export interface KycSubmission {
   id?: string;
   userId?: string;
-  status: 'unverified' | 'pending' | 'approved' | 'rejected' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   submittedAt?: string;
   reviewedAt?: string | null;
   rejectionReason?: string | null;
@@ -738,6 +754,51 @@ export function useAdminAnalytics() {
     queryFn: () => api.get<AdminAnalytics>('/admin/dashboard/analytics', { auth: true }),
     enabled: !!accessToken,
     refetchInterval: 5 * 60_000,
+  });
+}
+
+// --- Seller Analytics (detailed) ---
+
+export type AnalyticsPeriod = '7d' | '30d' | '90d';
+export type AnalyticsGroupBy = 'day' | 'week' | 'month';
+
+export function useSellerAnalyticsOverview(period: AnalyticsPeriod) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SellerAnalyticsOverview>({
+    queryKey: queryKeys.sellerAnalyticsOverview(period),
+    queryFn: () => api.analytics.getOverview(period),
+    enabled: !!accessToken,
+  });
+}
+
+export function useSellerAnalyticsRevenue(period: AnalyticsPeriod, groupBy: AnalyticsGroupBy) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SellerRevenuePoint[]>({
+    queryKey: queryKeys.sellerAnalyticsRevenue(period, groupBy),
+    queryFn: () => api.analytics.getRevenue(period, groupBy),
+    enabled: !!accessToken,
+  });
+}
+
+export function useSellerTopListings(limit = 5) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SellerTopListing[]>({
+    queryKey: queryKeys.sellerAnalyticsTopListings,
+    queryFn: () => api.analytics.getTopListings(limit),
+    enabled: !!accessToken,
+  });
+}
+
+export function useSellerReviewsSummary() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SellerReviewsSummary>({
+    queryKey: queryKeys.sellerAnalyticsReviews,
+    queryFn: () => api.analytics.getReviewsSummary(),
+    enabled: !!accessToken,
   });
 }
 
@@ -1049,5 +1110,113 @@ export function useFeePreview(listingId: string | null, subtotalCents: number) {
     queryKey: queryKeys.feePreview(listingId ?? '', subtotalCents),
     queryFn: () => api.fees.preview(listingId!, subtotalCents),
     enabled: !!accessToken && !!listingId && subtotalCents > 0,
+  });
+}
+
+export function useReturns() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SafeReturn[]>({
+    queryKey: queryKeys.returns,
+    queryFn: () => api.returns.list(),
+    enabled: !!accessToken,
+  });
+}
+
+export function useReturn(id: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<SafeReturn | null>({
+    queryKey: id ? queryKeys.return(id) : ['returns', null],
+    queryFn: () => (id ? api.returns.get(id) : Promise.resolve(null)),
+    enabled: !!accessToken && !!id,
+  });
+}
+
+export function useInitiateReturn(orderId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const qc = useQueryClient();
+  return useMutation<SafeReturn, Error, InitiateReturnDto>({
+    mutationFn: (dto) => api.returns.initiate(orderId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.returns });
+      qc.invalidateQueries({ queryKey: queryKeys.order(orderId) });
+    },
+  });
+}
+
+export function useApproveReturn() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const qc = useQueryClient();
+  return useMutation<SafeReturn, Error, string>({
+    mutationFn: (id) => api.returns.approve(id),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: queryKeys.returns });
+      qc.invalidateQueries({ queryKey: queryKeys.return(data.id) });
+    },
+  });
+}
+
+export function useRejectReturn() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const qc = useQueryClient();
+  return useMutation<SafeReturn, Error, { id: string; reason: string }>({
+    mutationFn: ({ id, reason }) => api.returns.reject(id, reason),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: queryKeys.returns });
+      qc.invalidateQueries({ queryKey: queryKeys.return(data.id) });
+    },
+  });
+}
+
+export function useConfirmReturnReceived() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const qc = useQueryClient();
+  return useMutation<SafeReturn, Error, string>({
+    mutationFn: (id) => api.returns.confirmReceived(id),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: queryKeys.returns });
+      qc.invalidateQueries({ queryKey: queryKeys.return(data.id) });
+    },
+  });
+}
+
+// --- Legal / GDPR ---
+
+export function useAcceptTos() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<void, Error, string>({
+    mutationFn: (version: string) => api.legal.acceptTos(version),
+  });
+}
+
+export function useInitiateAccountDeletion() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<{ scheduledAt: string }, Error, void>({
+    mutationFn: () => api.legal.deleteAccount(),
+  });
+}
+
+export function useCancelAccountDeletion() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<void, Error, void>({
+    mutationFn: () => api.legal.cancelDeletion(),
+  });
+}
+
+export function useLegalDataExport() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<Record<string, unknown>>({
+    queryKey: ['legal', 'data-export'],
+    queryFn: () => api.legal.exportData(),
+    enabled: false,
   });
 }

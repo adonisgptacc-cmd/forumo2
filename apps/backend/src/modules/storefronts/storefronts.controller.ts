@@ -63,8 +63,8 @@ export class StorefrontsController {
   @Delete('me/collections/:id')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteCollection(@Request() req: { any: { id: string } }, @Param('id') id: string) {
-    return this.storefrontsService.deleteCollection((req as any).user.id, id);
+  deleteCollection(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.storefrontsService.deleteCollection(req.user.id, id);
   }
 
   @Get('seller/:userId')
