@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Headers, HttpCode, HttpStatus, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import type { Request } from 'express';
@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 
 import { OrdersService } from "./orders.service";
 import { PaymentsService } from "./payments.service";
+import { PaystackService } from "./paystack.service";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { AuditLogService } from "../observability/audit-log.service";
 import { PayoutsService } from "../payouts/payouts.service";
@@ -21,11 +22,23 @@ interface StripeWebhookPayload {
   data?: { object?: StripeIntentPayload };
 }
 
+interface PaystackWebhookPayload {
+  event?: string;
+  data?: {
+    reference?: string;
+    transfer_code?: string;
+    id?: number;
+    status?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
 @Controller('orders/payments')
 export class PaymentsController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly paymentsService: PaymentsService,
+    private readonly paystackService: PaystackService,
     private readonly rateLimit: RateLimitService,
     private readonly auditLog: AuditLogService,
     private readonly configService: ConfigService,
@@ -116,6 +129,70 @@ export class PaymentsController {
         });
       } else {
         await this.paymentsService.updateProviderStatus(orderId, providerStatus);
+      }
+
+      await this.paymentsService.markWebhookProcessed(eventRecord?.id);
+      return { received: true };
+    } catch (error) {
+      await this.paymentsService.markWebhookFailed(eventRecord?.id, error);
+      throw error;
+    }
+  }
+
+  @Post('paystack/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyPaystackPayment(
+    @Body() body: { reference: string },
+    @Req() req: Request,
+  ): Promise<{ verified: boolean; orderId: string; amount: number; reference: string; currency: string }> {
+    this.applyRateLimit(req);
+    if (!body.reference) throw new BadRequestException('reference is required');
+    return this.ordersService.verifyPaystackPayment(body.reference);
+  }
+
+  @Post('paystack/webhook')
+  @HttpCode(HttpStatus.OK)
+  async handlePaystackWebhook(
+    @Req() req: Request,
+    @Body() payload: PaystackWebhookPayload,
+    @Headers('x-paystack-signature') signature?: string,
+  ): Promise<{ received: boolean }> {
+    this.applyRateLimit(req);
+    const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
+
+    // Always require the signature header when PAYSTACK_WEBHOOK_SECRET is configured.
+    // Return 401 (not 400) so the caller knows this is an auth failure, not a bad request.
+    const webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    if (webhookSecret && !signature) {
+      throw new UnauthorizedException('Missing x-paystack-signature header');
+    }
+    if (signature && !this.paystackService.validateWebhookSignature(rawBody, signature)) {
+      throw new UnauthorizedException('Invalid Paystack webhook signature');
+    }
+
+    const eventRecord = await this.paymentsService.recordWebhookEvent(payload?.event ?? 'paystack', payload);
+
+    try {
+      const event = payload.event ?? '';
+      const data = payload.data ?? {};
+
+      await this.auditLog.record({
+        action: 'payments.paystack.webhook.received',
+        actorId: null,
+        entityType: 'paystack_event',
+        entityId: data.reference ?? String(data.id ?? ''),
+        payload: { event, reference: data.reference },
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers?.['user-agent'] ?? null,
+      });
+
+      if (event === 'charge.success' && data.reference) {
+        await this.ordersService.verifyPaystackPayment(data.reference);
+      } else if (event === 'transfer.success' && data.transfer_code) {
+        // Paystack seller payout completed — find payout by transferCode and mark settled
+        await this.paymentsService.updateProviderStatus(data.transfer_code, 'transfer.success');
+      } else if (event === 'refund.processed' && data.reference) {
+        await this.paymentsService.updateProviderStatus(data.reference, 'refund.processed');
       }
 
       await this.paymentsService.markWebhookProcessed(eventRecord?.id);

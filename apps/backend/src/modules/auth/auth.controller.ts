@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
 import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { AuthService } from "./auth.service";
 import {
@@ -19,6 +20,7 @@ import { RateLimitService } from "../../common/services/rate-limit.service";
 import { AuditLogService } from "../observability/audit-log.service";
 
 @Controller('auth')
+@SkipTosCheck()
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -87,6 +89,19 @@ export class AuthController {
       userAgent: req.headers?.['user-agent'] ?? null,
     });
     return result;
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() body: { token: string }) {
+    if (!body.token) throw new BadRequestException('token is required');
+    return this.authService.verifyEmail(body.token);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() body: { email: string }, @Req() req: any) {
+    this.applyRateLimit('resend-verification', req);
+    if (!body.email) throw new BadRequestException('email is required');
+    return this.authService.resendVerification(body.email);
   }
 
   @Get('me')

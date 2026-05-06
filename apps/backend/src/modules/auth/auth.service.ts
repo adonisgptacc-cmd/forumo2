@@ -1,4 +1,4 @@
-import { ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DeviceSessionStatus, NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
@@ -20,6 +20,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { UsersService } from "../users/users.service";
 import { OtpDeliveryService } from "./otp-delivery.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 interface OtpIssueResponse {
   message: string;
@@ -38,9 +39,10 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
     private readonly rateLimitService: RateLimitService,
+    private readonly notifications: NotificationsService,
   ) { }
 
-  async register(dto: RegisterInput): Promise<AuthResponse> {
+  async register(dto: RegisterInput): Promise<{ message: string }> {
     const normalizedEmail = this.normalizeEmail(dto.email);
     const existing = await this.findActiveUserByEmail(normalizedEmail);
     if (existing) {
@@ -48,18 +50,23 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
+    const emailVerificationToken = randomBytes(32).toString('hex');
+
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
         email: normalizedEmail,
         passwordHash,
         phone: dto.phone,
+        emailVerified: false,
+        emailVerificationToken,
       },
     });
 
     await this.ensureUserProfile(user.id);
+    await this.sendVerificationEmailForUser(user.email, user.name, emailVerificationToken);
 
-    return this.buildAuthResponse(user, {});
+    return { message: 'Registration successful. Please check your email to verify your account.' };
   }
 
   async login(dto: LoginInput): Promise<AuthResponse> {
@@ -80,6 +87,10 @@ export class AuthService {
     if (!valid) {
       this.enforceLoginAttemptLimit(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification link.');
     }
 
     const response = await this.buildAuthResponse(user, {
@@ -271,6 +282,56 @@ export class AuthService {
     }
 
     return { user: safeUser, accessToken: token };
+  }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerificationToken: token, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email already verified' };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerificationToken: null },
+    });
+
+    return { message: 'Email verified successfully. You can now log in.' };
+  }
+
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const normalizedEmail = this.normalizeEmail(email);
+
+    // Rate-limit to 3 resends per hour per email address
+    this.rateLimitService.enforce(`resend-verification:${normalizedEmail}`, 3, 3_600_000);
+
+    const user = await this.findActiveUserByEmail(normalizedEmail);
+    // Return a generic message regardless of whether the account exists to avoid enumeration
+    if (!user || user.emailVerified) {
+      return { message: 'If that email exists and is unverified, a new link has been sent.' };
+    }
+
+    const emailVerificationToken = randomBytes(32).toString('hex');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerificationToken },
+    });
+
+    await this.sendVerificationEmailForUser(user.email, user.name, emailVerificationToken);
+
+    return { message: 'If that email exists and is unverified, a new link has been sent.' };
+  }
+
+  private async sendVerificationEmailForUser(email: string, name: string, token: string): Promise<void> {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const link = `${frontendUrl}/verify-email?token=${token}`;
+    await this.notifications.sendVerificationEmail(email, name, link);
   }
 
   private normalizeEmail(email: string): string {
@@ -490,6 +551,7 @@ export class AuthService {
         passwordHash: '', // No password for OAuth users
         avatarUrl: profile.avatarUrl,
         kycStatus: 'NOT_REQUIRED', // OAuth users are pre-verified by Google
+        emailVerified: true, // Google already verified this address
       },
     });
 

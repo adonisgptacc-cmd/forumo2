@@ -149,10 +149,10 @@ export class UsersService {
       await this.prisma.$transaction([
         this.prisma.userProfile.findUnique({ where: { userId: id } }),
         this.prisma.userAddress.findMany({ where: { userId: id } }),
-        this.prisma.listing.findMany({ where: { userId: id }, select: { id: true, title: true, price: true, status: true, createdAt: true } }),
-        this.prisma.order.findMany({ where: { buyerId: id }, select: { id: true, status: true, totalAmount: true, createdAt: true } }),
-        this.prisma.order.findMany({ where: { sellerId: id }, select: { id: true, status: true, totalAmount: true, createdAt: true } }),
-        this.prisma.review.findMany({ where: { authorId: id }, select: { id: true, rating: true, comment: true, createdAt: true } }),
+        this.prisma.listing.findMany({ where: { sellerId: id }, select: { id: true, title: true, priceCents: true, status: true, createdAt: true } }),
+        this.prisma.order.findMany({ where: { buyerId: id }, select: { id: true, status: true, totalItemCents: true, createdAt: true } }),
+        this.prisma.order.findMany({ where: { sellerId: id }, select: { id: true, status: true, totalItemCents: true, createdAt: true } }),
+        this.prisma.review.findMany({ where: { reviewerId: id }, select: { id: true, rating: true, comment: true, createdAt: true } }),
         this.prisma.savedListing.findMany({ where: { userId: id }, select: { listingId: true, createdAt: true } }),
       ]);
 

@@ -14,6 +14,7 @@ import { OtpDeliveryService } from "./otp-delivery.service";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { RateLimitService } from "../../common/services/rate-limit.service";
 import { ObservabilityModule } from "../observability/observability.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ObservabilityModule } from "../observability/observability.module";
     PrismaModule,
     UsersModule,
     ObservabilityModule,
+    NotificationsModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

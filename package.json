@@ -8,6 +8,7 @@
     "dev:backend": "turbo run dev --filter=backend",
     "dev:web": "turbo run dev --filter=web",
     "dev:mobile": "turbo run dev --filter=mobile",
+    "dev:admin": "turbo run dev --filter=@forumo/admin",
     
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:migrate": "turbo run migrate --filter=backend",

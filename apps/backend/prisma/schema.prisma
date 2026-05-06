@@ -204,6 +204,24 @@ enum PayoutStatus {
   FAILED
 }
 
+enum ReturnReason {
+  not_as_described
+  damaged
+  not_received
+  changed_mind
+  other
+}
+
+enum ReturnStatus {
+  requested
+  awaiting_seller
+  approved
+  rejected
+  shipped
+  received
+  refunded
+}
+
 model User {
   id             String          @id @default(uuid())
   name           String
@@ -223,8 +241,12 @@ model User {
   banReason         String?
   tokenVersion      Int             @default(0)
   lastLoginAt       DateTime?
-  termsAcceptedAt   DateTime?
-  privacyAcceptedAt DateTime?
+  termsAcceptedAt     DateTime?
+  privacyAcceptedAt   DateTime?
+  tosVersion          String?
+  deletionScheduledAt DateTime?
+  emailVerified            Boolean   @default(false)
+  emailVerificationToken   String?
   profile        UserProfile?
   otpCodes       OtpCode[]
   deviceSessions DeviceSession[]
@@ -262,6 +284,9 @@ model User {
 
   stripeConnectAccountId String?
   stripeConnectOnboarded Boolean  @default(false)
+
+  returnsAsBuyer  Return[] @relation("ReturnBuyer")
+  returnsAsSeller Return[] @relation("ReturnSeller")
 }
 
 model UserProfile {
@@ -530,6 +555,10 @@ model Order {
   fulfilledAt      DateTime?
   deliveredAt      DateTime?
   cancelledAt      DateTime?
+  taxAmountCents   Int          @default(0)
+  taxRate          Decimal?
+  taxJurisdiction  String?
+  taxBreakdown     Json?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -545,6 +574,9 @@ model Order {
 
   shippingAddress UserAddress? @relation("OrderShippingAddress", fields: [shippingAddressId], references: [id])
   billingAddress  UserAddress? @relation("OrderBillingAddress", fields: [billingAddressId], references: [id])
+  returns         Return[]
+
+  trackingEvents   TrackingEvent[]
 
   @@index([buyerId])
   @@index([sellerId])
@@ -571,20 +603,24 @@ model OrderItem {
 }
 
 model OrderShipment {
-  id             String        @id @default(uuid())
-  orderId        String
-  carrier        String?
-  serviceLevel   String?
-  trackingNumber String?
-  status         ShipmentStatus @default(PENDING)
-  shippedAt      DateTime?
-  estimatedDelivery DateTime?
-  deliveredAt    DateTime?
-  metadata       Json?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                  String        @id @default(uuid())
+  orderId             String
+  carrier             String?
+  serviceLevel        String?
+  trackingNumber      String?
+  status              ShipmentStatus @default(PENDING)
+  shippedAt           DateTime?
+  estimatedDelivery   DateTime?
+  deliveredAt         DateTime?
+  labelUrl            String?
+  shippingRateId      String?
+  shippoTransactionId String?
+  metadata            Json?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  trackingEvents TrackingEvent[]
 
   @@index([orderId, status])
 }
@@ -1121,6 +1157,48 @@ model CartItem {
 
   @@unique([cartId, listingId])
   @@index([cartId])
+}
+
+model Return {
+  id                     String       @id @default(uuid())
+  orderId                String
+  buyerId                String
+  sellerId               String
+  reason                 ReturnReason
+  conditionNotes         String?
+  items                  Json?
+  status                 ReturnStatus @default(requested)
+  trackingNumber         String?
+  refundAmount           Int          @default(0)
+  sellerResponseDeadline DateTime
+  rejectionReason        String?
+  resolvedAt             DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  buyer  User  @relation("ReturnBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  seller User  @relation("ReturnSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([buyerId])
+  @@index([sellerId, status])
+}
+
+model TrackingEvent {
+  id          String   @id @default(uuid())
+  orderId     String
+  shipmentId  String?
+  status      String
+  description String?
+  location    String?
+  timestamp   DateTime
+  createdAt   DateTime @default(now())
+
+  order    Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shipment OrderShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, timestamp])
 }
 
 model FeeSchedule {

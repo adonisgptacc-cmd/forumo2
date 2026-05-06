@@ -78,6 +78,14 @@ export class NotificationsService {
     }
   }
 
+  async sendVerificationEmail(toEmail: string, toName: string, verificationLink: string): Promise<void> {
+    const html = `<p>Hi ${toName},</p>
+<p>Thanks for signing up to Forumo. Please verify your email address by clicking the link below:</p>
+<p><a href="${verificationLink}">Verify my email</a></p>
+<p>This link expires in 24 hours. If you did not create an account, you can safely ignore this email.</p>`;
+    await this.sendEmail(toEmail, 'Verify your Forumo email address', html);
+  }
+
   async notifyKycDecision(
     toEmail: string,
     toName: string,

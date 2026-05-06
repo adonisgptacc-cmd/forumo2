@@ -10,6 +10,7 @@ import { VerifyOtpDto } from "../dto/verify-otp.dto";
 import { UsersService } from "../../users/users.service";
 import { OtpDeliveryService } from "../otp-delivery.service";
 import { RateLimitService } from "../../../common/services/rate-limit.service";
+import { NotificationsService } from "../../notifications/notifications.service";
 
 const createUser = (): User => ({
   id: 'user-1',
@@ -26,6 +27,18 @@ const createUser = (): User => ({
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-02T00:00:00.000Z'),
   deletedAt: null,
+  accountStatus: 'ACTIVE',
+  suspensionReason: null,
+  suspendedUntil: null,
+  banReason: null,
+  termsAcceptedAt: null,
+  privacyAcceptedAt: null,
+  tosVersion: null,
+  deletionScheduledAt: null,
+  emailVerified: true,
+  emailVerificationToken: null,
+  stripeConnectAccountId: null,
+  stripeConnectOnboarded: false,
 });
 
 type PrismaMock = {
@@ -113,6 +126,10 @@ describe('AuthService OTP flows', () => {
       enforce: jest.fn(),
     } as unknown as jest.Mocked<RateLimitService>;
 
+    const notifications = {
+      sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<NotificationsService>;
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService,
@@ -120,6 +137,7 @@ describe('AuthService OTP flows', () => {
       usersService,
       otpDelivery,
       rateLimit,
+      notifications,
     );
   });
 

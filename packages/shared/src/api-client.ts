@@ -25,10 +25,12 @@ import {
   SafeOffer,
   SafeOrder,
   SafeReview,
+  SafeReturn,
   SafeUser,
   SavedListing,
   SendMessageDto,
   UpdateOrderStatusDto,
+  InitiateReturnDto,
   ReviewRollup,
   PaginatedResponse,
   Storefront,
@@ -44,6 +46,7 @@ import {
   safeNotificationSchema,
   savedListingSchema,
   safeOfferSchema,
+  safeReturnSchema,
   safeUserSchema,
   listingReviewResponseSchema,
   adminDisputeSchema,
@@ -316,12 +319,23 @@ export class ForumoApiClient {
       });
       return safeOrderSchema.parse(response);
     },
-    initiatePayment: async (orderId: string): Promise<{ clientSecret: string }> => {
-      const response = await this.requestJson<{ clientSecret: string }>(`/orders/${orderId}/initiate-payment`, {
+    initiatePayment: async (orderId: string): Promise<{
+      provider: 'stripe' | 'paystack';
+      clientSecret?: string;
+      authorizationUrl?: string;
+      reference?: string;
+    }> => {
+      return this.requestJson(`/orders/${orderId}/initiate-payment`, {
         method: 'POST',
         auth: true,
       });
-      return response;
+    },
+    verifyPaystackPayment: async (reference: string): Promise<{ verified: boolean; orderId: string }> => {
+      return this.requestJson('/orders/payments/paystack/verify', {
+        method: 'POST',
+        auth: true,
+        body: { reference },
+      });
     },
     createShipment: async (
       orderId: string,
@@ -341,6 +355,46 @@ export class ForumoApiClient {
         method: 'PATCH',
         auth: true,
         body: payload,
+      });
+    },
+    taxEstimate: async (payload: {
+      cartItems: Array<{ amountCents: number; reference?: string; taxCode?: string }>;
+      shippingAddress: {
+        line1: string;
+        line2?: string;
+        city: string;
+        state?: string;
+        postalCode?: string;
+        country: string;
+      };
+      currency?: string;
+    }): Promise<{
+      taxAmountCents: number;
+      taxRate: number;
+      taxJurisdiction: string;
+      breakdown: Array<{ description: string; amountCents: number; rate: number; inclusive: boolean; country: string | null; taxType: string | null }>;
+      available: boolean;
+    }> => {
+      return this.requestJson('/orders/tax-estimate', {
+        method: 'POST',
+        auth: true,
+        body: payload,
+      });
+    },
+    getReceipt: async (orderId: string): Promise<{
+      orderId: string;
+      orderNumber: string;
+      currency: string;
+      subtotalCents: number;
+      taxAmountCents: number;
+      taxRate: number | null;
+      taxJurisdiction: string | null;
+      totalCents: number;
+      breakdown: unknown[];
+    }> => {
+      return this.requestJson(`/orders/${orderId}/receipt`, {
+        method: 'GET',
+        auth: true,
       });
     },
   };
@@ -498,6 +552,38 @@ export class ForumoApiClient {
         body: payload,
       });
       return adminDisputeSchema.parse(result);
+    },
+    listUsers: async (params: { search?: string; status?: string; role?: string; page?: number; limit?: number } = {}): Promise<SafeUser[]> => {
+      const q = new URLSearchParams();
+      if (params.search) q.set('search', params.search);
+      if (params.status) q.set('status', params.status);
+      if (params.role) q.set('role', params.role);
+      if (params.page != null) q.set('page', String(params.page));
+      if (params.limit != null) q.set('limit', String(params.limit));
+      const qs = q.toString() ? `?${q.toString()}` : '';
+      const result = await this.request<SafeUser[]>(`/admin/users${qs}`, { method: 'GET', auth: true });
+      return result.map((u) => safeUserSchema.parse(u));
+    },
+    suspendUser: async (id: string, reason: string, durationDays?: number | null): Promise<void> => {
+      await this.requestJson<void>(`/admin/users/${id}/suspend`, {
+        method: 'POST',
+        auth: true,
+        body: { reason, durationDays },
+      });
+    },
+    unsuspendUser: async (id: string): Promise<void> => {
+      await this.requestJson<void>(`/admin/users/${id}/unsuspend`, {
+        method: 'POST',
+        auth: true,
+        body: {},
+      });
+    },
+    banUser: async (id: string, reason: string): Promise<void> => {
+      await this.requestJson<void>(`/admin/users/${id}/ban`, {
+        method: 'POST',
+        auth: true,
+        body: { reason },
+      });
     },
   };
 
@@ -670,6 +756,21 @@ export class ForumoApiClient {
     },
   };
 
+  readonly legal = {
+    acceptTos: async (version: string): Promise<void> => {
+      await this.requestJson<void>('/legal/accept-tos', { method: 'POST', auth: true, body: { version } });
+    },
+    deleteAccount: async (): Promise<{ scheduledAt: string }> => {
+      return this.requestJson<{ scheduledAt: string }>('/legal/delete-account', { method: 'POST', auth: true });
+    },
+    cancelDeletion: async (): Promise<void> => {
+      await this.requestJson<void>('/legal/cancel-deletion', { method: 'POST', auth: true });
+    },
+    exportData: async (): Promise<Record<string, unknown>> => {
+      return this.request<Record<string, unknown>>('/legal/data-export', { method: 'GET', auth: true });
+    },
+  };
+
   readonly inventory = {
     getByVariant: async (variantId: string): Promise<{
       variantId: string;
@@ -813,6 +914,108 @@ export class ForumoApiClient {
       await this.request<void>(`/storefronts/me/collections/${id}`, { method: 'DELETE', auth: true });
     },
   };
+
+  readonly returns = {
+    initiate: async (orderId: string, payload: InitiateReturnDto): Promise<SafeReturn> => {
+      const result = await this.requestJson<SafeReturn>(`/orders/${orderId}/return`, {
+        method: 'POST',
+        auth: true,
+        body: payload,
+      });
+      return safeReturnSchema.parse(result);
+    },
+    list: async (): Promise<SafeReturn[]> => {
+      const result = await this.request<SafeReturn[]>('/returns', { method: 'GET', auth: true });
+      return result.map((r) => safeReturnSchema.parse(r));
+    },
+    get: async (id: string): Promise<SafeReturn> => {
+      const result = await this.request<SafeReturn>(`/returns/${id}`, { method: 'GET', auth: true });
+      return safeReturnSchema.parse(result);
+    },
+    approve: async (id: string): Promise<SafeReturn> => {
+      const result = await this.requestJson<SafeReturn>(`/returns/${id}/approve`, {
+        method: 'PUT',
+        auth: true,
+      });
+      return safeReturnSchema.parse(result);
+    },
+    reject: async (id: string, reason: string): Promise<SafeReturn> => {
+      const result = await this.requestJson<SafeReturn>(`/returns/${id}/reject`, {
+        method: 'PUT',
+        auth: true,
+        body: { reason },
+      });
+      return safeReturnSchema.parse(result);
+    },
+    confirmReceived: async (id: string): Promise<SafeReturn> => {
+      const result = await this.requestJson<SafeReturn>(`/returns/${id}/received`, {
+        method: 'PUT',
+        auth: true,
+      });
+      return safeReturnSchema.parse(result);
+    },
+    forceRefund: async (id: string): Promise<SafeReturn> => {
+      const result = await this.requestJson<SafeReturn>(`/admin/returns/${id}/force-refund`, {
+        method: 'POST',
+        auth: true,
+      });
+      return safeReturnSchema.parse(result);
+    },
+  };
+
+  readonly analytics = {
+    getOverview: (period: '7d' | '30d' | '90d' = '30d') =>
+      this.request<SellerAnalyticsOverview>(`/analytics/seller/overview?period=${period}`, { method: 'GET', auth: true }),
+
+    getRevenue: (period: '7d' | '30d' | '90d' = '30d', groupBy: 'day' | 'week' | 'month' = 'day') =>
+      this.request<SellerRevenuePoint[]>(
+        `/analytics/seller/revenue?period=${period}&groupBy=${groupBy}`,
+        { method: 'GET', auth: true },
+      ),
+
+    getTopListings: (limit = 5) =>
+      this.request<SellerTopListing[]>(`/analytics/seller/top-listings?limit=${limit}`, { method: 'GET', auth: true }),
+
+    getReviewsSummary: () =>
+      this.request<SellerReviewsSummary>('/analytics/seller/reviews-summary', { method: 'GET', auth: true }),
+  };
+}
+
+export interface SellerAnalyticsOverview {
+  gmv: number;
+  orders: number;
+  avgOrderValue: number;
+  conversionRate: number;
+  pageViews: number;
+  uniqueVisitors: number;
+  changes: {
+    gmvChange: number;
+    ordersChange: number;
+    aovChange: number;
+  };
+}
+
+export interface SellerRevenuePoint {
+  date: string;
+  revenue: number;
+  orders: number;
+  fees: number;
+}
+
+export interface SellerTopListing {
+  listingId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  views: number;
+  orders: number;
+  revenue: number;
+  conversionRate: number;
+}
+
+export interface SellerReviewsSummary {
+  avgRating: number;
+  totalReviews: number;
+  ratingDistribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
 }
 
 function buildQuery(params: Record<string, string | number | string[] | undefined>) {

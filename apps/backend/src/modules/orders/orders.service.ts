@@ -16,16 +16,24 @@ import { OrderWithRelations, SafeOrder, serializeOrder } from "./order.serialize
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
+import { PaystackService } from "./paystack.service";
+import { PaymentProviderFactory } from "./payment-provider.factory";
+import { TaxService, TaxReceiptResult } from "./tax.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { FeeService } from "../fees/fee.service";
+import { ShippingService } from "../shipping/shipping.service";
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
+    private readonly paystackService: PaystackService,
+    private readonly providerFactory: PaymentProviderFactory,
+    private readonly taxService: TaxService,
     private readonly notifications: NotificationsService,
     private readonly feeService: FeeService,
+    private readonly shippingService: ShippingService,
   ) { }
 
   async findAll(userId: string, filters?: { listingId?: string; status?: string }): Promise<SafeOrder[]> {
@@ -96,22 +104,70 @@ export class OrdersService {
       });
 
       const totalChargeCents = this.getOrderTotalCents(created);
-      const paymentIntent = await this.paymentsService.mintPaymentIntent(created.id, totalChargeCents, created.currency);
+      const provider = this.providerFactory.selectProvider(created.currency);
 
-      await tx.paymentTransaction.create({
-        data: {
-          orderId: created.id,
-          provider: PaymentProvider.STRIPE,
-          status: PaymentStatus.PENDING,
-          providerStatus: paymentIntent.status,
-          amountCents: totalChargeCents,
-          currency: created.currency,
-          providerRef: paymentIntent.id,
-          metadata: this.toJsonInput(
-            paymentIntent.client_secret ? { clientSecret: paymentIntent.client_secret } : undefined,
-          ),
-        },
-      });
+      const shippingAddr = dto.shippingAddressId
+        ? await tx.userAddress.findUnique({ where: { id: dto.shippingAddressId } })
+        : null;
+
+      if (provider === 'paystack') {
+        const buyer = await tx.user.findUnique({
+          where: { id: dto.buyerId },
+          select: { email: true },
+        });
+        const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout`;
+        const { authorizationUrl, reference } = await this.paystackService.initializeTransaction(
+          totalChargeCents,
+          buyer?.email ?? '',
+          { orderId: created.id },
+          callbackUrl,
+        );
+        await tx.paymentTransaction.create({
+          data: {
+            orderId: created.id,
+            provider: PaymentProvider.PAYSTACK,
+            status: PaymentStatus.PENDING,
+            providerStatus: 'initialized',
+            amountCents: totalChargeCents,
+            currency: created.currency,
+            providerRef: reference,
+            metadata: this.toJsonInput({ authorizationUrl, reference }),
+          },
+        });
+      } else {
+        const paymentIntent = await this.paymentsService.mintPaymentIntent(
+          created.id,
+          totalChargeCents,
+          created.currency,
+          shippingAddr
+            ? {
+                shippingAddress: {
+                  name: shippingAddr.fullName,
+                  line1: shippingAddr.line1,
+                  line2: shippingAddr.line2 ?? undefined,
+                  city: shippingAddr.city,
+                  state: shippingAddr.state ?? undefined,
+                  postalCode: shippingAddr.postalCode ?? undefined,
+                  country: shippingAddr.country,
+                },
+              }
+            : undefined,
+        );
+        await tx.paymentTransaction.create({
+          data: {
+            orderId: created.id,
+            provider: PaymentProvider.STRIPE,
+            status: PaymentStatus.PENDING,
+            providerStatus: paymentIntent.status,
+            amountCents: totalChargeCents,
+            currency: created.currency,
+            providerRef: paymentIntent.id,
+            metadata: this.toJsonInput(
+              paymentIntent.client_secret ? { clientSecret: paymentIntent.client_secret } : undefined,
+            ),
+          },
+        });
+      }
 
       return created;
     });
@@ -119,26 +175,99 @@ export class OrdersService {
     return this.findById(order.id);
   }
 
-  async initiatePayment(orderId: string, userId: string) {
+  async initiatePayment(orderId: string, userId: string): Promise<{
+    provider: 'stripe' | 'paystack';
+    clientSecret?: string;
+    authorizationUrl?: string;
+    reference?: string;
+  }> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { payments: true }
+      include: { payments: true },
     });
 
     if (!order) throw new NotFoundException('Order not found');
     if (order.buyerId !== userId) throw new ForbiddenException('Not your order');
     if (order.status !== OrderStatus.PENDING) throw new BadRequestException('Order status not pending');
 
-    // Check for existing pending intent
-    const existing = order.payments.find(p => p.status === PaymentStatus.PENDING && p.provider === PaymentProvider.STRIPE);
-    if (existing && existing.metadata && (existing.metadata as any).clientSecret) {
-      return { clientSecret: (existing.metadata as any).clientSecret };
+    // Return existing pending Paystack transaction
+    const existingPaystack = order.payments.find(
+      (p) => p.status === PaymentStatus.PENDING && p.provider === PaymentProvider.PAYSTACK,
+    );
+    if (existingPaystack?.metadata) {
+      const meta = existingPaystack.metadata as Record<string, unknown>;
+      if (meta.authorizationUrl) {
+        return {
+          provider: 'paystack',
+          authorizationUrl: meta.authorizationUrl as string,
+          reference: existingPaystack.providerRef ?? undefined,
+        };
+      }
     }
 
-    // Create new intent
-    const totalChargeCents = order.totalItemCents + order.shippingCents + order.feeCents;
-    const paymentIntent = await this.paymentsService.mintPaymentIntent(order.id, totalChargeCents, order.currency);
+    // Return existing pending Stripe intent
+    const existingStripe = order.payments.find(
+      (p) => p.status === PaymentStatus.PENDING && p.provider === PaymentProvider.STRIPE,
+    );
+    if (existingStripe?.metadata) {
+      const meta = existingStripe.metadata as Record<string, unknown>;
+      if (meta.clientSecret) {
+        return { provider: 'stripe', clientSecret: meta.clientSecret as string };
+      }
+    }
 
+    // No existing pending transaction — create a new one based on currency
+    const totalChargeCents = order.totalItemCents + order.shippingCents + order.feeCents;
+    const selectedProvider = this.providerFactory.selectProvider(order.currency);
+
+    if (selectedProvider === 'paystack') {
+      const buyer = await this.prisma.user.findUnique({
+        where: { id: order.buyerId },
+        select: { email: true },
+      });
+      const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout`;
+      const { authorizationUrl, reference } = await this.paystackService.initializeTransaction(
+        totalChargeCents,
+        buyer?.email ?? '',
+        { orderId: order.id },
+        callbackUrl,
+      );
+      await this.prisma.paymentTransaction.create({
+        data: {
+          orderId: order.id,
+          provider: PaymentProvider.PAYSTACK,
+          status: PaymentStatus.PENDING,
+          providerStatus: 'initialized',
+          amountCents: totalChargeCents,
+          currency: order.currency,
+          providerRef: reference,
+          metadata: this.toJsonInput({ authorizationUrl, reference }),
+        },
+      });
+      return { provider: 'paystack', authorizationUrl, reference };
+    }
+
+    const shippingAddr = order.shippingAddressId
+      ? await this.prisma.userAddress.findUnique({ where: { id: order.shippingAddressId } })
+      : null;
+    const paymentIntent = await this.paymentsService.mintPaymentIntent(
+      order.id,
+      totalChargeCents,
+      order.currency,
+      shippingAddr
+        ? {
+            shippingAddress: {
+              name: shippingAddr.fullName,
+              line1: shippingAddr.line1,
+              line2: shippingAddr.line2 ?? undefined,
+              city: shippingAddr.city,
+              state: shippingAddr.state ?? undefined,
+              postalCode: shippingAddr.postalCode ?? undefined,
+              country: shippingAddr.country,
+            },
+          }
+        : undefined,
+    );
     await this.prisma.paymentTransaction.create({
       data: {
         orderId: order.id,
@@ -153,8 +282,39 @@ export class OrdersService {
         ),
       },
     });
+    return { provider: 'stripe', clientSecret: paymentIntent.client_secret ?? undefined };
+  }
 
-    return { clientSecret: paymentIntent.client_secret };
+  async verifyPaystackPayment(reference: string): Promise<{ verified: boolean; orderId: string; amount: number; reference: string; currency: string }> {
+    const tx = await this.prisma.paymentTransaction.findFirst({
+      where: { providerRef: reference, provider: PaymentProvider.PAYSTACK },
+    });
+    if (!tx) throw new NotFoundException('Paystack transaction not found');
+
+    const result = await this.paystackService.verifyTransaction(reference);
+    if (!result.success) throw new BadRequestException('Paystack payment verification failed');
+
+    // Guard against underpayment: Paystack returns amounts in kobo (smallest currency unit).
+    // Our amountCents is already in the smallest unit (ZAR cents = kobo for ZAR).
+    if (result.amountKobo !== tx.amountCents) {
+      throw new BadRequestException(
+        `Paystack amount mismatch: expected ${tx.amountCents}, got ${result.amountKobo}`,
+      );
+    }
+
+    await this.updateStatusFromProvider(tx.orderId, {
+      status: OrderStatus.PAID,
+      note: 'Paystack payment verified',
+      providerStatus: 'success',
+    });
+
+    return {
+      verified: true,
+      orderId: tx.orderId,
+      amount: result.amountKobo,
+      reference,
+      currency: result.currency,
+    };
   }
 
   async updateStatus(id: string, dto: UpdateOrderStatusInput): Promise<SafeOrder> {
@@ -200,14 +360,16 @@ export class OrdersService {
           await this.paymentsService.markPaymentCaptured(tx, order, providerStatus);
           await this.ensureEscrowHolding(tx, order);
           data.paymentStatus = PaymentStatus.CAPTURED;
+          // Record actual Stripe Tax details — non-blocking, runs after transaction commits
+          void this.taxService.recordTaxTransaction(order.id).catch(() => undefined);
           break;
         case OrderStatus.CANCELLED:
         case OrderStatus.REFUNDED:
           await this.paymentsService.markPaymentRefunded(tx, order, providerStatus);
           await this.handleEscrowRefund(tx, order, dto);
           data.paymentStatus = PaymentStatus.REFUNDED;
-          // Issue Stripe refund outside the transaction (non-fatal if it fails)
-          void this.paymentsService.issueStripeRefund(order.id, 'requested_by_customer');
+          // Issue refund via the correct provider (non-fatal if it fails)
+          void this.issueProviderRefund(order.id, order.payments).catch(() => undefined);
           break;
         case OrderStatus.COMPLETED:
           await this.handleEscrowRelease(tx, order, dto);
@@ -261,16 +423,31 @@ export class OrdersService {
           ]);
           break;
 
-        case OrderStatus.PAID:
+        case OrderStatus.PAID: {
+          const taxLine = order.taxAmountCents
+            ? `<tr><td style="padding:4px 0">Tax (${order.taxJurisdiction ?? ''})</td><td style="padding:4px 0;text-align:right">${order.currency} ${(order.taxAmountCents / 100).toFixed(2)}</td></tr>`
+            : '';
           await Promise.all([
+            this.notifications.sendEmail(
+              buyer.email,
+              `Payment confirmed — ${ref}`,
+              `<p>Hi ${buyer.name},</p><p>Your payment for order <strong>${ref}</strong> has been received. Here is your receipt summary:</p>` +
+              `<table style="width:100%;border-collapse:collapse;font-size:14px">` +
+              `<tr><td style="padding:4px 0">Subtotal</td><td style="padding:4px 0;text-align:right">${order.currency} ${((order.totalItemCents + order.shippingCents + order.feeCents) / 100).toFixed(2)}</td></tr>` +
+              taxLine +
+              `</table>` +
+              `<p><a href="${orderUrl}">View your order</a></p>`,
+            ),
             this.notifications.sendEmail(
               seller.email,
               `Payment received — ${ref}`,
               `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
             ),
             this.notifications.createInApp(seller.id, 'order.paid', { orderId: order.id, ref }),
+            this.notifications.createInApp(buyer.id, 'order.paid', { orderId: order.id, ref }),
           ]);
           break;
+        }
 
         case OrderStatus.FULFILLED:
           await Promise.all([
@@ -610,6 +787,16 @@ export class OrdersService {
     return value as Prisma.InputJsonValue;
   }
 
+  async getReceipt(orderId: string, userId: string): Promise<TaxReceiptResult> {
+    // Access check — buyer or seller only
+    await this.findById(orderId, userId);
+    const receipt = await this.taxService.generateTaxReceipt(orderId);
+    if (!receipt) {
+      throw new NotFoundException('Order not found');
+    }
+    return receipt;
+  }
+
   async getSellerAnalytics(sellerId: string) {
     const orders = await this.prisma.order.findMany({
       where: { sellerId },
@@ -728,6 +915,110 @@ export class OrdersService {
         ...(dto.deliveredAt !== undefined && { deliveredAt: new Date(dto.deliveredAt) }),
       },
     });
+  }
+
+  private async issueProviderRefund(
+    orderId: string,
+    payments: Array<{ provider: string; status: string; providerRef?: string | null }>,
+  ): Promise<void> {
+    const captured = payments.find(
+      (p) =>
+        (p.status === PaymentStatus.CAPTURED || p.status === PaymentStatus.AUTHORIZED || p.status === PaymentStatus.SETTLED) &&
+        p.providerRef,
+    );
+    if (!captured?.providerRef) return;
+
+    if (captured.provider === PaymentProvider.PAYSTACK) {
+      await this.paystackService.refundTransaction(captured.providerRef);
+    } else {
+      await this.paymentsService.issueStripeRefund(orderId, 'requested_by_customer');
+    }
+  }
+
+  /**
+   * POST /orders/:id/label
+   * Seller selects a Shippo rate (obtained from POST /shipping/rates) and purchases the label.
+   * Updates OrderShipment, advances order to FULFILLED, and returns the label PDF URL.
+   */
+  async purchaseLabel(
+    orderId: string,
+    sellerId: string,
+    rateId: string,
+  ): Promise<{ labelUrl: string; trackingNumber: string; carrier: string; estimatedDelivery: Date | null }> {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.sellerId !== sellerId) throw new ForbiddenException('Only the seller can purchase a shipping label');
+    if (order.status !== OrderStatus.PAID && order.status !== OrderStatus.CONFIRMED) {
+      throw new BadRequestException('Order must be PAID or CONFIRMED before purchasing a label');
+    }
+
+    const label = await this.shippingService.purchaseLabel(rateId);
+
+    // Upsert shipment record
+    const existingShipment = await this.prisma.orderShipment.findFirst({ where: { orderId } });
+
+    if (existingShipment) {
+      await this.prisma.orderShipment.update({
+        where: { id: existingShipment.id },
+        data: {
+          carrier: label.carrier,
+          trackingNumber: label.trackingNumber,
+          labelUrl: label.labelUrl,
+          shippingRateId: rateId,
+          shippoTransactionId: label.shippoTransactionId,
+          estimatedDelivery: label.estimatedDelivery,
+          status: 'LABEL_CREATED',
+          shippedAt: new Date(),
+        },
+      });
+    } else {
+      await this.prisma.orderShipment.create({
+        data: {
+          orderId,
+          carrier: label.carrier,
+          trackingNumber: label.trackingNumber,
+          labelUrl: label.labelUrl,
+          shippingRateId: rateId,
+          shippoTransactionId: label.shippoTransactionId,
+          estimatedDelivery: label.estimatedDelivery,
+          status: 'LABEL_CREATED',
+          shippedAt: new Date(),
+        },
+      });
+    }
+
+    // Advance order status to FULFILLED (label purchased = seller intends to ship)
+    if (order.status !== OrderStatus.FULFILLED) {
+      await this.updateStatus(orderId, {
+        status: OrderStatus.FULFILLED,
+        note: `Shipping label purchased — carrier: ${label.carrier}, tracking: ${label.trackingNumber}`,
+        actorId: sellerId,
+      });
+    }
+
+    return {
+      labelUrl: label.labelUrl,
+      trackingNumber: label.trackingNumber,
+      carrier: label.carrier,
+      estimatedDelivery: label.estimatedDelivery,
+    };
+  }
+
+  /** GET /orders/:id/tracking — returns all tracking events from our DB. */
+  async getTrackingEvents(orderId: string, userId: string) {
+    await this.findById(orderId, userId); // access check (buyer or seller)
+
+    const events = await this.prisma.trackingEvent.findMany({
+      where: { orderId },
+      orderBy: { timestamp: 'asc' },
+    });
+
+    const shipment = await this.prisma.orderShipment.findFirst({
+      where: { orderId },
+      select: { carrier: true, trackingNumber: true, estimatedDelivery: true, status: true, labelUrl: true },
+    });
+
+    return { shipment, events };
   }
 
   private generateOrderNumber(): string {
