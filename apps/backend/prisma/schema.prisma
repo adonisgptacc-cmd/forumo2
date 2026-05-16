@@ -284,6 +284,7 @@ model User {
 
   stripeConnectAccountId String?
   stripeConnectOnboarded Boolean  @default(false)
+  paystackRecipientCode  String?
 
   returnsAsBuyer  Return[] @relation("ReturnBuyer")
   returnsAsSeller Return[] @relation("ReturnSeller")
@@ -296,6 +297,10 @@ model UserProfile {
   location          String?
   preferredLanguage String?
   metadata          Json?
+  bankAccountNumber String?
+  bankAccountName   String?
+  bankCode          String?
+  payoutCurrency    String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -377,7 +382,8 @@ model DeviceSession {
   os             String?
   location       String?
   metadata       Json?
-  sessionTokenHash String?
+  sessionTokenHash  String?
+  refreshTokenHash  String?
   status         DeviceSessionStatus @default(ACTIVE)
   lastIssuedAt   DateTime?
   lastVerifiedAt DateTime?
@@ -1119,6 +1125,7 @@ model Payout {
   currency               String       @default("zar")
   stripeTransferId       String?      @unique
   stripeConnectAccountId String?
+  paystackTransferCode   String?      @unique
   status                 PayoutStatus @default(PENDING)
   retryCount             Int          @default(0)
   scheduledAt            DateTime?

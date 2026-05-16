@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <AppProviders>
           <ForumoHeader />
-          <main className="mx-auto max-w-[1500px] bg-[#f3f3f3]">
+          <main>
             {children}
           </main>
           <ForumoFooter />

@@ -7,16 +7,22 @@ import Stripe from 'stripe';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaystackService } from '../orders/paystack.service';
 
 // Stripe Connect is not available in all African markets.
-// TODO: Add Paystack Connect fallback for markets where Stripe is unavailable
-// (e.g., Nigeria, Ghana). Gate by seller country at onboarding time.
+// Paystack Transfers is used for ZAR/NGN/GHS/KES payouts.
 
 const PLATFORM_FEE_RATE = 0.05; // 5% platform fee deducted from escrow at payout
 const MINIMUM_PAYOUT_CENTS = 5000; // 50 ZAR / ~$5 USD
 const NEW_SELLER_PAYOUT_COUNT_THRESHOLD = 3; // hold first N payouts
 const NEW_SELLER_HOLD_DAYS = 14;
 const ESCROW_RELEASE_HOLD_DAYS = 7;
+
+const PAYSTACK_CURRENCIES = new Set(['ZAR', 'NGN', 'GHS', 'KES']);
+
+type PayoutWithSeller = Prisma.PayoutGetPayload<{
+  include: { seller: { include: { profile: true } } };
+}>;
 
 @Injectable()
 export class PayoutsService {
@@ -26,6 +32,7 @@ export class PayoutsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly paystackService: PaystackService,
   ) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
     if (apiKey) {
@@ -63,7 +70,6 @@ export class PayoutsService {
     }
 
     const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:4000/api/v1';
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
     const accountLink = await this.stripe.accountLinks.create({
       account: accountId,
@@ -98,7 +104,6 @@ export class PayoutsService {
     pending: number;
     currency: string;
   }> {
-    // Sum all RELEASED escrow amounts for this seller, minus platform fee
     const releasedEscrows = await this.prisma.escrowHolding.findMany({
       where: { status: 'RELEASED', order: { sellerId } },
       select: { amountCents: true },
@@ -107,7 +112,6 @@ export class PayoutsService {
     const grossEscrow = releasedEscrows.reduce((sum, e) => sum + e.amountCents, 0);
     const netEscrow = Math.floor(grossEscrow * (1 - PLATFORM_FEE_RATE));
 
-    // Sum payouts already processed (PAID) or in-flight (PENDING/PROCESSING)
     const [paidAgg, pendingAgg] = await Promise.all([
       this.prisma.payout.aggregate({
         where: { sellerId, status: PayoutStatus.PAID },
@@ -154,6 +158,12 @@ export class PayoutsService {
     return { data, total, page, limit };
   }
 
+  // ─── Bank list (Paystack) ──────────────────────────────────────────────────
+
+  async listPaystackBanks(currency: string): Promise<unknown[]> {
+    return this.paystackService.listBanks(currency);
+  }
+
   // ─── Scheduling ───────────────────────────────────────────────────────────
 
   @Cron('0 2 * * *')
@@ -162,7 +172,6 @@ export class PayoutsService {
 
     const cutoff = new Date(Date.now() - ESCROW_RELEASE_HOLD_DAYS * 24 * 60 * 60 * 1000);
 
-    // Find RELEASED escrows older than 7 days with no open disputes and eligible order status
     const eligible = await this.prisma.escrowHolding.findMany({
       where: {
         status: 'RELEASED',
@@ -180,15 +189,10 @@ export class PayoutsService {
       return;
     }
 
-    // Filter out orders that already have a non-failed payout
     const orderIds = eligible.map((e) => e.orderId);
     const existingPayouts = await this.prisma.payout.findMany({
       where: {
         status: { in: [PayoutStatus.PENDING, PayoutStatus.PROCESSING, PayoutStatus.PAID] },
-        // Match via stripeConnectAccountId not available — use sellerId + amount heuristic instead.
-        // For correctness we track which escrow orders have payouts via metadata.
-        // Simplified: check if any payout exists for the same escrow amount+seller created after releasedAt.
-        // The proper approach is to store escrowId on Payout; we avoid schema churn here.
         seller: { ordersAsSeller: { some: { id: { in: orderIds } } } },
       },
       select: { sellerId: true, amount: true, createdAt: true },
@@ -228,27 +232,14 @@ export class PayoutsService {
   // ─── Processing ───────────────────────────────────────────────────────────
 
   async processPayout(payoutId: string): Promise<void> {
-    if (!this.stripe) {
-      throw new BadRequestException('Stripe is not configured');
-    }
-
     const payout = await this.prisma.payout.findUnique({
       where: { id: payoutId },
-      include: { seller: true },
+      include: { seller: { include: { profile: true } } },
     });
     if (!payout) throw new NotFoundException(`Payout ${payoutId} not found`);
 
     if (payout.status !== PayoutStatus.PENDING) {
       throw new BadRequestException(`Payout is ${payout.status}, expected PENDING`);
-    }
-
-    const { seller } = payout;
-
-    if (!seller.stripeConnectAccountId) {
-      throw new BadRequestException('Seller has not completed Stripe Connect onboarding');
-    }
-    if (!seller.stripeConnectOnboarded) {
-      throw new BadRequestException('Seller Stripe Connect account is not yet active');
     }
 
     if (payout.amount < MINIMUM_PAYOUT_CENTS) {
@@ -257,45 +248,30 @@ export class PayoutsService {
       );
     }
 
-    const holdActive = await this.enforceNewSellerHold(seller.id);
+    const holdActive = await this.enforceNewSellerHold(payout.seller.id);
     if (holdActive) {
       this.logger.warn(
-        `processPayout: payout ${payoutId} held — seller ${seller.id} new-seller hold active`,
+        `processPayout: payout ${payoutId} held — seller ${payout.seller.id} new-seller hold active`,
       );
       throw new BadRequestException(
         'Payout is on hold for new sellers. Funds will be released after the hold period.',
       );
     }
 
-    // Mark as PROCESSING before calling Stripe to prevent double-processing
+    // Mark PROCESSING before calling provider to prevent double-processing
     await this.prisma.payout.update({
       where: { id: payoutId },
       data: { status: PayoutStatus.PROCESSING },
     });
 
     try {
-      const transfer = await this.stripe.transfers.create(
-        {
-          amount: payout.amount,
-          currency: payout.currency,
-          destination: seller.stripeConnectAccountId,
-          description: `Forumo payout to seller ${seller.id}`,
-          metadata: { payoutId, sellerId: seller.id },
-        },
-        { idempotencyKey: `payout_transfer_${payoutId}` },
-      );
-
-      await this.prisma.payout.update({
-        where: { id: payoutId },
-        data: {
-          stripeTransferId: transfer.id,
-          stripeConnectAccountId: seller.stripeConnectAccountId,
-        },
-      });
-
-      this.logger.log(`processPayout: transfer ${transfer.id} created for payout ${payoutId}`);
+      if (PAYSTACK_CURRENCIES.has(payout.currency.toUpperCase())) {
+        await this.processPaystackPayout(payoutId, payout);
+      } else {
+        await this.processStripePayout(payoutId, payout);
+      }
     } catch (err) {
-      const reason = err instanceof Error ? err.message : 'Stripe transfer error';
+      const reason = err instanceof Error ? err.message : 'Transfer error';
       await this.prisma.payout.update({
         where: { id: payoutId },
         data: { status: PayoutStatus.FAILED, failureReason: reason },
@@ -303,6 +279,89 @@ export class PayoutsService {
       this.logger.error(`processPayout: failed for ${payoutId}: ${reason}`);
       throw err;
     }
+  }
+
+  private async processStripePayout(payoutId: string, payout: PayoutWithSeller): Promise<void> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+
+    const { seller } = payout;
+    if (!seller.stripeConnectAccountId) {
+      throw new BadRequestException('Seller has not completed Stripe Connect onboarding');
+    }
+    if (!seller.stripeConnectOnboarded) {
+      throw new BadRequestException('Seller Stripe Connect account is not yet active');
+    }
+
+    const transfer = await this.stripe.transfers.create(
+      {
+        amount: payout.amount,
+        currency: payout.currency,
+        destination: seller.stripeConnectAccountId,
+        description: `Forumo payout to seller ${seller.id}`,
+        metadata: { payoutId, sellerId: seller.id },
+      },
+      { idempotencyKey: `payout_transfer_${payoutId}` },
+    );
+
+    await this.prisma.payout.update({
+      where: { id: payoutId },
+      data: {
+        stripeTransferId: transfer.id,
+        stripeConnectAccountId: seller.stripeConnectAccountId,
+      },
+    });
+
+    this.logger.log(`processStripePayout: transfer ${transfer.id} created for payout ${payoutId}`);
+  }
+
+  private async processPaystackPayout(payoutId: string, payout: PayoutWithSeller): Promise<void> {
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      throw new BadRequestException('Paystack is not configured');
+    }
+
+    const { seller } = payout;
+    const profile = seller.profile;
+
+    if (!profile?.bankAccountNumber || !profile?.bankCode || !profile?.bankAccountName) {
+      throw new BadRequestException(
+        'Seller bank account details are incomplete. Please update your payout settings.',
+      );
+    }
+
+    // Use cached recipient code or create a new one
+    let recipientCode = seller.paystackRecipientCode;
+    if (!recipientCode) {
+      recipientCode = await this.paystackService.createTransferRecipient(
+        profile.bankCode,
+        profile.bankAccountNumber,
+        profile.bankAccountName,
+        payout.currency.toUpperCase(),
+      );
+      await this.prisma.user.update({
+        where: { id: seller.id },
+        data: { paystackRecipientCode: recipientCode },
+      });
+    }
+
+    // reference is idempotency key — safe to retry with same payoutId
+    const reference = `payout_${payoutId}`;
+    const { transferCode, status } = await this.paystackService.initiateTransfer(
+      payout.amount,
+      recipientCode,
+      `Forumo payout to seller ${seller.id}`,
+      reference,
+    );
+
+    await this.prisma.payout.update({
+      where: { id: payoutId },
+      data: { paystackTransferCode: transferCode },
+    });
+
+    this.logger.log(
+      `processPaystackPayout: transfer ${transferCode} (${status}) initiated for payout ${payoutId}`,
+    );
   }
 
   // ─── New-Seller Hold ───────────────────────────────────────────────────────
@@ -313,7 +372,7 @@ export class PayoutsService {
     });
 
     if (paidCount >= NEW_SELLER_PAYOUT_COUNT_THRESHOLD) {
-      return false; // past the hold threshold
+      return false;
     }
 
     const seller = await this.prisma.user.findUnique({
@@ -328,7 +387,7 @@ export class PayoutsService {
     return daysSinceCreated < NEW_SELLER_HOLD_DAYS;
   }
 
-  // ─── Webhook Handlers (called from PaymentsController) ────────────────────
+  // ─── Stripe Webhook Handlers ───────────────────────────────────────────────
 
   async handleTransferPaid(stripeTransferId: string): Promise<void> {
     const payout = await this.prisma.payout.findUnique({
@@ -367,7 +426,6 @@ export class PayoutsService {
       return;
     }
 
-    // If retry budget remains: reschedule in 24 hours by resetting to PENDING
     const shouldRetry = payout.retryCount < 1;
     const retryScheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -413,9 +471,88 @@ export class PayoutsService {
     });
 
     if (result.count > 0) {
-      this.logger.log(
-        `handleAccountUpdated: account ${account.id} onboarded=${onboarded}`,
-      );
+      this.logger.log(`handleAccountUpdated: account ${account.id} onboarded=${onboarded}`);
     }
+  }
+
+  // ─── Paystack Webhook Handlers ────────────────────────────────────────────
+
+  async handlePaystackTransferSuccess(transferCode: string): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { paystackTransferCode: transferCode },
+      include: { seller: { select: { email: true, name: true } } },
+    });
+    if (!payout) {
+      this.logger.warn(
+        `handlePaystackTransferSuccess: no payout found for transfer ${transferCode}`,
+      );
+      return;
+    }
+
+    await this.prisma.payout.update({
+      where: { id: payout.id },
+      data: { status: PayoutStatus.PAID, processedAt: new Date() },
+    });
+
+    const amount = (payout.amount / 100).toFixed(2);
+    await this.notifications.sendEmail(
+      payout.seller.email,
+      `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
+      `<p>Hi ${payout.seller.name},</p>
+       <p>Your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> has been successfully transferred to your bank account.</p>
+       <p>Transfer reference: <code>${transferCode}</code></p>`,
+    );
+
+    this.logger.log(`handlePaystackTransferSuccess: payout ${payout.id} marked PAID`);
+  }
+
+  async handlePaystackTransferFailed(transferCode: string, failureReason: string): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { paystackTransferCode: transferCode },
+      include: { seller: { select: { email: true, name: true } } },
+    });
+    if (!payout) {
+      this.logger.warn(
+        `handlePaystackTransferFailed: no payout for transfer ${transferCode}`,
+      );
+      return;
+    }
+
+    const shouldRetry = payout.retryCount < 1;
+    const retryScheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.payout.update({
+      where: { id: payout.id },
+      data: shouldRetry
+        ? {
+            status: PayoutStatus.PENDING,
+            paystackTransferCode: null,
+            failureReason,
+            retryCount: { increment: 1 },
+            scheduledAt: retryScheduledAt,
+          }
+        : {
+            status: PayoutStatus.FAILED,
+            failureReason,
+          },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const bankDetailsUrl = `${frontendUrl}/dashboard/payouts/bank-details`;
+    const amount = (payout.amount / 100).toFixed(2);
+
+    await this.notifications.sendEmail(
+      payout.seller.email,
+      `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
+      `<p>Hi ${payout.seller.name},</p>
+       <p>Unfortunately your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> could not be completed.</p>
+       <p><strong>Reason:</strong> ${failureReason}</p>
+       ${shouldRetry ? '<p>We will automatically retry in 24 hours.</p>' : ''}
+       <p>Please <a href="${bankDetailsUrl}">update your bank details</a> to ensure future payouts succeed.</p>`,
+    );
+
+    this.logger.warn(
+      `handlePaystackTransferFailed: payout ${payout.id} failed — retry=${shouldRetry}`,
+    );
   }
 }

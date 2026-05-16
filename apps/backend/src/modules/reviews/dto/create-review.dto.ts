@@ -34,6 +34,12 @@ export class CreateReviewDto {
   metadata?: Record<string, unknown>;
 }
 
+export class FlagReviewDto {
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
+}
+
 export class UpdateReviewDto {
   @IsOptional()
   @Type(() => Number)

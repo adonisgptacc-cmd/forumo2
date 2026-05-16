@@ -24,6 +24,8 @@ export interface SafeReview {
   updatedAt: Date;
   reviewer?: SafeUser | null;
   flags: SafeReviewFlag[];
+  helpfulCount: number;
+  userVoted: boolean;
 }
 
 export interface ReviewRollup {
@@ -61,9 +63,10 @@ type ReviewWithRelations = {
   updatedAt: Date;
   reviewer?: SafeUser | null;
   flags?: Array<{ id: string; reason: string; notes: string | null; createdAt: Date }>;
+  votes?: Array<{ userId: string; isHelpful: boolean }>;
 };
 
-export const serializeReview = (review: ReviewWithRelations): SafeReview => ({
+export const serializeReview = (review: ReviewWithRelations, viewerId?: string): SafeReview => ({
   id: review.id,
   reviewerId: review.reviewerId,
   recipientId: review.recipientId,
@@ -79,6 +82,8 @@ export const serializeReview = (review: ReviewWithRelations): SafeReview => ({
   reviewer: sanitizeUser(review.reviewer ?? null),
   flags:
     review.flags?.map((flag) => ({ id: flag.id, reason: flag.reason, notes: flag.notes, createdAt: flag.createdAt })) ?? [],
+  helpfulCount: review.votes?.filter((v) => v.isHelpful).length ?? 0,
+  userVoted: viewerId ? (review.votes?.some((v) => v.userId === viewerId && v.isHelpful) ?? false) : false,
 });
 
 export const serializeRollup = (rollup: SellerReviewRollup | null, sellerId: string): ReviewRollup => ({

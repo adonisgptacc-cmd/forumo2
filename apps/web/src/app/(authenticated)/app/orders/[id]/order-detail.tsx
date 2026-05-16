@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage, useShipmentMutations } from '../../../../../lib/react-query/hooks';
+import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage, useShipmentMutations, useGetShippingRates, usePurchaseLabel } from '../../../../../lib/react-query/hooks';
 import { useCurrentUser } from '../../../../../lib/react-query/hooks';
 import { useState } from 'react';
-import type { SafeOrder } from '@forumo/shared';
+import type { SafeOrder, ShippingRate } from '@forumo/shared';
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'text-yellow-400 border-yellow-700',
@@ -34,6 +34,8 @@ export function OrderDetail({ id }: { id: string }) {
   const { data: escrowDetails } = useEscrowDetails(order?.status === 'DISPUTED' ? id : null);
   const addDisputeMessage = useAddDisputeMessage();
   const { createShipment, updateShipment } = useShipmentMutations(id);
+  const getShippingRates = useGetShippingRates();
+  const purchaseLabel = usePurchaseLabel(id);
   const [statusNote, setStatusNote] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
   const [showDisputeForm, setShowDisputeForm] = useState(false);
@@ -44,6 +46,18 @@ export function OrderDetail({ id }: { id: string }) {
   const [shipEta, setShipEta] = useState('');
   const [showRefundForm, setShowRefundForm] = useState(false);
   const [refundReason, setRefundReason] = useState('');
+  const [showLabelPanel, setShowLabelPanel] = useState(false);
+  const [labelFromName, setLabelFromName] = useState('');
+  const [labelFromStreet, setLabelFromStreet] = useState('');
+  const [labelFromCity, setLabelFromCity] = useState('');
+  const [labelFromCountry, setLabelFromCountry] = useState('');
+  const [labelWeight, setLabelWeight] = useState('500');
+  const [labelLength, setLabelLength] = useState('20');
+  const [labelWidth, setLabelWidth] = useState('15');
+  const [labelHeight, setLabelHeight] = useState('10');
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [labelResult, setLabelResult] = useState<{ labelUrl: string; trackingNumber: string; carrier: string } | null>(null);
 
   if (isLoading) {
     return (
@@ -404,6 +418,217 @@ export function OrderDetail({ id }: { id: string }) {
                   Cancel
                 </button>
               </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Purchase / Print Label — seller only, when order is CONFIRMED or PAID */}
+      {isSeller && (order.status === 'CONFIRMED' || order.status === 'PAID') && (
+        <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-300">Shipping Label</h3>
+            {/* Show existing label URL if present */}
+            {order.shipments?.[0]?.labelUrl && (
+              <a
+                href={order.shipments[0].labelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-amber-400 hover:underline"
+              >
+                Download label ↗
+              </a>
+            )}
+          </div>
+
+          {labelResult && (
+            <div className="rounded-lg border border-emerald-700 bg-emerald-900/20 p-4 space-y-2">
+              <p className="text-sm font-semibold text-emerald-400">Label purchased!</p>
+              <p className="text-xs text-slate-400">
+                Carrier: <span className="text-white">{labelResult.carrier}</span> ·
+                Tracking: <span className="font-mono text-white">{labelResult.trackingNumber}</span>
+              </p>
+              <a
+                href={labelResult.labelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+              >
+                Download Label PDF ↗
+              </a>
+            </div>
+          )}
+
+          {!labelResult && !showLabelPanel && (
+            <button
+              onClick={() => setShowLabelPanel(true)}
+              className="rounded-lg border border-dashed border-slate-600 px-4 py-2 text-sm text-slate-400 hover:border-amber-500 hover:text-amber-400"
+            >
+              + Purchase shipping label via Shippo
+            </button>
+          )}
+
+          {!labelResult && showLabelPanel && (
+            <div className="space-y-4 rounded-lg border border-slate-700 bg-slate-900 p-4">
+              <p className="text-xs text-slate-400">Enter your address and parcel info to get carrier rates from Shippo.</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Your name / business</label>
+                  <input
+                    value={labelFromName}
+                    onChange={(e) => setLabelFromName(e.target.value)}
+                    placeholder="Forumo Seller"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Street address</label>
+                  <input
+                    value={labelFromStreet}
+                    onChange={(e) => setLabelFromStreet(e.target.value)}
+                    placeholder="123 Main St"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">City</label>
+                  <input
+                    value={labelFromCity}
+                    onChange={(e) => setLabelFromCity(e.target.value)}
+                    placeholder="Accra"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Country (2-letter code)</label>
+                  <input
+                    value={labelFromCountry}
+                    onChange={(e) => setLabelFromCountry(e.target.value.toUpperCase())}
+                    placeholder="GH"
+                    maxLength={2}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none uppercase"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs font-medium text-slate-300">Parcel dimensions</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Weight (g)', value: labelWeight, setter: setLabelWeight },
+                  { label: 'Length (cm)', value: labelLength, setter: setLabelLength },
+                  { label: 'Width (cm)', value: labelWidth, setter: setLabelWidth },
+                  { label: 'Height (cm)', value: labelHeight, setter: setLabelHeight },
+                ].map(({ label, value, setter }) => (
+                  <div key={label}>
+                    <label className="mb-1 block text-xs text-slate-400">{label}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={value}
+                      onChange={(e) => setter(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {getShippingRates.isError && (
+                <p className="text-xs text-red-400">{(getShippingRates.error as Error)?.message}</p>
+              )}
+
+              {shippingRates.length === 0 && (
+                <button
+                  disabled={getShippingRates.isPending || !labelFromName || !labelFromStreet || !labelFromCity || !labelFromCountry}
+                  onClick={async () => {
+                    const toAddr = order.shippingAddress as any;
+                    const rates = await getShippingRates.mutateAsync({
+                      fromAddress: {
+                        name: labelFromName,
+                        street1: labelFromStreet,
+                        city: labelFromCity,
+                        country: labelFromCountry,
+                      },
+                      toAddress: {
+                        name: toAddr?.fullName ?? 'Buyer',
+                        street1: toAddr?.line1 ?? 'Unknown',
+                        city: toAddr?.city ?? 'Unknown',
+                        country: toAddr?.country ?? 'GH',
+                      },
+                      parcel: {
+                        weight: Number(labelWeight) || 500,
+                        length: Number(labelLength) || 20,
+                        width: Number(labelWidth) || 15,
+                        height: Number(labelHeight) || 10,
+                      },
+                    });
+                    setShippingRates(rates);
+                  }}
+                  className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+                >
+                  {getShippingRates.isPending ? 'Getting rates…' : 'Get Shipping Rates'}
+                </button>
+              )}
+
+              {shippingRates.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-300">Select a carrier</p>
+                  {shippingRates.map((rate) => (
+                    <button
+                      key={rate.rateId}
+                      type="button"
+                      onClick={() => setSelectedRateId(rate.rateId)}
+                      className={`w-full text-left rounded-lg border p-3 text-sm transition-colors ${
+                        selectedRateId === rate.rateId
+                          ? 'border-amber-500 bg-amber-900/20'
+                          : 'border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-white">{rate.carrier} — {rate.service}</span>
+                        <span className="text-amber-400 font-semibold">
+                          {(rate.price / 100).toFixed(2)} {rate.currency}
+                        </span>
+                      </div>
+                      {rate.estimatedDays != null && (
+                        <p className="text-xs text-slate-400 mt-0.5">{rate.estimatedDays} day{rate.estimatedDays !== 1 ? 's' : ''} estimated</p>
+                      )}
+                    </button>
+                  ))}
+                  {purchaseLabel.isError && (
+                    <p className="text-xs text-red-400">{(purchaseLabel.error as Error)?.message}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      disabled={!selectedRateId || purchaseLabel.isPending}
+                      onClick={async () => {
+                        if (!selectedRateId) return;
+                        const result = await purchaseLabel.mutateAsync(selectedRateId);
+                        setLabelResult(result);
+                        setShowLabelPanel(false);
+                      }}
+                      className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {purchaseLabel.isPending ? 'Purchasing…' : 'Purchase Label'}
+                    </button>
+                    <button
+                      onClick={() => { setShippingRates([]); setSelectedRateId(null); }}
+                      className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                    >
+                      Change details
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {shippingRates.length === 0 && (
+                <button
+                  onClick={() => setShowLabelPanel(false)}
+                  className="text-xs text-slate-500 hover:text-slate-300"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           )}
         </section>

@@ -6,36 +6,33 @@ import { AuthService } from '../auth.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+    private readonly configService: ConfigService;
+    private readonly authService: AuthService;
+
     constructor(
-        private readonly configService: ConfigService,
-        private readonly authService: AuthService,
+        configService: ConfigService,
+        authService: AuthService,
     ) {
-        const clientID = configService.get<string>('GOOGLE_CLIENT_ID') || process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET') || process.env.GOOGLE_CLIENT_SECRET;
+        const clientID = configService.get<string>('GOOGLE_CLIENT_ID') || process.env.GOOGLE_CLIENT_ID || 'test-google-client-id';
+        const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET') || process.env.GOOGLE_CLIENT_SECRET || 'test-google-client-secret';
         const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL') || process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4000/api/v1/auth/google/callback';
-        
-        if (!clientID || !clientSecret) {
+
+        if (!configService.get<string>('GOOGLE_CLIENT_ID') && !process.env.GOOGLE_CLIENT_ID) {
             console.warn(
                 '[GoogleStrategy] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not set. ' +
                 'Google OAuth will be non-functional until both env vars are configured.',
             );
-            // For testing, use dummy values that won't fail Passport validation
-            const testID = 'test-google-client-id';
-            const testSecret = 'test-google-client-secret';
-            super({
-                clientID: testID,
-                clientSecret: testSecret,
-                callbackURL: callbackURL,
-                scope: ['email', 'profile'],
-            });
-        } else {
-            super({
-                clientID,
-                clientSecret,
-                callbackURL,
-                scope: ['email', 'profile'],
-            });
         }
+
+        super({
+            clientID,
+            clientSecret,
+            callbackURL,
+            scope: ['email', 'profile'],
+        });
+
+        this.configService = configService;
+        this.authService = authService;
     }
 
     async validate(

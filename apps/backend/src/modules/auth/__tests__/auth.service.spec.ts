@@ -9,7 +9,6 @@ import { RequestOtpDto } from "../dto/request-otp.dto";
 import { VerifyOtpDto } from "../dto/verify-otp.dto";
 import { UsersService } from "../../users/users.service";
 import { OtpDeliveryService } from "../otp-delivery.service";
-import { RateLimitService } from "../../../common/services/rate-limit.service";
 import { NotificationsService } from "../../notifications/notifications.service";
 
 const createUser = (): User => ({
@@ -39,6 +38,7 @@ const createUser = (): User => ({
   emailVerificationToken: null,
   stripeConnectAccountId: null,
   stripeConnectOnboarded: false,
+  paystackRecipientCode: null,
 });
 
 type PrismaMock = {
@@ -68,7 +68,6 @@ describe('AuthService OTP flows', () => {
   let configService: jest.Mocked<ConfigService>;
   let usersService: jest.Mocked<UsersService>;
   let otpDelivery: jest.Mocked<OtpDeliveryService>;
-  let rateLimit: jest.Mocked<RateLimitService>;
 
   beforeEach(() => {
     prisma = {
@@ -122,10 +121,6 @@ describe('AuthService OTP flows', () => {
       }),
     } as unknown as jest.Mocked<OtpDeliveryService>;
 
-    rateLimit = {
-      enforce: jest.fn(),
-    } as unknown as jest.Mocked<RateLimitService>;
-
     const notifications = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationsService>;
@@ -136,7 +131,6 @@ describe('AuthService OTP flows', () => {
       configService,
       usersService,
       otpDelivery,
-      rateLimit,
       notifications,
     );
   });

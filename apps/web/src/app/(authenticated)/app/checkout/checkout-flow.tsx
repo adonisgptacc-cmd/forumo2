@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '../../../../lib/cart-context';
+import { useRouter } from 'next/navigation';
 import {
   useCurrentUser,
   useCreateOrder,
@@ -11,6 +12,7 @@ import {
   useVerifyPaystackPayment,
   useAddresses,
   useFeePreview,
+  useClearBackendCart,
 } from '../../../../lib/react-query/hooks';
 import { StripeProvider } from '../../../../components/stripe-provider';
 import { PaymentForm } from '../../../../components/payment-form';
@@ -100,11 +102,13 @@ function SellerOrderCard({
 }
 
 export function CheckoutFlow() {
+  const router = useRouter();
   const { items, groupedBySeller, clearSellerItems, itemCount } = useCart();
   const { user } = useCurrentUser();
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiatePayment();
   const verifyPaystack = useVerifyPaystackPayment();
+  const clearBackendCart = useClearBackendCart();
   const { data: addresses = [] } = useAddresses();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<CheckoutStep>('review');
@@ -152,12 +156,8 @@ export function CheckoutFlow() {
   }
 
   if (itemCount === 0 && step === 'review') {
-    return (
-      <div className="card-forumo text-center py-16 space-y-3">
-        <p className="text-slate-500 font-medium">Your cart is empty</p>
-        <Link href="/listings" className="btn-forumo inline-block px-6 py-2 text-sm">Browse listings</Link>
-      </div>
-    );
+    router.replace('/app/cart' as any);
+    return null;
   }
 
   if (step === 'payment' && pendingPayments.length > 0) {
@@ -306,6 +306,9 @@ export function CheckoutFlow() {
         setPlacingFor(null);
       }
     }
+
+    // Clear the backend cart now that all orders are placed
+    clearBackendCart.mutate();
 
     setPendingPayments(newPending);
     setStep(newPending.length > 0 ? 'payment' : 'confirmed');

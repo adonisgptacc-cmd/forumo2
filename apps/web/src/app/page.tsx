@@ -14,7 +14,7 @@ export default function HomePage() {
     <div className="relative pb-10">
       {/* Hero Section */}
       <div className="relative w-full h-[600px] overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent to-[#f3f3f3] z-10" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent to-[var(--bg)] z-10" />
         <Image
           src="/forumo_hero.png"
           alt="Forumo Hero"
@@ -55,8 +55,8 @@ export default function HomePage() {
       {/* Quick Links */}
       <div className="mt-6 px-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/listings/new" className="card-forumo hover:shadow-lg transition-shadow flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-forumo-gold/20 flex items-center justify-center flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-forumo-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-bg)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           </div>
           <div>
             <p className="font-bold text-sm">Sell on Forumo</p>
@@ -64,8 +64,8 @@ export default function HomePage() {
           </div>
         </Link>
         <Link href="/auctions" className="card-forumo hover:shadow-lg transition-shadow flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--escrow-bg)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" style={{ color: 'var(--escrow)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div>
             <p className="font-bold text-sm">Live Auctions</p>
@@ -73,8 +73,8 @@ export default function HomePage() {
           </div>
         </Link>
         <Link href="/app" className="card-forumo hover:shadow-lg transition-shadow flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" style={{ color: 'var(--ink-2)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
           </div>
           <div>
             <p className="font-bold text-sm">Escrow Protection</p>
@@ -84,7 +84,7 @@ export default function HomePage() {
       </div>
 
       {/* Bottom Sign-in (Forumo Style) */}
-      <div className="mt-8 border-t border-b border-slate-300 bg-white py-8 text-center px-4">
+      <div className="mt-8 py-8 text-center px-4" style={{ borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'var(--surface)' }}>
         <p className="text-sm mb-2">See personalized recommendations</p>
         <Link href="/login" className="btn-forumo inline-block w-full max-w-xs mb-2">
           Sign in

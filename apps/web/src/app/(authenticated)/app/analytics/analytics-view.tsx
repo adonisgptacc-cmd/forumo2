@@ -1,119 +1,258 @@
 'use client';
 
-import { useSellerAnalytics } from '../../../../lib/react-query/hooks';
+import { useState } from 'react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  useSellerAnalyticsOverview,
+  useSellerAnalyticsRevenue,
+  useSellerTopListings,
+  useSellerReviewsSummary,
+  type AnalyticsPeriod,
+  type AnalyticsGroupBy,
+} from '../../../../lib/react-query/hooks';
+import type { SellerTopListing, SellerRevenuePoint, SellerReviewsSummary } from '@forumo/shared';
 
-function fmtMoney(cents: number) {
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(cents: number, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(cents / 100);
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-500',
-  CONFIRMED: 'bg-blue-500',
-  PAID: 'bg-indigo-500',
-  FULFILLED: 'bg-violet-500',
-  DELIVERED: 'bg-emerald-400',
-  COMPLETED: 'bg-emerald-600',
-  CANCELLED: 'bg-red-500',
-  REFUNDED: 'bg-slate-500',
-  DISPUTED: 'bg-orange-500',
-};
+// ── Period selector ───────────────────────────────────────────────────────────
 
-export function AnalyticsView() {
-  const { data, isLoading, isError } = useSellerAnalytics();
+const PERIODS: { value: AnalyticsPeriod; label: string; groupBy: AnalyticsGroupBy }[] = [
+  { value: '7d', label: '7 days', groupBy: 'day' },
+  { value: '30d', label: '30 days', groupBy: 'day' },
+  { value: '90d', label: '90 days', groupBy: 'week' },
+];
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-20 rounded-xl bg-slate-800" />)}
-        </div>
-        <div className="h-52 rounded-xl bg-slate-800" />
-        <div className="h-40 rounded-xl bg-slate-800" />
-      </div>
-    );
-  }
-
-  if (isError || !data) {
-    return (
-      <div className="rounded-xl border border-red-800 bg-red-900/20 p-6 text-center">
-        <p className="text-red-400">Failed to load analytics. Make sure you have seller access.</p>
-      </div>
-    );
-  }
-
-  const maxRevenue = Math.max(...data.revenueByMonth.map((m) => m.revenueCents), 1);
-  const totalOrders = Object.values(data.ordersByStatus).reduce((a, b) => a + b, 0) || 1;
-
+function PeriodToggle({
+  value,
+  onChange,
+}: {
+  value: AnalyticsPeriod;
+  onChange: (p: AnalyticsPeriod) => void;
+}) {
   return (
-    <div className="space-y-6">
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Total Orders" value={data.totalOrders.toLocaleString()} />
-        <StatCard label="Completed" value={data.completedOrders.toLocaleString()} />
-        <StatCard label="Total Revenue" value={fmtMoney(data.totalRevenueCents)} accent />
-        <StatCard label="Avg Order Value" value={fmtMoney(data.avgOrderValueCents)} />
-      </div>
-
-      {/* Revenue bar chart */}
-      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-300">Revenue — Last 12 Months</h3>
-        <div className="flex items-end gap-1 h-44 pt-2">
-          {data.revenueByMonth.map((m) => {
-            const heightPct = (m.revenueCents / maxRevenue) * 100;
-            return (
-              <div key={m.month} className="group flex flex-col items-center flex-1 h-full justify-end gap-0.5">
-                <span className="hidden group-hover:block text-[10px] text-amber-300 whitespace-nowrap">
-                  {fmtMoney(m.revenueCents)}
-                </span>
-                <div
-                  title={`${m.month}: ${fmtMoney(m.revenueCents)} · ${m.orderCount} order${m.orderCount !== 1 ? 's' : ''}`}
-                  className="w-full rounded-t bg-amber-500/60 group-hover:bg-amber-400 transition-colors"
-                  style={{ height: `${Math.max(heightPct, 2)}%` }}
-                />
-                <span className="text-[10px] text-slate-600 mt-1 truncate w-full text-center">{m.month}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Orders by status */}
-      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-300">Orders by Status</h3>
-        <div className="space-y-2.5">
-          {Object.entries(data.ordersByStatus)
-            .sort(([, a], [, b]) => b - a)
-            .map(([status, count]) => {
-              const pct = Math.round((count / totalOrders) * 100);
-              return (
-                <div key={status} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">{status}</span>
-                    <span className="text-slate-300">
-                      {count}{' '}
-                      <span className="text-slate-600">({pct}%)</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${STATUS_COLORS[status] ?? 'bg-slate-500'}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </section>
+    <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+      {PERIODS.map((p) => (
+        <button
+          key={p.value}
+          onClick={() => onChange(p.value)}
+          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            value === p.value
+              ? 'bg-amber-500 text-black'
+              : 'text-slate-400 hover:bg-slate-800'
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
     </div>
   );
 }
 
-function StatCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`rounded-xl bg-slate-800 animate-pulse ${className ?? ''}`} />;
+}
+
+// ── Stat card ─────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-1">
       <p className="text-xs text-slate-500">{label}</p>
       <p className={`text-xl font-semibold ${accent ? 'text-amber-400' : 'text-white'}`}>{value}</p>
+    </div>
+  );
+}
+
+// ── Revenue section ───────────────────────────────────────────────────────────
+
+function RevenueSection({ period, groupBy }: { period: AnalyticsPeriod; groupBy: AnalyticsGroupBy }) {
+  const { data, isLoading, isError } = useSellerAnalyticsRevenue(period, groupBy);
+
+  if (isLoading) return <Skeleton className="h-64" />;
+  if (isError || !data?.length) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 h-64 flex items-center justify-center">
+        <p className="text-sm text-slate-500">No revenue data for this period.</p>
+      </div>
+    );
+  }
+
+  const chartData = data.map((point: SellerRevenuePoint) => ({
+    label: point.period,
+    revenue: point.revenueCents / 100,
+    orders: point.orderCount,
+  }));
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+      <h3 className="text-sm font-semibold text-slate-300">Revenue</h3>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} />
+          <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `$${v}`} />
+          <Tooltip
+            contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
+            formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+          />
+          <Line type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── Top listings section ──────────────────────────────────────────────────────
+
+function TopListingsSection() {
+  const { data, isLoading, isError } = useSellerTopListings(5);
+
+  if (isLoading) return <Skeleton className="h-48" />;
+  if (isError || !data?.length) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 h-32 flex items-center justify-center">
+        <p className="text-sm text-slate-500">No listing data yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+      <div className="px-5 py-3 border-b border-slate-800">
+        <h3 className="text-sm font-semibold text-slate-300">Top Listings</h3>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-800 text-xs text-slate-500 uppercase tracking-wide">
+            <th className="px-5 py-2 text-left">Listing</th>
+            <th className="px-5 py-2 text-right">Revenue</th>
+            <th className="px-5 py-2 text-right">Orders</th>
+            <th className="px-5 py-2 text-right">Views</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800/60">
+          {data.map((listing: SellerTopListing) => (
+            <tr key={listing.listingId} className="hover:bg-slate-800/30 transition-colors">
+              <td className="px-5 py-3 text-slate-200 truncate max-w-[200px]">{listing.title}</td>
+              <td className="px-5 py-3 text-right font-medium text-amber-400">{fmt(listing.revenueCents)}</td>
+              <td className="px-5 py-3 text-right text-slate-300">{listing.orderCount}</td>
+              <td className="px-5 py-3 text-right text-slate-400">{listing.viewCount ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Reviews section ───────────────────────────────────────────────────────────
+
+function ReviewsSection() {
+  const { data, isLoading, isError } = useSellerReviewsSummary();
+
+  if (isLoading) return <Skeleton className="h-48" />;
+  if (isError || !data) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 h-32 flex items-center justify-center">
+        <p className="text-sm text-slate-500">No review data yet.</p>
+      </div>
+    );
+  }
+
+  const summary = data as SellerReviewsSummary;
+  const distribution = (summary as any).ratingDistribution as Record<string, number> | undefined;
+  const distData = distribution
+    ? [5, 4, 3, 2, 1].map((star) => ({ star: `${star}★`, count: distribution[String(star)] ?? 0 }))
+    : [];
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-300">Reviews</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold text-amber-400">
+            {summary.averageRating?.toFixed(1) ?? '—'}
+          </span>
+          <span className="text-xs text-slate-500">
+            avg · {summary.reviewCount ?? 0} reviews
+          </span>
+        </div>
+      </div>
+
+      {distData.length > 0 && (
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={distData} margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <XAxis dataKey="star" tick={{ fontSize: 10, fill: '#64748b' }} />
+            <YAxis tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
+              formatter={(v: number) => [v, 'Reviews']}
+            />
+            <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+// ── Main view ─────────────────────────────────────────────────────────────────
+
+export function AnalyticsView() {
+  const [period, setPeriod] = useState<AnalyticsPeriod>('30d');
+  const groupBy = PERIODS.find((p) => p.value === period)?.groupBy ?? 'day';
+  const { data: overview, isLoading: overviewLoading } = useSellerAnalyticsOverview(period);
+
+  return (
+    <div className="space-y-6">
+      {/* Header row with period toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Seller Analytics</p>
+          <h1 className="text-2xl font-semibold">Performance</h1>
+        </div>
+        <PeriodToggle value={period} onChange={setPeriod} />
+      </div>
+
+      {/* KPI cards */}
+      {overviewLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+      ) : overview ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Total Revenue" value={fmt(overview.totalRevenueCents)} accent />
+          <StatCard label="Orders" value={overview.totalOrders} />
+          <StatCard label="Completed" value={overview.completedOrders} />
+          <StatCard label="Avg Order" value={fmt(overview.avgOrderValueCents)} />
+        </div>
+      ) : null}
+
+      {/* Revenue chart */}
+      <RevenueSection period={period} groupBy={groupBy} />
+
+      {/* Top listings + Reviews side by side on large screens */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <TopListingsSection />
+        <ReviewsSection />
+      </div>
     </div>
   );
 }

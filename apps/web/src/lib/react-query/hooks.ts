@@ -36,6 +36,10 @@ import type {
   SellerRevenuePoint,
   SellerTopListing,
   SellerReviewsSummary,
+  ShippingRate,
+  ShippoAddress,
+  ShippoParcel,
+  PurchasedLabel,
 } from '@forumo/shared';
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
@@ -77,12 +81,37 @@ export function useListing(id: string | null) {
 }
 
 export function useListingReviews(listingId: string | null) {
-  const { accessToken } = useCurrentUser();
+  const { accessToken, user } = useCurrentUser();
   const api = useApi(accessToken);
   return useQuery<ListingReviewResponse | null>({
     queryKey: listingId ? queryKeys.listingReviews(listingId) : ['listing', null, 'reviews'],
-    queryFn: () => (listingId ? api.reviews.forListing(listingId) : Promise.resolve(null)),
+    queryFn: () => (listingId ? api.reviews.forListing(listingId, user?.id) : Promise.resolve(null)),
     enabled: Boolean(listingId),
+  });
+}
+
+export function useVoteReview(listingId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (reviewId: string) => api.reviews.vote(reviewId),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.listingReviews(listingId) });
+    },
+  });
+}
+
+export function useFlagReview(listingId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ reviewId, reason }: { reviewId: string; reason: string }) =>
+      api.reviews.flag(reviewId, reason),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.listingReviews(listingId) });
+    },
   });
 }
 
@@ -313,7 +342,9 @@ export function useNotifications() {
     queryKey: queryKeys.notifications,
     queryFn: () => api.notifications.list(),
     enabled: Boolean(accessToken),
-    refetchInterval: 60_000,
+    // WebSocket push (NotificationsSocketSync) is the primary delivery mechanism.
+    // Keep 30s polling as a fallback for browsers that block WebSocket connections.
+    refetchInterval: 30_000,
   });
 }
 
@@ -890,6 +921,34 @@ export function useDeleteListing() {
   });
 }
 
+export function useBulkListingOperations() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+
+  const invalidate = () => {
+    client.invalidateQueries({ queryKey: queryKeys.myListings });
+    client.invalidateQueries({ queryKey: ['listings'], exact: false });
+  };
+
+  const bulkPublish = useMutation({
+    mutationFn: (ids: string[]) => api.listings.bulkUpdateStatus(ids, 'PUBLISHED'),
+    onSuccess: invalidate,
+  });
+
+  const bulkPause = useMutation({
+    mutationFn: (ids: string[]) => api.listings.bulkUpdateStatus(ids, 'PAUSED'),
+    onSuccess: invalidate,
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: (ids: string[]) => api.listings.bulkDelete(ids),
+    onSuccess: invalidate,
+  });
+
+  return { bulkPublish, bulkPause, bulkDelete };
+}
+
 // --- Escrow Dispute ---
 
 // --- Inventory ---
@@ -1185,6 +1244,47 @@ export function useConfirmReturnReceived() {
   });
 }
 
+// --- Backend Cart ---
+
+export interface BackendCartItem {
+  id: string;
+  listingId: string;
+  quantity: number;
+  listing?: {
+    id: string;
+    title: string;
+    priceCents: number;
+    currency: string;
+    sellerId: string;
+  };
+}
+
+export interface BackendCart {
+  id?: string;
+  items: BackendCartItem[];
+}
+
+export function useBackendCart() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<BackendCart>({
+    queryKey: ['cart', 'backend'],
+    queryFn: () => api.cart.get() as Promise<BackendCart>,
+    enabled: !!accessToken,
+    staleTime: 30_000,
+  });
+}
+
+export function useClearBackendCart() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: () => api.cart.clear() as Promise<void>,
+    onSuccess: () => client.invalidateQueries({ queryKey: ['cart', 'backend'] }),
+  });
+}
+
 // --- Legal / GDPR ---
 
 export function useAcceptTos() {
@@ -1218,5 +1318,28 @@ export function useLegalDataExport() {
     queryKey: ['legal', 'data-export'],
     queryFn: () => api.legal.exportData(),
     enabled: false,
+  });
+}
+
+// --- Shipping ---
+
+export function useGetShippingRates() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useMutation<ShippingRate[], Error, { fromAddress: ShippoAddress; toAddress: ShippoAddress; parcel: ShippoParcel }>({
+    mutationFn: ({ fromAddress, toAddress, parcel }) =>
+      api.shipping.getRates(fromAddress, toAddress, parcel),
+  });
+}
+
+export function usePurchaseLabel(orderId: string) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation<PurchasedLabel, Error, string>({
+    mutationFn: (rateId: string) => api.orders.purchaseLabel(orderId, rateId),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.order(orderId) });
+    },
   });
 }

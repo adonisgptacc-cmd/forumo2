@@ -167,8 +167,48 @@ export const orderShipmentSchema = z.object({
   status: shipmentStatusSchema,
   shippedAt: z.string().datetime().nullable().optional(),
   deliveredAt: z.string().datetime().nullable().optional(),
+  labelUrl: z.string().nullable().optional(),
+  estimatedDelivery: z.string().datetime().nullable().optional(),
 });
 export type OrderShipment = z.infer<typeof orderShipmentSchema>;
+
+export const shippingRateSchema = z.object({
+  rateId: z.string(),
+  carrier: z.string(),
+  service: z.string(),
+  price: z.number().int(),
+  currency: z.string(),
+  estimatedDays: z.number().int().nullable(),
+});
+export type ShippingRate = z.infer<typeof shippingRateSchema>;
+
+export const shippoAddressSchema = z.object({
+  name: z.string(),
+  street1: z.string(),
+  city: z.string(),
+  country: z.string(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+});
+export type ShippoAddress = z.infer<typeof shippoAddressSchema>;
+
+export const shippoParcelSchema = z.object({
+  weight: z.number().positive(),
+  length: z.number().positive(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
+export type ShippoParcel = z.infer<typeof shippoParcelSchema>;
+
+export const purchasedLabelSchema = z.object({
+  labelUrl: z.string(),
+  trackingNumber: z.string(),
+  carrier: z.string(),
+  estimatedDelivery: z.string().datetime().nullable(),
+});
+export type PurchasedLabel = z.infer<typeof purchasedLabelSchema>;
 
 export const orderTimelineSchema = z.object({
   id: z.string().uuid(),
@@ -229,6 +269,8 @@ export const reviewSchema = z.object({
   verifiedPurchase: z.boolean().default(false),
   reviewer: safeUserSchema.nullable().optional(),
   flags: z.array(reviewFlagSchema).default([]),
+  helpfulCount: z.number().int().min(0).default(0),
+  userVoted: z.boolean().default(false),
 });
 export type SafeReview = z.infer<typeof reviewSchema>;
 
@@ -392,6 +434,7 @@ export type PushTokenRegistration = z.infer<typeof pushTokenRegistrationSchema>;
 
 export const authResponseSchema = z.object({
   accessToken: z.string(),
+  refreshToken: z.string().optional(),
   user: z.object({
     id: z.string().uuid(),
     email: z.string().email(),

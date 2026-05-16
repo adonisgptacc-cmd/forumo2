@@ -12,7 +12,6 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { RolesGuard } from "../../common/guards/roles.guard";
-import { RateLimitService } from "../../common/services/rate-limit.service";
 import { ObservabilityModule } from "../observability/observability.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
@@ -38,7 +37,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard, RateLimitService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard],
   exports: [AuthService],
 })
 export class AuthModule { }

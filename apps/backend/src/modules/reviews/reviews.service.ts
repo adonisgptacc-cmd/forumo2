@@ -11,7 +11,7 @@ import { ListingReviewResponse, ReviewRollup, SafeReview, serializeReview, seria
 export class ReviewsService {
   constructor(private readonly prisma: PrismaService, private readonly moderation: ReviewModerationService) { }
 
-  async listForListing(listingId: string): Promise<ListingReviewResponse> {
+  async listForListing(listingId: string, viewerId?: string): Promise<ListingReviewResponse> {
     const listing = await this.prisma.listing.findFirst({ where: { id: listingId, deletedAt: null } });
     if (!listing) {
       throw new NotFoundException('Listing not found');
@@ -21,15 +21,35 @@ export class ReviewsService {
       this.prisma.review.findMany({
         where: { listingId, status: ReviewStatus.PUBLISHED },
         orderBy: { createdAt: 'desc' },
-        include: { reviewer: true, flags: true },
+        include: { reviewer: true, flags: true, votes: true },
       }),
       this.prisma.sellerReviewRollup.findUnique({ where: { sellerId: listing.sellerId } }),
     ]);
 
     return {
-      reviews: reviews.map((review) => serializeReview(review)),
+      reviews: reviews.map((review) => serializeReview(review, viewerId)),
       rollup: serializeRollup(rollupRecord, listing.sellerId),
     };
+  }
+
+  async voteReview(reviewId: string, userId: string): Promise<{ helpfulCount: number; userVoted: boolean }> {
+    const review = await this.prisma.review.findFirst({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Review not found');
+
+    await this.prisma.reviewVote.upsert({
+      where: { reviewId_userId: { reviewId, userId } },
+      create: { reviewId, userId, isHelpful: true },
+      update: { isHelpful: true },
+    });
+
+    const helpfulCount = await this.prisma.reviewVote.count({ where: { reviewId, isHelpful: true } });
+    return { helpfulCount, userVoted: true };
+  }
+
+  async flagReview(reviewId: string, reason: string): Promise<void> {
+    const review = await this.prisma.review.findFirst({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Review not found');
+    await this.prisma.reviewFlag.create({ data: { reviewId, reason } });
   }
 
   async getRollup(sellerId: string): Promise<ReviewRollup> {
@@ -40,7 +60,7 @@ export class ReviewsService {
   async findById(id: string): Promise<SafeReview> {
     const review = await this.prisma.review.findFirst({
       where: { id },
-      include: { reviewer: true, flags: true },
+      include: { reviewer: true, flags: true, votes: true },
     });
 
     if (!review) {
@@ -90,7 +110,7 @@ export class ReviewsService {
 
     const createdWithFlags = await this.prisma.review.findUnique({
       where: { id: review.id },
-      include: { reviewer: true, flags: true },
+      include: { reviewer: true, flags: true, votes: true },
     });
 
     return serializeReview(createdWithFlags!);
@@ -137,7 +157,7 @@ export class ReviewsService {
 
     const reloaded = await this.prisma.review.findUnique({
       where: { id: updated.id },
-      include: { reviewer: true, flags: true },
+      include: { reviewer: true, flags: true, votes: true },
     });
 
     return serializeReview(reloaded!);

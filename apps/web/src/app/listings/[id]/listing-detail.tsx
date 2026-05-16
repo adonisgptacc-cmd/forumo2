@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
 
-import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useDeliveredOrdersForListing, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations, useCreateThread } from '../../../lib/react-query/hooks';
+import { useCurrentUser, useListing, useListingReviews, useReviewMutations, useDeliveredOrdersForListing, useCreateOffer, useWishlistCheck, useSaveListing, useRemoveSavedListing, useSellerStorefront, useListingMutations, useCreateThread, useVoteReview, useFlagReview } from '../../../lib/react-query/hooks';
 import { useCart } from '../../../lib/cart-context';
 
 export function ListingDetail({ id }: { id: string }) {
@@ -32,6 +32,10 @@ export function ListingDetail({ id }: { id: string }) {
   const removeSaved = useRemoveSavedListing();
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('Prohibited item');
+  const [flagReviewId, setFlagReviewId] = useState<string | null>(null);
+  const [flagReason, setFlagReason] = useState('Inappropriate content');
+  const voteReview = useVoteReview(id);
+  const flagReview = useFlagReview(id);
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [messageBody, setMessageBody] = useState('');
   const createThread = useCreateThread();
@@ -511,9 +515,92 @@ export function ListingDetail({ id }: { id: string }) {
                   {review.flags.length > 0 && (
                     <p className="text-xs text-amber-600 mt-1">Under review</p>
                   )}
+                  {/* Vote + flag actions */}
+                  {user && user.id !== review.reviewerId && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => voteReview.mutate(review.id)}
+                        disabled={review.userVoted || voteReview.isPending}
+                        title={review.userVoted ? 'You marked this helpful' : 'Mark as helpful'}
+                        className={`flex items-center gap-1 text-xs transition-colors disabled:cursor-default ${
+                          review.userVoted
+                            ? 'text-emerald-600 font-medium'
+                            : 'text-slate-400 hover:text-emerald-600'
+                        }`}
+                      >
+                        <span>{review.userVoted ? '👍' : '👍'}</span>
+                        <span>Helpful{review.helpfulCount > 0 ? ` (${review.helpfulCount})` : ''}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setFlagReviewId(review.id); setFlagReason('Inappropriate content'); }}
+                        title="Report this review"
+                        className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        🚩 Report
+                      </button>
+                    </div>
+                  )}
+                  {/* Show count for guests */}
+                  {!user && review.helpfulCount > 0 && (
+                    <p className="mt-1 text-xs text-slate-400">{review.helpfulCount} found this helpful</p>
+                  )}
                 </li>
               ))}
             </ul>
+
+            {/* Flag review modal */}
+            {flagReviewId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-950 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Report review</h3>
+                  <p className="text-sm text-slate-400">
+                    Tell us why this review violates Forumo&apos;s policies.
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-300">Reason</label>
+                    <select
+                      value={flagReason}
+                      onChange={(e) => setFlagReason(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    >
+                      <option>Inappropriate content</option>
+                      <option>Spam or fake review</option>
+                      <option>Conflict of interest</option>
+                      <option>Not about the product</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  {flagReview.isError && (
+                    <p className="text-sm text-red-400">{(flagReview.error as Error)?.message}</p>
+                  )}
+                  {flagReview.isSuccess && (
+                    <p className="text-sm text-emerald-400">Thanks — our team will review this.</p>
+                  )}
+                  <div className="flex gap-3">
+                    {!flagReview.isSuccess && (
+                      <button
+                        onClick={async () => {
+                          await flagReview.mutateAsync({ reviewId: flagReviewId, reason: flagReason });
+                          setTimeout(() => { setFlagReviewId(null); flagReview.reset(); }, 1800);
+                        }}
+                        disabled={flagReview.isPending}
+                        className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {flagReview.isPending ? 'Submitting…' : 'Submit report'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setFlagReviewId(null); flagReview.reset(); }}
+                      className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                    >
+                      {flagReview.isSuccess ? 'Close' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Review form */}

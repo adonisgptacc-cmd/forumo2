@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import IORedis from 'ioredis';
 
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
@@ -30,6 +32,7 @@ import { ShippingModule } from "./shipping/shipping.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { LegalModule } from "./legal/legal.module";
 import { TosInterceptor } from "../common/interceptors/tos.interceptor";
+import { ThrottlerStorageRedis } from "../common/services/throttler-redis.storage";
 
 @Module({
   imports: [
@@ -38,6 +41,31 @@ import { TosInterceptor } from "../common/interceptors/tos.interceptor";
       validate: (env) => configSchema.parse(env),
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+        const authLimit = Number(config.get<string>('AUTH_RATE_LIMIT') ?? 10);
+        const authWindowSec = Math.ceil(
+          Number(config.get<string>('AUTH_RATE_WINDOW_MS') ?? 60_000) / 1000,
+        );
+        const paymentLimit = Number(config.get<string>('PAYMENT_RATE_LIMIT') ?? 30);
+        const paymentWindowSec = Math.ceil(
+          Number(config.get<string>('PAYMENT_RATE_WINDOW_MS') ?? 60_000) / 1000,
+        );
+
+        return {
+          throttlers: [
+            { name: 'auth', ttl: authWindowSec, limit: authLimit },
+            { name: 'payments', ttl: paymentWindowSec, limit: paymentLimit },
+            { name: 'notifications-list', ttl: 60, limit: 60 },
+            { name: 'notifications-mark', ttl: 60, limit: 30 },
+          ],
+          storage: new ThrottlerStorageRedis(new IORedis(redisUrl)),
+        };
+      },
+    }),
     HealthModule,
     ObservabilityModule,
     NotificationsModule,
@@ -66,6 +94,7 @@ import { TosInterceptor } from "../common/interceptors/tos.interceptor";
   providers: [
     { provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TosInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule { }

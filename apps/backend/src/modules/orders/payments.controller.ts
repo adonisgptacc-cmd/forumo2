@@ -1,13 +1,13 @@
-import { BadRequestException, Body, Controller, Headers, HttpCode, HttpStatus, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Headers, HttpCode, HttpStatus, Logger, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import type { Request } from 'express';
 import Stripe from 'stripe';
+import { Throttle } from '@nestjs/throttler';
 
 import { OrdersService } from "./orders.service";
 import { PaymentsService } from "./payments.service";
 import { PaystackService } from "./paystack.service";
-import { RateLimitService } from "../../common/services/rate-limit.service";
 import { AuditLogService } from "../observability/audit-log.service";
 import { PayoutsService } from "../payouts/payouts.service";
 
@@ -29,17 +29,19 @@ interface PaystackWebhookPayload {
     transfer_code?: string;
     id?: number;
     status?: string;
+    reason?: string;
     metadata?: Record<string, unknown>;
   };
 }
 
 @Controller('orders/payments')
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(
     private readonly ordersService: OrdersService,
     private readonly paymentsService: PaymentsService,
     private readonly paystackService: PaystackService,
-    private readonly rateLimit: RateLimitService,
     private readonly auditLog: AuditLogService,
     private readonly configService: ConfigService,
     private readonly payoutsService: PayoutsService,
@@ -47,12 +49,12 @@ export class PaymentsController {
 
   @Post('stripe/webhook')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ payments: {} })
   async handleStripeWebhook(
     @Req() req: Request,
     @Body() payload: StripeWebhookPayload,
     @Headers('stripe-signature') signature?: string,
   ): Promise<{ received: boolean }> {
-    this.applyRateLimit(req);
     // rawBody is a Buffer attached by NestJS when `rawBody: true` is set in NestFactory.create()
     const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
     const eventRecord = await this.paymentsService.recordWebhookEvent(payload?.type ?? 'stripe', payload);
@@ -141,32 +143,35 @@ export class PaymentsController {
 
   @Post('paystack/verify')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ payments: {} })
   async verifyPaystackPayment(
     @Body() body: { reference: string },
     @Req() req: Request,
   ): Promise<{ verified: boolean; orderId: string; amount: number; reference: string; currency: string }> {
-    this.applyRateLimit(req);
     if (!body.reference) throw new BadRequestException('reference is required');
     return this.ordersService.verifyPaystackPayment(body.reference);
   }
 
   @Post('paystack/webhook')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ payments: {} })
   async handlePaystackWebhook(
     @Req() req: Request,
     @Body() payload: PaystackWebhookPayload,
     @Headers('x-paystack-signature') signature?: string,
   ): Promise<{ received: boolean }> {
-    this.applyRateLimit(req);
     const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
+    const ip = req.ip ?? 'unknown';
+    const ts = new Date().toISOString();
 
-    // Always require the signature header when PAYSTACK_WEBHOOK_SECRET is configured.
-    // Return 401 (not 400) so the caller knows this is an auth failure, not a bad request.
-    const webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
-    if (webhookSecret && !signature) {
+    // Always require the signature header — return 401 so the caller knows this is
+    // an auth failure, not a malformed request.
+    if (!signature) {
+      this.logger.warn(`[Paystack] Missing x-paystack-signature header — IP: ${ip}, time: ${ts}`);
       throw new UnauthorizedException('Missing x-paystack-signature header');
     }
-    if (signature && !this.paystackService.validateWebhookSignature(rawBody, signature)) {
+    if (!this.paystackService.validateWebhookSignature(rawBody, signature)) {
+      this.logger.warn(`[Paystack] Invalid webhook signature — IP: ${ip}, time: ${ts}`);
       throw new UnauthorizedException('Invalid Paystack webhook signature');
     }
 
@@ -189,8 +194,10 @@ export class PaymentsController {
       if (event === 'charge.success' && data.reference) {
         await this.ordersService.verifyPaystackPayment(data.reference);
       } else if (event === 'transfer.success' && data.transfer_code) {
-        // Paystack seller payout completed — find payout by transferCode and mark settled
-        await this.paymentsService.updateProviderStatus(data.transfer_code, 'transfer.success');
+        await this.payoutsService.handlePaystackTransferSuccess(data.transfer_code);
+      } else if (event === 'transfer.failed' && data.transfer_code) {
+        const reason = data.reason ?? 'Transfer failed';
+        await this.payoutsService.handlePaystackTransferFailed(data.transfer_code, reason);
       } else if (event === 'refund.processed' && data.reference) {
         await this.paymentsService.updateProviderStatus(data.reference, 'refund.processed');
       }
@@ -203,10 +210,4 @@ export class PaymentsController {
     }
   }
 
-  private applyRateLimit(req: Request) {
-    const limit = Number(this.configService.get<string>('PAYMENT_RATE_LIMIT') ?? 30);
-    const windowMs = Number(this.configService.get<string>('PAYMENT_RATE_WINDOW_MS') ?? 60_000);
-    const key = `payments:webhook:${req.ip ?? 'unknown'}`;
-    this.rateLimit.enforce(key, Number.isNaN(limit) ? 30 : limit, Number.isNaN(windowMs) ? 60_000 : windowMs);
-  }
 }

@@ -62,6 +62,11 @@ import {
   auctionSchema,
   createAuctionSchema,
   placeBidSchema,
+  ShippoAddress,
+  ShippoParcel,
+  ShippingRate,
+  PurchasedLabel,
+  purchasedLabelSchema,
 } from './types';
 
 export interface UpdateProfilePayload {
@@ -182,12 +187,18 @@ export class ForumoApiClient {
   }
 
   readonly auth = {
-    login: async (payload: { email: string; password: string }): Promise<AuthResponse> => {
+    login: async (payload: { email: string; password: string; deviceFingerprint?: string }): Promise<AuthResponse> => {
       const response = await this.requestJson<AuthResponse>('/auth/login', {
         method: 'POST',
         body: payload,
       });
       return authResponseSchema.parse(response);
+    },
+    refresh: async (refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> => {
+      return this.requestJson<{ accessToken: string; refreshToken: string }>('/auth/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
     },
     register: async (payload: { name: string; email: string; password: string; phone?: string }): Promise<AuthResponse> => {
       const response = await this.requestJson<AuthResponse>('/auth/register', {
@@ -220,6 +231,18 @@ export class ForumoApiClient {
       return this.requestJson<{ message: string }>('/auth/password/reset/confirm', {
         method: 'POST',
         body: payload,
+      });
+    },
+    verifyEmail: async (token: string): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/verify-email', {
+        method: 'POST',
+        body: { token },
+      });
+    },
+    resendVerification: async (email: string): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/resend-verification', {
+        method: 'POST',
+        body: { email },
       });
     },
   };
@@ -283,6 +306,20 @@ export class ForumoApiClient {
         method: 'POST',
         auth: true,
         body: { reason },
+      });
+    },
+    bulkUpdateStatus: async (ids: string[], status: string): Promise<{ updated: number }> => {
+      return this.requestJson<{ updated: number }>('/listings/bulk', {
+        method: 'PATCH',
+        auth: true,
+        body: { ids, status },
+      });
+    },
+    bulkDelete: async (ids: string[]): Promise<{ deleted: number }> => {
+      return this.requestJson<{ deleted: number }>('/listings/bulk', {
+        method: 'DELETE',
+        auth: true,
+        body: { ids },
       });
     },
   };
@@ -397,13 +434,35 @@ export class ForumoApiClient {
         auth: true,
       });
     },
+    purchaseLabel: async (orderId: string, rateId: string): Promise<PurchasedLabel> => {
+      return this.requestJson<PurchasedLabel>(`/orders/${orderId}/label`, {
+        method: 'POST',
+        auth: true,
+        body: { rateId },
+      });
+    },
+  };
+
+  readonly shipping = {
+    getRates: async (
+      fromAddress: ShippoAddress,
+      toAddress: ShippoAddress,
+      parcel: ShippoParcel,
+    ): Promise<ShippingRate[]> => {
+      return this.requestJson<ShippingRate[]>('/shipping/rates', {
+        method: 'POST',
+        auth: true,
+        body: { fromAddress, toAddress, parcel },
+      });
+    },
   };
 
   readonly reviews = {
-    forListing: async (listingId: string): Promise<ListingReviewResponse> => {
-      const result = await this.request<ListingReviewResponse>(`/reviews${buildQuery({ listingId })}`, {
-        method: 'GET',
-      });
+    forListing: async (listingId: string, viewerId?: string): Promise<ListingReviewResponse> => {
+      const result = await this.request<ListingReviewResponse>(
+        `/reviews${buildQuery({ listingId, ...(viewerId ? { viewerId } : {}) })}`,
+        { method: 'GET' },
+      );
       return listingReviewResponseSchema.parse(result);
     },
     create: async (payload: CreateReviewDto): Promise<SafeReview> => {
@@ -418,6 +477,19 @@ export class ForumoApiClient {
     rollup: async (sellerId: string): Promise<ReviewRollup> => {
       const result = await this.request<ReviewRollup>(`/reviews/seller/${sellerId}/rollup`, { method: 'GET' });
       return reviewRollupSchema.parse(result);
+    },
+    vote: async (reviewId: string): Promise<{ helpfulCount: number; userVoted: boolean }> => {
+      return this.requestJson<{ helpfulCount: number; userVoted: boolean }>(`/reviews/${reviewId}/vote`, {
+        method: 'POST',
+        auth: true,
+      });
+    },
+    flag: async (reviewId: string, reason: string): Promise<void> => {
+      await this.requestJson<void>(`/reviews/${reviewId}/flag`, {
+        method: 'POST',
+        auth: true,
+        body: { reason },
+      });
     },
   };
 

@@ -1,10 +1,9 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import { ApiError, type AuthResponse } from '@forumo/shared';
+import { ApiError } from '@forumo/shared';
 
 import { createApiClient } from '../../lib/api-client';
 import { GoogleSignInButton } from '../../components/google-signin-button';
@@ -19,17 +18,7 @@ export function SignupForm() {
     phone: '',
   });
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const persistAuth = useCallback((auth: AuthResponse) => {
-    try {
-      localStorage.setItem('forumo.accessToken', auth.accessToken);
-      localStorage.setItem('forumo.user', JSON.stringify(auth.user));
-    } catch {
-      // ignore write errors (e.g., Safari private mode)
-    }
-  }, []);
 
   const updateField = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -41,26 +30,12 @@ export function SignupForm() {
     setMessage(null);
     setIsSubmitting(true);
     try {
-      const auth = await api.auth.register(form);
-      persistAuth(auth);
-      setMessage('Account created. Redirecting you to the dashboard…');
-      const signInResult = await signIn('credentials', {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      });
-      if (signInResult?.error) {
-        throw new Error(signInResult.error);
-      }
-      router.push('/app' as any);
-      router.refresh();
+      await api.auth.register(form);
+      // Backend sends a verification email on registration. Redirect the user to the
+      // pending-verification page instead of attempting to sign in (which the backend
+      // blocks for unverified accounts).
+      router.push(('/verify-email?pending=true&email=' + encodeURIComponent(form.email)) as any);
     } catch (err) {
-      try {
-        localStorage.removeItem('forumo.accessToken');
-        localStorage.removeItem('forumo.user');
-      } catch {
-        // ignore storage errors
-      }
       const apiErrorMessage = err instanceof ApiError ? err.message : null;
       const genericMessage = err instanceof Error ? err.message : null;
       setError(apiErrorMessage || genericMessage || 'Unable to create account. Try a different email.');
@@ -102,7 +77,6 @@ export function SignupForm() {
         />
       </label>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
       <button
         type="submit"
         className="w-full rounded-md bg-emerald-400 px-4 py-2 font-semibold text-slate-900 hover:bg-emerald-300"

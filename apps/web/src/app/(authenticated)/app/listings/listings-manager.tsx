@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { useMyListings, useDeleteListing, useListingMutations } from '../../../../lib/react-query/hooks';
+import { useMyListings, useDeleteListing, useListingMutations, useBulkListingOperations } from '../../../../lib/react-query/hooks';
 import type { SafeListing } from '@forumo/shared';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,9 +65,32 @@ export function ListingsManager() {
   const { data, isLoading } = useMyListings();
   const deleteListing = useDeleteListing();
   const { updateMutation } = useListingMutations();
+  const { bulkPublish, bulkPause, bulkDelete } = useBulkListingOperations();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const listings = data?.listings ?? [];
+  const allIds = listings.map((l) => l.id);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const anySelected = selected.size > 0;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(allIds));
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setConfirmBulkDelete(false);
+  }
 
   if (isLoading) {
     return (
@@ -84,8 +107,7 @@ export function ListingsManager() {
     setConfirmDelete(null);
   }
 
-  async function toggleStatus(listing: SafeListing) {
-    const next = listing.status === 'PUBLISHED' ? 'PAUSED' : 'PUBLISHED';
+  async function changeStatus(listing: SafeListing, next: 'PUBLISHED' | 'PAUSED') {
     await updateMutation.mutateAsync({ id: listing.id, payload: { status: next as any } });
   }
 
@@ -112,11 +134,79 @@ export function ListingsManager() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Bulk action bar */}
+          {anySelected && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 px-4 py-3">
+              <span className="text-sm text-amber-300 font-medium mr-2">{selected.size} selected</span>
+              <button
+                onClick={async () => { await bulkPublish.mutateAsync([...selected]); clearSelection(); }}
+                disabled={bulkPublish.isPending}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {bulkPublish.isPending ? '…' : 'Publish'}
+              </button>
+              <button
+                onClick={async () => { await bulkPause.mutateAsync([...selected]); clearSelection(); }}
+                disabled={bulkPause.isPending}
+                className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+              >
+                {bulkPause.isPending ? '…' : 'Pause'}
+              </button>
+              {!confirmBulkDelete ? (
+                <button
+                  onClick={() => setConfirmBulkDelete(true)}
+                  className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={async () => { await bulkDelete.mutateAsync([...selected]); clearSelection(); }}
+                    disabled={bulkDelete.isPending}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                  >
+                    {bulkDelete.isPending ? '…' : 'Confirm delete'}
+                  </button>
+                  <button onClick={() => setConfirmBulkDelete(false)} className="text-xs text-slate-400 hover:text-slate-200">
+                    Cancel
+                  </button>
+                </>
+              )}
+              <button onClick={clearSelection} className="ml-auto text-xs text-slate-500 hover:text-slate-300">
+                Clear selection
+              </button>
+            </div>
+          )}
+
+          {/* Select all header */}
+          {listings.length > 1 && (
+            <div className="flex items-center gap-3 px-1">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-amber-500 cursor-pointer"
+                aria-label="Select all listings"
+              />
+              <span className="text-xs text-slate-500">Select all</span>
+            </div>
+          )}
+
           {listings.map((listing) => (
             <div
               key={listing.id}
               className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4"
             >
+              {/* Checkbox */}
+              <input
+                type="checkbox"
+                checked={selected.has(listing.id)}
+                onChange={() => toggleOne(listing.id)}
+                className="h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-800 accent-amber-500 cursor-pointer"
+                aria-label={`Select ${listing.title}`}
+              />
+
               {/* Thumbnail */}
               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-800">
                 {listing.images?.[0]?.url ? (
@@ -155,23 +245,36 @@ export function ListingsManager() {
 
               {/* Actions */}
               <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={() => toggleStatus(listing)}
-                  disabled={
-                    updateMutation.isPending ||
-                    (listing as any).moderationStatus === 'PENDING'
-                  }
-                  className="rounded px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={
-                    (listing as any).moderationStatus === 'PENDING'
-                      ? 'Waiting for moderation approval'
-                      : listing.status === 'PUBLISHED'
-                      ? 'Pause listing'
-                      : 'Publish listing'
-                  }
-                >
-                  {listing.status === 'PUBLISHED' ? 'Pause' : 'Publish'}
-                </button>
+                {listing.status === 'DRAFT' && (
+                  <button
+                    onClick={() => changeStatus(listing, 'PUBLISHED')}
+                    disabled={updateMutation.isPending || (listing as any).moderationStatus === 'PENDING'}
+                    title={(listing as any).moderationStatus === 'PENDING' ? 'Waiting for moderation approval' : 'Publish listing'}
+                    className="rounded px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {updateMutation.isPending ? '…' : 'Publish'}
+                  </button>
+                )}
+                {listing.status === 'PUBLISHED' && (
+                  <button
+                    onClick={() => changeStatus(listing, 'PAUSED')}
+                    disabled={updateMutation.isPending}
+                    title="Pause listing"
+                    className="rounded px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {updateMutation.isPending ? '…' : 'Pause'}
+                  </button>
+                )}
+                {listing.status === 'PAUSED' && (
+                  <button
+                    onClick={() => changeStatus(listing, 'PUBLISHED')}
+                    disabled={updateMutation.isPending}
+                    title="Republish listing"
+                    className="rounded px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {updateMutation.isPending ? '…' : 'Republish'}
+                  </button>
+                )}
                 <Link
                   href={`/app/listings/${listing.id}/edit` as any}
                   className="rounded px-2.5 py-1.5 text-xs text-amber-400 hover:bg-amber-400/10"

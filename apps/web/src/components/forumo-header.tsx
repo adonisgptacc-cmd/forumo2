@@ -27,27 +27,22 @@ export function ForumoHeader() {
     }
 
     return (
-        <header className="flex flex-col">
-            {/* Top Header */}
-            <div className="forumo-header flex items-center gap-4 px-4 py-2">
-                {/* Logo */}
-                <Link href="/" className="flex items-center hover:outline outline-1 outline-white p-1">
-                    <span className="text-2xl font-bold italic tracking-tighter">forumo</span>
-                    <span className="text-xs mt-1 ml-0.5 text-forumo-gold">.africa</span>
+        <header>
+            {/* Top bar */}
+            <div className="forumo-header" style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 20 }}>
+                {/* Brand */}
+                <Link href="/" style={{ display: 'flex', alignItems: 'baseline', gap: 1, textDecoration: 'none', color: 'var(--ink)', flexShrink: 0 }}>
+                    <span style={{ fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600, fontStyle: 'italic', letterSpacing: '-0.04em' }}>forumo</span>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', marginBottom: 3, marginLeft: 1 }} />
+                    <span style={{ fontSize: 12, color: 'var(--ink-3)', letterSpacing: '0.02em' }}>africa</span>
                 </Link>
 
-                {/* Deliver to */}
-                <div className="hidden md:flex flex-col hover:outline outline-1 outline-white p-1 cursor-pointer">
-                    <span className="text-xs text-slate-300">Deliver to</span>
-                    <span className="text-sm font-bold">Lagos, NG</span>
-                </div>
-
-                {/* Search Bar */}
-                <form onSubmit={handleSearch} className="flex-1 flex items-center h-10">
+                {/* Search */}
+                <form onSubmit={handleSearch} style={{ flex: 1, display: 'flex', alignItems: 'center', height: 40, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
                     <select
-                        className="bg-slate-100 text-slate-700 h-full px-2 rounded-l-md border-r border-slate-300 text-sm focus:outline-none"
                         value={searchCategory}
                         onChange={(e) => setSearchCategory(e.target.value)}
+                        style={{ background: 'var(--surface-2)', color: 'var(--ink-2)', height: '100%', padding: '0 10px', borderRight: '1px solid var(--line-2)', fontSize: 13, outline: 'none', cursor: 'pointer' }}
                     >
                         <option value="all">All</option>
                         <option value="electronics">Electronics</option>
@@ -56,64 +51,61 @@ export function ForumoHeader() {
                     </select>
                     <input
                         type="text"
-                        className="flex-1 h-full px-4 text-slate-900 focus:outline-none"
-                        placeholder="Search Forumo"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search Forumo"
+                        style={{ flex: 1, height: '100%', padding: '0 14px', color: 'var(--ink)', background: 'var(--surface)', outline: 'none', fontSize: 14 }}
                     />
-                    <button type="submit" className="bg-forumo-gold hover:bg-forumo-gold-hover h-full px-5 rounded-r-md transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button type="submit" style={{ background: 'var(--accent)', height: '100%', padding: '0 18px', color: 'white', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
                 </form>
 
-                {/* Account & Orders */}
-                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                    <Link href={(user ? "/app" : "/login") as any} className="hidden sm:flex flex-col hover:outline outline-1 outline-white p-1">
-                        <span className="text-xs">{user ? `Hello, ${user.name}` : 'Hello, sign in'}</span>
-                        <span className="text-sm font-bold">Account & Lists</span>
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                    <Link href={(user ? '/app' : '/login') as any} className="hidden sm:flex" style={{ flexDirection: 'column', color: 'var(--ink)', textDecoration: 'none' }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{user ? `Hello, ${user.name}` : 'Hello, sign in'}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Account & Lists</span>
                     </Link>
 
-                    <Link href={"/app/orders" as any} className="hidden sm:flex flex-col hover:outline outline-1 outline-white p-1">
-                        <span className="text-xs">Returns</span>
-                        <span className="text-sm font-bold">& Orders</span>
+                    <Link href={'/app/orders' as any} className="hidden sm:flex" style={{ flexDirection: 'column', color: 'var(--ink)', textDecoration: 'none' }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>Returns</span>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>& Orders</span>
                     </Link>
 
                     {user && <NotificationBell />}
 
-                    <Link href={"/app/cart" as any} className="flex items-end hover:outline outline-1 outline-white p-1">
-                        <div className="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <Link href={'/app/cart' as any} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink)', textDecoration: 'none' }}>
+                        <div style={{ position: 'relative' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={26} height={26} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            <span className="absolute -top-1 -right-1 bg-forumo-orange text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{itemCount > 99 ? '99+' : itemCount}</span>
+                            <span style={{
+                                position: 'absolute', top: -4, right: -6,
+                                background: 'var(--accent)', color: 'white',
+                                fontSize: 11, fontWeight: 700, borderRadius: 999,
+                                minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px'
+                            }}>
+                                {itemCount > 99 ? '99+' : itemCount}
+                            </span>
                         </div>
-                        <span className="text-sm font-bold mb-1 ml-1 hidden lg:inline">Cart</span>
+                        <span className="hidden lg:inline" style={{ fontSize: 13, fontWeight: 600 }}>Cart</span>
                     </Link>
 
-                    {user && (
-                        <div className="hover:outline outline-1 outline-white p-1">
-                            <SignOutButton />
-                        </div>
-                    )}
+                    {user && <SignOutButton />}
                 </div>
             </div>
 
-            {/* Navigation Bar */}
-            <div className="forumo-sub-header flex items-center gap-4 px-4 py-1 text-sm font-medium overflow-x-auto scrollbar-none">
-                <button className="flex shrink-0 items-center gap-1 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                    All
-                </button>
-                <Link href={"/listings" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">All Listings</Link>
-                <Link href={"/auctions" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">Auctions</Link>
-                <Link href={"/app/messages" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 whitespace-nowrap">Messages</Link>
-                <Link href={"/listings/new" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 font-bold whitespace-nowrap">Sell on Forumo</Link>
+            {/* Sub-nav */}
+            <div className="forumo-sub-header scrollbar-none" style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '4px 24px', overflowX: 'auto' }}>
+                <Link href={'/listings' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>All Listings</Link>
+                <Link href={'/auctions' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Auctions</Link>
+                <Link href={'/app/messages' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Messages</Link>
+                <Link href={'/listings/new' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, fontWeight: 600, color: 'var(--accent)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Sell on Forumo</Link>
                 {user && (user as any).role === 'ADMIN' && (
-                    <Link href={"/admin" as any} className="shrink-0 hover:outline outline-1 outline-white px-2 py-1 text-forumo-gold whitespace-nowrap">Admin</Link>
+                    <Link href={'/admin' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--escrow)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Admin</Link>
                 )}
             </div>
         </header>

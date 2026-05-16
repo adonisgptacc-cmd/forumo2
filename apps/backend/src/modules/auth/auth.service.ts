@@ -1,9 +1,11 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DeviceSessionStatus, NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomInt } from 'crypto';
+import IORedis from 'ioredis';
+import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 
 import type { AuthResponse } from '@forumo/shared';
 import {
@@ -17,7 +19,6 @@ import {
 import { SafeUser, sanitizeUser } from "../users/user.serializer";
 
 import { PrismaService } from "../../prisma/prisma.service";
-import { RateLimitService } from "../../common/services/rate-limit.service";
 import { UsersService } from "../users/users.service";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -29,8 +30,10 @@ interface OtpIssueResponse {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly saltRounds = 10;
+  private loginLimiter?: RateLimiterRedis;
+  private resendLimiter?: RateLimiterRedis;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -38,9 +41,39 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
-    private readonly rateLimitService: RateLimitService,
     private readonly notifications: NotificationsService,
   ) { }
+
+  onModuleInit(): void {
+    const redisUrl = this.configService.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+    const redis = new IORedis(redisUrl);
+
+    const loginLimit = Number(this.configService.get<string>('LOGIN_ATTEMPT_LIMIT') ?? 5);
+    const windowMs = Number(this.configService.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000);
+    const windowSec = Math.ceil(windowMs / 1000);
+
+    this.loginLimiter = new RateLimiterRedis({
+      storeClient: redis,
+      keyPrefix: 'login_fail',
+      points: loginLimit,
+      duration: windowSec,
+      // Lock out for twice the window after limit is exceeded
+      blockDuration: windowSec * 2,
+      insuranceLimiter: new RateLimiterMemory({
+        points: loginLimit,
+        duration: windowSec,
+        blockDuration: windowSec * 2,
+      }),
+    });
+
+    this.resendLimiter = new RateLimiterRedis({
+      storeClient: redis,
+      keyPrefix: 'resend_verification',
+      points: 3,
+      duration: 3600,
+      insuranceLimiter: new RateLimiterMemory({ points: 3, duration: 3600 }),
+    });
+  }
 
   async register(dto: RegisterInput): Promise<{ message: string }> {
     const normalizedEmail = this.normalizeEmail(dto.email);
@@ -72,20 +105,15 @@ export class AuthService {
   async login(dto: LoginInput): Promise<AuthResponse> {
     const normalizedEmail = this.normalizeEmail(dto.email);
 
-    // Reject immediately if the account is in a lockout period
-    if (this.rateLimitService.isLocked(`login-lockout:${normalizedEmail}`)) {
-      throw new HttpException('Account temporarily locked due to too many failed attempts', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
     const user = await this.findActiveUserByEmail(normalizedEmail);
     if (!user) {
-      this.enforceLoginAttemptLimit(normalizedEmail);
+      await this.recordLoginFailure(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
-      this.enforceLoginAttemptLimit(normalizedEmail);
+      await this.recordLoginFailure(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -230,12 +258,93 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException('Current password is incorrect');
 
     const passwordHash = await bcrypt.hash(dto.newPassword, this.saltRounds);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash, tokenVersion: { increment: 1 } },
-    });
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
+      }),
+      this.prisma.deviceSession.updateMany({
+        where: { userId },
+        data: { refreshTokenHash: null },
+      }),
+    ]);
 
     return { message: 'Password changed successfully' };
+  }
+
+  async refreshToken(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+
+    let payload: { sub: string; fingerprint?: string; tokenVersion: number; type: string };
+    try {
+      payload = await this.jwtService.verifyAsync(token, { secret });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    const user = await this.prisma.user.findFirst({ where: { id: payload.sub, deletedAt: null } });
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.tokenVersion !== payload.tokenVersion) throw new UnauthorizedException('Token has been revoked');
+
+    if (payload.fingerprint) {
+      const session = await this.prisma.deviceSession.findFirst({
+        where: { userId: payload.sub, fingerprint: payload.fingerprint, status: 'ACTIVE' },
+      });
+      if (!session) throw new UnauthorizedException('Session not found or revoked');
+      if (session.refreshTokenHash !== this.hashToken(token)) {
+        throw new UnauthorizedException('Refresh token has been rotated');
+      }
+    }
+
+    const newAccessToken = await this.jwtService.signAsync(
+      { sub: user.id, role: user.role, tokenVersion: user.tokenVersion },
+      { secret, expiresIn: 900 },
+    );
+
+    const newRefreshToken = await this.jwtService.signAsync(
+      { sub: user.id, fingerprint: payload.fingerprint, tokenVersion: user.tokenVersion, type: 'refresh' },
+      { secret, expiresIn: 2_592_000 },
+    );
+
+    if (payload.fingerprint) {
+      await this.prisma.deviceSession.update({
+        where: { userId_fingerprint: { userId: user.id, fingerprint: payload.fingerprint } },
+        data: {
+          refreshTokenHash: this.hashToken(newRefreshToken),
+          sessionTokenHash: this.hashToken(newAccessToken),
+          lastActiveAt: new Date(),
+        },
+      });
+    }
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  }
+
+  async logout(userId: string, refreshToken?: string): Promise<void> {
+    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+
+    if (refreshToken) {
+      try {
+        const payload = await this.jwtService.verifyAsync<{ sub: string; fingerprint?: string }>(refreshToken, { secret });
+        if (payload.fingerprint) {
+          await this.prisma.deviceSession.update({
+            where: { userId_fingerprint: { userId, fingerprint: payload.fingerprint } },
+            data: { status: 'REVOKED', refreshTokenHash: null },
+          });
+        }
+      } catch {
+        // Token is invalid — still increment tokenVersion to be safe
+      }
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
   }
 
   async listDeviceSessions(userId: string) {
@@ -258,30 +367,35 @@ export class AuthService {
   ): Promise<AuthResponse> {
     const safeUser = sanitizeUser(user)!;
     const secret = this.configService.getOrThrow<string>('JWT_SECRET');
-    const defaultTtlValue = Number(this.configService.get<string>('JWT_TTL') ?? 86400);
-    const rememberTtlValue = Number(this.configService.get<string>('JWT_TTL_REMEMBER') ?? 2_592_000);
-    const rawTtl = options.rememberMe ? rememberTtlValue : defaultTtlValue;
-    const expiresIn = Number.isNaN(rawTtl) ? defaultTtlValue : rawTtl;
-    const token = await this.jwtService.signAsync(
+
+    const accessToken = await this.jwtService.signAsync(
       { sub: safeUser.id, role: safeUser.role, tokenVersion: safeUser.tokenVersion },
-      {
-        secret,
-        expiresIn,
-      },
+      { secret, expiresIn: 900 }, // 15 minutes
     );
 
+    let refreshToken: string | undefined;
     if (options.sessionFingerprint) {
-      await this.upsertDeviceSession(safeUser.id, options.sessionFingerprint, {
-        deviceFingerprint: options.sessionFingerprint,
-        userAgent: options.userAgent,
-        ipAddress: options.ipAddress,
-        metadata: options.sessionMetadata,
-      }, {
-        lastActiveAt: new Date(),
-      }, this.hashToken(token));
+      refreshToken = await this.jwtService.signAsync(
+        { sub: safeUser.id, fingerprint: options.sessionFingerprint, tokenVersion: safeUser.tokenVersion, type: 'refresh' },
+        { secret, expiresIn: 2_592_000 }, // 30 days
+      );
+
+      await this.upsertDeviceSession(
+        safeUser.id,
+        options.sessionFingerprint,
+        {
+          deviceFingerprint: options.sessionFingerprint,
+          userAgent: options.userAgent,
+          ipAddress: options.ipAddress,
+          metadata: options.sessionMetadata,
+        },
+        { lastActiveAt: new Date() },
+        this.hashToken(accessToken),
+        this.hashToken(refreshToken),
+      );
     }
 
-    return { user: safeUser, accessToken: token };
+    return { user: safeUser, accessToken, ...(refreshToken ? { refreshToken } : {}) };
   }
 
   async verifyEmail(token: string): Promise<{ message: string }> {
@@ -308,8 +422,14 @@ export class AuthService {
   async resendVerification(email: string): Promise<{ message: string }> {
     const normalizedEmail = this.normalizeEmail(email);
 
-    // Rate-limit to 3 resends per hour per email address
-    this.rateLimitService.enforce(`resend-verification:${normalizedEmail}`, 3, 3_600_000);
+    // Rate-limit to 3 resends per hour per email address (Redis-backed)
+    if (this.resendLimiter) {
+      try {
+        await this.resendLimiter.consume(normalizedEmail);
+      } catch {
+        throw new HttpException('Too many resend requests. Please wait before trying again.', HttpStatus.TOO_MANY_REQUESTS);
+      }
+    }
 
     const user = await this.findActiveUserByEmail(normalizedEmail);
     // Return a generic message regardless of whether the account exists to avoid enumeration
@@ -370,12 +490,14 @@ export class AuthService {
     payload: Pick<RequestOtpInput, 'deviceFingerprint' | 'ipAddress' | 'metadata' | 'userAgent'>,
     timestamps: Partial<{ lastIssuedAt: Date; lastVerifiedAt: Date; lastActiveAt: Date; status: DeviceSessionStatus }>,
     sessionTokenHash?: string,
+    refreshTokenHash?: string,
   ) {
     const metadata = this.buildMetadata(payload.metadata);
     const base = {
       userAgent: payload.userAgent,
       ipAddress: payload.ipAddress,
       ...(sessionTokenHash ? { sessionTokenHash } : {}),
+      ...(refreshTokenHash ? { refreshTokenHash } : {}),
       ...(metadata ? { metadata } : {}),
     };
 
@@ -440,6 +562,25 @@ export class AuthService {
     return consumedAt;
   }
 
+  /**
+   * Counts failed login attempts for an email via Redis. Locks the account for
+   * twice the window duration once the limit is reached.
+   */
+  private async recordLoginFailure(email: string): Promise<void> {
+    if (!this.loginLimiter) return;
+    try {
+      await this.loginLimiter.consume(email);
+    } catch (err) {
+      if (err instanceof RateLimiterRes) {
+        throw new HttpException(
+          'Account temporarily locked due to too many failed attempts',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      throw err;
+    }
+  }
+
   private async enforceDeviceRateLimit(userId: string, fingerprint: string | null): Promise<void> {
     const limitValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_LIMIT') ?? 5);
     const windowSecondsValue = Number(this.configService.get<string>('OTP_DEVICE_RATE_WINDOW') ?? 300);
@@ -469,28 +610,6 @@ export class AuthService {
     if (!exists) {
       throw new UnauthorizedException('Account not found');
     }
-  }
-
-  private enforceLoginAttemptLimit(email: string): void {
-    const limitValue = Number(this.configService.get<string>('LOGIN_ATTEMPT_LIMIT') ?? 5);
-    const windowValue = Number(this.configService.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000);
-    const limit = Number.isNaN(limitValue) ? 5 : limitValue;
-    const windowMs = Number.isNaN(windowValue) ? 900_000 : windowValue;
-
-    // Check explicit lockout first (set when limit is reached)
-    if (this.rateLimitService.isLocked(`login-lockout:${email}`)) {
-      throw new HttpException('Account temporarily locked due to too many failed attempts', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
-    // Enforce sliding-window rate limit; when limit is hit, apply a lockout
-    const currentCount = this.rateLimitService.getCount(`login-fail:${email}`, windowMs);
-    if (currentCount >= limit - 1) {
-      // This attempt will push us to or past the limit — apply lockout
-      const lockoutMs = windowMs * 2; // lock for twice the window
-      this.rateLimitService.lock(`login-lockout:${email}`, lockoutMs);
-    }
-
-    this.rateLimitService.enforce(`login-fail:${email}`, limit, windowMs);
   }
 
   private async enforceOtpCooldown(userId: string, purpose: OtpPurpose, fingerprint: string | null): Promise<void> {
@@ -535,23 +654,20 @@ export class AuthService {
   }): Promise<User> {
     const normalizedEmail = this.normalizeEmail(profile.email);
 
-    // Check if user exists by email
     let user = await this.findActiveUserByEmail(normalizedEmail);
 
     if (user) {
-      // User exists, just return them
       return user;
     }
 
-    // Create new user with Google OAuth
     user = await this.prisma.user.create({
       data: {
         name: profile.name,
         email: normalizedEmail,
-        passwordHash: '', // No password for OAuth users
+        passwordHash: '',
         avatarUrl: profile.avatarUrl,
-        kycStatus: 'NOT_REQUIRED', // OAuth users are pre-verified by Google
-        emailVerified: true, // Google already verified this address
+        kycStatus: 'NOT_REQUIRED',
+        emailVerified: true,
       },
     });
 

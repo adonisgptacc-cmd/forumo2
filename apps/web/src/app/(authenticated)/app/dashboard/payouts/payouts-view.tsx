@@ -1,12 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useMutation } from '@tanstack/react-query';
 import {
   usePayoutBalance,
   usePayouts,
   usePayoutOnboard,
   useRequestPayout,
+  useCurrentUser,
 } from '../../../../../lib/react-query/hooks';
+import { createApiClient } from '../../../../../lib/api-client';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -21,10 +25,39 @@ function fmtDate(iso: string) {
 // ─── StripeConnectBanner ─────────────────────────────────────────────────────
 
 function StripeConnectBanner() {
+  const searchParams = useSearchParams();
+  const stripeReturn = searchParams?.get('stripe');
+  const { accessToken } = useCurrentUser();
   const { data, isLoading, refetch } = usePayoutOnboard();
+
+  const initOnboard = useMutation<{ url: string }, Error, void>({
+    mutationFn: async () => {
+      const api = createApiClient(accessToken);
+      return api.post('/payments/stripe/connect/onboard', {}, { auth: true });
+    },
+    onSuccess: (result) => {
+      if (result?.url) {
+        window.location.href = result.url;
+      }
+    },
+  });
+
+  // When Stripe redirects back with ?stripe=success, refresh the status
+  if (stripeReturn === 'success') {
+    refetch();
+  }
 
   if (isLoading) {
     return <div className="h-12 rounded-xl bg-slate-800 animate-pulse" />;
+  }
+
+  if (stripeReturn === 'success' && (!data || data.status !== 'connected')) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-blue-700/50 bg-blue-900/20 px-4 py-3">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+        <span className="text-sm text-blue-300">Verifying your bank connection…</span>
+      </div>
+    );
   }
 
   if (!data) return null;
@@ -40,16 +73,26 @@ function StripeConnectBanner() {
 
   if (data.status === 'pending') {
     return (
-      <div className="rounded-xl border border-blue-700/50 bg-blue-900/20 px-4 py-4">
-        <p className="text-sm font-medium text-blue-300">Account under review</p>
-        <p className="text-xs text-blue-400/80 mt-1">
-          Stripe is reviewing your account. You'll be notified once approved — this usually takes 1–2 business days.
-        </p>
+      <div className="rounded-xl border border-blue-700/50 bg-blue-900/20 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-blue-300">Account under review</p>
+          <p className="text-xs text-blue-400/80 mt-1">
+            Stripe is reviewing your account. You'll be notified once approved — this usually takes 1–2 business days.
+          </p>
+        </div>
+        {data.onboardingUrl && (
+          <a
+            href={data.onboardingUrl}
+            className="shrink-0 rounded-lg border border-blue-700 px-4 py-2 text-sm text-blue-300 hover:bg-blue-900/40 transition-colors text-center"
+          >
+            Continue setup →
+          </a>
+        )}
       </div>
     );
   }
 
-  // incomplete
+  // incomplete — show connect CTA
   return (
     <div className="rounded-xl border border-amber-700/50 bg-amber-900/20 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1">
@@ -58,15 +101,15 @@ function StripeConnectBanner() {
           Link a bank account via Stripe to withdraw your available balance.
         </p>
       </div>
-      {data.onboardingUrl && (
-        <a
-          href={data.onboardingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors text-center"
-        >
-          Set up payouts →
-        </a>
+      <button
+        onClick={() => initOnboard.mutate()}
+        disabled={initOnboard.isPending}
+        className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {initOnboard.isPending ? 'Connecting…' : 'Connect your bank account'}
+      </button>
+      {initOnboard.isError && (
+        <p className="text-xs text-rose-400 sm:col-span-2">{(initOnboard.error as Error).message}</p>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Redirect,
@@ -115,5 +116,15 @@ export class PayoutsController {
   async adminSchedulePayouts(): Promise<{ success: boolean }> {
     await this.payoutsService.schedulePayouts();
     return { success: true };
+  }
+
+  // ─── Paystack: List supported banks ───────────────────────────────────────
+
+  @Get('paystack/banks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List Paystack-supported banks for a given currency (for seller onboarding)' })
+  listPaystackBanks(@Query('currency') currency = 'ZAR'): Promise<unknown[]> {
+    return this.payoutsService.listPaystackBanks(currency);
   }
 }

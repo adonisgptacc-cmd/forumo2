@@ -137,6 +137,26 @@ export class ListingsService {
     });
   }
 
+  async bulkUpdateStatus(
+    ids: string[],
+    status: ListingStatus,
+    userId: string,
+  ): Promise<{ updated: number }> {
+    await this.prisma.listing.updateMany({
+      where: { id: { in: ids }, sellerId: userId, deletedAt: null },
+      data: { status },
+    });
+    return { updated: ids.length };
+  }
+
+  async bulkDelete(ids: string[], userId: string): Promise<{ deleted: number }> {
+    await this.prisma.listing.updateMany({
+      where: { id: { in: ids }, sellerId: userId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return { deleted: ids.length };
+  }
+
   async attachImage(id: string, file: Express.Multer.File, userId: string): Promise<SafeListingImage> {
     const listing = await this.ensureListingExists(id);
     if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');

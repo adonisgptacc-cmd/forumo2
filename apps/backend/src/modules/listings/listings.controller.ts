@@ -96,6 +96,32 @@ export class ListingsController {
     return this.listingsService.create(dto, req.user.id);
   }
 
+  @Patch('bulk')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  bulkUpdate(
+    @Body() body: { ids: string[]; status: string },
+    @Request() req: { user: { id: string } },
+  ): Promise<{ updated: number }> {
+    const { ids, status } = body;
+    if (!Array.isArray(ids) || ids.length === 0) throw new BadRequestException('ids must be a non-empty array');
+    const validStatuses = ['PUBLISHED', 'PAUSED', 'DRAFT'];
+    if (!validStatuses.includes(status)) throw new BadRequestException(`status must be one of ${validStatuses.join(', ')}`);
+    return this.listingsService.bulkUpdateStatus(ids, status as any, req.user.id);
+  }
+
+  @Delete('bulk')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  bulkDelete(
+    @Body() body: { ids: string[] },
+    @Request() req: { user: { id: string } },
+  ): Promise<{ deleted: number }> {
+    const { ids } = body;
+    if (!Array.isArray(ids) || ids.length === 0) throw new BadRequestException('ids must be a non-empty array');
+    return this.listingsService.bulkDelete(ids, req.user.id);
+  }
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(

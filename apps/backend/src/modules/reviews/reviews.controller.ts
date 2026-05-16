@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 
-import { CreateReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CreateReviewDto, FlagReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
 import { ListingReviewResponse, ReviewRollup, SafeReview } from "./review.serializer";
 import { ReviewsService } from "./reviews.service";
 
@@ -14,11 +15,32 @@ export class ReviewsController {
   }
 
   @Get()
-  listForListing(@Query('listingId') listingId: string): Promise<ListingReviewResponse> {
+  listForListing(
+    @Query('listingId') listingId: string,
+    @Query('viewerId') viewerId?: string,
+  ): Promise<ListingReviewResponse> {
     if (!listingId) {
       throw new BadRequestException('listingId is required');
     }
-    return this.reviewsService.listForListing(listingId);
+    return this.reviewsService.listForListing(listingId, viewerId);
+  }
+
+  @Post(':id/vote')
+  @UseGuards(JwtAuthGuard)
+  voteReview(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<{ helpfulCount: number; userVoted: boolean }> {
+    return this.reviewsService.voteReview(id, req.user.id);
+  }
+
+  @Post(':id/flag')
+  @UseGuards(JwtAuthGuard)
+  flagReview(
+    @Param('id') id: string,
+    @Body() dto: FlagReviewDto,
+  ): Promise<void> {
+    return this.reviewsService.flagReview(id, dto.reason);
   }
 
   @Get('/seller/:sellerId/rollup')

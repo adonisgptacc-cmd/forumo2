@@ -133,21 +133,36 @@ export class PaystackService {
     amountKobo: number,
     recipientCode: string,
     reason: string,
+    reference: string,
   ): Promise<{ transferCode: string; status: string }> {
     const { data } = await firstValueFrom(
       this.http.post<PaystackApiResponse<{ transfer_code: string; status: string }>>(
         `${this.baseUrl}/transfer`,
-        { source: 'balance', amount: amountKobo, recipient: recipientCode, reason },
+        { source: 'balance', amount: amountKobo, recipient: recipientCode, reason, reference },
         { headers: this.authHeaders },
       ),
     );
     return { transferCode: data.data.transfer_code, status: data.data.status };
   }
 
+  async listBanks(currency: string): Promise<unknown[]> {
+    if (!this.secretKey) {
+      return [];
+    }
+    const { data } = await firstValueFrom(
+      this.http.get<PaystackApiResponse<unknown[]>>(
+        `${this.baseUrl}/bank?currency=${currency.toUpperCase()}`,
+        { headers: this.authHeaders },
+      ),
+    );
+    return data.data;
+  }
+
   validateWebhookSignature(rawBody: Buffer | string, signature: string): boolean {
-    const secret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    const secret = process.env.PAYSTACK_SECRET_KEY;
     if (!secret) {
-      return true; // dev: skip validation when secret not configured
+      this.logger.warn('PAYSTACK_SECRET_KEY is not configured — webhook signature cannot be verified');
+      return false;
     }
     const hash = createHmac('sha512', secret)
       .update(rawBody)

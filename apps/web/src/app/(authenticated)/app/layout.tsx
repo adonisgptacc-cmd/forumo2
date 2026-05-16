@@ -35,22 +35,24 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Secure workspace</p>
-            <h1 className="text-xl sm:text-2xl font-semibold truncate">{session.user?.name ?? 'Unnamed Seller'}</h1>
-            <p className="text-sm text-slate-400 truncate">{session.user?.email}</p>
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1280, margin: '0 auto' }}>
+      <header className="card card-pad">
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <p className="eyebrow" style={{ marginBottom: 4 }}>Secure workspace</p>
+            <h1 style={{ fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 500, letterSpacing: '-0.015em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {session.user?.name ?? 'Unnamed Seller'}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.email}</p>
           </div>
           <SignOutButton />
         </div>
-        <nav className="mt-4 flex flex-wrap gap-2 text-sm">
+        <nav style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {navItems.map((item) => (
             <Link
               key={item.href}
-              className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 hover:border-amber-400 min-h-[36px] flex items-center"
               href={item.href as any}
+              className="chip"
             >
               {item.label}
             </Link>

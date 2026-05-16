@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
@@ -16,7 +17,6 @@ import {
 } from "../../common/dtos/auth.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
-import { RateLimitService } from "../../common/services/rate-limit.service";
 import { AuditLogService } from "../observability/audit-log.service";
 
 @Controller('auth')
@@ -24,14 +24,13 @@ import { AuditLogService } from "../observability/audit-log.service";
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly rateLimit: RateLimitService,
     private readonly auditLog: AuditLogService,
     private readonly configService: ConfigService,
   ) { }
 
   @Post('register')
+  @Throttle({ auth: {} })
   async register(@Body() dto: RegisterDto, @Req() req: any) {
-    this.applyRateLimit('register', req);
     const result = await this.authService.register(dto);
     await this.auditLog.record({
       actorId: result.user.id,
@@ -46,8 +45,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ auth: {} })
   async login(@Body() dto: LoginDto, @Req() req: any) {
-    this.applyRateLimit('login', req);
     const result = await this.authService.login(dto);
     await this.auditLog.record({
       actorId: result.user.id,
@@ -62,8 +61,8 @@ export class AuthController {
   }
 
   @Post('otp/request')
+  @Throttle({ auth: {} })
   async requestOtp(@Body() dto: RequestOtpDto, @Req() req: any) {
-    this.applyRateLimit('otp', req);
     const result = await this.authService.requestOtp(dto);
     await this.auditLog.record({
       action: 'auth.otp.request',
@@ -76,8 +75,8 @@ export class AuthController {
   }
 
   @Post('otp/verify')
+  @Throttle({ auth: {} })
   async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: any) {
-    this.applyRateLimit('otp', req);
     const result = await this.authService.verifyOtp(dto);
     await this.auditLog.record({
       actorId: result.user.id,
@@ -98,8 +97,8 @@ export class AuthController {
   }
 
   @Post('resend-verification')
-  resendVerification(@Body() body: { email: string }, @Req() req: any) {
-    this.applyRateLimit('resend-verification', req);
+  @Throttle({ auth: {} })
+  resendVerification(@Body() body: { email: string }) {
     if (!body.email) throw new BadRequestException('email is required');
     return this.authService.resendVerification(body.email);
   }
@@ -111,8 +110,8 @@ export class AuthController {
   }
 
   @Post('password/reset/request')
+  @Throttle({ auth: {} })
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto, @Req() req: any) {
-    this.applyRateLimit('password-reset', req);
     const result = await this.authService.requestPasswordReset(dto);
     await this.auditLog.record({
       action: 'auth.password.reset.request',
@@ -125,8 +124,8 @@ export class AuthController {
   }
 
   @Post('password/reset/confirm')
+  @Throttle({ auth: {} })
   async confirmPasswordReset(@Body() dto: PasswordResetConfirmDto, @Req() req: any) {
-    this.applyRateLimit('password-reset', req);
     const result = await this.authService.confirmPasswordReset(dto);
     await this.auditLog.record({
       action: 'auth.password.reset.confirm',
@@ -140,9 +139,14 @@ export class AuthController {
 
   @Post('password/change')
   @UseGuards(JwtAuthGuard)
-  async changePassword(@Req() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
-    this.applyRateLimit('password-reset', req);
+  @Throttle({ auth: {} })
+  async changePassword(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
     const result = await this.authService.changePassword(req.user.id, body);
+    res.clearCookie('refresh_token');
     await this.auditLog.record({
       actorId: req.user.id,
       action: 'auth.password.change',
@@ -153,6 +157,46 @@ export class AuthController {
       userAgent: req.headers?.['user-agent'] ?? null,
     });
     return result;
+  }
+
+  @Post('refresh')
+  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const cookieToken = (req.cookies as Record<string, string>)?.['refresh_token'];
+    const authHeader = req.headers?.['authorization'] as string | undefined;
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+
+    const token = cookieToken || headerToken;
+    if (!token) throw new UnauthorizedException('No refresh token provided');
+
+    const result = await this.authService.refreshToken(token);
+
+    const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+    res.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'strict' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = (req.cookies as Record<string, string>)?.['refresh_token'];
+    await this.authService.logout(req.user.id, refreshToken);
+    res.clearCookie('refresh_token');
+    await this.auditLog.record({
+      actorId: req.user.id,
+      action: 'auth.logout',
+      entityType: 'user',
+      entityId: req.user.id,
+      payload: {},
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    return { message: 'Logged out successfully' };
   }
 
   @Get('sessions')
@@ -177,7 +221,6 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleAuthCallback(@Req() req: any, @Res() res: Response) {
-    // User is now authenticated via Google
     const user = req.user;
     const result = await this.authService.buildAuthResponse(user, {});
 
@@ -193,12 +236,11 @@ export class AuthController {
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const isProd = this.configService.get<string>('NODE_ENV') === 'production';
-    // Set token in an httpOnly cookie so it never appears in URL/logs/history
     res.cookie('oauth_token', result.accessToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? 'strict' : 'lax',
-      maxAge: 5 * 60 * 1000, // 5 min — frontend must exchange and clear
+      maxAge: 5 * 60 * 1000,
     });
     res.redirect(`${frontendUrl}/auth/callback`);
   }
@@ -208,15 +250,7 @@ export class AuthController {
   exchangeOAuthCookie(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const token = (req.cookies as Record<string, string>)?.['oauth_token'];
     if (!token) throw new UnauthorizedException('No OAuth token cookie found');
-    // Clear the cookie immediately — single use
     (res as any).clearCookie('oauth_token');
     return { accessToken: token };
-  }
-
-  private applyRateLimit(action: string, req: any) {
-    const limit = Number(this.configService.get<string>('AUTH_RATE_LIMIT') ?? 10);
-    const windowMs = Number(this.configService.get<string>('AUTH_RATE_WINDOW_MS') ?? 60_000);
-    const key = `auth:${action}:${req.ip ?? 'unknown'}`;
-    this.rateLimit.enforce(key, Number.isNaN(limit) ? 10 : limit, Number.isNaN(windowMs) ? 60_000 : windowMs);
   }
 }

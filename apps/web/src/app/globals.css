@@ -1,80 +1,368 @@
+/* ──────────────────────────────────────────────────────────────
+   Forumo — globals.css
+   Drop-in replacement. Tailwind 4 (config-via-CSS). Brings the
+   prototype's design system (warm cream / ink / terracotta ·
+   Newsreader / Geist / JetBrains Mono) into the codebase while
+   preserving every legacy class name (.forumo-header, .btn-forumo,
+   .input-forumo, .card-forumo) and every Tailwind utility derived
+   from the --color-forumo-* tokens.
+   ────────────────────────────────────────────────────────────── */
+
 @import "tailwindcss";
 
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* ──────────────────────────────────────────────────────────────
+   Tailwind theme tokens
+   Powers utilities like `text-forumo-link`, `bg-forumo-gold`,
+   `border-forumo-orange`, etc. Names preserved; values remapped.
+   ────────────────────────────────────────────────────────────── */
 @theme {
-  --color-forumo-navy: #131921;
-  --color-forumo-navy-light: #232f3e;
-  --color-forumo-gold: #ffd814;
-  --color-forumo-gold-hover: #f7ca00;
-  --color-forumo-orange: #f08804;
-  --color-forumo-link: #007185;
-  --color-forumo-bg: #f3f3f3;
+  /* Legacy forumo-* tokens, remapped to the new palette */
+  --color-forumo-navy:        oklch(0.20 0.012 50);
+  --color-forumo-navy-light:  oklch(0.30 0.012 50);
+  --color-forumo-gold:        oklch(0.58 0.140 40);
+  --color-forumo-gold-hover:  oklch(0.50 0.140 40);
+  --color-forumo-orange:      oklch(0.65 0.140 75);
+  --color-forumo-link:        oklch(0.50 0.070 155);
+  --color-forumo-bg:          oklch(0.972 0.012 80);
+
+  /* New prototype tokens */
+  --color-forumo-surface:     oklch(1 0 0);
+  --color-forumo-surface-2:   oklch(0.955 0.014 80);
+  --color-forumo-ink:         oklch(0.20 0.012 50);
+  --color-forumo-ink-2:       oklch(0.38 0.012 50);
+  --color-forumo-ink-3:       oklch(0.55 0.010 50);
+  --color-forumo-line:        oklch(0.90 0.010 80);
+  --color-forumo-line-2:      oklch(0.83 0.010 80);
+  --color-forumo-accent:      oklch(0.58 0.140 40);
+  --color-forumo-accent-2:    oklch(0.50 0.140 40);
+  --color-forumo-escrow:      oklch(0.50 0.070 155);
+
+  /* Type families */
+  --font-sans:  "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Newsreader", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Root design tokens
+   ────────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #0f1111;
-  --forumo-navy: #131921;
-  --forumo-gold: #ffd814;
+  --bg:        oklch(0.972 0.012 80);
+  --surface:   oklch(1 0 0);
+  --surface-2: oklch(0.955 0.014 80);
+  --ink:       oklch(0.20 0.012 50);
+  --ink-2:     oklch(0.38 0.012 50);
+  --ink-3:     oklch(0.55 0.010 50);
+  --line:      oklch(0.90 0.010 80);
+  --line-2:    oklch(0.83 0.010 80);
+
+  --accent:    oklch(0.58 0.140 40);
+  --accent-2:  oklch(0.50 0.140 40);
+  --accent-bg: oklch(0.94 0.040 50);
+
+  --escrow:    oklch(0.50 0.070 155);
+  --escrow-bg: oklch(0.94 0.035 155);
+
+  --warn:      oklch(0.65 0.140 75);
+  --warn-bg:   oklch(0.95 0.050 80);
+
+  --serif: "Newsreader", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+  --sans:  "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --sp: 1;
+  --r-sm: 6px;
+  --r:    10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* Compat aliases */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --forumo-navy: var(--ink);
+  --forumo-gold: var(--accent);
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────────── */
 body {
-  background-color: var(--color-forumo-bg);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Legacy class names — preserved API, new visual language
+   ────────────────────────────────────────────────────────────── */
 
 .forumo-header {
-  background-color: var(--color-forumo-navy);
-  color: white;
+  background-color: var(--surface);
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.forumo-header a,
+.forumo-header button {
+  color: var(--ink);
+}
+.forumo-header .text-forumo-gold {
+  color: var(--accent) !important;
 }
 
 .forumo-sub-header {
-  background-color: var(--color-forumo-navy-light);
-  color: white;
+  background-color: var(--surface-2);
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+}
+.forumo-sub-header a {
+  color: var(--ink-2);
+}
+.forumo-sub-header a:hover {
+  color: var(--ink);
 }
 
 .btn-forumo {
-  background-color: var(--color-forumo-gold);
-  color: #0f1111;
-  border-radius: 8px;
-  padding: 8px 16px;
+  background-color: var(--accent);
+  color: white;
+  border-radius: 10px;
+  padding: 10px 18px;
   font-weight: 500;
-  box-shadow: 0 2px 5px 0 rgba(213, 217, 217, .5);
-  transition: background-color 0.2s;
-  border: 1px solid #fcd200;
+  border: 1px solid transparent;
+  transition: background-color .12s, transform .05s, box-shadow .12s;
+  box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.04);
 }
-
 .btn-forumo:hover {
-  background-color: var(--color-forumo-gold-hover);
+  background-color: var(--accent-2);
+}
+.btn-forumo:active {
+  transform: translateY(0.5px);
 }
 
 .input-forumo {
   width: 100%;
-  border: 1px solid #888;
-  border-radius: 4px;
-  padding: 8px 12px;
-  background: white;
-  color: #0f1111;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color .12s, box-shadow .12s;
 }
-
 .input-forumo:focus {
   outline: none;
-  border-color: #e77600;
-  box-shadow: 0 0 3px 2px rgba(228, 121, 17, .5);
+  border-color: var(--ink-2);
+  box-shadow: 0 0 0 3px oklch(0.90 0.012 50);
 }
 
 .card-forumo {
-  background: white;
+  background: var(--surface);
+  border: 1px solid var(--line);
   padding: 20px;
-  border-radius: 4px;
+  border-radius: var(--r-lg);
 }
 
 .scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Prototype vocabulary (opt-in for new components)
+   ────────────────────────────────────────────────────────────── */
+
+/* Typography */
+.eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.h-display {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(36px, 5vw, 56px); line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+.h1 { font-family: var(--serif); font-weight: 500; font-size: 32px; line-height: 1.1;  letter-spacing: -0.02em; }
+.h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; line-height: 1.2;  letter-spacing: -0.015em; }
+.h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+.mono   { font-family: var(--mono); }
+.muted  { color: var(--ink-3); }
+.subtle { color: var(--ink-2); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; height: 40px; padding: 0 18px;
+  border-radius: 10px; font-size: 14px; font-weight: 500;
+  transition: background .12s, border-color .12s, transform .05s;
+  border: 1px solid transparent; white-space: nowrap; cursor: pointer;
+}
+.btn:active { transform: translateY(0.5px); }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-2); }
+.btn-ink     { background: var(--ink); color: var(--bg); }
+.btn-ink:hover { background: oklch(0.30 0.012 50); }
+.btn-ghost   { border-color: var(--line-2); background: transparent; }
+.btn-ghost:hover { background: var(--surface-2); border-color: var(--ink-3); }
+.btn-soft    { background: var(--surface-2); border-color: var(--line); }
+.btn-soft:hover { background: var(--surface); border-color: var(--ink-3); }
+.btn-sm  { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
+.btn-lg  { height: 48px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+.btn-block { width: 100%; }
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.card-pad   { padding: calc(20px * var(--sp)); }
+.card-hover { transition: border-color .12s, transform .12s, box-shadow .12s; }
+.card-hover:hover {
+  border-color: var(--ink-3);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -16px rgba(0,0,0,0.12);
+}
+
+/* Pills / chips / badges */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  background: var(--surface-2); color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+.pill-accent { background: var(--accent-bg); color: var(--accent-2); border-color: transparent; }
+.pill-escrow { background: var(--escrow-bg); color: var(--escrow);   border-color: transparent; }
+.pill-warn   { background: var(--warn-bg);   color: oklch(0.45 0.140 60); border-color: transparent; }
+
+.chip {
+  padding: 8px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--ink-2);
+  border: 1px solid var(--line); background: var(--surface);
+  white-space: nowrap; cursor: pointer;
+}
+.chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.chip.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.verified-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; color: var(--escrow);
+}
+.verified-badge svg { width: 12px; height: 12px; }
+
+/* Placeholder image */
+.ph {
+  position: relative; overflow: hidden;
+  background:
+    repeating-linear-gradient(135deg,
+      oklch(0.92 0.014 80) 0 6px,
+      oklch(0.95 0.014 80) 6px 12px);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3);
+}
+.ph-label {
+  font-family: var(--mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  background: rgba(255,255,255,0.85);
+  padding: 4px 8px; border-radius: 4px;
+}
+
+/* Listing card */
+.listing-card { display: flex; flex-direction: column; cursor: pointer; }
+.listing-card .ph { aspect-ratio: 1/1; border-radius: var(--r-lg) var(--r-lg) 0 0; border-bottom: 1px solid var(--line); }
+.listing-card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; }
+.listing-card .price {
+  font-family: var(--mono); font-size: 16px; font-weight: 500;
+  color: var(--ink); margin-top: 4px;
+}
+.listing-card .title {
+  font-size: 14px; font-weight: 500; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-height: 2.7em;
+}
+.listing-card .meta { font-size: 12px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; }
+
+/* Trust strip */
+.trust-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--line); border: 1px solid var(--line);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.trust-cell { background: var(--surface); padding: 20px 24px; display: flex; flex-direction: column; gap: 6px; }
+.trust-cell .num { font-family: var(--serif); font-size: 28px; line-height: 1; }
+.trust-cell .lbl { font-size: 12px; color: var(--ink-2); }
+
+/* Escrow timeline */
+.escrow-timeline {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  position: relative; padding: 12px 0;
+}
+.escrow-timeline::before {
+  content: ""; position: absolute;
+  left: 12.5%; right: 12.5%; top: 32px;
+  height: 2px; background: var(--line); z-index: 0;
+}
+.escrow-timeline.show-progress::after {
+  content: ""; position: absolute;
+  left: 12.5%; top: 32px;
+  height: 2px; background: var(--escrow);
+  width: var(--progress, 0%);
+  z-index: 1; transition: width .6s ease;
+}
+.escrow-step {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; position: relative; z-index: 2; text-align: center;
+}
+.escrow-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); transition: all .3s;
+}
+.escrow-step.done .escrow-dot   { background: var(--escrow); border-color: var(--escrow); color: white; }
+.escrow-step.active .escrow-dot {
+  background: var(--surface); border-color: var(--escrow);
+  color: var(--escrow); box-shadow: 0 0 0 4px var(--escrow-bg);
+}
+.escrow-step.active .escrow-dot::after {
+  content: ""; position: absolute; inset: -2px;
+  border-radius: 50%; border: 2px solid var(--escrow);
+  animation: pulse 1.8s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.escrow-step .step-label { font-size: 12px; font-weight: 500; }
+.escrow-step .step-meta  { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+/* Forms */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+.field input, .field select, .field textarea {
+  height: 40px; padding: 0 12px;
+  border: 1px solid var(--line-2); border-radius: 10px;
+  background: var(--surface); outline: 0;
+  font-size: 14px; width: 100%;
+  transition: border-color .12s, box-shadow .12s;
+}
+.field textarea { height: auto; padding: 10px 12px; resize: vertical; min-height: 96px; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--ink-2);
+  box-shadow: 0 0 0 3px oklch(0.90 0.012 50);
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp .35s ease-out both; }
