@@ -35,7 +35,7 @@
     "tailwindcss": "^4.1.17"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.2",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
