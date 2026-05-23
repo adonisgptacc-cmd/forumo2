@@ -55,7 +55,7 @@ export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
 
   const { data: auction, isLoading, error } = useQuery<AuctionDetail>({
     queryKey: ['auction', auctionId],
-    queryFn: () => api.auctions.get(auctionId),
+    queryFn: () => api.auctions.get(auctionId) as unknown as Promise<AuctionDetail>,
     enabled: !!auctionId,
   });
 

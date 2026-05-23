@@ -23,7 +23,7 @@ export const safeUserSchema = z.object({
 });
 export type SafeUser = z.infer<typeof safeUserSchema>;
 
-export const listingStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'PAUSED']);
+export const listingStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'PAUSED', 'SUSPENDED']);
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
 export const listingModerationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FLAGGED']);
 export type ListingModerationStatus = z.infer<typeof listingModerationStatusSchema>;
@@ -52,7 +52,7 @@ export const createListingVariantSchema = listingVariantSchema.pick({
 export type CreateListingVariantDto = z.infer<typeof createListingVariantSchema>;
 
 export const createListingSchema = z.object({
-  sellerId: z.string(),
+  sellerId: z.string().optional(),
   title: z.string().min(3),
   description: z.string().min(10),
   priceCents: z.number().int().positive(),
@@ -71,7 +71,7 @@ export const listingImageSchema = z.object({
   id: z.string().uuid(),
   bucket: z.string().optional(),
   storageKey: z.string().optional(),
-  url: z.string().optional(),
+  url: z.string().optional().default(''),
   mimeType: z.string().nullable().optional(),
   fileSize: z.number().int().nullable().optional(),
   width: z.number().int().nullable().optional(),
@@ -282,6 +282,11 @@ export const reviewRollupSchema = z.object({
   pendingCount: z.number().int(),
   flaggedCount: z.number().int(),
   lastReviewAt: z.string().datetime().nullable().optional(),
+  star1: z.number().int().optional(),
+  star2: z.number().int().optional(),
+  star3: z.number().int().optional(),
+  star4: z.number().int().optional(),
+  star5: z.number().int().optional(),
 });
 export type ReviewRollup = z.infer<typeof reviewRollupSchema>;
 

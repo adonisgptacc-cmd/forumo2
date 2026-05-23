@@ -29,11 +29,11 @@ export function SellerReviewsView() {
 
   const stars = [5, 4, 3, 2, 1] as const;
   const starCounts: Record<number, number> = {
-    5: rollup.star5,
-    4: rollup.star4,
-    3: rollup.star3,
-    2: rollup.star2,
-    1: rollup.star1,
+    5: rollup.star5 ?? 0,
+    4: rollup.star4 ?? 0,
+    3: rollup.star3 ?? 0,
+    2: rollup.star2 ?? 0,
+    1: rollup.star1 ?? 0,
   };
   const avg = Number(rollup.averageRating);
 

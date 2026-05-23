@@ -79,7 +79,6 @@ export class PaymentsService {
         }),
         description: `Order ${orderId} checkout`,
         metadata: { orderId },
-        payment_method_types: ['card'],
       });
     }
 

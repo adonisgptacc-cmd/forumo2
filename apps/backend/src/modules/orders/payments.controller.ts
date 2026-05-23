@@ -64,15 +64,15 @@ export class PaymentsController {
 
     try {
       // ── Stripe Connect events (transfer / account) — no orderId needed ──
-      if (event.type === 'transfer.paid') {
-        const transfer = event.data.object as Stripe.Transfer;
+      if ((event.type as string) === 'transfer.paid') {
+        const transfer = (event as any).data.object as Stripe.Transfer;
         await this.payoutsService.handleTransferPaid(transfer.id);
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
         return { received: true };
       }
 
-      if (event.type === 'transfer.failed') {
-        const transfer = event.data.object as Stripe.Transfer;
+      if ((event.type as string) === 'transfer.failed') {
+        const transfer = (event as any).data.object as Stripe.Transfer;
         const reason = (transfer as unknown as { failure_message?: string }).failure_message
           ?? 'Transfer failed';
         await this.payoutsService.handleTransferFailed(transfer.id, reason);

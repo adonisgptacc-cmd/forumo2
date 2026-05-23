@@ -3,7 +3,7 @@ import { ReturnReason } from '@prisma/client';
 
 export class InitiateReturnDto {
   @IsEnum(ReturnReason)
-  reason: ReturnReason;
+  declare reason: ReturnReason;
 
   @IsOptional()
   @IsString()

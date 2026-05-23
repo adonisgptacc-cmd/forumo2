@@ -147,10 +147,10 @@ export default function AdminOrderDetailPage({
           {order.escrow.releaseDate && (
             <p className="text-xs text-slate-500">Release date: {new Date(order.escrow.releaseDate).toLocaleString()}</p>
           )}
-          {order.escrow.disputes && order.escrow.disputes.length > 0 && (
+          {(order.escrow as any).disputes && (order.escrow as any).disputes.length > 0 && (
             <div className="mt-2 space-y-1">
               <p className="text-xs font-semibold text-orange-400">Disputes</p>
-              {order.escrow.disputes.map((d: any) => (
+              {((order.escrow as any).disputes as any[]).map((d: any) => (
                 <div key={d.id} className="rounded-lg border border-orange-800 bg-orange-950/20 p-3 text-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-orange-300 font-medium">{d.status}</span>

@@ -94,7 +94,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }): Promise<any> {
       // Initial sign-in: store tokens and set expiry
       if (user) {
         token.user = user;

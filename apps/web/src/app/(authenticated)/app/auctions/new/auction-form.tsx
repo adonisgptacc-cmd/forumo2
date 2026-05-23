@@ -21,8 +21,8 @@ export function AuctionForm() {
   const [reservePrice, setReservePrice] = useState('');
   const [buyNowPrice, setBuyNowPrice] = useState('');
 
-  const publishedListings = (data?.listings ?? []).filter((l) => l.status === 'PUBLISHED');
-  const selected = publishedListings.find((l) => l.id === selectedId);
+  const publishedListings = (data?.data ?? []).filter((l: SafeListing) => l.status === 'PUBLISHED');
+  const selected = publishedListings.find((l: SafeListing) => l.id === selectedId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

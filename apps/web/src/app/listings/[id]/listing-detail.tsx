@@ -469,7 +469,7 @@ export function ListingDetail({ id }: { id: string }) {
               </div>
             )}
 
-            <Link className="text-sm text-forumo-link hover:underline" href={`/listings/${data.id}/edit`}>
+            <Link className="text-sm text-forumo-link hover:underline" href={`/listings/${data.id}/edit` as any}>
               Edit this listing
             </Link>
           </div>

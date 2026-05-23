@@ -1001,9 +1001,9 @@ export function useOpenDispute() {
 export function useEscrowDetails(orderId: string | null) {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
-  return useQuery<unknown>({
+  return useQuery<Record<string, unknown>>({
     queryKey: orderId ? queryKeys.escrowDetails(orderId) : ['escrow', null],
-    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }),
+    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }) as Promise<Record<string, unknown>>,
     enabled: Boolean(accessToken) && Boolean(orderId),
   });
 }

@@ -70,9 +70,9 @@ export function ListingsManager() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
-  const listings = data?.listings ?? [];
-  const allIds = listings.map((l) => l.id);
-  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const listings = data?.data ?? [];
+  const allIds = listings.map((l: { id: string }) => l.id);
+  const allSelected = allIds.length > 0 && allIds.every((id: string) => selected.has(id));
   const anySelected = selected.size > 0;
 
   function toggleOne(id: string) {

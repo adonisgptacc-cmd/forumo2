@@ -27,7 +27,6 @@ export function SignupForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setMessage(null);
     setIsSubmitting(true);
     try {
       await api.auth.register(form);

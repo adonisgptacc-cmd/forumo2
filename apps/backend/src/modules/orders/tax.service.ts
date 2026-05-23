@@ -171,7 +171,7 @@ export class TaxService {
       if (!txn?.providerRef) return;
 
       const pi = await this.stripe.paymentIntents.retrieve(txn.providerRef);
-      const autoTax = pi.automatic_tax;
+      const autoTax = (pi as any).automatic_tax as { enabled?: boolean; status?: string } | undefined;
       if (!autoTax?.enabled || autoTax.status !== 'complete') return;
 
       // tax_amounts lives on the latest charge (expand required in some API versions)
@@ -265,9 +265,9 @@ export class TaxService {
   }
 
   private resolveJurisdiction(country: string, calc: Stripe.Tax.Calculation): string {
-    const firstEntry = calc.tax_breakdown?.[0];
+    const firstEntry = calc.tax_breakdown?.[0] as any;
     if (firstEntry?.jurisdiction?.display_name) {
-      return firstEntry.jurisdiction.display_name;
+      return firstEntry.jurisdiction.display_name as string;
     }
     const names: Record<string, string> = {
       ZA: 'South Africa VAT',

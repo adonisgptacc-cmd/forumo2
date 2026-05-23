@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { SellerGate } from '../../../../../components/seller-gate';
-import { ListingForm } from '../listing-form';
+import { ListingForm } from '../../../../../components/listings/ListingForm';
 
 export const metadata = { title: 'New Listing — Forumo' };
 
@@ -19,7 +19,7 @@ export default function NewListingPage() {
           <p className="text-sm text-slate-400">Fill in the details below to list your item.</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
-          <ListingForm />
+          <ListingForm mode="create" />
         </div>
       </div>
     </SellerGate>

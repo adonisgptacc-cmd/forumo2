@@ -114,6 +114,7 @@ function getMockState(): MockState {
     totalItemCents: 4800,
     shippingCents: 1200,
     feeCents: 300,
+    feePercent: 0,
     currency: 'USD',
     metadata: null,
     placedAt: now,
@@ -401,6 +402,7 @@ class MockApiClient {
         totalItemCents: listing.priceCents * (payload.items[0].quantity ?? 1),
         shippingCents: payload.shippingCents ?? 0,
         feeCents: payload.feeCents ?? 0,
+        feePercent: 0,
         currency: payload.currency ?? listing.currency ?? 'USD',
         metadata: payload.metadata ?? null,
         placedAt: now,
@@ -526,6 +528,9 @@ class MockApiClient {
           role: 'BUYER',
         },
         flags: [],
+        verifiedPurchase: false,
+        helpfulCount: 0,
+        userVoted: false,
       } as SafeReview;
     },
     rollup: async (sellerId: string): Promise<ReviewRollup> => {

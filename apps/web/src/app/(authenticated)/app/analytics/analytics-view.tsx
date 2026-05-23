@@ -94,9 +94,9 @@ function RevenueSection({ period, groupBy }: { period: AnalyticsPeriod; groupBy:
   }
 
   const chartData = data.map((point: SellerRevenuePoint) => ({
-    label: point.period,
-    revenue: point.revenueCents / 100,
-    orders: point.orderCount,
+    label: point.date,
+    revenue: point.revenue / 100,
+    orders: point.orders,
   }));
 
   return (
@@ -109,7 +109,7 @@ function RevenueSection({ period, groupBy }: { period: AnalyticsPeriod; groupBy:
           <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `$${v}`} />
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
-            formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+            formatter={(value) => [`$${Number(value ?? 0).toLocaleString()}`, 'Revenue']}
           />
           <Line type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} dot={false} />
         </LineChart>
@@ -150,9 +150,9 @@ function TopListingsSection() {
           {data.map((listing: SellerTopListing) => (
             <tr key={listing.listingId} className="hover:bg-slate-800/30 transition-colors">
               <td className="px-5 py-3 text-slate-200 truncate max-w-[200px]">{listing.title}</td>
-              <td className="px-5 py-3 text-right font-medium text-amber-400">{fmt(listing.revenueCents)}</td>
-              <td className="px-5 py-3 text-right text-slate-300">{listing.orderCount}</td>
-              <td className="px-5 py-3 text-right text-slate-400">{listing.viewCount ?? '—'}</td>
+              <td className="px-5 py-3 text-right font-medium text-amber-400">{fmt(listing.revenue)}</td>
+              <td className="px-5 py-3 text-right text-slate-300">{listing.orders}</td>
+              <td className="px-5 py-3 text-right text-slate-400">{listing.views ?? '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -187,10 +187,10 @@ function ReviewsSection() {
         <h3 className="text-sm font-semibold text-slate-300">Reviews</h3>
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold text-amber-400">
-            {summary.averageRating?.toFixed(1) ?? '—'}
+            {summary.avgRating?.toFixed(1) ?? '—'}
           </span>
           <span className="text-xs text-slate-500">
-            avg · {summary.reviewCount ?? 0} reviews
+            avg · {summary.totalReviews ?? 0} reviews
           </span>
         </div>
       </div>
@@ -203,7 +203,7 @@ function ReviewsSection() {
             <YAxis tick={{ fontSize: 10, fill: '#64748b' }} allowDecimals={false} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
-              formatter={(v: number) => [v, 'Reviews']}
+              formatter={(v) => [Number(v ?? 0), 'Reviews']}
             />
             <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
           </BarChart>
@@ -238,10 +238,10 @@ export function AnalyticsView() {
         </div>
       ) : overview ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Total Revenue" value={fmt(overview.totalRevenueCents)} accent />
-          <StatCard label="Orders" value={overview.totalOrders} />
-          <StatCard label="Completed" value={overview.completedOrders} />
-          <StatCard label="Avg Order" value={fmt(overview.avgOrderValueCents)} />
+          <StatCard label="Total Revenue" value={fmt(overview.gmv)} accent />
+          <StatCard label="Orders" value={overview.orders} />
+          <StatCard label="Conversion" value={`${overview.conversionRate ?? 0}%`} />
+          <StatCard label="Avg Order" value={fmt(overview.avgOrderValue)} />
         </div>
       ) : null}
 

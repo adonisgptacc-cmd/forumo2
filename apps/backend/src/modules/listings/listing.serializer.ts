@@ -33,7 +33,7 @@ export type SafeListing = {
   description: string;
   priceCents: number;
   currency: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'PAUSED';
+  status: 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'SUSPENDED';
   moderationStatus?: string;
   location?: string | null;
   metadata?: unknown;

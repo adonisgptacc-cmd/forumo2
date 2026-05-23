@@ -53,21 +53,20 @@ export class UsersService {
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<SafeUser> {
     await this.ensureExists(id);
 
-    const { bio, location, website, ...userFields } = dto;
+    const { bio, location, website: _website, ...userFields } = dto;
 
     const updated = await this.prisma.user.update({
       where: { id },
       data: { ...userFields },
     });
 
-    if (bio !== undefined || location !== undefined || website !== undefined) {
+    if (bio !== undefined || location !== undefined) {
       await this.prisma.userProfile.upsert({
         where: { userId: id },
-        create: { userId: id, bio, location, website },
+        create: { userId: id, bio, location },
         update: {
           ...(bio !== undefined ? { bio } : {}),
           ...(location !== undefined ? { location } : {}),
-          ...(website !== undefined ? { website } : {}),
         },
       });
     }

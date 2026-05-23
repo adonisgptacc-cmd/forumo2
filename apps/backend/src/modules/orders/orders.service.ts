@@ -988,7 +988,8 @@ export class OrdersService {
     }
 
     // Advance order status to FULFILLED (label purchased = seller intends to ship)
-    if (order.status !== OrderStatus.FULFILLED) {
+    const currentOrderStatus: string = order.status;
+    if (currentOrderStatus !== OrderStatus.FULFILLED) {
       await this.updateStatus(orderId, {
         status: OrderStatus.FULFILLED,
         note: `Shipping label purchased — carrier: ${label.carrier}, tracking: ${label.trackingNumber}`,

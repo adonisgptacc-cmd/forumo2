@@ -1035,6 +1035,17 @@ export class ForumoApiClient {
     },
   };
 
+  readonly cart = {
+    get: () => this.request<unknown>('/cart', { method: 'GET', auth: true }),
+    addItem: (listingId: string, quantity = 1) =>
+      this.request<unknown>('/cart/items', { method: 'POST', auth: true, body: JSON.stringify({ listingId, quantity }) }),
+    updateItem: (itemId: string, quantity: number) =>
+      this.request<unknown>(`/cart/items/${itemId}`, { method: 'PUT', auth: true, body: JSON.stringify({ quantity }) }),
+    removeItem: (itemId: string) =>
+      this.request<void>(`/cart/items/${itemId}`, { method: 'DELETE', auth: true }),
+    clear: () => this.request<void>('/cart', { method: 'DELETE', auth: true }),
+  };
+
   readonly analytics = {
     getOverview: (period: '7d' | '30d' | '90d' = '30d') =>
       this.request<SellerAnalyticsOverview>(`/analytics/seller/overview?period=${period}`, { method: 'GET', auth: true }),

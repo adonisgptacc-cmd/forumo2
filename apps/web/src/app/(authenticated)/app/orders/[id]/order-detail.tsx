@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useOrder, useUpdateOrderStatus, useInitiatePayment, useOpenDispute, useEscrowDetails, useAddDisputeMessage, useShipmentMutations, useGetShippingRates, usePurchaseLabel } from '../../../../../lib/react-query/hooks';
 import { useCurrentUser } from '../../../../../lib/react-query/hooks';
 import { useState } from 'react';
@@ -58,6 +59,8 @@ export function OrderDetail({ id }: { id: string }) {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [labelResult, setLabelResult] = useState<{ labelUrl: string; trackingNumber: string; carrier: string } | null>(null);
+  const searchParams = useSearchParams();
+  const stripeRedirectStatus = searchParams?.get('redirect_status');
 
   if (isLoading) {
     return (
@@ -112,6 +115,21 @@ export function OrderDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
+      {stripeRedirectStatus === 'succeeded' && (
+        <div className="rounded-xl border border-emerald-700 bg-emerald-900/20 p-4 flex items-center gap-3">
+          <span className="text-2xl">✓</span>
+          <div>
+            <p className="font-semibold text-emerald-400">Payment confirmed</p>
+            <p className="text-sm text-slate-400">Your payment was processed successfully. The order will update shortly.</p>
+          </div>
+        </div>
+      )}
+      {stripeRedirectStatus === 'failed' && (
+        <div className="rounded-xl border border-red-700 bg-red-900/20 p-4">
+          <p className="font-semibold text-red-400">Payment failed</p>
+          <p className="text-sm text-slate-400">Your card was not charged. Please try again from your order page.</p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -541,7 +559,7 @@ export function OrderDetail({ id }: { id: string }) {
                 <button
                   disabled={getShippingRates.isPending || !labelFromName || !labelFromStreet || !labelFromCity || !labelFromCountry}
                   onClick={async () => {
-                    const toAddr = order.shippingAddress as any;
+                    const toAddr = (order as any).shippingAddress as any;
                     const rates = await getShippingRates.mutateAsync({
                       fromAddress: {
                         name: labelFromName,

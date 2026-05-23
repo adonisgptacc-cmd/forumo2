@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMyListings, useVariantInventory, useInventoryMutations } from '@/lib/react-query/hooks';
+import { useMyListings, useVariantInventory, useInventoryMutations } from '../../../../lib/react-query/hooks';
 import type { SafeListing, ListingVariant } from '@forumo/shared';
 
 // ---- Variant row with inline inventory controls ----
@@ -193,7 +193,7 @@ export function InventoryManager() {
   const { data, isLoading, isError } = useMyListings();
   const [search, setSearch] = useState('');
 
-  const listings = (data?.listings ?? []).filter((l) =>
+  const listings = (data?.data ?? [] as SafeListing[]).filter((l: SafeListing) =>
     l.title.toLowerCase().includes(search.toLowerCase())
   );
 

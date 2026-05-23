@@ -185,6 +185,7 @@ export function CheckoutFlow() {
               <PaymentForm
                 onSuccess={() => setStep('confirmed')}
                 onError={(msg) => setErrors((prev) => ({ ...prev, stripe: msg }))}
+                orderId={payment.orderId}
               />
             </StripeProvider>
           </ErrorBoundary>

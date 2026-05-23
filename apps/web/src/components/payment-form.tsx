@@ -6,9 +6,10 @@ import { useState } from 'react';
 interface PaymentFormProps {
   onSuccess: () => void;
   onError?: (message: string) => void;
+  orderId?: string;
 }
 
-export function PaymentForm({ onSuccess, onError }: PaymentFormProps) {
+export function PaymentForm({ onSuccess, onError, orderId }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
@@ -21,10 +22,11 @@ export function PaymentForm({ onSuccess, onError }: PaymentFormProps) {
     setIsLoading(true);
     setErrorMessage(null);
 
+    const returnPath = orderId ? `/app/orders/${orderId}` : '/app/orders';
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/app/orders`,
+        return_url: `${window.location.origin}${returnPath}`,
       },
       redirect: 'if_required',
     });

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useListing } from '../../../../../../lib/react-query/hooks';
-import { ListingForm } from '../../listing-form';
+import { ListingForm } from '../../../../../../components/listings/ListingForm';
 
 export default function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,7 +42,7 @@ export default function EditListingPage() {
         <p className="text-sm text-slate-400 truncate">{listing.title}</p>
       </div>
       <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
-        <ListingForm listing={listing} />
+        <ListingForm mode="edit" listing={listing} />
       </div>
     </div>
   );

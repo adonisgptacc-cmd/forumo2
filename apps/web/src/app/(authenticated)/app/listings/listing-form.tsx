@@ -327,7 +327,7 @@ export function ListingForm({ listing }: Props) {
                 className="relative h-20 w-20 rounded-lg overflow-hidden border border-slate-700"
               >
                 <Image
-                  src={img.url}
+                  src={img.url ?? ''}
                   alt={`Photo ${idx + 1}`}
                   fill
                   className="object-cover"

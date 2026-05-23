@@ -33,10 +33,8 @@ export class AuthController {
   async register(@Body() dto: RegisterDto, @Req() req: any) {
     const result = await this.authService.register(dto);
     await this.auditLog.record({
-      actorId: result.user.id,
       action: 'auth.register',
       entityType: 'user',
-      entityId: result.user.id,
       payload: { email: dto.email },
       ipAddress: req.ip ?? null,
       userAgent: req.headers?.['user-agent'] ?? null,
