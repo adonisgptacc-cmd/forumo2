@@ -27,6 +27,7 @@ import {
   SafeReview,
   SafeReturn,
   SafeUser,
+  AdminUserDetail,
   SavedListing,
   SendMessageDto,
   UpdateOrderStatusDto,
@@ -52,6 +53,7 @@ import {
   adminDisputeSchema,
   adminKycSubmissionSchema,
   adminListingModerationSchema,
+  adminUserDetailSchema,
   messageThreadSchema,
   safeOrderSchema,
   reviewSchema,
@@ -356,7 +358,7 @@ export class ForumoApiClient {
       });
       return safeOrderSchema.parse(response);
     },
-    initiatePayment: async (orderId: string): Promise<{
+    initiatePayment: async (orderId: string, options?: { callbackUrl?: string }): Promise<{
       provider: 'stripe' | 'paystack';
       clientSecret?: string;
       authorizationUrl?: string;
@@ -365,6 +367,7 @@ export class ForumoApiClient {
       return this.requestJson(`/orders/${orderId}/initiate-payment`, {
         method: 'POST',
         auth: true,
+        body: options,
       });
     },
     verifyPaystackPayment: async (reference: string): Promise<{ verified: boolean; orderId: string }> => {
@@ -521,6 +524,9 @@ export class ForumoApiClient {
       });
       return messageThreadSchema.parse(result);
     },
+    markThreadRead: async (id: string): Promise<void> => {
+      await this.patch<void>(`/messages/threads/${id}/read`, undefined, { auth: true });
+    },
     sendMessage: async (
       threadId: string,
       payload: SendMessageDto,
@@ -556,6 +562,13 @@ export class ForumoApiClient {
         method: 'POST',
         auth: true,
         body: { token },
+      });
+    },
+    unregisterDevice: async (pushToken: string): Promise<void> => {
+      await this.requestJson<void>('/notifications/unregister-device', {
+        method: 'DELETE',
+        auth: true,
+        body: { token: pushToken },
       });
     },
     list: async (): Promise<SafeNotification[]> => {
@@ -625,7 +638,7 @@ export class ForumoApiClient {
       });
       return adminDisputeSchema.parse(result);
     },
-    listUsers: async (params: { search?: string; status?: string; role?: string; page?: number; limit?: number } = {}): Promise<SafeUser[]> => {
+    listUsers: async (params: { search?: string; status?: string; role?: string; page?: number; limit?: number } = {}): Promise<AdminUserDetail[]> => {
       const q = new URLSearchParams();
       if (params.search) q.set('search', params.search);
       if (params.status) q.set('status', params.status);
@@ -633,8 +646,8 @@ export class ForumoApiClient {
       if (params.page != null) q.set('page', String(params.page));
       if (params.limit != null) q.set('limit', String(params.limit));
       const qs = q.toString() ? `?${q.toString()}` : '';
-      const result = await this.request<SafeUser[]>(`/admin/users${qs}`, { method: 'GET', auth: true });
-      return result.map((u) => safeUserSchema.parse(u));
+      const result = await this.request<AdminUserDetail[]>(`/admin/users${qs}`, { method: 'GET', auth: true });
+      return result.map((u) => adminUserDetailSchema.parse(u));
     },
     suspendUser: async (id: string, reason: string, durationDays?: number | null): Promise<void> => {
       await this.requestJson<void>(`/admin/users/${id}/suspend`, {

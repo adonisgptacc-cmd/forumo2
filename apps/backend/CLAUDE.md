@@ -118,10 +118,12 @@ observability/         # Prometheus metrics endpoint
 
 ## Guard and interceptor chain
 
-Global guards applied in this order for authenticated routes:
-1. `JwtAuthGuard` (passport-jwt) — verifies Bearer token
-2. `RolesGuard` (`src/common/guards/roles.guard.ts`) — enforces `@Roles()` decorator
-3. `AccountStatusGuard` (`src/common/guards/account-status.guard.ts`) — blocks SUSPENDED/BANNED accounts; allowlisted for `/auth/*` and `/kyc/*`
+**Auth/role guards are applied per-controller**, not globally — controllers declare `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(...)` themselves. The only globally-registered `APP_GUARD` in `app.module.ts` is `ThrottlerGuard` (rate limiting).
+
+1. `JwtAuthGuard` (passport-jwt) — verifies Bearer token; delegates to `JwtStrategy.validate()`.
+2. `RolesGuard` (`src/common/guards/roles.guard.ts`) — enforces the `@Roles()` decorator.
+
+**Account-status enforcement is NOT a guard.** It runs inside `JwtStrategy.validate()` (`src/modules/auth/strategies/jwt.strategy.ts`), which calls `assertAccountActive(user, req)` from `src/common/guards/account-status.guard.ts` after token verification. Because every authenticated route passes through the JWT strategy, this blocks `SUSPENDED`/`BANNED` users platform-wide and gates `PENDING_VERIFICATION` users to an allowlist (`/api/v1/kyc/*`, `GET /api/v1/auth/*`, `POST /api/v1/auth/logout`). `account-status.guard.ts` exports helper functions, not a `CanActivate` class.
 
 Global interceptors:
 - `HttpMetricsInterceptor` — records request count and latency to Prometheus
@@ -135,7 +137,7 @@ Global filters:
 `src/modules/orders/payment-provider.factory.ts` — `PaymentProviderFactory.selectProvider(currency)` returns `'paystack'` for NGN/GHS/KES/ZAR, `'stripe'` for everything else.
 
 - **Stripe**: `payments.service.ts` — creates PaymentIntents, validates Stripe webhook HMAC. Stripe Connect used for seller payouts (`PayoutsModule`).
-- **Paystack**: `paystack.service.ts` — initialises transactions and verifies them. **Known gap: Paystack webhook HMAC verification is not implemented**; the route accepts all incoming Paystack webhook calls without signature checking.
+- **Paystack**: `paystack.service.ts` — initialises transactions and verifies them. Webhook HMAC fully implemented in `payments.controller.ts` using `createHmac('sha512')` and `timingSafeEqual`.
 
 ## Background jobs
 
@@ -148,10 +150,8 @@ BullMQ (`bullmq`, `ioredis`) is installed but not actively used for queued jobs 
 
 ## Known bugs (do not introduce workarounds)
 
-- `src/modules/users/users.service.ts`: References `listing.userId` (should be `listing.sellerId`), `listing.price` (should be `listing.priceCents`), `order.totalAmount` (should be `order.totalItemCents`), `review.authorId` (should be `review.reviewerId`). These are pre-existing field name mismatches from an early Prisma schema rename. Fix them properly or leave alone; do not add aliases.
 - `src/modules/inventory/inventory.service.ts`: Prisma Json type errors. Pre-existing.
 - `src/modules/audit-log/audit-log.service.ts`: Prisma Json type error. Pre-existing.
-- Paystack webhook HMAC signature verification is absent — any caller can send spoofed Paystack events.
 - OTel tracing bootstrap is commented out in `src/main.ts` due to SDK version conflicts. Do not uncomment without resolving version compatibility first.
 
 ## TypeScript status

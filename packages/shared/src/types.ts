@@ -404,6 +404,11 @@ export const participantSchema = z.object({
   threadId: z.string().uuid(),
   userId: z.string().uuid(),
   role: z.enum(['BUYER', 'SELLER', 'ADMIN', 'SYSTEM']).default('BUYER'),
+  user: z.object({
+    id: z.string().uuid(),
+    name: z.string().nullable().optional(),
+    avatarUrl: z.string().nullable().optional(),
+  }).nullable().optional(),
 });
 export type ThreadParticipant = z.infer<typeof participantSchema>;
 
@@ -583,6 +588,7 @@ export const adminListingModerationSchema = z.object({
   moderationNotes: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  seller: adminUserSummarySchema.optional(),
 });
 export type AdminListingModeration = z.infer<typeof adminListingModerationSchema>;
 
@@ -603,11 +609,15 @@ export const adminDisputeSchema = z.object({
 });
 export type AdminDisputeSummary = z.infer<typeof adminDisputeSchema>;
 
+export const accountStatusSchema = z.enum(['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING_VERIFICATION', 'DELETED']);
+export type AccountStatus = z.infer<typeof accountStatusSchema>;
+
 export const adminUserDetailSchema = z.object({
   id: z.string().uuid(),
-  name: z.string(),
+  name: z.string().nullable(),
   email: z.string().email(),
   role: z.string(),
+  accountStatus: accountStatusSchema,
   kycStatus: z.string(),
   listingsCount: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),

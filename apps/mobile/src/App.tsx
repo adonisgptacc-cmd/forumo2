@@ -7,8 +7,14 @@ import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAuth } from './providers/AuthProvider';
 import { cartStore } from './screens/CartScreen';
 
-const AppContent = () => {
+// Rendered only after auth hydration completes so the hook runs with a
+// resolved session and doesn't fire during the async restore on startup.
+const HydratedContent = () => {
   usePushNotifications();
+  return <NavigationShell />;
+};
+
+const AppContent = () => {
   const { hydrated } = useAuth();
   useEffect(() => { cartStore.hydrate(); }, []);
 
@@ -20,7 +26,7 @@ const AppContent = () => {
     );
   }
 
-  return <NavigationShell />;
+  return <HydratedContent />;
 };
 
 const App = () => {

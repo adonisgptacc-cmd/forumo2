@@ -72,7 +72,7 @@ export function ProfileForm() {
     return (
       <div className="space-y-4 animate-pulse">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-12 rounded-lg bg-slate-800" />
+          <div key={i} className="skeleton h-12" />
         ))}
       </div>
     );
@@ -94,20 +94,20 @@ export function ProfileForm() {
               className="rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/20 text-3xl font-bold text-amber-400">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[color:var(--accent-bg)] text-3xl font-bold text-[color:var(--accent-2)]">
               {(user?.name ?? user?.email ?? '?')[0].toUpperCase()}
             </div>
           )}
         </div>
         <div>
           <p className="text-sm font-medium">{user?.name ?? 'No name set'}</p>
-          <p className="text-xs text-slate-400">{user?.email}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Role: <span className="text-amber-400">{user?.role}</span>
+          <p className="text-xs muted">{user?.email}</p>
+          <p className="mt-1 text-xs muted">
+            Role: <span className="text-[color:var(--accent)]">{user?.role}</span>
           </p>
           {trustScore > 0 && (
-            <p className="text-xs text-slate-500">
-              Trust score: <span className="text-emerald-400">{trustScore}</span>
+            <p className="text-xs muted">
+              Trust score: <span className="text-[color:var(--escrow)]">{trustScore}</span>
             </p>
           )}
           {user?.avatarUrl && (
@@ -115,7 +115,7 @@ export function ProfileForm() {
               type="button"
               onClick={() => deleteAvatar.mutate()}
               disabled={deleteAvatar.isPending}
-              className="mt-2 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+              className="mt-2 text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
             >
               {deleteAvatar.isPending ? 'Removing…' : 'Remove avatar'}
             </button>
@@ -127,7 +127,7 @@ export function ProfileForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-300">
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
               Display name
             </label>
             <input
@@ -135,12 +135,12 @@ export function ProfileForm() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={user?.name ?? 'Your name'}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-300">
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
               Phone number
             </label>
             <input
@@ -148,14 +148,14 @@ export function ProfileForm() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+233 XX XXX XXXX"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
-            <p className="mt-1 text-xs text-slate-500">International format, e.g. +233241234567</p>
+            <p className="mt-1 text-xs muted">International format, e.g. +233241234567</p>
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-300">
+          <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
             Avatar URL
           </label>
           <input
@@ -163,50 +163,50 @@ export function ProfileForm() {
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
             placeholder={user?.avatarUrl ?? 'https://example.com/avatar.jpg'}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
           />
-          <p className="mt-1 text-xs text-slate-500">Leave blank to keep current avatar</p>
+          <p className="mt-1 text-xs muted">Leave blank to keep current avatar</p>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-300">Bio</label>
+          <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Bio</label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell buyers a bit about yourself…"
             rows={3}
             maxLength={500}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none resize-none"
+            className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)] resize-none"
           />
-          <p className="mt-1 text-xs text-slate-500 text-right">{bio.length}/500</p>
+          <p className="mt-1 text-xs muted text-right">{bio.length}/500</p>
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-300">Location</label>
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Location</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Accra, Ghana"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-300">Website</label>
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Website</label>
             <input
               type="url"
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://yoursite.com"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
         </div>
 
         {updateProfile.isError && (
-          <p className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-sm text-red-400">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
             {(updateProfile.error as Error)?.message ?? 'Failed to save changes'}
           </p>
         )}
@@ -215,25 +215,25 @@ export function ProfileForm() {
           <button
             type="submit"
             disabled={updateProfile.isPending}
-            className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {updateProfile.isPending ? 'Saving…' : 'Save changes'}
           </button>
           {saved && (
-            <span className="text-sm text-emerald-400">Saved successfully</span>
+            <span className="text-sm text-[color:var(--escrow)]">Saved successfully</span>
           )}
         </div>
       </form>
 
       {/* Trust seeds */}
       {(data?.trustSeeds ?? []).length > 0 && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-          <h3 className="mb-3 text-sm font-medium text-slate-300">Trust score breakdown</h3>
+        <div className="card card-pad">
+          <h3 className="mb-3 text-sm font-medium subtle">Trust score breakdown</h3>
           <ul className="space-y-2">
             {data!.trustSeeds.map((seed) => (
               <li key={seed.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">{seed.label}</span>
-                <span className={seed.value >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                <span className="muted">{seed.label}</span>
+                <span className={seed.value >= 0 ? 'text-[color:var(--escrow)]' : 'text-red-600'}>
                   {seed.value > 0 ? '+' : ''}{seed.value}
                 </span>
               </li>
@@ -244,20 +244,20 @@ export function ProfileForm() {
 
       {/* Become a Seller */}
       {data?.user?.role === 'BUYER' && (
-        <div className="rounded-xl border border-amber-800/40 bg-amber-900/10 p-5 space-y-3">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-amber-300">Become a Seller</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <h3 className="text-sm font-semibold text-amber-800">Become a Seller</h3>
+              <p className="text-xs muted mt-1">
                 Unlock seller tools — create listings, manage orders, set up your storefront, and start earning.
               </p>
             </div>
-            <span className="flex-shrink-0 rounded-full border border-amber-700 px-2 py-0.5 text-xs text-amber-400">
+            <span className="flex-shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
               {data.user.role}
             </span>
           </div>
           {sellerDone ? (
-            <p className="text-sm text-emerald-400">
+            <p className="text-sm text-[color:var(--escrow)]">
               ✅ You&apos;re now a seller! Refresh the page to access seller tools.
             </p>
           ) : (
@@ -268,13 +268,13 @@ export function ProfileForm() {
                 setSellerDone(true);
               }}
               disabled={becomeSeller.isPending}
-              className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50 transition-colors"
+              className="btn btn-primary btn-sm"
             >
               {becomeSeller.isPending ? 'Upgrading account…' : 'Unlock Seller Account'}
             </button>
           )}
           {becomeSeller.isError && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-red-600">
               {(becomeSeller.error as Error)?.message ?? 'Failed to upgrade account. Please try again.'}
             </p>
           )}
@@ -282,9 +282,9 @@ export function ProfileForm() {
       )}
 
       {/* Data & Privacy */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
-        <h3 className="text-sm font-medium text-slate-300">Data &amp; Privacy</h3>
-        <p className="text-xs text-slate-500">
+      <div className="card card-pad space-y-4">
+        <h3 className="text-sm font-medium subtle">Data &amp; Privacy</h3>
+        <p className="text-xs muted">
           Under GDPR and CCPA you have the right to export a copy of your personal data. You can also
           re-confirm your acceptance of our current Terms of Service and Privacy Policy.
         </p>
@@ -293,7 +293,7 @@ export function ProfileForm() {
             type="button"
             onClick={handleExport}
             disabled={exportData.isFetching}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:border-slate-400 hover:text-white disabled:opacity-50 transition-colors"
+            className="btn btn-ghost btn-sm"
           >
             {exportData.isFetching ? 'Preparing…' : 'Download my data'}
           </button>
@@ -305,7 +305,7 @@ export function ProfileForm() {
               setTimeout(() => setTermsDone(false), 3000);
             }}
             disabled={acceptTerms.isPending || termsDone}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:border-slate-400 hover:text-white disabled:opacity-50 transition-colors"
+            className="btn btn-ghost btn-sm"
           >
             {termsDone ? 'Confirmed' : acceptTerms.isPending ? 'Saving…' : 'Re-accept Terms & Privacy'}
           </button>
@@ -313,8 +313,8 @@ export function ProfileForm() {
       </div>
 
       {/* Change password */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-4">
-        <h3 className="text-sm font-medium text-slate-300">Change password</h3>
+      <div className="card card-pad space-y-4">
+        <h3 className="text-sm font-medium subtle">Change password</h3>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -334,7 +334,7 @@ export function ProfileForm() {
             onChange={(e) => setCurrentPassword(e.target.value)}
             placeholder="Current password"
             required
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
           />
           <input
             type="password"
@@ -343,7 +343,7 @@ export function ProfileForm() {
             placeholder="New password"
             required
             minLength={8}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
           />
           <input
             type="password"
@@ -351,23 +351,23 @@ export function ProfileForm() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm new password"
             required
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
           />
           {confirmPassword && newPassword !== confirmPassword && (
-            <p className="text-xs text-red-400">Passwords do not match</p>
+            <p className="text-xs text-red-600">Passwords do not match</p>
           )}
           {changePassword.isError && (
-            <p className="text-xs text-red-400">{(changePassword.error as Error)?.message ?? 'Failed to change password'}</p>
+            <p className="text-xs text-red-600">{(changePassword.error as Error)?.message ?? 'Failed to change password'}</p>
           )}
           <div className="flex items-center gap-3">
             <button
               type="submit"
               disabled={changePassword.isPending || newPassword !== confirmPassword || !currentPassword}
-              className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+              className="btn btn-ink btn-sm"
             >
               {changePassword.isPending ? 'Updating…' : 'Update password'}
             </button>
-            {passwordSaved && <span className="text-sm text-emerald-400">Password updated</span>}
+            {passwordSaved && <span className="text-sm text-[color:var(--escrow)]">Password updated</span>}
           </div>
         </form>
       </div>

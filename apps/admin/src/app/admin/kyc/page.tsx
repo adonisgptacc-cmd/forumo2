@@ -33,7 +33,7 @@ export default function KycPage() {
       id: string;
       status: 'APPROVED' | 'REJECTED';
       notes?: string;
-    }) => createApiClient(token).admin.reviewKycSubmission(id, { status, notes }),
+    }) => createApiClient(token).admin.reviewKycSubmission(id, { status, rejectionReason: notes }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-kyc'] });
       setSelected(null);
@@ -50,7 +50,7 @@ export default function KycPage() {
     { header: 'Status', accessor: (s) => <Badge value={s.status} /> },
     {
       header: 'Submitted',
-      accessor: (s) => new Date(s.createdAt).toLocaleDateString(),
+      accessor: (s) => new Date(s.submittedAt).toLocaleDateString(),
     },
     {
       header: 'Documents',

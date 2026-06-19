@@ -19,13 +19,13 @@ const REASON_LABELS: Record<ReturnReason, string> = {
 };
 
 const STATUS_COLORS: Record<ReturnStatus, string> = {
-  requested: 'bg-yellow-500/10 text-yellow-300',
-  awaiting_seller: 'bg-blue-500/10 text-blue-300',
-  approved: 'bg-green-500/10 text-green-300',
-  rejected: 'bg-red-500/10 text-red-300',
-  shipped: 'bg-indigo-500/10 text-indigo-300',
-  received: 'bg-purple-500/10 text-purple-300',
-  refunded: 'bg-emerald-500/10 text-emerald-300',
+  requested: 'bg-amber-50 text-amber-700',
+  awaiting_seller: 'bg-blue-50 text-blue-700',
+  approved: 'bg-emerald-50 text-emerald-700',
+  rejected: 'bg-red-50 text-red-700',
+  shipped: 'bg-indigo-50 text-indigo-700',
+  received: 'bg-purple-50 text-purple-700',
+  refunded: 'bg-emerald-50 text-emerald-700',
 };
 
 function useCountdown(deadline: string) {
@@ -55,7 +55,7 @@ function CountdownBadge({ deadline }: { deadline: string }) {
 
   if (expired) {
     return (
-      <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-300">
+      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700">
         Auto-approving…
       </span>
     );
@@ -65,7 +65,7 @@ function CountdownBadge({ deadline }: { deadline: string }) {
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
-        urgent ? 'bg-red-500/10 text-red-300' : 'bg-slate-700 text-slate-300'
+        urgent ? 'bg-red-50 text-red-700' : 'bg-[color:var(--surface-2)] text-[color:var(--ink-2)]'
       }`}
     >
       {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
@@ -101,27 +101,27 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
   }
 
   return (
-    <div className="rounded-lg border border-white/10 bg-white/5 p-5 space-y-4">
+    <div className="rounded-lg card p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <Link href={`/app/returns/${ret.id}` as any} className="hover:underline">
-            <p className="truncate text-sm font-medium text-slate-100">
+            <p className="truncate text-sm font-medium text-[color:var(--ink)]">
               Order #{ret.order?.orderNumber ?? ret.orderId.slice(0, 8)}
             </p>
           </Link>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-[color:var(--ink-3)]">
             {REASON_LABELS[ret.reason as ReturnReason] ?? ret.reason} ·{' '}
             {new Date(ret.createdAt).toLocaleDateString()}
           </p>
           {ret.conditionNotes && (
-            <p className="mt-2 text-sm text-slate-300 line-clamp-2">{ret.conditionNotes}</p>
+            <p className="mt-2 text-sm text-[color:var(--ink-2)] line-clamp-2">{ret.conditionNotes}</p>
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}>
             {status.replace(/_/g, ' ')}
           </span>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[color:var(--ink-3)]">
             {ret.order?.currency?.toUpperCase()} {(ret.refundAmount / 100).toFixed(2)}
           </p>
           {needsResponse && <CountdownBadge deadline={ret.sellerResponseDeadline} />}
@@ -134,13 +134,13 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
           <button
             onClick={handleApprove}
             disabled={approving}
-            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 disabled:opacity-50"
+            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {approving ? 'Approving…' : 'Approve'}
           </button>
           <button
             onClick={() => setShowRejectForm(true)}
-            className="rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/5"
+            className="rounded-md border border-[color:var(--line-2)] px-3 py-1.5 text-xs font-medium text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)]"
           >
             Decline
           </button>
@@ -155,20 +155,20 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
             placeholder="Explain why you are declining this return…"
             rows={3}
             required
-            className="w-full resize-none rounded-md border border-white/10 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-red-500 focus:outline-none"
+            className="w-full resize-none rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] focus:border-red-500 focus:outline-none focus:shadow-[0_0_0_3px_oklch(0.55_0.22_27_/_0.22)]"
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={!rejectReason.trim() || rejecting}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
               {rejecting ? 'Declining…' : 'Confirm decline'}
             </button>
             <button
               type="button"
               onClick={() => setShowRejectForm(false)}
-              className="rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/5"
+              className="rounded-md border border-[color:var(--line-2)] px-3 py-1.5 text-xs font-medium text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)]"
             >
               Cancel
             </button>
@@ -180,7 +180,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
         <button
           onClick={handleReceived}
           disabled={confirming}
-          className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {confirming ? 'Processing…' : 'Confirm item received & issue refund'}
         </button>
@@ -195,19 +195,19 @@ export function SellerReturnsView() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[color:var(--accent)] border-t-transparent" />
       </div>
     );
   }
 
   if (error) {
-    return <p className="text-sm text-red-400">Failed to load return requests.</p>;
+    return <p className="text-sm text-red-600">Failed to load return requests.</p>;
   }
 
   if (!returns?.length) {
     return (
-      <div className="rounded-lg border border-white/10 bg-white/5 py-16 text-center">
-        <p className="text-slate-400">No return requests.</p>
+      <div className="rounded-lg card py-16 text-center">
+        <p className="text-[color:var(--ink-3)]">No return requests.</p>
         <p className="mt-1 text-sm text-slate-500">
           Return requests from buyers will appear here.
         </p>
@@ -226,9 +226,9 @@ export function SellerReturnsView() {
     <div className="space-y-8">
       {pending.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-slate-300">
+          <h3 className="text-sm font-medium text-[color:var(--ink-2)]">
             Needs action{' '}
-            <span className="ml-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
+            <span className="ml-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
               {pending.length}
             </span>
           </h3>
@@ -239,7 +239,7 @@ export function SellerReturnsView() {
       )}
       {resolved.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-slate-500">Resolved</h3>
+          <h3 className="text-sm font-medium text-[color:var(--ink-3)]">Resolved</h3>
           {resolved.map((ret) => (
             <ReturnRow key={ret.id} ret={ret} />
           ))}

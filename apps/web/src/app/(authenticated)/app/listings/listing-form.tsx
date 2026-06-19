@@ -158,8 +158,8 @@ export function ListingForm({ listing }: Props) {
   }
 
   const inputCls =
-    'w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none';
-  const labelCls = 'mb-1 block text-sm font-medium text-slate-300';
+    'w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]';
+  const labelCls = 'mb-1 block text-sm font-medium text-[color:var(--ink-2)]';
 
   // After a new listing is saved and pending uploads were flushed, show done state
   const showUploadDone =
@@ -248,15 +248,15 @@ export function ListingForm({ listing }: Props) {
               onClick={() => setStatus(s)}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 status === s
-                  ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                  : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                  ? 'border-[color:var(--accent)] bg-[color:var(--accent-bg)] text-[color:var(--accent-2)]'
+                  : 'border-[color:var(--line-2)] text-[color:var(--ink-3)] hover:border-[color:var(--ink-3)]'
               }`}
             >
               {s === 'DRAFT' ? 'Save as draft' : 'Publish now'}
             </button>
           ))}
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs muted">
           Drafts are not visible to buyers. You can publish later.
         </p>
       </div>
@@ -268,13 +268,13 @@ export function ListingForm({ listing }: Props) {
           <button
             type="button"
             onClick={addVariant}
-            className="text-xs text-amber-400 hover:text-amber-300"
+            className="text-xs text-[color:var(--accent)] hover:text-[color:var(--accent-2)]"
           >
             + Add variant
           </button>
         </div>
         {variants.length === 0 ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs muted">
             Optional — use variants for sizes, colours, bundles, etc.
           </p>
         ) : (
@@ -285,7 +285,7 @@ export function ListingForm({ listing }: Props) {
                   placeholder="Label (e.g. Size M)"
                   value={v.label}
                   onChange={(e) => updateVariant(idx, 'label', e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  className="flex-1 rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
                 <input
                   type="number"
@@ -294,12 +294,12 @@ export function ListingForm({ listing }: Props) {
                   placeholder="Price"
                   value={v.priceCents}
                   onChange={(e) => updateVariant(idx, 'priceCents', e.target.value)}
-                  className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  className="w-28 rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
                 <button
                   type="button"
                   onClick={() => removeVariant(idx)}
-                  className="text-xs text-red-400 hover:text-red-300 px-1"
+                  className="text-xs text-red-600 hover:text-red-700 px-1"
                 >
                   ✕
                 </button>
@@ -313,7 +313,7 @@ export function ListingForm({ listing }: Props) {
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className={labelCls + ' mb-0'}>Photos</label>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs muted">
             {uploadedImages.length + pendingFiles.length} / 10
           </span>
         </div>
@@ -324,7 +324,7 @@ export function ListingForm({ listing }: Props) {
             {uploadedImages.map((img, idx) => (
               <div
                 key={img.url ?? idx}
-                className="relative h-20 w-20 rounded-lg overflow-hidden border border-slate-700"
+                className="relative h-20 w-20 rounded-lg overflow-hidden border border-[color:var(--line-2)]"
               >
                 <Image
                   src={img.url ?? ''}
@@ -333,7 +333,7 @@ export function ListingForm({ listing }: Props) {
                   className="object-cover"
                 />
                 {idx === 0 && (
-                  <span className="absolute bottom-0 left-0 right-0 bg-amber-500/80 text-center text-[10px] font-semibold text-black py-0.5">
+                  <span className="absolute bottom-0 left-0 right-0 bg-[color:var(--accent)] text-center text-[10px] font-semibold text-white py-0.5">
                     Cover
                   </span>
                 )}
@@ -348,7 +348,7 @@ export function ListingForm({ listing }: Props) {
             {pendingFiles.map((file, idx) => (
               <div
                 key={idx}
-                className="relative h-20 w-20 rounded-lg overflow-hidden border border-dashed border-amber-600"
+                className="relative h-20 w-20 rounded-lg overflow-hidden border border-dashed border-[color:var(--accent)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -373,7 +373,7 @@ export function ListingForm({ listing }: Props) {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadedImages.length + pendingFiles.length >= 10}
-          className="flex items-center gap-2 rounded-lg border border-dashed border-slate-600 px-4 py-3 text-sm text-slate-400 hover:border-amber-500 hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-lg border border-dashed border-[color:var(--line-2)] px-4 py-3 text-sm text-[color:var(--ink-3)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -388,17 +388,17 @@ export function ListingForm({ listing }: Props) {
           className="hidden"
           onChange={handleFileChange}
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs muted">
           JPG, PNG, WebP — max 10 photos. First photo is the cover image.
         </p>
         {uploadError && (
-          <p className="mt-1 text-xs text-red-400">{uploadError}</p>
+          <p className="mt-1 text-xs text-red-600">{uploadError}</p>
         )}
       </div>
 
       {/* Error */}
       {error && (
-        <p className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-sm text-red-400">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {(error as Error)?.message ?? 'Something went wrong. Please try again.'}
         </p>
       )}
@@ -408,7 +408,7 @@ export function ListingForm({ listing }: Props) {
         <button
           type="submit"
           disabled={pending || uploading}
-          className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+          className="btn btn-primary"
         >
           {uploading
             ? 'Uploading photos…'
@@ -422,7 +422,7 @@ export function ListingForm({ listing }: Props) {
           <button
             type="button"
             onClick={() => router.push('/app/listings' as any)}
-            className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
+            className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
           >
             Done — view listings
           </button>
@@ -430,7 +430,7 @@ export function ListingForm({ listing }: Props) {
         <button
           type="button"
           onClick={() => router.push('/app/listings' as any)}
-          className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+          className="btn btn-ghost"
         >
           Cancel
         </button>

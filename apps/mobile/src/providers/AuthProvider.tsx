@@ -1,9 +1,29 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthResponse, ForumoApiClient } from '@forumo/shared';
 import { createApiClient } from '../api/client';
 
-const AUTH_STORAGE_KEY = '@forumo/auth';
+const STORAGE_KEY = 'forumo_session';
+
+// Decode the exp claim (ms) from a JWT without a library dependency
+function parseTokenExpiry(token: string): number | null {
+  try {
+    const segment = token.split('.')[1];
+    if (!segment) return null;
+    const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+    const { exp } = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function isExpired(token: string): boolean {
+  const exp = parseTokenExpiry(token);
+  return exp !== null && exp <= Date.now();
+}
 
 interface AuthContextValue {
   apiClient: ForumoApiClient;
@@ -21,40 +41,60 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [auth, setAuth] = useState<AuthResponse | undefined>();
   const [hydrated, setHydrated] = useState(false);
-  // Use a ref so the token getter always reads the latest value without recreating apiClient
   const authRef = useRef<AuthResponse | undefined>(auth);
   authRef.current = auth;
-
-  // Rehydrate auth from storage on mount
-  useEffect(() => {
-    AsyncStorage.getItem(AUTH_STORAGE_KEY)
-      .then((raw) => {
-        if (raw) {
-          try {
-            setAuth(JSON.parse(raw) as AuthResponse);
-          } catch {
-            // corrupted storage — ignore
-          }
-        }
-      })
-      .catch(() => {})
-      .finally(() => setHydrated(true));
-  }, []);
-
-  const persistAuth = useCallback((value: AuthResponse | undefined) => {
-    setAuth(value);
-    if (value) {
-      AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(value)).catch(() => {});
-    } else {
-      AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(() => {});
-    }
-  }, []);
 
   // apiClient is created once; the token getter always reads the current ref
   const apiClient = useMemo(
     () => createApiClient(() => authRef.current?.accessToken),
     [],
   );
+
+  // Restore session from storage on mount, attempting a silent refresh if the
+  // access token has expired but a refresh token is still available.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+
+        const stored = JSON.parse(raw) as AuthResponse;
+
+        if (!isExpired(stored.accessToken)) {
+          setAuth(stored);
+          return;
+        }
+
+        // Access token is expired — try a silent refresh
+        if (stored.refreshToken) {
+          try {
+            const tokens = await apiClient.auth.refresh(stored.refreshToken);
+            const refreshed: AuthResponse = { ...stored, ...tokens };
+            setAuth(refreshed);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
+            return;
+          } catch {
+            // Refresh failed — fall through to clear storage
+          }
+        }
+
+        await AsyncStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Storage unavailable on this device — start unauthenticated
+      } finally {
+        setHydrated(true);
+      }
+    })();
+  }, [apiClient]);
+
+  const persistAuth = useCallback((value: AuthResponse | undefined) => {
+    setAuth(value);
+    if (value) {
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(value)).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    }
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -91,6 +131,14 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [apiClient, auth?.user, auth?.accessToken, hydrated, login, register, logout, enterDemo],
   );
 
+  if (!hydrated) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
@@ -101,3 +149,11 @@ export const useAuth = () => {
   }
   return value;
 };
+
+const styles = StyleSheet.create({
+  loader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

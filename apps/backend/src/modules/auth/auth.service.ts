@@ -1,11 +1,9 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DeviceSessionStatus, NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomInt } from 'crypto';
-import IORedis from 'ioredis';
-import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 
 import type { AuthResponse } from '@forumo/shared';
 import {
@@ -30,10 +28,8 @@ interface OtpIssueResponse {
 }
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
   private readonly saltRounds = 10;
-  private loginLimiter?: RateLimiterRedis;
-  private resendLimiter?: RateLimiterRedis;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -43,37 +39,6 @@ export class AuthService implements OnModuleInit {
     private readonly otpDeliveryService: OtpDeliveryService,
     private readonly notifications: NotificationsService,
   ) { }
-
-  onModuleInit(): void {
-    const redisUrl = this.configService.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
-    const redis = new IORedis(redisUrl);
-
-    const loginLimit = Number(this.configService.get<string>('LOGIN_ATTEMPT_LIMIT') ?? 5);
-    const windowMs = Number(this.configService.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000);
-    const windowSec = Math.ceil(windowMs / 1000);
-
-    this.loginLimiter = new RateLimiterRedis({
-      storeClient: redis,
-      keyPrefix: 'login_fail',
-      points: loginLimit,
-      duration: windowSec,
-      // Lock out for twice the window after limit is exceeded
-      blockDuration: windowSec * 2,
-      insuranceLimiter: new RateLimiterMemory({
-        points: loginLimit,
-        duration: windowSec,
-        blockDuration: windowSec * 2,
-      }),
-    });
-
-    this.resendLimiter = new RateLimiterRedis({
-      storeClient: redis,
-      keyPrefix: 'resend_verification',
-      points: 3,
-      duration: 3600,
-      insuranceLimiter: new RateLimiterMemory({ points: 3, duration: 3600 }),
-    });
-  }
 
   async register(dto: RegisterInput): Promise<{ message: string }> {
     const normalizedEmail = this.normalizeEmail(dto.email);
@@ -107,13 +72,11 @@ export class AuthService implements OnModuleInit {
 
     const user = await this.findActiveUserByEmail(normalizedEmail);
     if (!user) {
-      await this.recordLoginFailure(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
-      await this.recordLoginFailure(normalizedEmail);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -422,15 +385,6 @@ export class AuthService implements OnModuleInit {
   async resendVerification(email: string): Promise<{ message: string }> {
     const normalizedEmail = this.normalizeEmail(email);
 
-    // Rate-limit to 3 resends per hour per email address (Redis-backed)
-    if (this.resendLimiter) {
-      try {
-        await this.resendLimiter.consume(normalizedEmail);
-      } catch {
-        throw new HttpException('Too many resend requests. Please wait before trying again.', HttpStatus.TOO_MANY_REQUESTS);
-      }
-    }
-
     const user = await this.findActiveUserByEmail(normalizedEmail);
     // Return a generic message regardless of whether the account exists to avoid enumeration
     if (!user || user.emailVerified) {
@@ -560,25 +514,6 @@ export class AuthService implements OnModuleInit {
     });
 
     return consumedAt;
-  }
-
-  /**
-   * Counts failed login attempts for an email via Redis. Locks the account for
-   * twice the window duration once the limit is reached.
-   */
-  private async recordLoginFailure(email: string): Promise<void> {
-    if (!this.loginLimiter) return;
-    try {
-      await this.loginLimiter.consume(email);
-    } catch (err) {
-      if (err instanceof RateLimiterRes) {
-        throw new HttpException(
-          'Account temporarily locked due to too many failed attempts',
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-      throw err;
-    }
   }
 
   private async enforceDeviceRateLimit(userId: string, fingerprint: string | null): Promise<void> {

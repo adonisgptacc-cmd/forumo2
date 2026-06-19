@@ -5,13 +5,14 @@ export const metadata: Metadata = {
   title: 'Account Suspended — Forumo',
 };
 
-export default function AccountSuspendedPage({
+export default async function AccountSuspendedPage({
   searchParams,
 }: {
-  searchParams?: { reason?: string; code?: string };
+  searchParams?: Promise<{ reason?: string; code?: string }>;
 }) {
-  const isBanned = searchParams?.code === 'ACCOUNT_BANNED';
-  const reason = searchParams?.reason;
+  const resolved = await searchParams;
+  const isBanned = resolved?.code === 'ACCOUNT_BANNED';
+  const reason = resolved?.reason;
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
@@ -75,14 +76,14 @@ export default function AccountSuspendedPage({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <a
             href="mailto:support@forumo.com"
-            className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-amber-400"
+            className="btn btn-primary"
           >
             Contact support
           </a>
           {!isBanned && (
             <a
               href="mailto:appeals@forumo.com?subject=Account+Suspension+Appeal"
-              className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-100"
+              className="btn btn-ghost"
             >
               Submit an appeal
             </a>

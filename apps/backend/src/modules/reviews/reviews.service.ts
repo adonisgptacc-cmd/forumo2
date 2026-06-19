@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma, ReviewStatus } from '@prisma/client';
+import { OrderStatus, Prisma, ReviewStatus, UserRole } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { sanitizeText } from "../../common/utils/sanitize";
@@ -7,9 +7,18 @@ import { CreateReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
 import { ReviewModerationService } from "./moderation.service";
 import { ListingReviewResponse, ReviewRollup, SafeReview, serializeReview, serializeRollup } from "./review.serializer";
 
+export interface ReviewActor {
+  id: string;
+  role: string;
+}
+
 @Injectable()
 export class ReviewsService {
   constructor(private readonly prisma: PrismaService, private readonly moderation: ReviewModerationService) { }
+
+  private isPrivileged(actor: ReviewActor): boolean {
+    return actor.role === UserRole.ADMIN || actor.role === UserRole.MODERATOR;
+  }
 
   async listForListing(listingId: string, viewerId?: string): Promise<ListingReviewResponse> {
     const listing = await this.prisma.listing.findFirst({ where: { id: listingId, deletedAt: null } });
@@ -70,16 +79,16 @@ export class ReviewsService {
     return serializeReview(review);
   }
 
-  async create(dto: CreateReviewDto): Promise<SafeReview> {
+  async create(dto: CreateReviewDto, reviewerId: string): Promise<SafeReview> {
     await this.ensureListing(dto.listingId, dto.recipientId);
-    await this.checkPurchaseEligibility(dto.reviewerId, dto.listingId, dto.orderId);
+    await this.checkPurchaseEligibility(reviewerId, dto.listingId, dto.orderId);
 
     const moderation = this.moderation.evaluate(dto.comment ?? '', dto.rating);
 
     const review = await this.prisma.$transaction(async (tx) => {
       const created = await tx.review.create({
         data: {
-          reviewerId: dto.reviewerId,
+          reviewerId,
           recipientId: dto.recipientId,
           listingId: dto.listingId,
           orderId: dto.orderId,
@@ -116,14 +125,20 @@ export class ReviewsService {
     return serializeReview(createdWithFlags!);
   }
 
-  async update(id: string, dto: UpdateReviewDto): Promise<SafeReview> {
+  async update(id: string, dto: UpdateReviewDto, actor: ReviewActor): Promise<SafeReview> {
     const existing = await this.prisma.review.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Review not found');
     }
 
+    const privileged = this.isPrivileged(actor);
+    if (existing.reviewerId !== actor.id && !privileged) {
+      throw new ForbiddenException({ code: 'NOT_REVIEW_AUTHOR', message: 'You can only edit your own review' });
+    }
+
     const moderation = this.moderation.evaluate(dto.comment ?? existing.comment ?? '', dto.rating ?? existing.rating);
-    const status = dto.status ?? moderation.status ?? existing.status;
+    // Only moderators/admins may set status directly; author edits are re-moderated.
+    const status = privileged ? (dto.status ?? moderation.status ?? existing.status) : (moderation.status ?? existing.status);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.reviewFlag.deleteMany({ where: { reviewId: id } });
@@ -163,10 +178,14 @@ export class ReviewsService {
     return serializeReview(reloaded!);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actor: ReviewActor): Promise<void> {
     const existing = await this.prisma.review.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Review not found');
+    }
+
+    if (existing.reviewerId !== actor.id && !this.isPrivileged(actor)) {
+      throw new ForbiddenException({ code: 'NOT_REVIEW_AUTHOR', message: 'You can only delete your own review' });
     }
 
     await this.prisma.$transaction(async (tx) => {

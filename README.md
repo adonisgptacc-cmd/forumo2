@@ -48,8 +48,6 @@ pnpm install
 
 ```bash
 cp .env.example .env
-cp apps/backend/.env.example apps/backend/.env
-cp apps/web/.env.example apps/web/.env
 ```
 
 The defaults work for local development without any changes. See [Environment variables](#environment-variables) if you need to customise anything.
@@ -77,8 +75,10 @@ pnpm dev
 | Service | URL |
 |---------|-----|
 | Web app | http://localhost:3000 |
+| Admin dashboard | http://localhost:3001 |
 | Backend API | http://localhost:4000 |
 | API docs (Swagger) | http://localhost:4000/docs |
+| Moderation service | http://localhost:5005 |
 | MinIO console | http://localhost:9001 |
 | Email viewer (Mailpit) | http://localhost:8025 |
 
@@ -86,36 +86,39 @@ pnpm dev
 
 ## Environment variables
 
-### `apps/backend/.env`
+All variables live in a single `.env` file at the repo root. Copy `.env.example` to `.env` — every variable is documented with a comment in that file. The most important ones:
+
+### Backend
 
 | Variable | What it does | Required |
 |----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `REDIS_URL` | Redis connection string | Yes |
 | `JWT_SECRET` | Signs access tokens — **change in production** | Yes |
-| `JWT_EXPIRES_IN` | Access token TTL (default: `7d`) | Yes |
+| `JWT_TTL` | Access token TTL in seconds (default: `900`) | Yes |
 | `STRIPE_SECRET_KEY` | Stripe API key for payment capture | Yes |
+| `PAYSTACK_SECRET_KEY` | Paystack API key for NGN/GHS/KES/ZAR payments | Yes |
 | `MINIO_ENDPOINT` | MinIO / S3 host | Yes |
 | `MINIO_ACCESS_KEY` | MinIO access key | Yes |
 | `MINIO_SECRET_KEY` | MinIO secret key | Yes |
-| `SMTP_HOST` | SMTP server for transactional email | Yes |
-| `FRONTEND_URL` | Allowed CORS origin | Yes |
-| `MAILGUN_API_KEY` | Mailgun for email — falls back to SMTP if absent | Optional |
-| `SNS_ACCESS_KEY_ID` | AWS SNS for SMS OTP — falls back to dev simulator | Optional |
-| `SNS_SECRET_ACCESS_KEY` | AWS SNS secret | Optional |
+| `UPLOADS_BUCKET` | S3 bucket name for user uploads | Yes |
+| `MODERATION_SERVICE_URL` | URL of the moderation microservice | Yes |
+| `FRONTEND_URL` | Used for CORS and email callback links | Yes |
+| `MAILGUN_API_KEY` | Mailgun for email — omit to use Mailpit dev simulator | Optional |
+| `SNS_ACCESS_KEY_ID` | AWS SNS for SMS OTP — omit to use dev simulator | Optional |
 | `GOOGLE_CLIENT_ID` | Google OAuth — omit to disable | Optional |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | Optional |
 
-### `apps/web/.env`
+### Frontend
 
 | Variable | What it does | Required |
 |----------|-------------|----------|
 | `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL | Yes |
-| `NEXT_PUBLIC_WS_URL` | WebSocket server URL | Yes |
+| `NEXT_PUBLIC_WS_URL` | WebSocket server URL for real-time messaging | Yes |
 | `NEXTAUTH_URL` | NextAuth canonical URL | Yes |
 | `NEXTAUTH_SECRET` | NextAuth session signing key — **change in production** | Yes |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key for checkout | Yes |
-| `NEXT_PUBLIC_USE_API_MOCKS` | Enable frontend mocks (development only) | Optional |
+| `NEXT_PUBLIC_TOS_VERSION` | Must match backend `TOS_VERSION` env var | Yes |
+| `NEXT_PUBLIC_USE_API_MOCKS` | Enable frontend mocks (development only, never production) | Optional |
 
 ---
 
@@ -154,24 +157,21 @@ For a minimal production setup:
 
 ## Known issues / limitations
 
-- **Search filtering is incomplete** — sort and category filters are accepted by the API but not yet applied
-- **KYC submission UI is missing** — sellers cannot complete verification through the frontend (backend API works)
-- **Escrow dispute UI is missing** — dispute resolution requires direct API calls
+- **Escrow dispute UI is missing** — dispute resolution requires direct API calls; no buyer-facing form yet
 - **Cart variant integration is incomplete** — variant selection does not correctly update the cart payload
 - **Mobile app is pre-alpha** — navigation scaffold only, no screens implemented
 - **No error boundaries** — a component error causes a blank page rather than a graceful fallback
-- **No silent token refresh** — JWTs expire after 7 days; the next API call silently fails rather than prompting re-login
+- **Revenue admin dashboard is a stub** — `apps/admin` analytics page has no charts or real data wired up
 
 ---
 
 ## Roadmap
 
 **Next (before public launch)**
-- Search with working sort + category filters
-- KYC document submission form
 - Escrow dispute UI
 - Error boundaries on all routes
 - Cart variant payload fix
+- Revenue admin dashboard
 
 **Soon**
 - Seller analytics dashboard

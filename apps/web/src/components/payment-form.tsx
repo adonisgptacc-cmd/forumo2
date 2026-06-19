@@ -22,7 +22,7 @@ export function PaymentForm({ onSuccess, onError, orderId }: PaymentFormProps) {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const returnPath = orderId ? `/app/orders/${orderId}` : '/app/orders';
+    const returnPath = orderId ? `/app/checkout/success?orderId=${orderId}` : '/app/checkout/success';
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {

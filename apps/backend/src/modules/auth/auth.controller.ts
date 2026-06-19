@@ -43,7 +43,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ auth: {} })
+  @Throttle({ 'auth-login': {} })
   async login(@Body() dto: LoginDto, @Req() req: any) {
     const result = await this.authService.login(dto);
     await this.auditLog.record({
@@ -59,7 +59,7 @@ export class AuthController {
   }
 
   @Post('otp/request')
-  @Throttle({ auth: {} })
+  @Throttle({ 'auth-otp': {} })
   async requestOtp(@Body() dto: RequestOtpDto, @Req() req: any) {
     const result = await this.authService.requestOtp(dto);
     await this.auditLog.record({
@@ -95,7 +95,7 @@ export class AuthController {
   }
 
   @Post('resend-verification')
-  @Throttle({ auth: {} })
+  @Throttle({ 'auth-resend': {} })
   resendVerification(@Body() body: { email: string }) {
     if (!body.email) throw new BadRequestException('email is required');
     return this.authService.resendVerification(body.email);
@@ -108,7 +108,7 @@ export class AuthController {
   }
 
   @Post('password/reset/request')
-  @Throttle({ auth: {} })
+  @Throttle({ 'auth-password-reset': {} })
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto, @Req() req: any) {
     const result = await this.authService.requestPasswordReset(dto);
     await this.auditLog.record({
@@ -122,7 +122,7 @@ export class AuthController {
   }
 
   @Post('password/reset/confirm')
-  @Throttle({ auth: {} })
+  @Throttle({ 'auth-password-reset': {} })
   async confirmPasswordReset(@Body() dto: PasswordResetConfirmDto, @Req() req: any) {
     const result = await this.authService.confirmPasswordReset(dto);
     await this.auditLog.record({

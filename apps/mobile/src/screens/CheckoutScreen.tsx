@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { brandColors, spacing } from '@forumo/config';
@@ -61,6 +62,15 @@ export const CheckoutScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // Remove ordered items from cart
       sellerItems.forEach((i) => cartStore.removeItem(i.listingId));
+
+      const payment = await apiClient.orders.initiatePayment(order.id, {
+        callbackUrl: 'forumo://checkout/success',
+      });
+
+      if (payment.provider === 'paystack' && payment.authorizationUrl) {
+        await Linking.openURL(payment.authorizationUrl);
+        return;
+      }
 
       Alert.alert('Order Placed!', `Order #${order.orderNumber} confirmed.`, [
         {

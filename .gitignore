@@ -7,13 +7,16 @@ pnpm-debug.log*
 .env.*.local
 apps/**/.env
 apps/**/.env.local
+apps/**/.env.*.local
 
 dist
 coverage
-apps/web/.next
+apps/**/.next
 apps/**/dist
 apps/**/.expo
 apps/**/build
+apps/**/out
+out
 artifacts
 
 # Logs

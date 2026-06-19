@@ -11,9 +11,9 @@ export default function EditListingPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 animate-pulse">
-        <div className="h-8 w-48 rounded bg-slate-800" />
-        <div className="h-96 rounded-2xl bg-slate-800" />
+      <div className="mx-auto max-w-2xl space-y-4">
+        <div className="skeleton h-8 w-48" />
+        <div className="skeleton h-96 rounded-[14px]" />
       </div>
     );
   }
@@ -21,8 +21,8 @@ export default function EditListingPage() {
   if (!listing) {
     return (
       <div className="mx-auto max-w-2xl text-center py-16">
-        <p className="text-slate-400">Listing not found.</p>
-        <Link href={'/app/listings' as any} className="mt-4 inline-block text-sm text-amber-400 hover:underline">
+        <p className="muted">Listing not found.</p>
+        <Link href={'/app/listings' as any} className="mt-4 inline-block text-sm text-[color:var(--accent)] hover:underline">
           ← Back to My Listings
         </Link>
       </div>
@@ -34,14 +34,14 @@ export default function EditListingPage() {
       <div>
         <Link
           href={'/app/listings' as any}
-          className="text-xs text-slate-400 hover:text-amber-400"
+          className="text-xs muted hover:text-[color:var(--accent)]"
         >
           ← My Listings
         </Link>
-        <h2 className="mt-2 text-xl font-semibold">Edit listing</h2>
-        <p className="text-sm text-slate-400 truncate">{listing.title}</p>
+        <h2 className="mt-2 h2">Edit listing</h2>
+        <p className="text-sm muted truncate">{listing.title}</p>
       </div>
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
+      <div className="card card-pad">
         <ListingForm mode="edit" listing={listing} />
       </div>
     </div>

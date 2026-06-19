@@ -7,12 +7,12 @@ import { reviewListing } from './actions';
 
 function StatusPill({ status }: { status: string }) {
   const palette: Record<string, string> = {
-    PENDING: 'border-amber-400 bg-amber-400/10 text-amber-100',
-    APPROVED: 'border-emerald-400 bg-emerald-400/10 text-emerald-100',
-    REJECTED: 'border-rose-400 bg-rose-400/10 text-rose-100',
-    FLAGGED: 'border-orange-400 bg-orange-400/10 text-orange-100',
+    PENDING: 'border-amber-200 bg-amber-50 text-amber-700',
+    APPROVED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    REJECTED: 'border-red-200 bg-red-50 text-red-700',
+    FLAGGED: 'border-orange-200 bg-orange-50 text-orange-700',
   };
-  const className = palette[status] ?? 'border-slate-700 text-slate-200';
+  const className = palette[status] ?? 'border-[color:var(--line)] text-[color:var(--ink-2)]';
   return <span className={`rounded-full border px-3 py-1 text-xs ${className}`}>{status}</span>;
 }
 
@@ -24,7 +24,7 @@ export default async function ModerationQueuePage() {
   return (
     <div className="space-y-4">
       <FilterBar title="Listings awaiting moderator decisions">
-        <span className="text-slate-400">{listings.length} items in the queue</span>
+        <span className="text-[color:var(--ink-3)]">{listings.length} items in the queue</span>
       </FilterBar>
       <DataTable
         columns={[
@@ -34,7 +34,7 @@ export default async function ModerationQueuePage() {
             render: (item) => (
               <div className="space-y-1">
                 <p className="font-medium">{item.title}</p>
-                <p className="text-xs text-slate-400">Seller: {item.sellerId}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">Seller: {item.sellerId}</p>
               </div>
             ),
           },
@@ -44,7 +44,7 @@ export default async function ModerationQueuePage() {
             render: (item) => (
               <div className="space-y-1">
                 <StatusPill status={item.moderationStatus} />
-                {item.moderationNotes ? <p className="text-xs text-slate-400">{item.moderationNotes}</p> : null}
+                {item.moderationNotes ? <p className="text-xs text-[color:var(--ink-3)]">{item.moderationNotes}</p> : null}
               </div>
             ),
           },
@@ -56,19 +56,19 @@ export default async function ModerationQueuePage() {
           {
             key: 'createdAt',
             header: 'Created',
-            render: (item) => <span className="text-sm text-slate-300">{new Date(item.createdAt).toLocaleString()}</span>,
+            render: (item) => <span className="text-sm text-[color:var(--ink-2)]">{new Date(item.createdAt).toLocaleString()}</span>,
           },
           {
             key: 'actions',
             header: 'Actions',
             render: (item) => (
-              <div className="space-y-2 text-xs text-slate-200">
+              <div className="space-y-2 text-xs text-[color:var(--ink-2)]">
                 <form action={reviewListing} className="flex flex-col gap-2">
                   <input type="hidden" name="listingId" value={item.id} />
                   <input type="hidden" name="decision" value="APPROVED" />
                   <button
                     type="submit"
-                    className="rounded-md border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-emerald-50 transition hover:border-emerald-300"
+                    className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-emerald-700 transition hover:bg-emerald-100"
                   >
                     Approve listing
                   </button>
@@ -79,11 +79,11 @@ export default async function ModerationQueuePage() {
                   <input
                     name="notes"
                     placeholder="Moderation notes"
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                    className="w-full rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] focus:border-[color:var(--accent)] focus:outline-none"
                   />
                   <button
                     type="submit"
-                    className="w-full rounded-md border border-rose-400/60 bg-rose-500/10 px-3 py-2 text-left text-rose-100 transition hover:border-rose-300"
+                    className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-left text-red-700 transition hover:bg-red-100"
                   >
                     Reject listing
                   </button>
@@ -93,7 +93,7 @@ export default async function ModerationQueuePage() {
           },
         ]}
         data={listings}
-        emptyState={<span className="text-sm text-slate-400">No listings require moderation.</span>}
+        emptyState={<span className="text-sm text-[color:var(--ink-3)]">No listings require moderation.</span>}
       />
     </div>
   );

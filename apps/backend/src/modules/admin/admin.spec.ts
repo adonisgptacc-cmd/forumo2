@@ -69,6 +69,17 @@ const DISPUTE_RECORD = {
   },
 };
 
+const USER_RECORD = {
+  id: 'user-9',
+  name: 'Jane Seller',
+  email: 'jane@example.com',
+  role: 'SELLER',
+  accountStatus: 'ACTIVE',
+  kycStatus: 'APPROVED',
+  createdAt: now,
+  _count: { listings: 3 },
+};
+
 const prismaMock = {
   kycSubmission: {
     findMany: jest.fn().mockResolvedValue([KYC_RECORD]),
@@ -91,7 +102,10 @@ const prismaMock = {
       Promise.resolve({ ...DISPUTE_RECORD, ...data }),
     ),
   },
-  user: { count: jest.fn().mockResolvedValue(0) },
+  user: {
+    count: jest.fn().mockResolvedValue(0),
+    findMany: jest.fn().mockResolvedValue([USER_RECORD]),
+  },
   order: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]) },
 };
 
@@ -216,5 +230,50 @@ describe('AdminModule RBAC', () => {
       .patch('/admin/disputes/nonexistent')
       .send({ status: 'RESOLVED', resolution: 'Buyer confirmed' })
       .expect(404);
+  });
+
+  it('GET /admin/users — maps listingsCount and accountStatus', async () => {
+    app = await createApp('ADMIN');
+    const res = await request(app.getHttpServer()).get('/admin/users').expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      id: 'user-9',
+      accountStatus: 'ACTIVE',
+      listingsCount: 3,
+    });
+  });
+
+  it('GET /admin/users — applies search, status, role filters and pagination', async () => {
+    app = await createApp('ADMIN');
+    await request(app.getHttpServer())
+      .get('/admin/users?search=jane&status=SUSPENDED&role=SELLER&page=2&limit=10')
+      .expect(200);
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deletedAt: null,
+          accountStatus: 'SUSPENDED',
+          role: 'SELLER',
+          OR: [
+            { name: { contains: 'jane', mode: 'insensitive' } },
+            { email: { contains: 'jane', mode: 'insensitive' } },
+          ],
+        }),
+        skip: 10,
+        take: 10,
+      }),
+    );
+  });
+
+  it('GET /admin/users — ignores invalid status/role values', async () => {
+    app = await createApp('ADMIN');
+    await request(app.getHttpServer())
+      .get('/admin/users?status=BOGUS&role=WIZARD')
+      .expect(200);
+
+    const where = prismaMock.user.findMany.mock.calls.at(-1)?.[0]?.where;
+    expect(where.accountStatus).toBeUndefined();
+    expect(where.role).toBeUndefined();
   });
 });

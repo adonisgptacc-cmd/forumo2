@@ -49,17 +49,25 @@ export class ReviewsController {
   }
 
   @Post()
-  create(@Body() dto: CreateReviewDto): Promise<SafeReview> {
-    return this.reviewsService.create(dto);
+  @UseGuards(JwtAuthGuard)
+  create(@Body() dto: CreateReviewDto, @Request() req: any): Promise<SafeReview> {
+    // reviewerId is taken from the authenticated token, never the request body.
+    return this.reviewsService.create(dto, req.user.id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateReviewDto): Promise<SafeReview> {
-    return this.reviewsService.update(id, dto);
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateReviewDto,
+    @Request() req: any,
+  ): Promise<SafeReview> {
+    return this.reviewsService.update(id, dto, { id: req.user.id, role: req.user.role });
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string): Promise<void> {
-    return this.reviewsService.remove(id);
+  @UseGuards(JwtAuthGuard)
+  remove(@Param('id') id: string, @Request() req: any): Promise<void> {
+    return this.reviewsService.remove(id, { id: req.user.id, role: req.user.role });
   }
 }

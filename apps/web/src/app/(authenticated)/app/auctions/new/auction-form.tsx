@@ -7,8 +7,8 @@ import { useMyListings, useCreateAuction } from '../../../../../lib/react-query/
 import type { SafeListing } from '@forumo/shared';
 
 const inputCls =
-  'w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none';
-const labelCls = 'mb-1 block text-sm font-medium text-slate-300';
+  'w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]';
+const labelCls = 'mb-1 block text-sm font-medium text-[color:var(--ink-2)]';
 
 export function AuctionForm() {
   const router = useRouter();
@@ -45,8 +45,8 @@ export function AuctionForm() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        {[1, 2, 3].map((i) => <div key={i} className="h-12 rounded-lg bg-slate-800" />)}
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => <div key={i} className="skeleton h-12" />)}
       </div>
     );
   }
@@ -54,13 +54,13 @@ export function AuctionForm() {
   if (publishedListings.length === 0) {
     return (
       <div className="py-10 text-center space-y-3">
-        <p className="text-slate-400">You have no published listings to auction.</p>
-        <p className="text-sm text-slate-500">
+        <p className="text-[color:var(--ink-3)]">You have no published listings to auction.</p>
+        <p className="text-sm text-[color:var(--ink-3)]">
           Publish a listing first, then come back to create an auction.
         </p>
         <a
           href="/app/listings/new"
-          className="inline-block rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+          className="btn btn-primary inline-flex"
         >
           Create a listing
         </a>
@@ -73,7 +73,7 @@ export function AuctionForm() {
       {/* Listing picker */}
       <div>
         <label className={labelCls}>Select listing *</label>
-        <div className="space-y-2 max-h-64 overflow-y-auto rounded-lg border border-slate-700 p-2">
+        <div className="space-y-2 max-h-64 overflow-y-auto rounded-lg border border-[color:var(--line-2)] p-2">
           {publishedListings.map((listing) => (
             <ListingOption
               key={listing.id}
@@ -84,7 +84,7 @@ export function AuctionForm() {
           ))}
         </div>
         {selected && (
-          <p className="mt-1 text-xs text-emerald-400">Selected: {selected.title}</p>
+          <p className="mt-1 text-xs text-[color:var(--escrow)]">Selected: {selected.title}</p>
         )}
       </div>
 
@@ -101,7 +101,7 @@ export function AuctionForm() {
           placeholder="0.00"
           className={inputCls}
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[color:var(--ink-3)]">
           The minimum first bid buyers must place.
         </p>
       </div>
@@ -135,7 +135,7 @@ export function AuctionForm() {
             placeholder="Optional"
             className={inputCls}
           />
-          <p className="mt-1 text-xs text-slate-500">Minimum you'll accept. Not shown to buyers.</p>
+          <p className="mt-1 text-xs text-[color:var(--ink-3)]">Minimum you&apos;ll accept. Not shown to buyers.</p>
         </div>
         <div>
           <label className={labelCls}>Buy now price</label>
@@ -148,30 +148,30 @@ export function AuctionForm() {
             placeholder="Optional"
             className={inputCls}
           />
-          <p className="mt-1 text-xs text-slate-500">Allow immediate purchase at this price.</p>
+          <p className="mt-1 text-xs text-[color:var(--ink-3)]">Allow immediate purchase at this price.</p>
         </div>
       </div>
 
       {/* Summary */}
       {selected && startingBid && (
-        <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 space-y-1 text-sm">
-          <p className="font-medium text-slate-300">Auction summary</p>
-          <p className="text-slate-400">
-            Item: <span className="text-white">{selected.title}</span>
+        <div className="rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-2)] p-4 space-y-1 text-sm">
+          <p className="font-medium text-[color:var(--ink-2)]">Auction summary</p>
+          <p className="text-[color:var(--ink-3)]">
+            Item: <span className="text-[color:var(--ink)]">{selected.title}</span>
           </p>
-          <p className="text-slate-400">
-            Starting bid: <span className="text-amber-400">
+          <p className="text-[color:var(--ink-3)]">
+            Starting bid: <span className="text-[color:var(--accent)]">
               {parseFloat(startingBid) > 0
                 ? (parseFloat(startingBid)).toLocaleString('en-GH', { style: 'currency', currency: selected.currency ?? 'GHS' })
                 : '—'}
             </span>
           </p>
-          <p className="text-slate-400">
-            Duration: <span className="text-white">{durationDays} day{parseInt(durationDays) > 1 ? 's' : ''}</span>
+          <p className="text-[color:var(--ink-3)]">
+            Duration: <span className="text-[color:var(--ink)]">{durationDays} day{parseInt(durationDays) > 1 ? 's' : ''}</span>
           </p>
           {buyNowPrice && (
-            <p className="text-slate-400">
-              Buy now: <span className="text-emerald-400">
+            <p className="text-[color:var(--ink-3)]">
+              Buy now: <span className="text-[color:var(--escrow)]">
                 {parseFloat(buyNowPrice).toLocaleString('en-GH', { style: 'currency', currency: selected.currency ?? 'GHS' })}
               </span>
             </p>
@@ -180,7 +180,7 @@ export function AuctionForm() {
       )}
 
       {createAuction.isError && (
-        <p className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-sm text-red-400">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {(createAuction.error as Error)?.message ?? 'Failed to create auction. Please try again.'}
         </p>
       )}
@@ -189,14 +189,14 @@ export function AuctionForm() {
         <button
           type="submit"
           disabled={createAuction.isPending || !selectedId || !startingBid}
-          className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+          className="btn btn-primary"
         >
           {createAuction.isPending ? 'Creating…' : 'Start auction'}
         </button>
         <button
           type="button"
           onClick={() => router.push('/auctions' as any)}
-          className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+          className="rounded-lg border border-[color:var(--line-2)] px-4 py-2.5 text-sm text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)]"
         >
           Cancel
         </button>
@@ -220,27 +220,27 @@ function ListingOption({
       onClick={onSelect}
       className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
         selected
-          ? 'border border-amber-500/50 bg-amber-500/10'
-          : 'border border-transparent hover:bg-slate-800'
+          ? 'border border-[color:var(--accent)] bg-[color:var(--accent-bg)]'
+          : 'border border-transparent hover:bg-[color:var(--surface-2)]'
       }`}
     >
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-slate-800">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-[color:var(--surface-2)]">
         {listing.images?.[0]?.url ? (
           <Image src={listing.images[0].url} alt={listing.title} fill className="object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-600 text-sm">📦</div>
+          <div className="flex h-full w-full items-center justify-center text-[color:var(--ink-3)] text-sm">📦</div>
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{listing.title}</p>
-        <p className="text-xs text-slate-500">
+        <p className="text-sm font-medium text-[color:var(--ink)] truncate">{listing.title}</p>
+        <p className="text-xs text-[color:var(--ink-3)]">
           {(listing.priceCents / 100).toLocaleString('en-GH', {
             style: 'currency',
             currency: listing.currency ?? 'GHS',
           })}
         </p>
       </div>
-      {selected && <span className="text-amber-400 text-sm">✓</span>}
+      {selected && <span className="text-[color:var(--accent)] text-sm">✓</span>}
     </button>
   );
 }

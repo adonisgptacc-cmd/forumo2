@@ -4,11 +4,12 @@ import { ErrorBoundary } from '../../../../../components/ErrorBoundary';
 
 export const metadata = { title: 'Order Detail — Forumo' };
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <ErrorBoundary>
-      <Suspense fallback={<div className="space-y-4 animate-pulse">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-800" />)}</div>}>
-        <OrderDetail id={params.id} />
+      <Suspense fallback={<div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-24 rounded-[14px]" />)}</div>}>
+        <OrderDetail id={id} />
       </Suspense>
     </ErrorBoundary>
   );

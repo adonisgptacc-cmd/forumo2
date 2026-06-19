@@ -30,7 +30,7 @@ export default function ModerationPage() {
       id: string;
       moderationStatus: AdminListingModeration['moderationStatus'];
       moderationNotes?: string;
-    }) => createApiClient(token).admin.moderateListing(id, { moderationStatus, moderationNotes }),
+    }) => createApiClient(token).admin.reviewListing(id, { moderationStatus, moderationNotes }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-moderation-queue'] }),
   });
 

@@ -17,24 +17,24 @@ export default function AppError({
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center space-y-4 px-4">
-      <p className="text-5xl font-bold text-red-400">!</p>
-      <h1 className="text-xl font-semibold text-white">Something went wrong</h1>
-      <p className="text-sm text-slate-400 max-w-sm">
+      <p className="text-5xl font-bold text-red-500">!</p>
+      <h1 className="h2">Something went wrong</h1>
+      <p className="text-sm muted max-w-sm">
         This page encountered an error. Try refreshing or go back to the dashboard.
       </p>
       {error.digest && (
-        <p className="text-xs text-slate-600 font-mono">Ref: {error.digest}</p>
+        <p className="text-xs muted font-mono">Ref: {error.digest}</p>
       )}
       <div className="flex gap-3 pt-2">
         <button
           onClick={reset}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+          className="btn btn-primary btn-sm"
         >
           Try again
         </button>
         <Link
           href={'/app' as any}
-          className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          className="btn btn-ghost btn-sm"
         >
           Dashboard
         </Link>

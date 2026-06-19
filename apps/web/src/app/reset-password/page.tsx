@@ -44,13 +44,13 @@ function ResetPasswordForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-6"
+      className="space-y-4 card card-pad"
     >
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">Email address</span>
+        <span className="subtle">Email address</span>
         <input
           type="email"
-          className="input"
+          className="input-forumo"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
@@ -58,10 +58,10 @@ function ResetPasswordForm() {
         />
       </label>
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">Reset code</span>
+        <span className="subtle">Reset code</span>
         <input
           type="text"
-          className="input tracking-widest"
+          className="input-forumo tracking-widest"
           value={code}
           onChange={(e) => setCode(e.target.value.trim())}
           placeholder="6-digit code"
@@ -70,10 +70,10 @@ function ResetPasswordForm() {
         />
       </label>
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">New password</span>
+        <span className="subtle">New password</span>
         <input
           type="password"
-          className="input"
+          className="input-forumo"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="At least 8 characters"
@@ -82,27 +82,27 @@ function ResetPasswordForm() {
         />
       </label>
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">Confirm new password</span>
+        <span className="subtle">Confirm new password</span>
         <input
           type="password"
-          className="input"
+          className="input-forumo"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Repeat new password"
           required
         />
       </label>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
         type="submit"
-        className="w-full rounded-md bg-amber-400 px-4 py-2 font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-50"
+        className="w-full rounded-md bg-[color:var(--accent)] px-4 py-2 font-semibold text-white hover:bg-[color:var(--accent-2)] disabled:opacity-50"
         disabled={isSubmitting}
       >
         {isSubmitting ? 'Resetting…' : 'Reset password'}
       </button>
-      <p className="text-center text-xs text-slate-500">
+      <p className="text-center text-xs muted">
         Need a new code?{' '}
-        <Link className="text-amber-300" href="/forgot-password">
+        <Link className="text-[color:var(--accent)]" href="/forgot-password">
           Request another
         </Link>
       </p>
@@ -114,13 +114,13 @@ export default function ResetPasswordPage() {
   return (
     <main className="mx-auto max-w-md space-y-8">
       <div className="space-y-2 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Account recovery</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--ink-3)]">Account recovery</p>
         <h1 className="text-3xl font-semibold">Set a new password</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm muted">
           Enter the code we sent to your email along with your new password.
         </p>
       </div>
-      <Suspense fallback={<div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-6 text-slate-400 text-sm">Loading…</div>}>
+      <Suspense fallback={<div className="card card-pad muted text-sm">Loading…</div>}>
         <ResetPasswordForm />
       </Suspense>
     </main>

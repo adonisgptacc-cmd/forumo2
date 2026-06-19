@@ -18,7 +18,7 @@ export default async function DisputesPage() {
   return (
     <div className="space-y-4">
       <FilterBar title="Active disputes">
-        <span className="text-slate-400">{disputes.length} escalations in review</span>
+        <span className="text-[color:var(--ink-3)]">{disputes.length} escalations in review</span>
       </FilterBar>
       <DataTable
         columns={[
@@ -28,7 +28,7 @@ export default async function DisputesPage() {
             render: (item) => (
               <div className="space-y-1">
                 <p className="font-medium">{item.orderNumber ?? 'Unknown order'}</p>
-                <p className="text-xs text-slate-400">Escrow {item.escrowId}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">Escrow {item.escrowId}</p>
               </div>
             ),
           },
@@ -36,9 +36,9 @@ export default async function DisputesPage() {
             key: 'reason',
             header: 'Reason',
             render: (item) => (
-              <div className="space-y-1 text-sm text-slate-200">
+              <div className="space-y-1 text-sm text-[color:var(--ink-2)]">
                 <p>{item.reason}</p>
-                <p className="text-xs text-slate-400">Opened {new Date(item.openedAt).toLocaleString()}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">Opened {new Date(item.openedAt).toLocaleString()}</p>
               </div>
             ),
           },
@@ -46,24 +46,24 @@ export default async function DisputesPage() {
             key: 'status',
             header: 'Status',
             render: (item) => (
-              <div className="space-y-1 text-sm text-slate-200">
-                <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-3 py-1 text-xs text-amber-100">
+              <div className="space-y-1 text-sm text-[color:var(--ink-2)]">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">
                   {item.status}
                 </span>
-                <p className="text-xs text-slate-400">Messages: {item.messageCount}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">Messages: {item.messageCount}</p>
               </div>
             ),
           },
           {
             key: 'amountCents',
             header: 'Amount',
-            render: (item) => <span className="text-sm text-slate-200">{currency(item.amountCents, item.currency)}</span>,
+            render: (item) => <span className="text-sm text-[color:var(--ink-2)]">{currency(item.amountCents, item.currency)}</span>,
           },
           {
             key: 'openedBy',
             header: 'Opened by',
             render: (item) => (
-              <div className="text-sm text-slate-200">
+              <div className="text-sm text-[color:var(--ink-2)]">
                 {item.openedBy?.name ?? item.openedBy?.email ?? 'Unknown'}
               </div>
             ),
@@ -72,13 +72,13 @@ export default async function DisputesPage() {
             key: 'actions',
             header: 'Resolution',
             render: (item) => (
-              <div className="space-y-2 text-xs text-slate-200">
+              <div className="space-y-2 text-xs text-[color:var(--ink-2)]">
                 <form action={resolveDispute} className="flex flex-col gap-2">
                   <input type="hidden" name="disputeId" value={item.id} />
                   <input type="hidden" name="status" value="UNDER_REVIEW" />
                   <button
                     type="submit"
-                    className="rounded-md border border-amber-300/60 bg-amber-300/10 px-3 py-2 text-left text-amber-100 transition hover:border-amber-200"
+                    className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-amber-700 transition hover:bg-amber-100"
                   >
                     Move to review
                   </button>
@@ -88,12 +88,12 @@ export default async function DisputesPage() {
                   <input type="hidden" name="status" value="RESOLVED" />
                   <textarea
                     name="resolution"
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                    className="w-full rounded-md w-full rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                     placeholder="Resolution notes"
                   />
                   <button
                     type="submit"
-                    className="w-full rounded-md border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-emerald-50 transition hover:border-emerald-300"
+                    className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-emerald-700 transition hover:bg-emerald-100"
                   >
                     Resolve dispute
                   </button>
@@ -103,7 +103,7 @@ export default async function DisputesPage() {
           },
         ]}
         data={disputes}
-        emptyState={<span className="text-sm text-slate-400">No active disputes found.</span>}
+        emptyState={<span className="text-sm text-[color:var(--ink-3)]">No active disputes found.</span>}
       />
     </div>
   );

@@ -77,10 +77,10 @@ function isImage(url: string) {
 }
 
 const DISPUTE_STATUS_BADGE: Record<string, string> = {
-  OPEN: 'border-red-700 text-red-400 bg-red-950/20',
-  UNDER_REVIEW: 'border-amber-700 text-amber-400 bg-amber-950/20',
-  RESOLVED: 'border-emerald-700 text-emerald-400 bg-emerald-950/20',
-  ESCALATED: 'border-orange-700 text-orange-400 bg-orange-950/20',
+  OPEN:         'border-red-200    bg-red-50    text-red-700',
+  UNDER_REVIEW: 'border-amber-200  bg-amber-50  text-amber-700',
+  RESOLVED:     'border-emerald-200 bg-emerald-50 text-emerald-700',
+  ESCALATED:    'border-orange-200  bg-orange-50  text-orange-700',
 };
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       />
       <button
-        className="absolute right-6 top-6 rounded-full bg-slate-800 px-3 py-1 text-sm text-white hover:bg-slate-700"
+        className="absolute right-6 top-6 rounded-full bg-white/90 px-3 py-1 text-sm text-[color:var(--ink)] hover:bg-white shadow"
         onClick={onClose}
       >
         ✕ Close
@@ -136,26 +136,24 @@ function ResolveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[oklch(0.20_0.012_50_/_0.45)] backdrop-blur-sm p-4">
       <div
-        className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl"
+        className="w-full max-w-md card p-6 space-y-4 shadow-[var(--shadow-lg)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Resolve Dispute</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300">
-            ✕
-          </button>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-[color:var(--ink)]">Resolve Dispute</h3>
+          <button onClick={onClose} className="text-[color:var(--ink-3)] hover:text-[color:var(--ink)]">✕</button>
         </div>
 
-        <p className="mb-4 text-sm text-slate-400">
-          Reason: <span className="text-slate-200">{dispute.reason}</span>
+        <p className="text-sm text-[color:var(--ink-3)]">
+          Reason: <span className="text-[color:var(--ink)]">{dispute.reason}</span>
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">
-              Resolution notes <span className="text-red-400">*</span>
+            <label className="mb-1 block text-xs font-medium text-[color:var(--ink-3)]">
+              Resolution notes <span className="text-red-600">*</span>
             </label>
             <textarea
               value={resolution}
@@ -163,24 +161,27 @@ function ResolveModal({
               rows={3}
               required
               placeholder="Explain the resolution decision…"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="text-xs font-medium text-slate-400">Release funds to</legend>
+            <legend className="text-xs font-medium text-[color:var(--ink-3)]">Release funds to</legend>
             {(['seller', 'buyer'] as const).map((party) => (
-              <label key={party} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-800 p-3 hover:border-slate-600">
+              <label
+                key={party}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-[color:var(--line)] p-3 hover:border-[color:var(--accent)] transition-colors"
+              >
                 <input
                   type="radio"
                   name="releaseToParty"
                   value={party}
                   checked={releaseToParty === party}
                   onChange={() => setReleaseToParty(party)}
-                  className="accent-amber-500"
+                  className="accent-[color:var(--accent)]"
                 />
-                <span className="text-sm capitalize text-slate-200">{party}</span>
-                <span className="ml-auto text-xs text-slate-500">
+                <span className="text-sm capitalize text-[color:var(--ink)]">{party}</span>
+                <span className="ml-auto text-xs text-[color:var(--ink-3)]">
                   {party === 'seller' ? 'RELEASE escrow' : 'REFUND to buyer'}
                 </span>
               </label>
@@ -188,7 +189,7 @@ function ResolveModal({
           </fieldset>
 
           {resolve.isError && (
-            <p className="text-xs text-red-400">
+            <p className="text-xs text-red-600">
               {(resolve.error as Error)?.message ?? 'Failed to resolve dispute'}
             </p>
           )}
@@ -197,14 +198,14 @@ function ResolveModal({
             <button
               type="submit"
               disabled={!resolution.trim() || resolve.isPending}
-              className="flex-1 rounded-lg bg-amber-500 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+              className="btn btn-primary flex-1"
             >
               {resolve.isPending ? 'Resolving…' : 'Confirm resolution'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              className="btn btn-ghost px-4"
             >
               Cancel
             </button>
@@ -261,9 +262,9 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
 
   if (orderLoading || escrowLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div className="space-y-4">
         {[1, 2].map((i) => (
-          <div key={i} className="h-40 rounded-xl bg-slate-800" />
+          <div key={i} className="skeleton h-40 rounded-xl" />
         ))}
       </div>
     );
@@ -271,9 +272,9 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
 
   if (!order || !escrow) {
     return (
-      <div className="rounded-xl border border-red-800 bg-red-900/20 p-6 text-center">
-        <p className="text-red-400">Dispute not found or no escrow for this order.</p>
-        <Link href={'/app/disputes' as any} className="mt-3 inline-block text-sm text-amber-400 hover:underline">
+      <div className="alert alert-error rounded-xl p-6 text-center">
+        <p>Dispute not found or no escrow for this order.</p>
+        <Link href={'/app/disputes' as any} className="mt-3 inline-block text-sm text-[color:var(--accent)] hover:underline">
           ← Back to disputes
         </Link>
       </div>
@@ -282,9 +283,9 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
 
   if (!dispute) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
-        <p className="text-slate-400">No active dispute found for this order.</p>
-        <Link href={'/app/disputes' as any} className="mt-3 inline-block text-sm text-amber-400 hover:underline">
+      <div className="card p-6 text-center">
+        <p className="text-[color:var(--ink-3)]">No active dispute found for this order.</p>
+        <Link href={'/app/disputes' as any} className="mt-3 inline-block text-sm text-[color:var(--accent)] hover:underline">
           ← Back to disputes
         </Link>
       </div>
@@ -292,7 +293,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
   }
 
   const allAttachments = dispute.messages.flatMap((m) => parseAttachments(m.attachments));
-  const badgeCls = DISPUTE_STATUS_BADGE[dispute.status] ?? 'border-slate-700 text-slate-400';
+  const badgeCls = DISPUTE_STATUS_BADGE[dispute.status] ?? 'border-[color:var(--line)] bg-[color:var(--surface-2)] text-[color:var(--ink-3)]';
   const disputeResolved = dispute.status === 'RESOLVED';
 
   return (
@@ -309,13 +310,13 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
       {/* Page header */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href={'/app/disputes' as any} className="text-xs text-slate-500 hover:text-slate-300">
+          <Link href={'/app/disputes' as any} className="text-xs text-[color:var(--ink-3)] hover:text-[color:var(--ink)]">
             ← Disputes
           </Link>
-          <h2 className="mt-1 text-xl font-semibold">
+          <h2 className="mt-1 text-xl font-semibold text-[color:var(--ink)]">
             Dispute — Order {order.orderNumber}
           </h2>
-          <p className="mt-0.5 text-sm text-slate-400">
+          <p className="mt-0.5 text-sm text-[color:var(--ink-3)]">
             Opened {new Date(dispute.openedAt).toLocaleString()}
           </p>
         </div>
@@ -326,7 +327,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
           {canResolve && (
             <button
               onClick={() => setShowResolveModal(true)}
-              className="rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-semibold text-black hover:bg-amber-400"
+              className="btn btn-primary btn-sm"
             >
               Resolve dispute
             </button>
@@ -338,19 +339,19 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
         {/* ── LEFT: Chat thread ──────────────────────────────────────────── */}
-        <div className="flex min-h-[480px] flex-1 flex-col rounded-xl border border-slate-800 bg-slate-950/60">
+        <div className="flex min-h-[480px] flex-1 flex-col card">
           {/* Reason banner */}
-          <div className="border-b border-slate-800 px-5 py-3">
-            <p className="text-xs text-slate-500">
+          <div className="border-b border-[color:var(--line)] px-5 py-3">
+            <p className="text-xs text-[color:var(--ink-3)]">
               Dispute reason:{' '}
-              <span className="font-medium text-slate-200">{dispute.reason}</span>
+              <span className="font-medium text-[color:var(--ink)]">{dispute.reason}</span>
             </p>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: '480px' }}>
             {dispute.messages.length === 0 && (
-              <p className="text-center text-sm text-slate-500 py-8">
+              <p className="text-center text-sm text-[color:var(--ink-3)] py-8">
                 No messages yet. Start the conversation below.
               </p>
             )}
@@ -370,15 +371,15 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                   key={msg.id}
                   className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}
                 >
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-[color:var(--ink-3)]">
                     {isMe ? 'You' : msg.author.name ?? msg.author.email} · {roleLabel} ·{' '}
                     {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                       isMe
-                        ? 'rounded-tr-sm bg-amber-500/20 text-amber-50'
-                        : 'rounded-tl-sm bg-slate-800 text-slate-100'
+                        ? 'rounded-tr-sm bg-[color:var(--accent)]/10 text-[color:var(--ink)] border border-[color:var(--accent)]/20'
+                        : 'rounded-tl-sm bg-[color:var(--surface-2)] text-[color:var(--ink)] border border-[color:var(--line)]'
                     }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{msg.body}</p>
@@ -389,7 +390,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                             <button
                               key={i}
                               onClick={() => setLightboxSrc(url)}
-                              className="overflow-hidden rounded-lg border border-slate-700 hover:opacity-80"
+                              className="overflow-hidden rounded-lg border border-[color:var(--line)] hover:opacity-80"
                             >
                               <img
                                 src={url}
@@ -403,7 +404,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-amber-400 hover:border-amber-600"
+                              className="flex items-center gap-1.5 rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] px-3 py-1.5 text-xs text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors"
                             >
                               📎 Attachment {i + 1}
                             </a>
@@ -420,19 +421,19 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
 
           {/* Send form */}
           {!disputeResolved && (
-            <div className="border-t border-slate-800 p-4 space-y-2">
+            <div className="border-t border-[color:var(--line)] p-4 space-y-2">
               {/* Queued attachments */}
               {attachUrls.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {attachUrls.map((url, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-0.5 text-xs text-slate-300"
+                      className="flex items-center gap-1.5 rounded-full border border-[color:var(--line)] bg-[color:var(--surface-2)] px-3 py-0.5 text-xs text-[color:var(--ink-2)]"
                     >
                       📎 {url.split('/').pop()?.slice(0, 20) ?? 'File'}
                       <button
                         onClick={() => setAttachUrls((prev) => prev.filter((_, j) => j !== i))}
-                        className="ml-1 text-slate-500 hover:text-red-400"
+                        className="ml-1 text-[color:var(--ink-3)] hover:text-red-600"
                       >
                         ✕
                       </button>
@@ -453,13 +454,13 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                   }}
                   placeholder="Type a message… (Enter to send)"
                   rows={2}
-                  className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  className="flex-1 resize-none rounded-xl border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
                 <div className="flex flex-col gap-1.5">
                   <button
                     onClick={sendMessage}
                     disabled={!msgText.trim() || addMessage.isPending}
-                    className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                    className="btn btn-primary px-4 py-2"
                   >
                     {addMessage.isPending ? '…' : 'Send'}
                   </button>
@@ -469,14 +470,14 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                       if (url?.trim()) setAttachUrls((prev) => [...prev, url.trim()]);
                     }}
                     title="Attach a file URL"
-                    className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    className="btn btn-ghost px-4 py-2"
                   >
                     📎
                   </button>
                 </div>
               </div>
               {addMessage.isError && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-red-600">
                   {(addMessage.error as Error)?.message ?? 'Failed to send message'}
                 </p>
               )}
@@ -484,10 +485,10 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
           )}
 
           {disputeResolved && (
-            <div className="border-t border-emerald-800 bg-emerald-950/20 px-5 py-3">
-              <p className="text-sm font-medium text-emerald-400">✓ This dispute has been resolved</p>
+            <div className="border-t border-emerald-200 bg-emerald-50 px-5 py-3 rounded-b-xl">
+              <p className="text-sm font-medium text-emerald-700">✓ This dispute has been resolved</p>
               {dispute.resolution && (
-                <p className="mt-0.5 text-xs text-slate-300">{dispute.resolution}</p>
+                <p className="mt-0.5 text-xs text-[color:var(--ink-2)]">{dispute.resolution}</p>
               )}
             </div>
           )}
@@ -497,78 +498,78 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
         <div className="w-full space-y-4 lg:w-80 lg:shrink-0">
 
           {/* Escrow status card */}
-          <div className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-4 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Funds in Escrow</p>
-            <p className="text-2xl font-bold text-white">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+            <p className="eyebrow text-amber-700">Funds in Escrow</p>
+            <p className="text-2xl font-bold text-[color:var(--ink)]">
               {fmt(escrow.amountCents, escrow.currency)}
             </p>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400">Escrow status</span>
+              <span className="text-xs text-[color:var(--ink-3)]">Escrow status</span>
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
                   escrow.status === 'HOLDING'
-                    ? 'border-amber-700 text-amber-400'
+                    ? 'border-amber-200 bg-amber-100 text-amber-700'
                     : escrow.status === 'RELEASED'
-                      ? 'border-emerald-700 text-emerald-400'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       : escrow.status === 'REFUNDED'
-                        ? 'border-slate-700 text-slate-400'
-                        : 'border-orange-700 text-orange-400'
+                        ? 'border-[color:var(--line)] bg-[color:var(--surface-2)] text-[color:var(--ink-3)]'
+                        : 'border-orange-200 bg-orange-50 text-orange-700'
                 }`}
               >
                 {escrow.status}
               </span>
             </div>
             {escrow.releaseAfter && escrow.status === 'HOLDING' && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[color:var(--ink-3)]">
                 Auto-release: {new Date(escrow.releaseAfter).toLocaleDateString()}
               </p>
             )}
           </div>
 
           {/* Order summary */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Order Summary</p>
+          <div className="card p-4 space-y-3">
+            <p className="eyebrow">Order Summary</p>
             {order.items.slice(0, 3).map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-2 text-sm">
                 <div className="min-w-0">
-                  <p className="truncate text-slate-200">{item.listingTitle}</p>
+                  <p className="truncate text-[color:var(--ink)]">{item.listingTitle}</p>
                   {item.variantLabel && (
-                    <p className="text-xs text-slate-500">{item.variantLabel}</p>
+                    <p className="text-xs text-[color:var(--ink-3)]">{item.variantLabel}</p>
                   )}
-                  <p className="text-xs text-slate-500">Qty {item.quantity}</p>
+                  <p className="text-xs text-[color:var(--ink-3)]">Qty {item.quantity}</p>
                 </div>
-                <span className="shrink-0 text-slate-300">
+                <span className="shrink-0 text-[color:var(--ink-2)]">
                   {fmt(item.unitPriceCents * item.quantity, item.currency)}
                 </span>
               </div>
             ))}
             {order.items.length > 3 && (
-              <p className="text-xs text-slate-500">+{order.items.length - 3} more items</p>
+              <p className="text-xs text-[color:var(--ink-3)]">+{order.items.length - 3} more items</p>
             )}
-            <div className="border-t border-slate-800 pt-2 flex justify-between text-sm font-semibold">
-              <span className="text-slate-300">Total</span>
-              <span className="text-white">
+            <div className="border-t border-[color:var(--line)] pt-2 flex justify-between text-sm font-semibold">
+              <span className="text-[color:var(--ink-2)]">Total</span>
+              <span className="text-[color:var(--ink)]">
                 {fmt(order.totalItemCents + order.shippingCents + order.feeCents, order.currency)}
               </span>
             </div>
             {order.placedAt && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[color:var(--ink-3)]">
                 Placed {new Date(order.placedAt).toLocaleDateString()}
               </p>
             )}
             <Link
               href={`/app/orders/${order.id}` as any}
-              className="block text-xs text-amber-400 hover:underline"
+              className="block text-xs text-[color:var(--accent)] hover:underline"
             >
               View full order →
             </Link>
           </div>
 
           {/* Evidence panel */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Evidence</p>
+          <div className="card p-4 space-y-3">
+            <p className="eyebrow">Evidence</p>
             {allAttachments.length === 0 ? (
-              <p className="text-xs text-slate-500">No files attached yet.</p>
+              <p className="text-xs text-[color:var(--ink-3)]">No files attached yet.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {allAttachments.map((url, i) =>
@@ -576,7 +577,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                     <button
                       key={i}
                       onClick={() => setLightboxSrc(url)}
-                      className="overflow-hidden rounded-lg border border-slate-700 hover:opacity-80"
+                      className="overflow-hidden rounded-lg border border-[color:var(--line)] hover:opacity-80 transition-opacity"
                       title={url}
                     >
                       <img src={url} alt={`Evidence ${i + 1}`} className="h-16 w-16 object-cover" />
@@ -587,7 +588,7 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-amber-400 hover:border-amber-600"
+                      className="flex items-center gap-1.5 rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] px-3 py-2 text-xs text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors"
                     >
                       📄 File {i + 1}
                     </a>
@@ -595,51 +596,51 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                 )}
               </div>
             )}
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-[color:var(--ink-3)]">
               Attach evidence files by including URLs in your messages.
             </p>
           </div>
 
           {/* Dispute timeline */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Timeline</p>
-            <ol className="relative border-l border-slate-700 pl-4 space-y-3">
+          <div className="card p-4 space-y-3">
+            <p className="eyebrow">Timeline</p>
+            <ol className="relative border-l border-[color:var(--line)] pl-4 space-y-3">
               {/* Order status events */}
               {order.timeline.map((event) => (
                 <li key={event.id} className="relative">
-                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-slate-700 bg-slate-500" />
-                  <p className="text-xs font-medium text-slate-300">{event.status}</p>
-                  {event.note && <p className="text-xs text-slate-500">{event.note}</p>}
-                  <p className="text-xs text-slate-600">{new Date(event.createdAt).toLocaleString()}</p>
+                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--line)] bg-[color:var(--surface-2)]" />
+                  <p className="text-xs font-medium text-[color:var(--ink)]">{event.status}</p>
+                  {event.note && <p className="text-xs text-[color:var(--ink-3)]">{event.note}</p>}
+                  <p className="text-xs text-[color:var(--ink-3)]">{new Date(event.createdAt).toLocaleString()}</p>
                 </li>
               ))}
               {/* Dispute opened */}
               <li className="relative">
-                <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-orange-700 bg-orange-500" />
-                <p className="text-xs font-medium text-orange-300">Dispute opened</p>
-                <p className="text-xs text-slate-500">{dispute.reason}</p>
-                <p className="text-xs text-slate-600">{new Date(dispute.openedAt).toLocaleString()}</p>
+                <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-orange-300 bg-orange-500" />
+                <p className="text-xs font-medium text-orange-700">Dispute opened</p>
+                <p className="text-xs text-[color:var(--ink-3)]">{dispute.reason}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">{new Date(dispute.openedAt).toLocaleString()}</p>
               </li>
               {/* Resolved */}
               {dispute.resolvedAt && (
                 <li className="relative">
-                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-emerald-700 bg-emerald-500" />
-                  <p className="text-xs font-medium text-emerald-300">Dispute resolved</p>
+                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-emerald-300 bg-emerald-500" />
+                  <p className="text-xs font-medium text-emerald-700">Dispute resolved</p>
                   {dispute.resolution && (
-                    <p className="text-xs text-slate-400">{dispute.resolution}</p>
+                    <p className="text-xs text-[color:var(--ink-3)]">{dispute.resolution}</p>
                   )}
-                  <p className="text-xs text-slate-600">{new Date(dispute.resolvedAt).toLocaleString()}</p>
+                  <p className="text-xs text-[color:var(--ink-3)]">{new Date(dispute.resolvedAt).toLocaleString()}</p>
                 </li>
               )}
               {/* Escrow transactions */}
               {escrow.transactions.map((tx) => (
                 <li key={tx.id} className="relative">
-                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-slate-700 bg-amber-500" />
-                  <p className="text-xs font-medium text-slate-300">
+                  <span className="absolute -left-[1.35rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--line)] bg-[color:var(--accent)]" />
+                  <p className="text-xs font-medium text-[color:var(--ink)]">
                     Escrow {tx.type.toLowerCase()} · {fmt(tx.amountCents, tx.currency)}
                   </p>
-                  {tx.note && <p className="text-xs text-slate-500">{tx.note}</p>}
-                  <p className="text-xs text-slate-600">{new Date(tx.createdAt).toLocaleString()}</p>
+                  {tx.note && <p className="text-xs text-[color:var(--ink-3)]">{tx.note}</p>}
+                  <p className="text-xs text-[color:var(--ink-3)]">{new Date(tx.createdAt).toLocaleString()}</p>
                 </li>
               ))}
             </ol>

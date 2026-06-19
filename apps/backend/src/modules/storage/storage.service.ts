@@ -80,19 +80,19 @@ export class StorageService {
 
   async saveListingImage(listingId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, IMAGE_SIGNATURES, 'Listing image');
-    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}`;
+    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
     return this.persistFile(key, file);
   }
 
   async saveMessageAttachment(threadId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, IMAGE_SIGNATURES, 'Message attachment');
-    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}`;
+    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
     return this.persistFile(key, file);
   }
 
   async saveKycDocument(userId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, KYC_SIGNATURES, 'KYC document');
-    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}`;
+    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
     return this.persistFile(key, file);
   }
 

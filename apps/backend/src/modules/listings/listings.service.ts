@@ -31,7 +31,7 @@ export class ListingsService {
 
   async findAll(): Promise<SafeListing[]> {
     const listings = await this.prisma.listing.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, status: 'PUBLISHED' },
       orderBy: { createdAt: 'desc' },
       include: listingDefaultInclude,
     });

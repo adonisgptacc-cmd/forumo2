@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 import { ReviewsService } from "./reviews.service";
 
@@ -6,11 +6,14 @@ const mockVoteUpsert = jest.fn();
 const mockFlagCreate = jest.fn();
 const mockReviewFindFirst = jest.fn();
 const mockVoteCount = jest.fn();
+const mockReviewDelete = jest.fn();
+const mockTransaction = jest.fn();
 
 const mockPrisma = {
-  review: { findFirst: mockReviewFindFirst },
+  review: { findFirst: mockReviewFindFirst, delete: mockReviewDelete },
   reviewVote: { upsert: mockVoteUpsert, count: mockVoteCount },
   reviewFlag: { create: mockFlagCreate },
+  $transaction: mockTransaction,
 } as any;
 
 const mockModeration = {} as any;
@@ -65,6 +68,44 @@ describe('ReviewsService — vote and flag', () => {
 
       await expect(service.flagReview('missing', 'spam')).rejects.toThrow(NotFoundException);
       expect(mockFlagCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update authorization', () => {
+    it('rejects a non-author, non-privileged actor', async () => {
+      mockReviewFindFirst.mockResolvedValue({ id: 'r1', reviewerId: 'owner', recipientId: 'seller1' });
+
+      await expect(
+        service.update('r1', { rating: 1 }, { id: 'attacker', role: 'BUYER' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when review does not exist', async () => {
+      mockReviewFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update('missing', { rating: 1 }, { id: 'owner', role: 'BUYER' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('remove authorization', () => {
+    it('rejects a non-author, non-privileged actor', async () => {
+      mockReviewFindFirst.mockResolvedValue({ id: 'r1', reviewerId: 'owner', recipientId: 'seller1' });
+
+      await expect(
+        service.remove('r1', { id: 'attacker', role: 'BUYER' }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it('allows a MODERATOR to remove any review', async () => {
+      mockReviewFindFirst.mockResolvedValue({ id: 'r1', reviewerId: 'owner', recipientId: 'seller1' });
+      mockTransaction.mockResolvedValue(undefined);
+
+      await service.remove('r1', { id: 'mod-1', role: 'MODERATOR' });
+      expect(mockTransaction).toHaveBeenCalled();
     });
   });
 });

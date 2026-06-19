@@ -7,17 +7,15 @@ Thanks for your interest. Forumo is in active early development — contribution
 The highest-value areas to contribute to, in priority order:
 
 ### Backend
-- **Fix search filtering** — `listings.service.ts` `search()` ignores `sort` and `categories` params; wire `orderBy` and category `where` into the Prisma query
-- **MinIO/S3 storage adapter** — `StorageService` currently uses local filesystem; implement a MinIO adapter using `STORAGE_ENDPOINT` and `STORAGE_BUCKET` env vars
-- **Seller analytics endpoint** — `GET /orders/seller/analytics` (revenue by period, order count, avg order value)
 - **Rate limiting on notifications** — `NotificationsController` has no rate limiting unlike auth endpoints
+- **Authenticated-only review submission** — review endpoints should verify the reviewer was a party to the relevant order
+- **Seller payout flow validation** — `PayoutsModule` exists; validate the ZAR/Stripe Connect payout path end-to-end
 
 ### Frontend
-- **KYC submission form** — backend is fully built, the UI form for document upload is missing
 - **Escrow dispute UI** — `/app/orders/[id]` should allow a buyer to open a dispute
 - **Admin stats dashboard** — `/admin` landing page wired to `GET /admin/dashboard/stats`
 - **Error boundaries** — add `error.tsx` to all route groups
-- **Auction page filters** — pagination and category/status filters on `/auctions`
+- **Cart variant integration** — variant selection should update the cart payload correctly
 
 ### Mobile (`apps/mobile` — pre-alpha)
 - Shopping cart + checkout screens
@@ -28,7 +26,6 @@ The highest-value areas to contribute to, in priority order:
 - Notifications screen
 
 ### Tests (currently ~15% coverage)
-- Auctions service spec (bid logic, auto-end processor)
 - Escrow service spec (dispute, release, refund)
 - Frontend E2E: cart → checkout flow (Playwright)
 - Frontend E2E: auth flow
@@ -36,6 +33,56 @@ The highest-value areas to contribute to, in priority order:
 ## Development setup
 
 Follow the [Getting started](README.md#getting-started) section in the README exactly.
+
+## Branch naming
+
+```
+feat/<scope>/<short-description>   # new feature
+fix/<scope>/<short-description>    # bug fix
+chore/<scope>/<short-description>  # tooling, deps, housekeeping
+docs/<short-description>           # documentation only
+```
+
+Examples: `feat/listings/add-video-upload`, `fix/orders/escrow-release-race`, `chore/deps/bump-prisma-5.21`
+
+## Running tests locally
+
+```bash
+# All tests
+pnpm test
+
+# Backend only (faster, no frontend compile)
+pnpm --filter backend test
+
+# Backend with coverage
+pnpm --filter backend test:coverage
+
+# E2E (requires docker-compose.test.yml stack running)
+pnpm test:e2e
+```
+
+The backend test suite uses an in-memory SQLite database via Prisma — no running PostgreSQL needed for unit tests.
+
+## Running the linter
+
+```bash
+# Lint all packages
+pnpm lint
+
+# Auto-fix lint issues
+pnpm lint:fix
+
+# Check formatting (Prettier)
+pnpm format:check
+
+# Apply formatting
+pnpm format
+
+# TypeScript type-check across all packages
+pnpm typecheck
+```
+
+Before opening a PR, run `pnpm typecheck && pnpm lint && pnpm test` and make sure all pass.
 
 ## Commit style
 
@@ -52,10 +99,12 @@ Scopes: `auth`, `listings`, `orders`, `offers`, `search`, `cart`, `kyc`, `escrow
 
 ## Pull requests
 
+- Branch off `develop`; target `develop` (not `main`) unless it's a hotfix
 - Keep PRs focused — one feature or fix per PR
 - Include a short description of what changed and why
 - If you're fixing a bug, describe how to reproduce it
-- All PRs run the CI pipeline (`pnpm typecheck && pnpm lint && pnpm test`)
+- All PRs must pass the CI pipeline: lint, typecheck, unit tests, and build
+- After merging to `develop`, a maintainer will promote to `main` for deployment
 
 ## Pre-existing known issues
 

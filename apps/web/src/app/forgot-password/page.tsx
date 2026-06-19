@@ -31,23 +31,23 @@ export default function ForgotPasswordPage() {
       <main className="mx-auto max-w-md space-y-8">
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-semibold">Check your inbox</h1>
-          <p className="text-sm text-slate-400">
-            If an account exists for <span className="text-amber-300">{email}</span>, we sent a
+          <p className="text-sm muted">
+            If an account exists for <span className="text-[color:var(--accent)]">{email}</span>, we sent a
             reset code. It expires in 10 minutes.
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-6 space-y-4">
-          <p className="text-sm text-slate-300">Enter the code along with your new password:</p>
+        <div className="card card-pad space-y-4">
+          <p className="text-sm text-[color:var(--ink-2)]">Enter the code along with your new password:</p>
           <Link
             href={`/reset-password?email=${encodeURIComponent(email)}`}
-            className="block w-full rounded-md bg-amber-400 px-4 py-2 text-center font-semibold text-slate-900 hover:bg-amber-300"
+            className="block w-full rounded-md bg-[color:var(--accent)] px-4 py-2 text-center font-semibold text-white hover:bg-[color:var(--accent-2)]"
           >
             Enter reset code
           </Link>
-          <p className="text-center text-xs text-slate-500">
+          <p className="text-center text-xs muted">
             Didn&apos;t receive it?{' '}
             <button
-              className="text-amber-300 hover:underline"
+              className="text-[color:var(--accent)] hover:underline"
               onClick={() => setSubmitted(false)}
             >
               Try again
@@ -61,38 +61,38 @@ export default function ForgotPasswordPage() {
   return (
     <main className="mx-auto max-w-md space-y-8">
       <div className="space-y-2 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Account recovery</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--ink-3)]">Account recovery</p>
         <h1 className="text-3xl font-semibold">Forgot your password?</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm muted">
           Enter your email and we&apos;ll send a one-time reset code.
         </p>
       </div>
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-6"
+        className="space-y-4 card card-pad"
       >
         <label className="space-y-2 text-sm">
-          <span className="text-slate-300">Email address</span>
+          <span className="subtle">Email address</span>
           <input
             type="email"
-            className="input"
+            className="input-forumo"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
           />
         </label>
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button
           type="submit"
-          className="w-full rounded-md bg-amber-400 px-4 py-2 font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-50"
+          className="w-full rounded-md bg-[color:var(--accent)] px-4 py-2 font-semibold text-white hover:bg-[color:var(--accent-2)] disabled:opacity-50"
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Sending…' : 'Send reset code'}
         </button>
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs muted">
           Remember it?{' '}
-          <Link className="text-amber-300" href="/login">
+          <Link className="text-[color:var(--accent)]" href="/login">
             Sign in
           </Link>
         </p>

@@ -143,7 +143,7 @@ export const KYCScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>What you will need</Text>
           {[
-            '🪪  Government-issued photo ID (passport, driver's licence, or national ID)',
+            "🪪  Government-issued photo ID (passport, driver's licence, or national ID)",
             '🤳  Selfie holding your ID',
             '📍  Proof of address (utility bill or bank statement, less than 3 months old)',
           ].map((item) => (

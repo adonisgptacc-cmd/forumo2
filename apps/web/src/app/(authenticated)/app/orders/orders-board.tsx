@@ -10,24 +10,24 @@ export function OrdersBoard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="grid-card space-y-3">
+          <div key={i} className="card card-pad space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <div className="h-3 w-16 bg-slate-700 rounded" />
-                <div className="h-5 w-32 bg-slate-700 rounded" />
+                <div className="skeleton h-3 w-16" />
+                <div className="skeleton h-5 w-32" />
               </div>
-              <div className="h-6 w-20 bg-slate-700 rounded-full" />
+              <div className="skeleton h-6 w-20 rounded-full" />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-2">
-                <div className="h-3 w-10 bg-slate-700 rounded" />
-                <div className="h-3 w-48 bg-slate-800 rounded" />
+                <div className="skeleton h-3 w-10" />
+                <div className="skeleton h-3 w-48" />
               </div>
               <div className="space-y-2">
-                <div className="h-3 w-16 bg-slate-700 rounded" />
-                <div className="h-3 w-40 bg-slate-800 rounded" />
+                <div className="skeleton h-3 w-16" />
+                <div className="skeleton h-3 w-40" />
               </div>
             </div>
           </div>
@@ -38,9 +38,9 @@ export function OrdersBoard() {
 
   if (!data || data.length === 0) {
     return (
-      <div className="grid-card space-y-2">
-        <p className="text-slate-300">No orders yet.</p>
-        <p className="text-sm text-slate-500">Use the checkout simulator to create your first escrow order.</p>
+      <div className="card card-pad space-y-2">
+        <p className="subtle">No orders yet.</p>
+        <p className="text-sm muted">Use the checkout simulator to create your first escrow order.</p>
       </div>
     );
   }
@@ -51,46 +51,46 @@ export function OrdersBoard() {
         <ErrorBoundary
           key={order.id}
           fallback={
-            <div className="grid-card py-4 text-center text-sm text-slate-400">
+            <div className="card card-pad py-4 text-center text-sm muted">
               Could not load this order
             </div>
           }
         >
-        <article className="grid-card space-y-3">
+        <article className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{order.status}</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--ink-3)]">{order.status}</p>
               <h2 className="text-xl font-semibold">Order {order.orderNumber}</h2>
             </div>
             {order.escrow ? <EscrowStatus status={order.escrow.status} /> : null}
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <p className="text-sm text-slate-500">Items</p>
-              <ul className="text-sm text-slate-300">
+              <p className="text-sm muted">Items</p>
+              <ul className="text-sm subtle">
                 {order.items.map((item) => (
                   <li key={item.id}>
                     {item.quantity} × {item.listingTitle}{' '}
-                    <span className="text-slate-500">{item.variantLabel ? `(${item.variantLabel})` : null}</span>
+                    <span className="muted">{item.variantLabel ? `(${item.variantLabel})` : null}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="text-sm text-slate-500">Timeline</p>
-              <ol className="space-y-1 text-xs text-slate-400">
+              <p className="text-sm muted">Timeline</p>
+              <ol className="space-y-1 text-xs muted">
                 {order.timeline.map((event) => (
                   <li key={event.id}>{event.status} · {new Date(event.createdAt).toLocaleString()}</li>
                 ))}
               </ol>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm muted">
             <p>
               Total {(order.totalItemCents + order.shippingCents + order.feeCents) / 100} {order.currency}
             </p>
             <div className="flex gap-3">
-              <Link className="text-amber-300 hover:underline" href={`/app/orders/${order.id}` as any}>
+              <Link className="text-[color:var(--accent)] hover:underline" href={`/app/orders/${order.id}` as any}>
                 View details →
               </Link>
             </div>
@@ -111,5 +111,5 @@ function EscrowStatus({ status }: { status: string }) {
         : status === 'REFUNDED'
           ? 'Refunded'
           : 'Disputed';
-  return <span className="rounded-full border border-amber-300 px-3 py-1 text-xs text-amber-200">{label}</span>;
+  return <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700">{label}</span>;
 }

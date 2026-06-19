@@ -10,14 +10,24 @@ import { StorageService } from './storage.service';
 const mockMkdir = fsPromises.mkdir as jest.MockedFunction<typeof fsPromises.mkdir>;
 const mockWriteFile = fsPromises.writeFile as jest.MockedFunction<typeof fsPromises.writeFile>;
 
-function makeFile(originalname: string): Express.Multer.File {
+function makeFile(originalname: string, mimetype = 'image/jpeg'): Express.Multer.File {
+  let buffer: Buffer;
+  if (mimetype === 'image/jpeg') {
+    buffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+  } else if (mimetype === 'image/png') {
+    buffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  } else if (mimetype === 'application/pdf') {
+    buffer = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]);
+  } else {
+    buffer = Buffer.from('fake-content');
+  }
   return {
     originalname,
-    buffer: Buffer.from('fake-content'),
-    mimetype: 'image/jpeg',
+    buffer,
+    mimetype,
     fieldname: 'file',
     encoding: '7bit',
-    size: 12,
+    size: buffer.length,
     stream: null as any,
     destination: '',
     filename: originalname,
@@ -50,7 +60,7 @@ describe('StorageService', () => {
   });
 
   it('saveMessageAttachment persists the file under the messages path', async () => {
-    const file = makeFile('attachment.png');
+    const file = makeFile('attachment.png', 'image/png');
     const result = await service.saveMessageAttachment('thread-456', file);
 
     expect(result.key).toMatch(/^messages\/thread-456\//);
@@ -59,7 +69,7 @@ describe('StorageService', () => {
   });
 
   it('saveKycDocument persists the file under the kyc path', async () => {
-    const file = makeFile('id-card.pdf');
+    const file = makeFile('id-card.pdf', 'application/pdf');
     const result = await service.saveKycDocument('user-789', file);
 
     expect(result.key).toMatch(/^kyc\/user-789\//);

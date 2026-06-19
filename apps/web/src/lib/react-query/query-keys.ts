@@ -32,4 +32,5 @@ export const queryKeys = {
   sellerAnalyticsRevenue: (period: string, groupBy: string) => ['seller', 'analytics', 'revenue', period, groupBy] as const,
   sellerAnalyticsTopListings: ['seller', 'analytics', 'top-listings'] as const,
   sellerAnalyticsReviews: ['seller', 'analytics', 'reviews-summary'] as const,
+  listingAuction: (listingId: string) => ['auctions', 'listing', listingId] as const,
 };

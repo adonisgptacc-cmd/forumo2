@@ -118,7 +118,7 @@ export default function AuctionsPage() {
             </span>
             <Link
               href={'/app/auctions/new' as any}
-              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+              className="btn btn-primary btn-sm"
             >
               + Create auction
             </Link>
@@ -197,11 +197,11 @@ export default function AuctionsPage() {
         </div>
       ) : (
         <div className="card-forumo text-center py-16 space-y-3">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-[color:var(--ink-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-slate-500 font-medium">No {status.toLowerCase()} auctions</p>
-          <p className="text-sm text-slate-400">Check back soon or create your own auction from a listing</p>
+          <p className="text-[color:var(--ink-2)] font-medium">No {status.toLowerCase()} auctions</p>
+          <p className="text-sm text-[color:var(--ink-3)]">Check back soon or create your own auction from a listing</p>
           <Link href={'/app/auctions/new' as any} className="btn-forumo inline-block mt-2">
             Create a listing
           </Link>

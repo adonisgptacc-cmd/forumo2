@@ -25,8 +25,8 @@ export default function HomePage() {
       </div>
 
       {/* Categories Grid (Overlapping Hero) */}
-      <div className="relative z-20 -mt-80 px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="relative z-20 -mt-80 px-4 hero-glow">
+        <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {categories.map((cat) => (
             <Link key={cat.id} href={cat.link as any} className="card-forumo flex flex-col h-[420px] hover:shadow-lg transition-shadow">
               <h2 className="text-xl font-bold mb-1">{cat.title}</h2>
@@ -53,7 +53,7 @@ export default function HomePage() {
       </div>
 
       {/* Quick Links */}
-      <div className="mt-6 px-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="stagger mt-6 px-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/listings/new" className="card-forumo hover:shadow-lg transition-shadow flex items-center gap-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-bg)' }}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

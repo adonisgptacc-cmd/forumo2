@@ -16,9 +16,9 @@ import { createApiClient } from '../../lib/api-client';
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none';
-const labelCls = 'mb-1 block text-sm font-medium text-slate-300';
-const errorCls = 'mt-1 text-xs text-red-400';
+  'w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]';
+const labelCls = 'mb-1 block text-sm font-medium text-[color:var(--ink-2)]';
+const errorCls = 'mt-1 text-xs font-medium text-[oklch(0.55_0.22_27)]';
 
 // ─── Form values (all strings — HTML inputs return strings) ───────────────────
 
@@ -86,7 +86,7 @@ function flattenCategories(
       id: c.id,
       label: ' '.repeat(depth * 4) + (depth > 0 ? '└ ' : '') + c.name,
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // children is not on the shared SafeCategory type but is returned by the API
     ...flattenCategories((c as any).children ?? [], depth + 1),
   ]);
 }
@@ -114,7 +114,6 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     [categoriesData],
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existingCondition = ((listing?.metadata as any)?.condition as FormValues['condition']) ?? '';
   const existingQuantity =
     listing?.variants?.[0]?.inventoryCount != null
@@ -285,11 +284,14 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
   if (submitSuccess) {
     return (
-      <div className="rounded-xl border border-emerald-700 bg-emerald-900/30 p-8 text-center space-y-2">
-        <p className="text-lg font-semibold text-emerald-400">
+      <div
+        className="card card-pad text-center space-y-2 fade-up"
+        style={{ background: 'var(--escrow-bg)', borderColor: 'transparent' }}
+      >
+        <p className="text-lg font-semibold text-[color:var(--escrow)]">
           {mode === 'create' ? 'Listing created!' : 'Listing updated!'}
         </p>
-        <p className="text-sm text-slate-400">Redirecting to your listings…</p>
+        <p className="text-sm muted">Redirecting to your listings…</p>
       </div>
     );
   }
@@ -339,7 +341,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         <div>
           <label className={labelCls}>Price (ZAR) *</label>
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)] text-sm select-none">
               R
             </span>
             <input
@@ -394,7 +396,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       {/* Images */}
       <div>
         <label className={labelCls}>Images</label>
-        <p className="mb-2 text-xs text-slate-500">
+        <p className="mb-2 text-xs muted">
           Drag images to reorder. The first image is used as the cover photo.
         </p>
 
@@ -407,12 +409,12 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
             e.preventDefault();
             addFiles(e.dataTransfer.files);
           }}
-          className="w-full rounded-lg border-2 border-dashed border-slate-700 p-6 text-center transition-colors hover:border-amber-500/50 focus:outline-none"
+          className="w-full rounded-lg border-2 border-dashed border-[color:var(--line-2)] p-6 text-center transition-colors hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-2)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring-accent)]"
         >
-          <p className="text-sm text-slate-400">
+          <p className="text-sm subtle">
             Click or drag images here
           </p>
-          <p className="mt-1 text-xs text-slate-600">JPEG · PNG · WebP · GIF — max 8 MB each</p>
+          <p className="mt-1 text-xs muted">JPEG · PNG · WebP · GIF — max 8 MB each</p>
         </button>
         <input
           ref={fileInputRef}
@@ -433,7 +435,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(index)}
-                className="group relative aspect-square cursor-grab overflow-hidden rounded-lg border border-slate-700 bg-slate-800 active:cursor-grabbing"
+                className="group relative aspect-square cursor-grab overflow-hidden rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] active:cursor-grabbing"
               >
                 <Image
                   src={img.preview}
@@ -443,7 +445,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                   unoptimized={img.file !== undefined}
                 />
                 {index === 0 && (
-                  <span className="absolute bottom-1 left-1 rounded bg-amber-500 px-1 py-0.5 text-[10px] font-bold text-black leading-none">
+                  <span className="absolute bottom-1 left-1 rounded bg-[color:var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
                     Cover
                   </span>
                 )}
@@ -475,26 +477,26 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       {/* Auction toggle (create mode only) */}
       {mode === 'create' && (
-        <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 space-y-4">
+        <div className="rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-2)] p-4 space-y-4">
           <label className="flex cursor-pointer items-center gap-3">
             <input
               type="checkbox"
               {...register('isAuction')}
-              className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-amber-500"
+              className="h-4 w-4 rounded border-[color:var(--line-2)] accent-[var(--accent)]"
             />
             <div>
-              <span className="text-sm font-medium text-slate-300">Enable auction</span>
-              <p className="text-xs text-slate-500">Buyers bid — highest bid wins at the deadline</p>
+              <span className="text-sm font-medium subtle">Enable auction</span>
+              <p className="text-xs muted">Buyers bid — highest bid wins at the deadline</p>
             </div>
           </label>
 
           {isAuction && (
-            <div className="space-y-4 border-t border-slate-700 pt-4">
+            <div className="space-y-4 border-t border-[color:var(--line)] pt-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Starting bid (ZAR) *</label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)] text-sm select-none">
                       R
                     </span>
                     <input
@@ -514,7 +516,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                 <div>
                   <label className={labelCls}>Reserve price (ZAR)</label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)] text-sm select-none">
                       R
                     </span>
                     <input
@@ -526,8 +528,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       className={inputCls + ' pl-8'}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Minimum you'll accept — hidden from buyers
+                  <p className="mt-1 text-xs muted">
+                    Minimum you&apos;ll accept — hidden from buyers
                   </p>
                 </div>
               </div>
@@ -557,14 +559,14 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           <option value="PUBLISHED">Publish now</option>
           <option value="DRAFT">Save as draft</option>
         </select>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs muted">
           Published listings enter moderation review before becoming visible to buyers.
         </p>
       </div>
 
       {/* Error banner */}
       {submitError && (
-        <div className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-sm text-red-400">
+        <div className="alert alert-error fade-up" role="alert">
           {submitError}
         </div>
       )}
@@ -574,7 +576,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-primary btn-lg"
         >
           {submitting
             ? mode === 'create'
@@ -588,7 +590,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         <button
           type="button"
           onClick={() => router.push('/app/listings' as any)}
-          className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+          className="btn btn-ghost"
         >
           Cancel
         </button>
@@ -611,7 +613,7 @@ function DeleteButton({ listingId }: { listingId: string }) {
   if (confirming) {
     return (
       <span className="ml-auto flex items-center gap-2 text-sm">
-        <span className="text-slate-400">Delete this listing?</span>
+        <span className="muted">Delete this listing?</span>
         <button
           type="button"
           disabled={deleteListingMutation.isPending}
@@ -619,14 +621,14 @@ function DeleteButton({ listingId }: { listingId: string }) {
             await deleteListingMutation.mutateAsync(listingId);
             router.push('/app/listings' as any);
           }}
-          className="text-red-400 hover:text-red-300 disabled:opacity-50"
+          className="font-medium text-[oklch(0.55_0.22_27)] hover:text-[oklch(0.50_0.22_27)] disabled:opacity-50"
         >
           {deleteListingMutation.isPending ? 'Deleting…' : 'Yes, delete'}
         </button>
         <button
           type="button"
           onClick={() => setConfirming(false)}
-          className="text-slate-500 hover:text-slate-300"
+          className="muted hover:text-[color:var(--ink)]"
         >
           Cancel
         </button>
@@ -638,7 +640,7 @@ function DeleteButton({ listingId }: { listingId: string }) {
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="ml-auto text-sm text-red-500 hover:text-red-400"
+      className="ml-auto text-sm font-medium text-[oklch(0.55_0.22_27)] hover:text-[oklch(0.50_0.22_27)]"
     >
       Delete listing
     </button>

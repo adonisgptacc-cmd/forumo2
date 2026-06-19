@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { NotificationChannel, OtpPurpose, Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -280,7 +280,7 @@ describe('AuthModule HTTP flows', () => {
     } as unknown as jest.Mocked<OtpDeliveryService>;
 
     const moduleRef = await Test.createTestingModule({
-      imports: [AuthModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -66,8 +66,20 @@ export class AdminController {
   }
 
   @Get('users')
-  listUsers(): Promise<AdminUserDetail[]> {
-    return this.adminService.listUsers();
+  listUsers(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('role') role?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<AdminUserDetail[]> {
+    return this.adminService.listUsers({
+      search,
+      status,
+      role,
+      page: page != null ? Number(page) : undefined,
+      limit: limit != null ? Number(limit) : undefined,
+    });
   }
 
   @Get('orders')

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { createApiClient } from '../../../lib/api-client';
 import { ListingDetail } from './listing-detail';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 
 type ListingRouteParams = Promise<{ id: string }>;
 
@@ -44,7 +45,9 @@ export default async function ListingDetailPage({ params }: { params: ListingRou
   const resolvedParams = await params;
   return (
     <main className="space-y-6">
-      <ListingDetail id={resolvedParams.id} />
+      <ErrorBoundary>
+        <ListingDetail id={resolvedParams.id} />
+      </ErrorBoundary>
     </main>
   );
 }

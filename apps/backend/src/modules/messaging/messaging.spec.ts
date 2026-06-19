@@ -1,5 +1,6 @@
 import type { Express } from 'express';
-import type { INestApplication } from '@nestjs/common';
+import type { CanActivate, INestApplication } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 import { Test } from '@nestjs/testing';
 import { MessageModerationStatus, MessageParticipantRole, MessageStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -12,6 +13,15 @@ import { MessagingModule } from "./messaging.module";
 import { MessagingGateway } from "./messaging.gateway";
 import { MessageModerationService } from "./moderation.service";
 import { MessagingService } from "./messaging.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+
+class MockJwtGuard implements CanActivate {
+  canActivate(context: any) {
+    const req = context.switchToHttp().getRequest();
+    req.user = { id: BUYER_ID, role: 'BUYER' };
+    return true;
+  }
+}
 
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';
@@ -49,6 +59,8 @@ describe('MessagingModule (integration)', () => {
       .useValue(moderation)
       .overrideProvider(StorageService)
       .useValue(storage)
+      .overrideGuard(JwtAuthGuard)
+      .useClass(MockJwtGuard)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -180,13 +192,18 @@ class RecordingServer {
 
 class FakeSocket {
   id = randomUUID();
-  handshake: { auth: { userId: string }; query: Record<string, unknown> };
+  handshake: { auth: { userId: string; token: string }; query: Record<string, unknown>; headers: Record<string, unknown> };
 
   constructor(userId: string) {
-    this.handshake = { auth: { userId }, query: {} };
+    const token = jwt.sign({ sub: userId }, 'test-jwt-secret');
+    this.handshake = { auth: { userId, token }, query: {}, headers: {} };
   }
 
   join() {
+    return;
+  }
+
+  disconnect() {
     return;
   }
 }

@@ -48,14 +48,14 @@ function StripeConnectBanner() {
   }
 
   if (isLoading) {
-    return <div className="h-12 rounded-xl bg-slate-800 animate-pulse" />;
+    return <div className="skeleton h-12 rounded-xl" />;
   }
 
   if (stripeReturn === 'success' && (!data || data.status !== 'connected')) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-blue-700/50 bg-blue-900/20 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-        <span className="text-sm text-blue-300">Verifying your bank connection…</span>
+        <span className="text-sm text-blue-700">Verifying your bank connection…</span>
       </div>
     );
   }
@@ -64,26 +64,26 @@ function StripeConnectBanner() {
 
   if (data.status === 'connected') {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-900/20 px-4 py-3">
-        <span className="text-emerald-400 text-lg">✓</span>
-        <span className="text-sm text-emerald-300 font-medium">Bank account connected</span>
+      <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <span className="text-[color:var(--escrow)] text-lg">✓</span>
+        <span className="text-sm text-emerald-700 font-medium">Bank account connected</span>
       </div>
     );
   }
 
   if (data.status === 'pending') {
     return (
-      <div className="rounded-xl border border-blue-700/50 bg-blue-900/20 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <p className="text-sm font-medium text-blue-300">Account under review</p>
-          <p className="text-xs text-blue-400/80 mt-1">
-            Stripe is reviewing your account. You'll be notified once approved — this usually takes 1–2 business days.
+          <p className="text-sm font-medium text-blue-700">Account under review</p>
+          <p className="text-xs text-blue-600 mt-1">
+            Stripe is reviewing your account. You&apos;ll be notified once approved — this usually takes 1–2 business days.
           </p>
         </div>
         {data.onboardingUrl && (
           <a
             href={data.onboardingUrl}
-            className="shrink-0 rounded-lg border border-blue-700 px-4 py-2 text-sm text-blue-300 hover:bg-blue-900/40 transition-colors text-center"
+            className="shrink-0 rounded-lg border border-blue-200 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors text-center"
           >
             Continue setup →
           </a>
@@ -94,22 +94,22 @@ function StripeConnectBanner() {
 
   // incomplete — show connect CTA
   return (
-    <div className="rounded-xl border border-amber-700/50 bg-amber-900/20 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1">
-        <p className="text-sm font-semibold text-amber-300">Connect your bank account to receive payments</p>
-        <p className="text-xs text-amber-400/80 mt-1">
+        <p className="text-sm font-semibold text-amber-800">Connect your bank account to receive payments</p>
+        <p className="text-xs text-[color:var(--accent)]/80 mt-1">
           Link a bank account via Stripe to withdraw your available balance.
         </p>
       </div>
       <button
         onClick={() => initOnboard.mutate()}
         disabled={initOnboard.isPending}
-        className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="shrink-0 rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {initOnboard.isPending ? 'Connecting…' : 'Connect your bank account'}
       </button>
       {initOnboard.isError && (
-        <p className="text-xs text-rose-400 sm:col-span-2">{(initOnboard.error as Error).message}</p>
+        <p className="text-xs text-red-600 sm:col-span-2">{(initOnboard.error as Error).message}</p>
       )}
     </div>
   );
@@ -120,9 +120,9 @@ function StripeConnectBanner() {
 function NewSellerHoldNotice({ completedCount }: { completedCount: number }) {
   if (completedCount >= 3) return null;
   return (
-    <div className="rounded-xl border border-blue-800/50 bg-blue-900/10 px-4 py-4 space-y-1">
-      <p className="text-sm font-semibold text-blue-300">14-day hold on new payouts</p>
-      <p className="text-xs text-slate-400">
+    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 space-y-1">
+      <p className="text-sm font-semibold text-blue-700">14-day hold on new payouts</p>
+      <p className="text-xs text-[color:var(--ink-3)]">
         As a new seller, your first payouts are held for 14 days to protect buyers. This hold is lifted after
         you complete 3 payouts — you have {completedCount} so far.
       </p>
@@ -161,25 +161,25 @@ function RequestPayoutModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 space-y-5">
+      <div className="w-full max-w-sm rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] p-6 space-y-5 fade-up">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Request payout</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)] text-xl leading-none">×</button>
         </div>
 
         {isSuccess ? (
           <div className="space-y-4">
-            <p className="text-sm text-emerald-400">Payout request submitted! Funds will arrive within 2–3 business days.</p>
-            <button onClick={onClose} className="w-full rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-600 transition-colors">
+            <p className="text-sm text-[color:var(--escrow)]">Payout request submitted! Funds will arrive within 2–3 business days.</p>
+            <button onClick={onClose} className="w-full rounded-lg bg-[color:var(--ink)] text-white px-4 py-2 text-sm font-medium hover:bg-[oklch(0.30_0.012_50)] transition-colors">
               Close
             </button>
           </div>
         ) : (
           <>
             <div className="space-y-1">
-              <label className="text-xs text-slate-400 uppercase tracking-wider">Amount (USD)</label>
+              <label className="text-xs text-[color:var(--ink-3)] uppercase tracking-wider">Amount (USD)</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)]">$</span>
                 <input
                   type="number"
                   min={minimumCents / 100}
@@ -188,28 +188,28 @@ function RequestPayoutModal({
                   value={amountStr}
                   onChange={(e) => setAmountStr(e.target.value)}
                   placeholder={(availableCents / 100).toFixed(2)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2 text-sm text-white placeholder-slate-600 focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] pl-7 pr-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[color:var(--ink-3)]">
                 Available: {fmt(availableCents, currency)} · Minimum: {fmt(minimumCents, currency)}
               </p>
-              {tooLow && <p className="text-xs text-rose-400">Amount is below the minimum payout.</p>}
-              {tooHigh && <p className="text-xs text-rose-400">Amount exceeds your available balance.</p>}
+              {tooLow && <p className="text-xs text-red-600">Amount is below the minimum payout.</p>}
+              {tooHigh && <p className="text-xs text-red-600">Amount exceeds your available balance.</p>}
             </div>
 
             {error && (
-              <p className="text-xs text-rose-400">{(error as Error).message}</p>
+              <p className="text-xs text-red-600">{(error as Error).message}</p>
             )}
 
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 transition-colors">
+              <button onClick={onClose} className="flex-1 rounded-lg border border-[color:var(--line-2)] px-4 py-2 text-sm text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] transition-colors">
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={invalid || isPending}
-                className="flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isPending ? 'Requesting…' : 'Request payout'}
               </button>
@@ -229,12 +229,12 @@ function PayoutBalanceCard() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 animate-pulse space-y-4">
-        <div className="h-3 w-32 rounded bg-slate-700" />
-        <div className="h-10 w-48 rounded bg-slate-700" />
+      <div className="rounded-xl card p-6 space-y-4">
+        <div className="h-3 w-32 skeleton" />
+        <div className="h-10 w-48 skeleton" />
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-12 rounded bg-slate-700/60" />
-          <div className="h-12 rounded bg-slate-700/60" />
+          <div className="h-12 skeleton" />
+          <div className="h-12 skeleton" />
         </div>
       </div>
     );
@@ -242,9 +242,9 @@ function PayoutBalanceCard() {
 
   if (isError || !data) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 space-y-2">
-        <p className="text-sm text-rose-400">Failed to load balance.</p>
-        <button onClick={() => refetch()} className="text-xs text-amber-400 hover:underline">Retry</button>
+      <div className="rounded-xl card p-6 space-y-2">
+        <p className="text-sm text-red-600">Failed to load balance.</p>
+        <button onClick={() => refetch()} className="text-xs text-[color:var(--accent)] hover:underline">Retry</button>
       </div>
     );
   }
@@ -253,30 +253,30 @@ function PayoutBalanceCard() {
 
   return (
     <>
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 space-y-5">
+      <div className="rounded-xl card p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wider text-slate-500">Available Balance</p>
-            <p className="text-4xl font-bold text-emerald-400">{fmt(data.availableCents, data.currency)}</p>
+            <p className="text-xs uppercase tracking-wider text-[color:var(--ink-3)]">Available Balance</p>
+            <p className="text-4xl font-bold text-[color:var(--escrow)]">{fmt(data.availableCents, data.currency)}</p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             disabled={!canRequest}
-            className="self-start rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="self-start rounded-lg bg-[color:var(--accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title={!canRequest ? `Minimum payout is ${fmt(data.minimumPayoutCents, data.currency)}` : undefined}
           >
             Request Payout
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[color:var(--line)]">
           <div className="space-y-0.5">
-            <p className="text-xs text-slate-500">Total paid to date</p>
-            <p className="text-base font-semibold text-slate-200">{fmt(data.totalPaidCents, data.currency)}</p>
+            <p className="text-xs text-[color:var(--ink-3)]">Total paid to date</p>
+            <p className="text-base font-semibold text-[color:var(--ink-2)]">{fmt(data.totalPaidCents, data.currency)}</p>
           </div>
           <div className="space-y-0.5">
-            <p className="text-xs text-slate-500">Next scheduled payout</p>
-            <p className="text-base font-semibold text-slate-200">
+            <p className="text-xs text-[color:var(--ink-3)]">Next scheduled payout</p>
+            <p className="text-base font-semibold text-[color:var(--ink-2)]">
               {data.nextPayoutDate ? fmtDate(data.nextPayoutDate) : '—'}
             </p>
           </div>
@@ -298,10 +298,10 @@ function PayoutBalanceCard() {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 const statusStyles: Record<string, string> = {
-  pending: 'bg-amber-900/40 text-amber-300 border border-amber-700/50',
-  processing: 'bg-blue-900/40 text-blue-300 border border-blue-700/50',
-  paid: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50',
-  failed: 'bg-rose-900/40 text-rose-300 border border-rose-700/50',
+  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  processing: 'bg-blue-50 text-blue-700 border border-blue-200',
+  paid: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  failed: 'bg-red-50 text-red-700 border border-red-200',
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -325,7 +325,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="ml-1 text-slate-500 hover:text-slate-300 transition-colors text-xs"
+      className="ml-1 text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)] transition-colors text-xs"
       title="Copy transfer ID"
     >
       {copied ? '✓' : '⎘'}
@@ -341,10 +341,10 @@ function PayoutHistoryTable() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3 animate-pulse">
-        <div className="h-4 w-32 rounded bg-slate-700" />
+      <div className="rounded-xl card p-5 space-y-3">
+        <div className="h-4 w-32 skeleton" />
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-10 rounded bg-slate-800" />
+          <div key={i} className="h-10 skeleton" />
         ))}
       </div>
     );
@@ -352,9 +352,9 @@ function PayoutHistoryTable() {
 
   if (isError) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-2">
-        <p className="text-sm text-rose-400">Failed to load payout history.</p>
-        <button onClick={() => refetch()} className="text-xs text-amber-400 hover:underline">Retry</button>
+      <div className="rounded-xl card p-5 space-y-2">
+        <p className="text-sm text-red-600">Failed to load payout history.</p>
+        <button onClick={() => refetch()} className="text-xs text-[color:var(--accent)] hover:underline">Retry</button>
       </div>
     );
   }
@@ -365,13 +365,13 @@ function PayoutHistoryTable() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-800">
+    <div className="rounded-xl card overflow-hidden">
+      <div className="px-5 py-4 border-b border-[color:var(--line)]">
         <h3 className="font-semibold">Payout history</h3>
       </div>
 
       {payouts.length === 0 ? (
-        <div className="px-5 py-10 text-center text-sm text-slate-500">
+        <div className="px-5 py-10 text-center text-sm text-[color:var(--ink-3)]">
           No payouts yet — complete bank onboarding to get started.
         </div>
       ) : (
@@ -380,7 +380,7 @@ function PayoutHistoryTable() {
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-xs text-slate-500 uppercase tracking-wider">
+                <tr className="border-b border-[color:var(--line)] text-xs text-[color:var(--ink-3)] uppercase tracking-wider">
                   <th className="px-5 py-3 text-left font-medium">Date</th>
                   <th className="px-5 py-3 text-left font-medium">Amount</th>
                   <th className="px-5 py-3 text-left font-medium">Status</th>
@@ -388,25 +388,25 @@ function PayoutHistoryTable() {
                   <th className="px-5 py-3 text-left font-medium">Notes</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-[color:var(--line)]">
                 {payouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-5 py-3 text-slate-300 whitespace-nowrap">{fmtDate(p.createdAt)}</td>
-                    <td className="px-5 py-3 font-medium text-slate-200 whitespace-nowrap">
+                  <tr key={p.id} className="hover:bg-[color:var(--surface-2)] transition-colors">
+                    <td className="px-5 py-3 text-[color:var(--ink-2)] whitespace-nowrap">{fmtDate(p.createdAt)}</td>
+                    <td className="px-5 py-3 font-medium text-[color:var(--ink-2)] whitespace-nowrap">
                       {fmt(p.amountCents, p.currency)}
                     </td>
                     <td className="px-5 py-3"><StatusBadge status={p.status} /></td>
-                    <td className="px-5 py-3 text-slate-400 font-mono text-xs whitespace-nowrap">
+                    <td className="px-5 py-3 text-[color:var(--ink-3)] font-mono text-xs whitespace-nowrap">
                       {p.transferId ? (
                         <>
                           {p.transferId.slice(0, 16)}…
                           <CopyButton text={p.transferId} />
                         </>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-[color:var(--ink-3)]">—</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-slate-500 text-xs max-w-[200px] truncate">
+                    <td className="px-5 py-3 text-[color:var(--ink-3)] text-xs max-w-[200px] truncate">
                       {p.notes ?? '—'}
                     </td>
                   </tr>
@@ -416,43 +416,43 @@ function PayoutHistoryTable() {
           </div>
 
           {/* Mobile cards */}
-          <div className="sm:hidden divide-y divide-slate-800/60">
+          <div className="sm:hidden divide-y divide-[color:var(--line)]">
             {payouts.map((p) => (
               <div key={p.id} className="px-4 py-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">{fmt(p.amountCents, p.currency)}</span>
+                  <span className="font-semibold text-[color:var(--ink-2)]">{fmt(p.amountCents, p.currency)}</span>
                   <StatusBadge status={p.status} />
                 </div>
-                <p className="text-xs text-slate-500">{fmtDate(p.createdAt)}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">{fmtDate(p.createdAt)}</p>
                 {p.transferId && (
-                  <p className="text-xs text-slate-400 font-mono">
+                  <p className="text-xs text-[color:var(--ink-3)] font-mono">
                     {p.transferId.slice(0, 20)}…
                     <CopyButton text={p.transferId} />
                   </p>
                 )}
-                {p.notes && <p className="text-xs text-slate-500">{p.notes}</p>}
+                {p.notes && <p className="text-xs text-[color:var(--ink-3)]">{p.notes}</p>}
               </div>
             ))}
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800">
-              <p className="text-xs text-slate-500">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[color:var(--line)]">
+              <p className="text-xs text-[color:var(--ink-3)]">
                 Page {page} of {totalPages} · {total} total
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-lg border border-[color:var(--line-2)] px-3 py-1.5 text-xs text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   ← Prev
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-lg border border-[color:var(--line-2)] px-3 py-1.5 text-xs text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Next →
                 </button>

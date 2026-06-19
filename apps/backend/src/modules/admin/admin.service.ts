@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma, AccountStatus, UserRole } from '@prisma/client';
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -181,6 +182,9 @@ export class AdminService {
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      include: {
+        seller: { select: { id: true, email: true, name: true } },
+      },
     });
 
     return listings.map((listing) => ({
@@ -192,19 +196,45 @@ export class AdminService {
       moderationNotes: listing.moderationNotes ?? null,
       createdAt: listing.createdAt.toISOString(),
       updatedAt: listing.updatedAt.toISOString(),
+      seller: listing.seller
+        ? { id: listing.seller.id, email: listing.seller.email, name: listing.seller.name }
+        : undefined,
     }));
   }
 
-  async listUsers(): Promise<AdminUserDetail[]> {
+  async listUsers(
+    params: { search?: string; status?: string; role?: string; page?: number; limit?: number } = {},
+  ): Promise<AdminUserDetail[]> {
+    const page = Math.max(1, Math.trunc(params.page ?? 1));
+    const limit = Math.min(200, Math.max(1, Math.trunc(params.limit ?? 50)));
+
+    const where: Prisma.UserWhereInput = { deletedAt: null };
+
+    if (params.status && (Object.values(AccountStatus) as string[]).includes(params.status)) {
+      where.accountStatus = params.status as AccountStatus;
+    }
+    if (params.role && (Object.values(UserRole) as string[]).includes(params.role)) {
+      where.role = params.role as UserRole;
+    }
+    if (params.search?.trim()) {
+      const term = params.search.trim();
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
     const users = await this.prisma.user.findMany({
-      where: { deletedAt: null },
+      where,
       orderBy: { createdAt: 'desc' },
-      take: 200,
+      skip: (page - 1) * limit,
+      take: limit,
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        accountStatus: true,
         kycStatus: true,
         createdAt: true,
         _count: { select: { listings: true } },
@@ -216,6 +246,7 @@ export class AdminService {
       name: u.name,
       email: u.email,
       role: u.role,
+      accountStatus: u.accountStatus,
       kycStatus: u.kycStatus,
       listingsCount: u._count.listings,
       createdAt: u.createdAt.toISOString(),

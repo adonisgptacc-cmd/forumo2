@@ -16,10 +16,10 @@ export function FeaturedListings() {
         <h2 className="text-2xl font-bold mb-4">Discover Forumo Africa</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="space-y-2 animate-pulse">
-              <div className="aspect-square bg-slate-200 rounded-sm" />
-              <div className="h-4 bg-slate-200 rounded w-3/4" />
-              <div className="h-4 bg-slate-200 rounded w-1/2" />
+            <div key={i} className="space-y-2">
+              <div className="skeleton aspect-square" />
+              <div className="skeleton h-4 w-3/4" />
+              <div className="skeleton h-4 w-1/2" />
             </div>
           ))}
         </div>
@@ -49,7 +49,7 @@ export function FeaturedListings() {
           View all listings
         </Link>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="stagger grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {data.data.slice(0, 12).map((listing) => (
           <Link key={listing.id} href={`/listings/${listing.id}`} className="group space-y-2">
             <div className="relative aspect-square bg-slate-100 rounded-sm overflow-hidden">

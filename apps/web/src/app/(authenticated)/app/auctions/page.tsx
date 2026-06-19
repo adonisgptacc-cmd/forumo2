@@ -20,9 +20,9 @@ function timeLeft(endAt: string) {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  ACTIVE:    'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  ENDED:     'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  CANCELLED: 'bg-red-500/15 text-red-400 border-red-500/30',
+  ACTIVE:    'bg-emerald-50 text-emerald-700 border-emerald-200',
+  ENDED:     'bg-[color:var(--surface-2)] text-[color:var(--ink-3)] border-[color:var(--line)]',
+  CANCELLED: 'bg-red-50 text-red-700 border-red-200',
 };
 
 function AuctionRow({ auction }: { auction: Auction }) {
@@ -30,13 +30,13 @@ function AuctionRow({ auction }: { auction: Auction }) {
   const ended = new Date(auction.endAt).getTime() < Date.now();
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+    <div className="card flex items-center gap-4 p-4">
       {/* Thumb */}
-      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-800">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[color:var(--surface-2)]">
         {auction.listing?.images?.[0]?.url ? (
           <Image src={auction.listing.images[0].url} alt={auction.listing.title ?? ''} fill className="object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xl text-slate-600">🔨</div>
+          <div className="flex h-full w-full items-center justify-center text-xl text-[color:var(--ink-3)]">🔨</div>
         )}
       </div>
 
@@ -48,12 +48,12 @@ function AuctionRow({ auction }: { auction: Auction }) {
             {auction.status}
           </span>
         </div>
-        <p className="text-sm text-slate-400">
-          Current bid: <span className="font-semibold text-white">{fmt(currentPrice)}</span>
-          <span className="ml-3 text-slate-500">·</span>
-          <span className="ml-2 text-slate-500">{ended ? 'Ended' : timeLeft(auction.endAt)}</span>
+        <p className="text-sm text-[color:var(--ink-3)]">
+          Current bid: <span className="font-semibold text-[color:var(--ink)]">{fmt(currentPrice)}</span>
+          <span className="ml-3 text-[color:var(--ink-3)]">·</span>
+          <span className="ml-2 text-[color:var(--ink-3)]">{ended ? 'Ended' : timeLeft(auction.endAt)}</span>
           {(auction as any).bidCount !== undefined && (
-            <span className="ml-3 text-slate-500">{(auction as any).bidCount} bid{(auction as any).bidCount !== 1 ? 's' : ''}</span>
+            <span className="ml-3 text-[color:var(--ink-3)]">{(auction as any).bidCount} bid{(auction as any).bidCount !== 1 ? 's' : ''}</span>
           )}
         </p>
       </div>
@@ -63,14 +63,14 @@ function AuctionRow({ auction }: { auction: Auction }) {
         {auction.status === 'ACTIVE' && (
           <Link
             href={`/auctions/${auction.id}` as any}
-            className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/20"
+            className="rounded-lg border border-[color:var(--accent)]/40 bg-[color:var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[color:var(--accent-2)] hover:brightness-[0.97]"
           >
             View live →
           </Link>
         )}
         <Link
           href={`/auctions/${auction.id}` as any}
-          className="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
+          className="rounded-lg px-3 py-1.5 text-xs text-[color:var(--ink-3)] hover:bg-[color:var(--surface-2)]"
         >
           Details
         </Link>
@@ -94,11 +94,11 @@ export default function SellerAuctionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Auctions</h1>
-          <p className="text-sm text-slate-400 mt-1">Manage and monitor your live auctions</p>
+          <p className="text-sm text-[color:var(--ink-3)] mt-1">Manage and monitor your live auctions</p>
         </div>
         <Link
           href={'/app/auctions/new' as any}
-          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-amber-400"
+          className="btn btn-primary"
         >
           + New Auction
         </Link>
@@ -107,15 +107,15 @@ export default function SellerAuctionsPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-xl bg-slate-800 animate-pulse" />
+            <div key={i} className="skeleton h-20 rounded-xl" />
           ))}
         </div>
       ) : auctions.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-700 p-12 text-center">
-          <p className="text-slate-400 mb-4">You have no auctions yet.</p>
+        <div className="rounded-2xl border border-dashed border-[color:var(--line-2)] p-12 text-center">
+          <p className="text-[color:var(--ink-3)] mb-4">You have no auctions yet.</p>
           <Link
             href={'/app/auctions/new' as any}
-            className="inline-block rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+            className="btn btn-primary inline-flex"
           >
             Create your first auction
           </Link>

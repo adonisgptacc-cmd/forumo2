@@ -6,8 +6,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Seller Dashboard</h2>
-        <p className="text-sm text-slate-400">Your sales performance at a glance</p>
+        <p className="eyebrow">Seller</p>
+        <h2 className="h2">Seller Dashboard</h2>
+        <p className="text-sm muted mt-0.5">Your sales performance at a glance</p>
       </div>
       <SellerDashboard />
     </div>

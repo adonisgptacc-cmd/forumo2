@@ -3,10 +3,11 @@ import { ErrorBoundary } from '../../../../../components/ErrorBoundary';
 
 export const metadata = { title: 'Dispute — Forumo' };
 
-export default function DisputeDetailPage({ params }: { params: { id: string } }) {
+export default async function DisputeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <ErrorBoundary>
-      <DisputeDetail orderId={params.id} />
+      <DisputeDetail orderId={id} />
     </ErrorBoundary>
   );
 }

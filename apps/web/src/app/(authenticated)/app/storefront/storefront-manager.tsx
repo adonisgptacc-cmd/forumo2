@@ -35,13 +35,13 @@ export function StorefrontManager() {
   }, [storefront]);
 
   if (isLoading) {
-    return <div className="h-40 rounded-xl bg-slate-800 animate-pulse" />;
+    return <div className="skeleton h-40 rounded-xl" />;
   }
 
   return (
     <div className="space-y-8">
       {/* Storefront section */}
-      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
+      <section className="card card-pad space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">
             {storefront ? 'My Storefront' : 'Create Storefront'}
@@ -50,14 +50,14 @@ export function StorefrontManager() {
             <div className="flex gap-2">
               <Link
                 href={`/shops/${storefront.slug}` as any}
-                className="text-xs text-amber-400 hover:underline"
+                className="text-xs text-[color:var(--accent)] hover:underline"
                 target="_blank"
               >
                 View public page →
               </Link>
               <button
                 onClick={() => setSfEditing(true)}
-                className="text-xs text-slate-400 hover:text-white"
+                className="text-xs muted hover:text-[color:var(--ink)]"
               >
                 Edit
               </button>
@@ -68,12 +68,12 @@ export function StorefrontManager() {
         {storefront && !sfEditing ? (
           <div className="space-y-1">
             <p className="font-medium">{storefront.name}</p>
-            <p className="text-xs text-slate-500">@{storefront.slug}</p>
-            {storefront.description && <p className="text-sm text-slate-400">{storefront.description}</p>}
+            <p className="text-xs text-[color:var(--ink-3)]">@{storefront.slug}</p>
+            {storefront.description && <p className="text-sm muted">{storefront.description}</p>}
             <button
               onClick={() => sfMutations.remove.mutate()}
               disabled={sfMutations.remove.isPending}
-              className="mt-2 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+              className="mt-2 text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
             >
               {sfMutations.remove.isPending ? 'Deleting…' : 'Delete storefront'}
             </button>
@@ -85,24 +85,24 @@ export function StorefrontManager() {
                 placeholder="Slug (e.g. my-shop)"
                 value={sfSlug}
                 onChange={(e) => setSfSlug(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
               />
             )}
             <input
               placeholder="Store name"
               value={sfName}
               onChange={(e) => setSfName(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
             <textarea
               placeholder="Description (optional)"
               value={sfDesc}
               onChange={(e) => setSfDesc(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
             {(sfMutations.create.isError || sfMutations.update.isError) && (
-              <p className="text-xs text-red-400">
+              <p className="text-xs text-red-600">
                 {((sfMutations.create.error ?? sfMutations.update.error) as Error)?.message}
               </p>
             )}
@@ -118,12 +118,12 @@ export function StorefrontManager() {
                   }
                 }}
                 disabled={sfMutations.create.isPending || sfMutations.update.isPending}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                className="btn btn-primary btn-sm"
               >
                 {storefront ? 'Save changes' : 'Create storefront'}
               </button>
               {sfEditing && (
-                <button onClick={() => setSfEditing(false)} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">
+                <button onClick={() => setSfEditing(false)} className="btn btn-ghost btn-sm">
                   Cancel
                 </button>
               )}
@@ -134,25 +134,25 @@ export function StorefrontManager() {
 
       {/* Collections section */}
       {storefront && (
-        <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
+        <section className="card card-pad space-y-4">
           <h3 className="font-semibold">Collections</h3>
 
           {/* New collection form */}
-          <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 space-y-3">
-            <p className="text-xs text-slate-400 font-medium">{editingCol ? 'Edit collection' : 'New collection'}</p>
+          <div className="rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] p-4 space-y-3">
+            <p className="text-xs muted font-medium">{editingCol ? 'Edit collection' : 'New collection'}</p>
             <div className="grid grid-cols-2 gap-2">
               <input
                 placeholder="Name"
                 value={colName}
                 onChange={(e) => setColName(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                className="rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
               />
               {!editingCol && (
                 <input
                   placeholder="Slug"
                   value={colSlug}
                   onChange={(e) => setColSlug(e.target.value)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                  className="rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
               )}
             </div>
@@ -160,7 +160,7 @@ export function StorefrontManager() {
               placeholder="Description (optional)"
               value={colDesc}
               onChange={(e) => setColDesc(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
             <div className="flex gap-2">
               <button
@@ -174,14 +174,14 @@ export function StorefrontManager() {
                   setColName(''); setColSlug(''); setColDesc(''); setEditingCol(null);
                 }}
                 disabled={colMutations.create.isPending || colMutations.update.isPending}
-                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-50"
+                className="btn btn-primary btn-sm"
               >
                 {editingCol ? 'Save' : 'Create'}
               </button>
               {editingCol && (
                 <button
                   onClick={() => { setColName(''); setColSlug(''); setColDesc(''); setEditingCol(null); }}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                  className="btn btn-ghost btn-sm"
                 >
                   Cancel
                 </button>
@@ -191,27 +191,27 @@ export function StorefrontManager() {
 
           {/* Collection list */}
           {collections.length === 0 ? (
-            <p className="text-sm text-slate-500">No collections yet.</p>
+            <p className="text-sm text-[color:var(--ink-3)]">No collections yet.</p>
           ) : (
             <ul className="space-y-2">
               {collections.map((col) => (
-                <li key={col.id} className="flex items-center justify-between rounded-lg border border-slate-800 px-4 py-3">
+                <li key={col.id} className="flex items-center justify-between rounded-lg border border-[color:var(--line)] px-4 py-3">
                   <div>
                     <p className="text-sm font-medium">{col.name}</p>
-                    <p className="text-xs text-slate-500">{col.slug} · {col.productIds.length} products</p>
-                    {col.description && <p className="text-xs text-slate-500">{col.description}</p>}
+                    <p className="text-xs text-[color:var(--ink-3)]">{col.slug} · {col.productIds.length} products</p>
+                    {col.description && <p className="text-xs text-[color:var(--ink-3)]">{col.description}</p>}
                   </div>
                   <div className="flex gap-1">
                     <button
                       onClick={() => { setEditingCol(col.id); setColName(col.name); setColDesc(col.description ?? ''); }}
-                      className="rounded px-2 py-1 text-xs text-amber-400 hover:bg-amber-400/10"
+                      className="rounded px-2 py-1 text-xs text-[color:var(--accent)] hover:bg-amber-50"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => colMutations.remove.mutate(col.id)}
                       disabled={colMutations.remove.isPending}
-                      className="rounded px-2 py-1 text-xs text-red-400 hover:bg-red-400/10 disabled:opacity-50"
+                      className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       Delete
                     </button>

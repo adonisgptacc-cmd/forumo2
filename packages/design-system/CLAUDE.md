@@ -77,9 +77,37 @@ If you add a new component that uses Tailwind classes, no extra config is needed
    import { MyComponent } from '@forumo/design-system';
    ```
 
+## Storybook
+
+Storybook 8 is configured with the Vite builder (port **6006**). Run from the monorepo root or from this package:
+
+```bash
+# from repo root
+pnpm --filter @forumo/design-system storybook
+
+# or from this directory
+pnpm storybook
+```
+
+Stories live alongside each component in `src/`:
+
+| Story file | Component | Covers |
+|---|---|---|
+| `src/button.stories.tsx` | Button | Default, all 4 variants, 3 sizes, disabled, loading, interactive |
+| `src/card.stories.tsx` | Card | Default, with heading + actions, custom padding, nested |
+| `src/data-table.stories.tsx` | DataTable | With data, empty, custom empty state, single row |
+| `src/filter-bar.stories.tsx` | FilterBar | Default, title, chips, actions, interactive toggle, with children, full |
+
+Storybook config lives in `.storybook/`:
+- `main.ts` — Vite builder + `@tailwindcss/vite` plugin
+- `preview.ts` — global backgrounds (light/dark), control matchers
+- `tailwind.css` — `@import "tailwindcss"` entry point
+
+To add stories for a new component, create `src/my-component.stories.tsx` following the CSF3 pattern in the existing story files.
+
 ## Sharp edges
 
-- There is no Storybook or visual test suite. Changes to components can silently break both `apps/web` and `apps/admin` — manually check both after edits.
+- `DataTable` and `FilterBar` use a dark slate colour scheme — switch to the **dark** background in the Storybook toolbar to see them correctly.
 - `DataTable` and `FilterBar` are generic but their prop APIs are not documented in the code. Read the source before using.
 - The package has no build step. It ships raw TypeScript source. This means it cannot be published to npm as-is — it only works as a workspace dependency.
 - Do not add app-specific logic (auth checks, API calls, routing) into this package. It must remain a pure UI library.

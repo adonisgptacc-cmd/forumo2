@@ -50,6 +50,16 @@ import { ThrottlerStorageRedis } from "../common/services/throttler-redis.storag
         const authWindowSec = Math.ceil(
           Number(config.get<string>('AUTH_RATE_WINDOW_MS') ?? 60_000) / 1000,
         );
+        const loginLimit = Number(config.get<string>('LOGIN_ATTEMPT_LIMIT') ?? 5);
+        const loginWindowSec = Math.ceil(
+          Number(config.get<string>('LOGIN_ATTEMPT_WINDOW_MS') ?? 900_000) / 1000,
+        );
+        const otpLimit = Number(config.get<string>('OTP_DEVICE_RATE_LIMIT') ?? 5);
+        const otpWindowSec = Number(config.get<string>('OTP_DEVICE_RATE_WINDOW') ?? 300);
+        const resendLimit = Number(config.get<string>('RESEND_RATE_LIMIT') ?? 3);
+        const resendWindowSec = Math.ceil(
+          Number(config.get<string>('RESEND_RATE_WINDOW_MS') ?? 3_600_000) / 1000,
+        );
         const paymentLimit = Number(config.get<string>('PAYMENT_RATE_LIMIT') ?? 30);
         const paymentWindowSec = Math.ceil(
           Number(config.get<string>('PAYMENT_RATE_WINDOW_MS') ?? 60_000) / 1000,
@@ -58,6 +68,10 @@ import { ThrottlerStorageRedis } from "../common/services/throttler-redis.storag
         return {
           throttlers: [
             { name: 'auth', ttl: authWindowSec, limit: authLimit },
+            { name: 'auth-login', ttl: loginWindowSec, limit: loginLimit },
+            { name: 'auth-otp', ttl: otpWindowSec, limit: otpLimit },
+            { name: 'auth-resend', ttl: resendWindowSec, limit: resendLimit },
+            { name: 'auth-password-reset', ttl: loginWindowSec, limit: loginLimit },
             { name: 'payments', ttl: paymentWindowSec, limit: paymentLimit },
             { name: 'notifications-list', ttl: 60, limit: 60 },
             { name: 'notifications-mark', ttl: 60, limit: 30 },

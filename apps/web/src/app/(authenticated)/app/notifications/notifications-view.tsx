@@ -65,20 +65,20 @@ function NotificationItem({ notification, onRead }: { notification: SafeNotifica
     <li
       className={`flex items-start gap-4 p-4 rounded-xl border transition-colors cursor-pointer ${
         isUnread
-          ? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
-          : 'border-slate-800 bg-slate-900/40 hover:bg-slate-900/70'
+          ? 'border-[color:var(--accent)]/40 bg-[color:var(--accent-bg)] hover:brightness-[0.98]'
+          : 'border-[color:var(--line)] bg-[color:var(--surface)] hover:bg-[color:var(--surface-2)]'
       }`}
       onClick={() => isUnread && onRead(notification.id)}
     >
       <span className="text-2xl flex-shrink-0 mt-0.5">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className={`text-sm font-medium ${isUnread ? 'text-white' : 'text-slate-300'}`}>{label}</p>
-          <span className="text-xs text-slate-500 flex-shrink-0">{timeAgo(notification.createdAt)}</span>
+          <p className={`text-sm font-medium ${isUnread ? 'text-[color:var(--ink)]' : 'subtle'}`}>{label}</p>
+          <span className="text-xs muted flex-shrink-0">{timeAgo(notification.createdAt)}</span>
         </div>
-        {body && <p className="text-xs text-slate-400 mt-0.5 truncate">{body}</p>}
+        {body && <p className="text-xs muted mt-0.5 truncate">{body}</p>}
         {isUnread && (
-          <span className="inline-block mt-1.5 w-2 h-2 rounded-full bg-amber-400" />
+          <span className="inline-block mt-1.5 w-2 h-2 rounded-full bg-[color:var(--accent)]" />
         )}
       </div>
     </li>
@@ -97,7 +97,7 @@ export function NotificationsView() {
     return (
       <div className="space-y-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-16 rounded-xl bg-slate-800 animate-pulse" />
+          <div key={i} className="skeleton h-16 rounded-xl" />
         ))}
       </div>
     );
@@ -105,10 +105,10 @@ export function NotificationsView() {
 
   if (!notifications || notifications.length === 0) {
     return (
-      <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl">
+      <div className="py-20 text-center border border-dashed border-[color:var(--line-2)] rounded-2xl">
         <p className="text-4xl mb-3">🔔</p>
-        <p className="text-slate-400 font-medium">No notifications yet</p>
-        <p className="text-sm text-slate-500 mt-1">We'll notify you about orders, offers, messages and more.</p>
+        <p className="subtle font-medium">No notifications yet</p>
+        <p className="text-sm muted mt-1">We&apos;ll notify you about orders, offers, messages and more.</p>
       </div>
     );
   }
@@ -117,9 +117,9 @@ export function NotificationsView() {
     <div className="space-y-4">
       {/* Header actions */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm muted">
           {unreadCount > 0 ? (
-            <span className="font-medium text-amber-400">{unreadCount} unread</span>
+            <span className="font-medium text-[color:var(--accent)]">{unreadCount} unread</span>
           ) : (
             'All caught up'
           )}
@@ -129,7 +129,7 @@ export function NotificationsView() {
           <button
             onClick={() => markAllRead.mutate()}
             disabled={markAllRead.isPending}
-            className="text-xs text-amber-400 hover:text-amber-300 disabled:opacity-50 transition-colors"
+            className="text-xs text-[color:var(--accent)] hover:text-[color:var(--accent-2)] disabled:opacity-50 transition-colors"
           >
             {markAllRead.isPending ? 'Marking…' : 'Mark all as read'}
           </button>

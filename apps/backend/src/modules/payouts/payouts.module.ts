@@ -11,6 +11,6 @@ import { PayoutsService } from './payouts.service';
   imports: [HttpModule, PrismaModule, NotificationsModule],
   controllers: [PayoutsController],
   providers: [PayoutsService, PaystackService],
-  exports: [PayoutsService],
+  exports: [PayoutsService, PaystackService],
 })
 export class PayoutsModule {}

@@ -25,9 +25,12 @@ const LISTING_ID = 'listing-1';
 const CANCELLED_ORDER_NUMBER = 'ORD-SEEDED-CANCELLED';
 
 class MockGuard implements CanActivate {
+  static currentId = BUYER_ID;
+  static currentRole = 'BUYER';
+
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
-    req.user = { id: BUYER_ID, role: 'BUYER' };
+    req.user = { id: MockGuard.currentId, role: MockGuard.currentRole };
     return true;
   }
 }
@@ -37,14 +40,18 @@ describe('OrdersModule flows', () => {
   let prismaMock: InMemoryPrismaService;
 
   beforeEach(async () => {
+    MockGuard.currentId = BUYER_ID;
+    MockGuard.currentRole = 'BUYER';
     process.env.JWT_SECRET = 'test-jwt-secret';
     process.env.GOOGLE_CLIENT_ID = 'test-google-id';
     process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
-    
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.PAYSTACK_SECRET_KEY;
+
     prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
+        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
         OrdersModule,
       ],
     })
@@ -101,10 +108,14 @@ describe('OrdersModule flows', () => {
     expect(paidRes.body.paymentStatus).toBe(PaymentStatus.CAPTURED);
     expect(paidRes.body.escrow.status).toBe(EscrowStatus.HOLDING);
 
+    MockGuard.currentId = SELLER_ID;
+    MockGuard.currentRole = 'SELLER';
     await request(app.getHttpServer())
       .patch(`/orders/${orderId}/status`)
       .send({ status: OrderStatus.FULFILLED })
       .expect(200);
+    MockGuard.currentId = BUYER_ID;
+    MockGuard.currentRole = 'BUYER';
 
     const releaseRes = await request(app.getHttpServer())
       .patch(`/orders/${orderId}/status`)
@@ -205,10 +216,14 @@ describe('OrdersModule flows', () => {
       .send({ status: OrderStatus.PAID })
       .expect(200);
 
+    MockGuard.currentId = SELLER_ID;
+    MockGuard.currentRole = 'ADMIN';
     const refundRes = await request(app.getHttpServer())
       .post(`/orders/${orderId}/refund`)
       .send({ providerStatus: 'canceled', actorId: SELLER_ID })
       .expect(200);
+    MockGuard.currentId = BUYER_ID;
+    MockGuard.currentRole = 'BUYER';
 
     expect(refundRes.body.status).toBe(OrderStatus.REFUNDED);
     expect(refundRes.body.paymentStatus).toBe(PaymentStatus.REFUNDED);
@@ -665,6 +680,14 @@ class InMemoryPrismaService {
       this.auditLogStore.push(record);
       return record;
     },
+  };
+
+  listingCategoryAssignment = {
+    findFirst: async () => null,
+  };
+
+  feeSchedule = {
+    findFirst: async () => null,
   };
 
   webhookEvent = {

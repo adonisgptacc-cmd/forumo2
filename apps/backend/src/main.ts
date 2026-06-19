@@ -27,6 +27,14 @@ function validateEnv() {
 
 async function bootstrap() {
   validateEnv();
+
+  const telemetry = startTracing({
+    serviceName: process.env.OTEL_SERVICE_NAME ?? 'forumo-backend',
+    environment: process.env.NODE_ENV ?? 'development',
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    samplingRatio: process.env.NODE_ENV === 'production' ? 0.1 : 1,
+  });
+
   const logger = new TelemetryLogger();
   const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000')
     .split(',')
@@ -68,15 +76,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ZodValidationPipe());
 
-  // Skip telemetry initialization for now - it has version compatibility issues
-  // const otlpEndpoint = configService.get<string>('OTEL_EXPORTER_OTLP_ENDPOINT');
-  // const telemetry = startTracing({
-  //   serviceName: 'forumo-backend',
-  //   environment: configService.get<string>('NODE_ENV') ?? 'development',
-  //   endpoint: otlpEndpoint,
-  //   samplingRatio: (configService.get<string>('NODE_ENV') ?? 'development') === 'development' ? 1 : 0.1,
-  // });
-
   const config = new DocumentBuilder()
     .setTitle('Forumo API')
     .setDescription('MVP gateway for buyers, sellers, admins, and automations')
@@ -95,7 +94,7 @@ async function bootstrap() {
   console.log(`📚 API Docs available at http://localhost:${port}/docs`);
 
   const shutdown = async () => {
-    // await telemetry.shutdown().catch(() => undefined);
+    await telemetry.shutdown().catch(() => undefined);
     await app.close();
   };
 

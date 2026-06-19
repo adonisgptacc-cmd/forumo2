@@ -29,6 +29,7 @@ jobs:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         package: [backend, web, mobile, shared]
     services:
@@ -56,7 +57,22 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run test --filter=${{ matrix.package }}
+      - name: Run tests
+        run: |
+          if [ "${{ matrix.package }}" = "backend" ]; then
+            pnpm turbo run test:coverage --filter=backend
+          else
+            pnpm turbo run test --filter=${{ matrix.package }}
+          fi
+      - name: Upload coverage to Codecov
+        if: matrix.package == 'backend'
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/backend/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   e2e:
     name: E2E Tests
@@ -72,14 +88,14 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: docker-compose -f docker-compose.test.yml up -d
+      - run: docker compose -f docker-compose.test.yml up -d
       - run: pnpm test:e2e
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-artifacts
           path: playwright-report
-      - run: docker-compose -f docker-compose.test.yml down
+      - run: docker compose -f docker-compose.test.yml down
 
   build:
     name: Build Verification
@@ -95,14 +111,25 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - name: Build all packages
+        run: pnpm build
+      - name: Backend TypeScript type-check
+        run: pnpm --filter backend build
 
   security:
     name: Security & Dependency Scanning
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm audit --audit-level=high || true
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high || true
       - uses: aquasecurity/trivy-action@v0.24.0
         with:
           scan-type: 'fs'
@@ -119,3 +146,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: echo "Build preview images and deploy to ephemeral environment"
+
+  mobile-e2e:
+    name: Mobile E2E (iOS Simulator)
+    runs-on: macos-14
+    # Only run on main/develop — exclude staging pushes to manage runner costs
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    continue-on-error: true # TODO: set to false once mobile app reaches beta
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install detox-cli
+        run: npm install -g detox-cli
+
+      - name: Start Metro bundler
+        working-directory: apps/mobile
+        run: pnpm start &
+
+      - name: Build (Detox)
+        working-directory: apps/mobile
+        run: detox build --configuration ios.sim.debug
+
+      - name: Test (Detox)
+        working-directory: apps/mobile
+        run: detox test --configuration ios.sim.debug

@@ -27,6 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSCameraUsageDescription: 'Used to capture listing photos.',
       NSPhotoLibraryUsageDescription: 'Used to attach photos to listings.',
     },
+    associatedDomains: ['applinks:forumo.app', 'applinks:*.forumo.app'],
   },
   android: {
     package: 'app.forumo.mobile',
@@ -35,6 +36,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff',
     },
     permissions: ['CAMERA', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE'],
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          { scheme: 'forumo' },
+          { scheme: 'https', host: '*.forumo.app', pathPrefix: '/' },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   updates: {
     url: 'https://u.expo.dev/forumo-mobile',

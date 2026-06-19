@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../providers/AuthProvider';
 import { navigationRef } from '../navigation/AppNavigator';
+import { createApiClient } from '../api/client';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,18 +16,31 @@ Notifications.setNotificationHandler({
 
 export const usePushNotifications = () => {
   const { apiClient, accessToken } = useAuth();
+  const pushTokenRef = useRef<string | null>(null);
+  const prevAccessTokenRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!accessToken) return;
+    const prevAccessToken = prevAccessTokenRef.current;
+    prevAccessTokenRef.current = accessToken;
+
+    if (!accessToken) {
+      // Logged out — unregister push token using the just-expired access token.
+      // We capture prevAccessToken in a one-shot client because the auth provider
+      // has already cleared its ref by the time this effect runs.
+      if (prevAccessToken && pushTokenRef.current) {
+        const storedPushToken = pushTokenRef.current;
+        pushTokenRef.current = null;
+        createApiClient(() => prevAccessToken)
+          .notifications.unregisterDevice(storedPushToken)
+          .catch(() => {});
+      }
+      return;
+    }
 
     const register = async () => {
-      if (!Device.isDevice) {
-        return;
-      }
+      if (!Device.isDevice) return;
       const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        return;
-      }
+      if (status !== 'granted') return;
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
           name: 'Default',
@@ -35,6 +49,7 @@ export const usePushNotifications = () => {
       }
       const tokenResponse = await Notifications.getExpoPushTokenAsync();
       const token = tokenResponse.data;
+      pushTokenRef.current = token;
       await apiClient.notifications.registerExpoPushToken(token);
     };
 

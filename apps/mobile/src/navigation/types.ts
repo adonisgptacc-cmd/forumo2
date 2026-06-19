@@ -4,6 +4,7 @@ export type AuthStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   Register: undefined;
+  VerifyEmail: { token?: string };
   Main: undefined;
 };
 
@@ -33,4 +34,6 @@ export type MainStackParamList = {
   SellerDashboard: undefined;
   KYC: undefined;
   Storefront: { sellerId?: string; slug?: string };
+  CheckoutSuccess: undefined;
+  CheckoutCancel: undefined;
 };

@@ -44,48 +44,48 @@ export function SignupForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-6">
+    <form onSubmit={handleSubmit} className="space-y-4 card card-pad">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Full name</span>
-          <input className="input" value={form.name} onChange={(event) => updateField('name', event.target.value)} />
+          <span className="subtle">Full name</span>
+          <input className="input-forumo"value={form.name} onChange={(event) => updateField('name', event.target.value)} />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Phone</span>
-          <input className="input" value={form.phone} onChange={(event) => updateField('phone', event.target.value)} />
+          <span className="subtle">Phone</span>
+          <input className="input-forumo"value={form.phone} onChange={(event) => updateField('phone', event.target.value)} />
         </label>
       </div>
       <label className="space-y-1 text-sm">
-        <span className="text-slate-300">Email</span>
+        <span className="subtle">Email</span>
         <input
           type="email"
-          className="input"
+          className="input-forumo"
           value={form.email}
           onChange={(event) => updateField('email', event.target.value)}
           required
         />
       </label>
       <label className="space-y-1 text-sm">
-        <span className="text-slate-300">Password</span>
+        <span className="subtle">Password</span>
         <input
           type="password"
-          className="input"
+          className="input-forumo"
           value={form.password}
           onChange={(event) => updateField('password', event.target.value)}
           required
         />
       </label>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
         type="submit"
-        className="w-full rounded-md bg-emerald-400 px-4 py-2 font-semibold text-slate-900 hover:bg-emerald-300"
+        className="btn btn-block bg-emerald-600 text-white hover:bg-emerald-700"
         disabled={isSubmitting}
       >
         {isSubmitting ? 'Creating account…' : 'Create account'}
       </button>
       <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
-        <div className="relative flex justify-center text-xs"><span className="bg-slate-950/50 px-2 text-slate-500">or</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[color:var(--line)]" /></div>
+        <div className="relative flex justify-center text-xs"><span className="bg-[color:var(--surface)] px-2 muted">or</span></div>
       </div>
       <GoogleSignInButton />
     </form>

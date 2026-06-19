@@ -28,6 +28,9 @@ import { ReviewsScreen } from '../screens/ReviewsScreen';
 import { SellerDashboardScreen } from '../screens/SellerDashboardScreen';
 import { KYCScreen } from '../screens/KYCScreen';
 import { StorefrontScreen } from '../screens/StorefrontScreen';
+import { VerifyEmailScreen } from '../screens/VerifyEmailScreen';
+import { CheckoutSuccessScreen } from '../screens/CheckoutSuccessScreen';
+import { CheckoutCancelScreen } from '../screens/CheckoutCancelScreen';
 import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -37,6 +40,7 @@ const linking = {
   prefixes: ['forumo://', 'https://forumo.app'],
   config: {
     screens: {
+      VerifyEmail: 'verify-email',
       Main: {
         screens: {
           Tabs: {
@@ -48,14 +52,16 @@ const linking = {
               Profile: 'profile',
             },
           },
-          ListingDetail: 'listing/:listingId',
+          ListingDetail: 'listings/:listingId',
           AuctionDetail: 'auction/:auctionId',
-          OrderDetail: 'order/:orderId',
+          OrderDetail: 'orders/:orderId',
           Thread: 'messages/:threadId',
           Storefront: 'shop/:slug',
           Notifications: 'notifications',
           Wishlist: 'wishlist',
           Reviews: 'reviews/:sellerId',
+          CheckoutSuccess: 'checkout/success',
+          CheckoutCancel: 'checkout/cancel',
         },
       },
     },
@@ -225,6 +231,16 @@ const MainNavigator = () => (
       component={StorefrontScreen}
       options={{ title: 'Shop' }}
     />
+    <MainStack.Screen
+      name="CheckoutSuccess"
+      component={CheckoutSuccessScreen}
+      options={{ title: 'Order Confirmed', headerBackVisible: false }}
+    />
+    <MainStack.Screen
+      name="CheckoutCancel"
+      component={CheckoutCancelScreen}
+      options={{ title: 'Payment Cancelled' }}
+    />
   </MainStack.Navigator>
 );
 
@@ -241,6 +257,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         ) : null}
+        <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ title: 'Verify Email' }} />
         <Stack.Screen name="Main" component={MainNavigator} />
       </Stack.Navigator>
     </NavigationContainer>

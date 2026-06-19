@@ -1,6 +1,6 @@
 # Admin
 
-Separate Next.js 15 dashboard for Forumo internal staff. Runs on port 3001. Requires `ADMIN` or `MODERATOR` role — the main buyer/seller web app (`apps/web`) cannot access these pages. Currently under active development; most pages are stubs.
+Separate Next.js 15 dashboard for Forumo internal staff. Runs on port 3001. Requires `ADMIN` role (the backend `AdminController` is `@Roles('ADMIN')`) — the main buyer/seller web app (`apps/web`) cannot access these pages. NextAuth and a role-gated middleware are wired; six pages are implemented and the app typechecks clean.
 
 ## Tech stack
 
@@ -53,28 +53,29 @@ Only users with role `ADMIN` or `MODERATOR` should be able to access this app. T
 
 ## How it connects to the backend
 
-Uses `ForumoApiClient` from `@forumo/shared`, same as the web app. Admin-specific endpoints are under `api.admin.*`:
+Uses `ForumoApiClient` from `@forumo/shared` via `createApiClient(token)` in `src/lib/api-client.ts`. The admin namespace is **flat** (not nested) — these are the actual methods:
 
 ```ts
-api.admin.disputes.list()
-api.admin.disputes.get(id)
-api.admin.disputes.updateStatus(id, { status })
-api.admin.kyc.list()
-api.admin.kyc.get(id)
-api.admin.kyc.updateStatus(id, { status })
-api.admin.moderation.list()
-api.admin.moderation.approve(listingId)
-api.admin.moderation.reject(listingId, { reason })
+api.admin.listKycSubmissions()
+api.admin.reviewKycSubmission(id, { status, rejectionReason })
+api.admin.listListingsForReview()
+api.admin.reviewListing(id, { moderationStatus, moderationNotes })
+api.admin.listDisputes()
+api.admin.resolveDispute(id, { status, resolution })
+api.admin.listUsers({ search, status, role, page, limit })   // server-side filtered + paginated
+api.admin.suspendUser(id, reason, durationDays?)
+api.admin.unsuspendUser(id)
+api.admin.banUser(id, reason)
 ```
 
-All admin endpoints on the backend require `@Roles(UserRole.ADMIN)` or `@Roles(UserRole.MODERATOR)` guards.
+All admin endpoints on the backend require `@Roles('ADMIN')` (`AdminController` in `apps/backend/src/modules/admin/`).
 
 ## Current state
 
-- Project scaffold is in place (package.json, tsconfig, Next.js config).
-- `src/app/` and `src/components/` directories exist but page implementations are minimal stubs.
-- No auth flow built — you must wire up NextAuth (same pattern as `apps/web/src/lib/auth.ts`) before any protected routes will work.
-- No test suite configured yet.
+- NextAuth is wired (`src/lib/auth.ts`) with a role-gated `src/middleware.ts` that redirects non-admins to `/403`.
+- Six pages are implemented and functional (TanStack Query + the shared client): `/admin` overview, `/admin/users`, `/admin/kyc`, `/admin/listings`, `/admin/moderation`, `/admin/disputes`. Shared UI in `src/components/` (DataTable, Badge, PageHeader, ErrorState, Sidebar).
+- `tsc --noEmit` is clean.
+- Not yet built: `/admin/categories`, `/admin/fees`, `/admin/analytics` (see "Planned pages"). No test suite configured yet.
 
 ## Sharp edges
 

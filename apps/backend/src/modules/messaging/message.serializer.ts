@@ -9,7 +9,11 @@ export type MessageWithRelations = Prisma.MessageGetPayload<{
 
 export type MessageThreadWithRelations = Prisma.MessageThreadGetPayload<{
   include: {
-    participants: true;
+    participants: {
+      include: {
+        user: { select: { id: true; name: true; avatarUrl: true } };
+      };
+    };
     messages: {
       orderBy: { createdAt: 'asc' };
       include: { attachments: true; receipts: true };

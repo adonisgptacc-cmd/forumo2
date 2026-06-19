@@ -31,6 +31,10 @@
       "outputs": ["coverage/**"],
       "cache": false
     },
+    "test:coverage": {
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
     "test:e2e": {
       "cache": false
     },
@@ -52,6 +56,13 @@
     },
     "prisma:generate": {
       "cache": false
+    },
+    "storybook": {
+      "cache": false,
+      "persistent": true
+    },
+    "build-storybook": {
+      "outputs": ["storybook-static/**"]
     }
   }
 }

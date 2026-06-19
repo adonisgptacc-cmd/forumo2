@@ -1,74 +1,127 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { io, type Socket } from 'socket.io-client';
+import { useEffect } from 'react';
+import { io } from 'socket.io-client';
 
-import type { Message } from '@forumo/shared';
+import type { SafeMessageThread } from '@forumo/shared';
 import { useCurrentUser, useMessageThreads } from '../../../../lib/react-query/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 
-export function MessagesPanel() {
-  const { user } = useCurrentUser();
-  const { data, isLoading, isError, error } = useMessageThreads();
-  const [incoming, setIncoming] = useState<Message | null>(null);
+function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
-  useEffect(() => {
-    if (!user?.id) return;
-    const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1').replace(/\/api\/v1$/, '');
-    const socket: Socket = io(`${base}/messages`, {
-      auth: { userId: user.id },
-    });
-    socket.on('messages:new', (payload: { message: Message }) => {
-      setIncoming(payload.message);
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [user?.id]);
+function Avatar({ name, avatarUrl }: { name?: string | null; avatarUrl?: string | null }) {
+  if (avatarUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={avatarUrl} alt={name ?? ''} className="h-10 w-10 rounded-full object-cover shrink-0" />;
+  }
+  const letter = name?.charAt(0)?.toUpperCase() ?? '?';
+  return (
+    <div className="h-10 w-10 rounded-full bg-[color:var(--accent-bg)] flex items-center justify-center text-[color:var(--accent-2)] font-semibold text-sm shrink-0">
+      {letter}
+    </div>
+  );
+}
+
+function ThreadRow({ thread, userId }: { thread: SafeMessageThread; userId: string }) {
+  const counterparty = thread.participants.find((p) => p.userId !== userId);
+  const lastMsg = thread.messages.at(-1);
+  const unreadCount = thread.messages.filter(
+    (m) => m.authorId !== userId && !m.receipts.some((r) => r.userId === userId && r.readAt != null),
+  ).length;
 
   return (
-    <div className="space-y-4">
-      {incoming ? (
-        <div className="rounded-md border border-emerald-400/40 bg-emerald-400/10 p-3 text-sm text-emerald-100">
-          New message from {incoming.authorId.slice(0, 6)}… {incoming.body.slice(0, 80)}
+    <li>
+      <Link
+        href={`/app/messages/${thread.id}` as any}
+        className="flex items-center gap-3 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 hover:border-[color:var(--line-2)] hover:bg-[color:var(--surface-2)] transition-colors"
+      >
+        <Avatar name={counterparty?.user?.name} avatarUrl={counterparty?.user?.avatarUrl} />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className={`text-sm font-medium truncate ${unreadCount > 0 ? 'text-[color:var(--ink)]' : 'text-[color:var(--ink-2)]'}`}>
+              {counterparty?.user?.name ?? 'Unknown user'}
+            </p>
+            {lastMsg && (
+              <time className="text-xs muted shrink-0">
+                {formatTimestamp(lastMsg.createdAt)}
+              </time>
+            )}
+          </div>
+          {thread.subject && (
+            <p className="text-xs muted truncate">{thread.subject}</p>
+          )}
+          <p className={`text-sm truncate mt-0.5 ${unreadCount > 0 ? 'text-[color:var(--ink-2)]' : 'text-[color:var(--ink-3)]'}`}>
+            {lastMsg
+              ? (lastMsg.authorId === userId ? 'You: ' : '') + lastMsg.body
+              : 'No messages yet.'}
+          </p>
         </div>
-      ) : null}
-      {isLoading ? (
-        <p className="text-slate-400" role="status" aria-live="polite">
-          Loading threads…
-        </p>
-      ) : isError ? (
-        <div className="grid-card border-red-500/40 text-red-200" role="alert">
-          <p className="font-semibold">Unable to load threads.</p>
-          <p className="text-sm opacity-80">{(error as Error | undefined)?.message ?? 'Please try again.'}</p>
-        </div>
-      ) : data && data.data.length > 0 ? (
-        <ul className="space-y-3">
-          {data.data.map((thread) => {
-            const lastMessage = thread.messages.at(-1);
-            const flagged = lastMessage?.moderationStatus === 'FLAGGED' || lastMessage?.metadata?.flagged;
-            return (
-              <li key={thread.id} className="grid-card space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{thread.subject ?? 'Conversation'}</p>
-                    <p className="text-sm text-slate-400">{thread.participants.length} participants</p>
-                  </div>
-                  {flagged ? <span className="rounded-full border border-red-400 px-3 py-1 text-xs text-red-200">Flagged</span> : null}
-                </div>
-                <p className="text-sm text-slate-200">{lastMessage?.body ?? 'No messages yet.'}</p>
-                <Link className="text-sm text-amber-300" href={`/app/messages/${thread.id}`}>
-                  Open thread →
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="text-slate-400" role="status" aria-live="polite">
-          No threads found.
-        </p>
-      )}
-    </div>
+
+        {unreadCount > 0 && (
+          <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[color:var(--accent)] px-1 text-[11px] font-bold text-white shrink-0">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+export function MessagesPanel() {
+  const { user, accessToken } = useCurrentUser();
+  const { data, isLoading, isError, error } = useMessageThreads();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1').replace(/\/api\/v1$/, '');
+    const socket = io(`${base}/messages`, { auth: { token: accessToken } });
+    socket.on('messages:new', () => {
+      queryClient.invalidateQueries({ queryKey: ['threads'], exact: false });
+    });
+    return () => { socket.disconnect(); };
+  }, [accessToken, queryClient]);
+
+  if (isLoading) {
+    return <p className="muted" role="status" aria-live="polite">Loading inbox…</p>;
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
+        <p className="font-semibold">Unable to load inbox.</p>
+        <p className="text-sm opacity-80 mt-1">{(error as Error | undefined)?.message ?? 'Please try again.'}</p>
+      </div>
+    );
+  }
+
+  if (!data?.data.length) {
+    return (
+      <div className="card py-12 text-center">
+        <p className="text-2xl mb-2">💬</p>
+        <p className="muted">No conversations yet.</p>
+        <p className="text-sm muted mt-1">Message a seller from any listing page to get started.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {data.data.map((thread) => (
+        <ThreadRow key={thread.id} thread={thread} userId={user?.id ?? ''} />
+      ))}
+    </ul>
   );
 }

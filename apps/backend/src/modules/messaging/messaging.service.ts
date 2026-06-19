@@ -309,9 +309,31 @@ export class MessagingService implements OnModuleInit {
     return value as Prisma.InputJsonValue;
   }
 
+  async markThreadRead(threadId: string, userId: string): Promise<void> {
+    const participant = await this.prisma.messageThreadParticipant.findFirst({
+      where: { threadId, userId },
+    });
+    if (!participant) {
+      throw new NotFoundException('Thread not found');
+    }
+    const now = new Date();
+    await this.prisma.messageDeliveryReceipt.updateMany({
+      where: { message: { threadId }, userId, readAt: null },
+      data: { deliveredAt: now, readAt: now },
+    });
+    await this.prisma.messageThreadParticipant.update({
+      where: { id: participant.id },
+      data: { lastReadAt: now },
+    });
+  }
+
   private get defaultInclude() {
     return {
-      participants: true,
+      participants: {
+        include: {
+          user: { select: { id: true, name: true, avatarUrl: true } },
+        },
+      },
       messages: {
         orderBy: { createdAt: 'asc' },
         include: { attachments: true, receipts: true },

@@ -1,3 +1,4 @@
+import type { CanActivate } from '@nestjs/common';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
@@ -12,12 +13,22 @@ import {
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
+import { ConfigModule } from '@nestjs/config';
 import { PrismaService } from "../../prisma/prisma.service";
 import { ListingsModule } from "./listings.module";
 import { ListingWithRelations } from "./listing.serializer";
 import { ModerationQueueService } from "./moderation-queue.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
 const SELLER_ID = 'seller-1';
+
+class MockJwtGuard implements CanActivate {
+  canActivate(context: any) {
+    const req = context.switchToHttp().getRequest();
+    req.user = { id: SELLER_ID, role: 'SELLER' };
+    return true;
+  }
+}
 
 describe('ListingsModule (smoke)', () => {
   let app: INestApplication;
@@ -25,12 +36,14 @@ describe('ListingsModule (smoke)', () => {
   beforeEach(async () => {
     const prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
-      imports: [ListingsModule],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), ListingsModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
       .overrideProvider(ModerationQueueService)
       .useValue(new ImmediateModerationQueueService(prismaMock))
+      .overrideGuard(JwtAuthGuard)
+      .useClass(MockJwtGuard)
       .compile();
 
     app = moduleRef.createNestApplication();

@@ -1,27 +1,45 @@
 # Forumo — Root
 
-Forumo is a peer-to-peer marketplace for physical goods. Buyers and sellers transact through escrow-protected payments, with listing moderation, KYC verification, auctions, and real-time messaging. This is the monorepo root.
+## Project Overview
+
+Forumo is a peer-to-peer marketplace and auction platform built for emerging markets, with a focus on Africa. Buyers and sellers transact through escrow-protected payments. Core features: listing creation and moderation, fixed-price and timed auctions, buyer offers, KYC identity verification, real-time messaging, shipping integration (Shippo), Stripe Connect seller payouts, and GDPR-compliant account management.
+
+Payment providers: **Stripe** (global, Connect payouts) and **Paystack** (NGN/GHS/KES/ZAR). Currency selection is automatic per `PaymentProviderFactory.selectProvider(currency)`.
 
 ## Monorepo structure
 
 ```
 forumo2/
 ├── apps/
-│   ├── backend/          # NestJS REST API + WebSocket server (port 4000)
-│   ├── web/              # Next.js 15 buyer/seller frontend (port 3000)
-│   ├── admin/            # Next.js 15 internal admin dashboard (port 3001)
-│   ├── mobile/           # Expo 50 React Native app (pre-alpha)
-│   └── moderation-service/  # FastAPI Python microservice (port 5005)
+│   ├── backend/          # NestJS REST API + WebSocket server (port 4000) — PRODUCTION READY
+│   ├── web/              # Next.js 15 buyer/seller frontend (port 3000) — IN PROGRESS (typecheck clean)
+│   ├── admin/            # Next.js 15 internal admin dashboard (port 3001) — IN PROGRESS (auth + 6 pages wired, typecheck clean)
+│   ├── mobile/           # Expo 50 React Native app — IN PROGRESS (27 screens implemented & navigation-wired; direct apiClient calls, no tests, unverified end-to-end)
+│   └── moderation-service/  # FastAPI Python microservice (port 5005) — PRODUCTION READY
 ├── packages/
-│   ├── shared/           # Zod schemas + ForumoApiClient (used by web, mobile, admin)
-│   ├── design-system/    # Shared React UI components
-│   └── config/           # Shared config re-exports
+│   ├── shared/           # Zod schemas + ForumoApiClient — PRODUCTION READY
+│   ├── design-system/    # Shared React UI components (4 components) — IN PROGRESS
+│   └── config/           # Shared config re-exports — PRODUCTION READY
 ├── docker-compose.yml    # Local dev stack (Postgres, Redis, MinIO, Mailpit, moderation-service)
 ├── turbo.json            # Turbo task graph
 └── pnpm-workspace.yaml   # Workspace declaration
 ```
 
 ## Tech stack
+
+### Per app/package
+
+| App / Package | Language | Framework | Key Libraries | ORM / DB |
+|---|---|---|---|---|
+| `apps/backend` | TypeScript 5.4 | NestJS 10 | Prisma 5.20, BullMQ 5, Socket.IO 4.8, Stripe SDK 20, Shippo 2.18, Pino 9, nestjs-zod 5 | Prisma → PostgreSQL 16 |
+| `apps/web` | TypeScript 5.4 | Next.js 15 (App Router) | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1, Stripe.js 5, Framer Motion 12, React Hook Form 7, Recharts 3, Socket.IO client 4.8 | — (API-only) |
+| `apps/admin` | TypeScript 5.4 | Next.js 15 (App Router) | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1 | — (API-only) |
+| `apps/mobile` | TypeScript | Expo 50 / React Native 0.73 | React Navigation 7, expo-notifications, @forumo/shared | — (API-only) |
+| `apps/moderation-service` | Python 3 | FastAPI 0.115 | Uvicorn 0.30, Pydantic, OpenTelemetry 1.27 | — (stateless) |
+| `packages/shared` | TypeScript 5.4 | — | Zod 3.23 | — |
+| `packages/design-system` | TypeScript 5.4 | React 18 (peer) | clsx 2, tailwind-merge 3 | — |
+
+### Shared infrastructure
 
 | Layer | Technology |
 |---|---|
@@ -113,3 +131,48 @@ pnpm --filter @forumo/shared exec tsc --noEmit
 - `NEXT_PUBLIC_USE_API_MOCKS=true` enables mock auth in development. It must never be set in production builds.
 - The moderation service is included in `docker-compose.yml` and starts automatically with `pnpm docker:up`.
 - Run `prisma generate` inside `apps/backend` any time you change `schema.prisma`, even without a live database.
+
+## Coding conventions
+
+- **TypeScript strict mode is on** — no implicit `any`. All new code must be fully typed.
+- **NestJS modules follow feature-folder structure**: `feature.module.ts`, `feature.controller.ts`, `feature.service.ts`, plus `dto/`, `entities/`, `processors/` subdirs as needed.
+- **Prisma schema is the single source of truth** for all data shapes. Do not define domain types separately from the schema — derive DTOs from it via Zod (`nestjs-zod`).
+- **All request/response types use Zod schemas** via `nestjs-zod`. DTO classes extend `createZodDto(schema)`. Never use plain `class-validator` decorators.
+- **All API responses follow the standard envelope**: `{ data, meta, error }`. Errors are normalised by `AllExceptionsFilter`.
+- **All webhook handlers must verify signatures before processing**:
+  - Stripe: `Stripe-Signature` header + raw body buffer (Stripe SDK `constructEvent`).
+  - Paystack: `X-Paystack-Signature` header with HMAC-SHA512 of the raw body using the Paystack secret key. Fully implemented in `payments.controller.ts` using `createHmac('sha512')` and `timingSafeEqual`.
+  - Shippo: `Shippo-Signature` header.
+- **Never store raw card data** — all card handling goes through Stripe.js or Paystack.js on the client; the backend never sees raw PAN data.
+- **Roles**: `BUYER | SELLER | ADMIN | MODERATOR`. Use `@Roles(UserRole.X)` + `RolesGuard`. Never hard-code role strings.
+- **Prisma is injected via `PrismaService`** (singleton in root module). Never import `@prisma/client` directly in feature services.
+- **Structured logging via `pino`** — always use `this.logger = new Logger(ClassName.name)`.
+- **Frontend data fetching goes through `ForumoApiClient`** — never call `fetch()` directly to the backend from web/admin/mobile.
+- **All new hooks** go in `apps/web/src/lib/react-query/hooks.ts`; query keys in `query-keys.ts`.
+- **Dynamic Next.js route `href` values must be cast** `as any` — e.g. `href={"/app/orders/" + id as any}`.
+
+## Current gaps
+
+As of last update (2026-05-29):
+
+| Gap | Notes |
+|---|---|
+| ~~**Account suspension enforcement**~~ | RESOLVED — enforced via `assertAccountActive()` inside `JwtStrategy.validate()` (not a guard). Blocks SUSPENDED/BANNED on every authenticated route. See `apps/backend/CLAUDE.md` "Guard and interceptor chain". |
+| ~~**Authenticated-only review submission**~~ | RESOLVED — `POST/PATCH/DELETE /reviews` now require `JwtAuthGuard`. `reviewerId` is taken from the token (never the body); `update`/`remove` enforce author-or-ADMIN/MODERATOR; party-to-order check (`checkPurchaseEligibility`) was already present. |
+| **Seller payout flow (ZAR + Stripe Connect)** | `PayoutsModule` exists but the ZAR/Stripe Connect payout path has not been validated end-to-end. |
+| **Revenue admin dashboard** | `apps/admin` has no `/analytics` page yet; backend `GET /admin/dashboard/analytics` exists but is unused. The 6 built admin pages (users, kyc, listings, moderation, disputes + overview) are wired and typecheck clean. |
+| ~~**Frontend — escrow dispute UI**~~ | RESOLVED — buyer-facing board + detail at `apps/web/src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, `error.tsx`). |
+| **Frontend — cart variant integration** | Cart exists but product variants (size, colour) are not wired into add-to-cart. |
+| **Mobile app** | 27 screens implemented and navigation-wired (auth, listings, cart, checkout, KYC, orders, offers, messaging, reviews, storefront, seller dashboard). Caveats: data fetching is direct `useAuth().apiClient` calls (no React Query), no test suite, not verified end-to-end against a live backend. |
+
+## Agent instructions
+
+- **Always read `apps/backend/prisma/schema.prisma`** before generating new models, DTOs, or database queries. The schema is the ground truth; do not infer field names from TypeScript types or old code.
+- **Do not create a new NestJS module** without first checking `src/modules/` — there are 27 existing modules. Extend an existing one if the feature fits.
+- **When adding a new API endpoint**, update the corresponding `@ApiOperation`, `@ApiResponse`, and `@ApiBearerAuth` Swagger decorators on the controller method. Swagger UI is at `/docs`.
+- **Write tests for any new service method.** Unit tests go in `*.spec.ts` alongside the file; integration tests in `test/`.
+- **Do not modify the escrow state machine** (`src/modules/escrow/`) or **auction state machine** (`src/modules/auctions/`) without explicit instruction — ask first. These touch payment and fund-release logic.
+- **When adding a Paystack or Stripe webhook route**, implement signature verification before any business logic. Reject without processing if verification fails.
+- **Run `npx prisma generate --schema prisma/schema.prisma`** inside `apps/backend` after any schema change, even without a live database, so TypeScript types stay in sync.
+- **After changing `packages/shared/src/types.ts` or `api-client.ts`**, run `pnpm typecheck` from the root — both `apps/web` and `apps/backend` consume these types and will break if out of sync.
+- **Do not start a dev server or run preview verification tools** after editing code in this repo. End the turn after edits are complete.

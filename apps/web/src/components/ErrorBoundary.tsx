@@ -27,6 +27,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack);
     this.props.onError?.(error, info);
+    import('@sentry/nextjs')
+      .then(({ captureException }) =>
+        captureException(error, { extra: { componentStack: info.componentStack } }),
+      )
+      .catch(() => undefined);
   }
 
   reset = () => {

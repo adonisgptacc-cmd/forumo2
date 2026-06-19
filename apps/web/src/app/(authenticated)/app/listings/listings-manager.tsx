@@ -7,16 +7,16 @@ import { useMyListings, useDeleteListing, useListingMutations, useBulkListingOpe
 import type { SafeListing } from '@forumo/shared';
 
 const STATUS_COLORS: Record<string, string> = {
-  PUBLISHED: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  DRAFT: 'text-slate-400 bg-slate-400/10 border-slate-600',
-  PAUSED: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  PUBLISHED: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  DRAFT: 'text-[color:var(--ink-3)] bg-[color:var(--surface-2)] border-[color:var(--line)]',
+  PAUSED: 'text-amber-700 bg-amber-50 border-amber-200',
 };
 
 const MODERATION_COLORS: Record<string, string> = {
-  PENDING: 'text-amber-300 bg-amber-400/10 border-amber-400/20',
-  APPROVED: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-  REJECTED: 'text-red-400 bg-red-400/10 border-red-400/20',
-  FLAGGED: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  PENDING: 'text-amber-700 bg-amber-50 border-amber-200',
+  APPROVED: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  REJECTED: 'text-red-700 bg-red-50 border-red-200',
+  FLAGGED: 'text-orange-700 bg-orange-50 border-orange-200',
 };
 
 function ModerationBanner({ listing }: { listing: SafeListing }) {
@@ -96,7 +96,7 @@ export function ListingsManager() {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-slate-800 animate-pulse" />
+          <div key={i} className="skeleton h-24 rounded-xl" />
         ))}
       </div>
     );
@@ -116,18 +116,18 @@ export function ListingsManager() {
       <div className="flex justify-end">
         <Link
           href={'/app/listings/new' as any}
-          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-amber-400"
+          className="btn btn-primary"
         >
           + New listing
         </Link>
       </div>
 
       {listings.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-700 p-12 text-center">
-          <p className="text-slate-400">You have no listings yet.</p>
+        <div className="rounded-2xl border border-dashed border-[color:var(--line-2)] p-12 text-center">
+          <p className="text-[color:var(--ink-3)]">You have no listings yet.</p>
           <Link
             href={'/app/listings/new' as any}
-            className="mt-4 inline-block rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+            className="btn btn-primary mt-4 inline-flex"
           >
             Create your first listing
           </Link>
@@ -136,26 +136,26 @@ export function ListingsManager() {
         <div className="space-y-3">
           {/* Bulk action bar */}
           {anySelected && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 px-4 py-3">
-              <span className="text-sm text-amber-300 font-medium mr-2">{selected.size} selected</span>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <span className="text-sm text-amber-800 font-medium mr-2">{selected.size} selected</span>
               <button
                 onClick={async () => { await bulkPublish.mutateAsync([...selected]); clearSelection(); }}
                 disabled={bulkPublish.isPending}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {bulkPublish.isPending ? '…' : 'Publish'}
               </button>
               <button
                 onClick={async () => { await bulkPause.mutateAsync([...selected]); clearSelection(); }}
                 disabled={bulkPause.isPending}
-                className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                className="rounded-lg bg-[color:var(--ink)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[oklch(0.30_0.012_50)] disabled:opacity-50"
               >
                 {bulkPause.isPending ? '…' : 'Pause'}
               </button>
               {!confirmBulkDelete ? (
                 <button
                   onClick={() => setConfirmBulkDelete(true)}
-                  className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
                 >
                   Delete
                 </button>
@@ -164,16 +164,16 @@ export function ListingsManager() {
                   <button
                     onClick={async () => { await bulkDelete.mutateAsync([...selected]); clearSelection(); }}
                     disabled={bulkDelete.isPending}
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {bulkDelete.isPending ? '…' : 'Confirm delete'}
                   </button>
-                  <button onClick={() => setConfirmBulkDelete(false)} className="text-xs text-slate-400 hover:text-slate-200">
+                  <button onClick={() => setConfirmBulkDelete(false)} className="text-xs text-[color:var(--ink-3)] hover:text-[color:var(--ink)]">
                     Cancel
                   </button>
                 </>
               )}
-              <button onClick={clearSelection} className="ml-auto text-xs text-slate-500 hover:text-slate-300">
+              <button onClick={clearSelection} className="ml-auto text-xs text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)]">
                 Clear selection
               </button>
             </div>
@@ -186,29 +186,29 @@ export function ListingsManager() {
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleAll}
-                className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-amber-500 cursor-pointer"
+                className="h-4 w-4 rounded border-[color:var(--line-2)] accent-[var(--accent)] cursor-pointer"
                 aria-label="Select all listings"
               />
-              <span className="text-xs text-slate-500">Select all</span>
+              <span className="text-xs text-[color:var(--ink-3)]">Select all</span>
             </div>
           )}
 
           {listings.map((listing) => (
             <div
               key={listing.id}
-              className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+              className="flex items-center gap-4 rounded-xl card p-4"
             >
               {/* Checkbox */}
               <input
                 type="checkbox"
                 checked={selected.has(listing.id)}
                 onChange={() => toggleOne(listing.id)}
-                className="h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-800 accent-amber-500 cursor-pointer"
+                className="h-4 w-4 shrink-0 rounded border-[color:var(--line-2)] accent-[var(--accent)] cursor-pointer"
                 aria-label={`Select ${listing.title}`}
               />
 
               {/* Thumbnail */}
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-800">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-[color:var(--surface-2)]">
                 {listing.images?.[0]?.url ? (
                   <Image
                     src={listing.images[0].url}
@@ -217,7 +217,7 @@ export function ListingsManager() {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl text-slate-600">
+                  <div className="flex h-full w-full items-center justify-center text-2xl text-[color:var(--ink-3)]">
                     📦
                   </div>
                 )}
@@ -233,12 +233,12 @@ export function ListingsManager() {
                     {listing.status}
                   </span>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[color:var(--ink-3)]">
                   {(listing.priceCents / 100).toLocaleString('en-GH', { style: 'currency', currency: listing.currency ?? 'GHS' })}
-                  {listing.location && <span className="ml-2 text-slate-500">· {listing.location}</span>}
+                  {listing.location && <span className="ml-2 text-[color:var(--ink-3)]">· {listing.location}</span>}
                 </p>
                 {listing.description && (
-                  <p className="mt-0.5 text-xs text-slate-500 truncate">{listing.description}</p>
+                  <p className="mt-0.5 text-xs text-[color:var(--ink-3)] truncate">{listing.description}</p>
                 )}
                 <ModerationBanner listing={listing} />
               </div>
@@ -250,7 +250,7 @@ export function ListingsManager() {
                     onClick={() => changeStatus(listing, 'PUBLISHED')}
                     disabled={updateMutation.isPending || (listing as any).moderationStatus === 'PENDING'}
                     title={(listing as any).moderationStatus === 'PENDING' ? 'Waiting for moderation approval' : 'Publish listing'}
-                    className="rounded px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {updateMutation.isPending ? '…' : 'Publish'}
                   </button>
@@ -260,7 +260,7 @@ export function ListingsManager() {
                     onClick={() => changeStatus(listing, 'PAUSED')}
                     disabled={updateMutation.isPending}
                     title="Pause listing"
-                    className="rounded px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded px-2.5 py-1.5 text-xs text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {updateMutation.isPending ? '…' : 'Pause'}
                   </button>
@@ -270,14 +270,14 @@ export function ListingsManager() {
                     onClick={() => changeStatus(listing, 'PUBLISHED')}
                     disabled={updateMutation.isPending}
                     title="Republish listing"
-                    className="rounded px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {updateMutation.isPending ? '…' : 'Republish'}
                   </button>
                 )}
                 <Link
                   href={`/app/listings/${listing.id}/edit` as any}
-                  className="rounded px-2.5 py-1.5 text-xs text-amber-400 hover:bg-amber-400/10"
+                  className="rounded px-2.5 py-1.5 text-xs text-[color:var(--accent)] hover:bg-amber-50"
                 >
                   Edit
                 </Link>
@@ -286,13 +286,13 @@ export function ListingsManager() {
                     <button
                       onClick={() => handleDelete(listing.id)}
                       disabled={deleteListing.isPending}
-                      className="rounded px-2.5 py-1.5 text-xs text-white bg-red-600 hover:bg-red-500 disabled:opacity-50"
+                      className="rounded px-2.5 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
                     >
                       {deleteListing.isPending ? '…' : 'Confirm'}
                     </button>
                     <button
                       onClick={() => setConfirmDelete(null)}
-                      className="rounded px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
+                      className="rounded px-2.5 py-1.5 text-xs text-[color:var(--ink-3)] hover:bg-[color:var(--surface-2)]"
                     >
                       Cancel
                     </button>
@@ -300,7 +300,7 @@ export function ListingsManager() {
                 ) : (
                   <button
                     onClick={() => setConfirmDelete(listing.id)}
-                    className="rounded px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-400/10"
+                    className="rounded px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
                   >
                     Delete
                   </button>

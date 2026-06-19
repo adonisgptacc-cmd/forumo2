@@ -12,11 +12,11 @@ function formatDate(value?: string | null) {
 
 function StatusPill({ status }: { status: string }) {
   const palette: Record<string, string> = {
-    PENDING: 'border-amber-400 bg-amber-400/10 text-amber-100',
-    APPROVED: 'border-emerald-400 bg-emerald-400/10 text-emerald-100',
-    REJECTED: 'border-rose-400 bg-rose-400/10 text-rose-100',
+    PENDING: 'border-amber-200 bg-amber-50 text-amber-700',
+    APPROVED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    REJECTED: 'border-red-200 bg-red-50 text-red-700',
   };
-  const className = palette[status] ?? 'border-slate-700 text-slate-200';
+  const className = palette[status] ?? 'border-[color:var(--line)] text-[color:var(--ink-2)]';
   return <span className={`rounded-full border px-3 py-1 text-xs ${className}`}>{status}</span>;
 }
 
@@ -28,7 +28,7 @@ export default async function KycQueuePage() {
   return (
     <div className="space-y-4">
       <FilterBar title="Verification submissions">
-        <span className="text-slate-400">{submissions.length} profiles awaiting review</span>
+        <span className="text-[color:var(--ink-3)]">{submissions.length} profiles awaiting review</span>
       </FilterBar>
       <DataTable
         columns={[
@@ -38,7 +38,7 @@ export default async function KycQueuePage() {
             render: (item) => (
               <div className="space-y-1">
                 <p className="font-medium">{item.user?.name ?? 'Unknown user'}</p>
-                <p className="text-xs text-slate-400">{item.user?.email}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">{item.user?.email}</p>
               </div>
             ),
           },
@@ -46,10 +46,10 @@ export default async function KycQueuePage() {
             key: 'documents',
             header: 'Documents',
             render: (item) => (
-              <div className="space-y-1 text-xs text-slate-300">
+              <div className="space-y-1 text-xs text-[color:var(--ink-2)]">
                 {item.documents.map((doc) => (
                   <div key={doc.id} className="flex items-center gap-2">
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5">{doc.type}</span>
+                    <span className="rounded-full border border-[color:var(--line)] px-2 py-0.5">{doc.type}</span>
                     <StatusPill status={doc.status} />
                   </div>
                 ))}
@@ -62,7 +62,7 @@ export default async function KycQueuePage() {
             render: (item) => (
               <div className="space-y-1">
                 <StatusPill status={item.status} />
-                <p className="text-xs text-slate-400">Submitted {formatDate(item.submittedAt)}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">Submitted {formatDate(item.submittedAt)}</p>
               </div>
             ),
           },
@@ -70,7 +70,7 @@ export default async function KycQueuePage() {
             key: 'reviewer',
             header: 'Reviewer',
             render: (item) => (
-              <div className="text-sm text-slate-300">
+              <div className="text-sm text-[color:var(--ink-2)]">
                 {item.reviewer ? item.reviewer.name ?? item.reviewer.email : 'Unassigned'}
               </div>
             ),
@@ -79,13 +79,13 @@ export default async function KycQueuePage() {
             key: 'actions',
             header: 'Decision',
             render: (item) => (
-              <div className="space-y-2 text-xs text-slate-200">
+              <div className="space-y-2 text-xs text-[color:var(--ink-2)]">
                 <form action={reviewKycSubmission} className="flex flex-col gap-2">
                   <input type="hidden" name="submissionId" value={item.id} />
                   <input type="hidden" name="decision" value="APPROVED" />
                   <button
                     type="submit"
-                    className="rounded-md border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-emerald-50 transition hover:border-emerald-300"
+                    className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-emerald-700 transition hover:bg-emerald-100"
                   >
                     Approve verification
                   </button>
@@ -96,11 +96,11 @@ export default async function KycQueuePage() {
                   <input
                     name="reason"
                     placeholder="Reason for rejection"
-                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
+                    className="w-full w-full rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] focus:border-[color:var(--accent)] focus:outline-none"
                   />
                   <button
                     type="submit"
-                    className="w-full rounded-md border border-rose-400/60 bg-rose-500/10 px-3 py-2 text-left text-rose-100 transition hover:border-rose-300"
+                    className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-left text-red-700 transition hover:bg-red-100"
                   >
                     Reject submission
                   </button>
@@ -110,7 +110,7 @@ export default async function KycQueuePage() {
           },
         ]}
         data={submissions}
-        emptyState={<span className="text-sm text-slate-400">No pending KYC submissions.</span>}
+        emptyState={<span className="text-sm text-[color:var(--ink-3)]">No pending KYC submissions.</span>}
       />
     </div>
   );

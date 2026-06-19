@@ -1,0 +1,68 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forumo-ingress
+  namespace: forumo
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    # cert-manager issues and auto-renews the TLS certificate
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Increase timeouts for long requests: file uploads, auctions, WebSocket upgrades
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/forwarded-for-header: "X-Forwarded-For"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - forumo.africa
+        - www.forumo.africa
+      secretName: forumo-tls
+  rules:
+    - host: forumo.africa
+      http:
+        paths:
+          # /api/** -> NestJS backend (port 4000).
+          # Backend registers all routes under /api/v1/ so the prefix passes through unchanged.
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: forumo-backend
+                port:
+                  number: 4000
+          # /admin/** -> admin Next.js dashboard (port 3001).
+          # Requires apps/admin/next.config.js to set basePath: '/admin'.
+          - path: /admin(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: forumo-admin
+                port:
+                  number: 3001
+          # Catch-all -> buyer/seller web frontend (port 3000).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forumo-web
+                port:
+                  number: 3000
+    # www redirect — duplicate rule so cert-manager covers www too.
+    # Primary redirect from www -> apex should be handled at the DNS/CDN layer.
+    - host: www.forumo.africa
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forumo-web
+                port:
+                  number: 3000

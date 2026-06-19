@@ -5,11 +5,11 @@ import { useOffers, useAcceptOffer, useDeclineOffer, useCurrentUser } from '../.
 import type { SafeOffer } from '@forumo/shared';
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'text-yellow-400 border-yellow-700',
-  ACCEPTED: 'text-emerald-400 border-emerald-700',
-  DECLINED: 'text-red-400 border-red-700',
-  EXPIRED: 'text-slate-400 border-slate-700',
-  CANCELLED: 'text-slate-400 border-slate-700',
+  PENDING: 'text-amber-700 border-amber-200 bg-amber-50',
+  ACCEPTED: 'text-emerald-700 border-emerald-200 bg-emerald-50',
+  DECLINED: 'text-red-700 border-red-200 bg-red-50',
+  EXPIRED: 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]',
+  CANCELLED: 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]',
 };
 
 export function OffersBoard() {
@@ -20,21 +20,21 @@ export function OffersBoard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        {[1, 2].map((i) => <div key={i} className="h-28 rounded-xl bg-slate-800" />)}
+      <div className="space-y-4">
+        {[1, 2].map((i) => <div key={i} className="skeleton h-28 rounded-[14px]" />)}
       </div>
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-10 text-center space-y-3">
+      <div className="card card-pad p-10 text-center space-y-3">
         <p className="text-4xl">🤝</p>
-        <p className="font-medium text-slate-200">No offers yet</p>
-        <p className="text-sm text-slate-500 max-w-xs mx-auto">
+        <p className="font-medium text-[color:var(--ink)]">No offers yet</p>
+        <p className="text-sm muted max-w-xs mx-auto">
           Browse listings and click &quot;Make an offer&quot; to negotiate a price with sellers.
         </p>
-        <Link href={"/listings" as any} className="mt-2 inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-black hover:bg-amber-400 transition-colors">
+        <Link href={"/listings" as any} className="btn btn-primary btn-sm mt-2 inline-flex">
           Browse listings
         </Link>
       </div>
@@ -48,7 +48,7 @@ export function OffersBoard() {
     <div className="space-y-8">
       {received.length > 0 && (
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-slate-400 uppercase tracking-wider">
+          <h3 className="mb-3 text-sm font-semibold text-[color:var(--ink-3)] uppercase tracking-wider">
             Received offers ({received.length})
           </h3>
           <div className="space-y-3">
@@ -68,7 +68,7 @@ export function OffersBoard() {
 
       {sent.length > 0 && (
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-slate-400 uppercase tracking-wider">
+          <h3 className="mb-3 text-sm font-semibold text-[color:var(--ink-3)] uppercase tracking-wider">
             Sent offers ({sent.length})
           </h3>
           <div className="space-y-3">
@@ -100,20 +100,20 @@ function OfferCard({
   onDecline?: () => void;
   actionPending: boolean;
 }) {
-  const statusColor = STATUS_COLORS[offer.status] ?? 'text-slate-400 border-slate-700';
+  const statusColor = STATUS_COLORS[offer.status] ?? 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]';
   const canAct = role === 'seller' && offer.status === 'PENDING';
 
   return (
-    <article className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+    <article className="card card-pad space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium">
             {offer.listing?.title ?? offer.listingId}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs muted">
             {role === 'buyer' ? `To: ${offer.seller?.name ?? 'Seller'}` : `From: ${offer.buyer?.name ?? 'Buyer'}`}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs muted">
             {new Date(offer.createdAt).toLocaleString()}
           </p>
         </div>
@@ -127,14 +127,14 @@ function OfferCard({
           {(offer.amountCents / 100).toFixed(2)} {offer.currency}
         </p>
         {offer.expiresAt && offer.status === 'PENDING' && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs muted">
             Expires {new Date(offer.expiresAt).toLocaleDateString()}
           </p>
         )}
       </div>
 
       {offer.message && (
-        <p className="rounded-lg bg-slate-800/60 px-3 py-2 text-sm text-slate-300 italic">
+        <p className="rounded-lg bg-[color:var(--surface-2)] px-3 py-2 text-sm subtle italic">
           &ldquo;{offer.message}&rdquo;
         </p>
       )}
@@ -144,14 +144,14 @@ function OfferCard({
           <button
             onClick={onAccept}
             disabled={actionPending}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {actionPending ? '…' : 'Accept'}
           </button>
           <button
             onClick={onDecline}
             disabled={actionPending}
-            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+            className="btn btn-ghost btn-sm"
           >
             {actionPending ? '…' : 'Decline'}
           </button>
@@ -159,7 +159,7 @@ function OfferCard({
       )}
 
       {offer.status === 'ACCEPTED' && role === 'buyer' && (
-        <p className="text-sm text-emerald-400">
+        <p className="text-sm text-[color:var(--escrow)]">
           Offer accepted — check your orders for the new order.
         </p>
       )}

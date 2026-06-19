@@ -7,7 +7,6 @@ import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
 import { PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
-import { PaystackService } from "./paystack.service";
 import { PaymentProviderFactory } from "./payment-provider.factory";
 import { TaxService } from "./tax.service";
 import { ObservabilityModule } from "../observability/observability.module";
@@ -20,7 +19,7 @@ import { ShippoWebhookController } from "./shippo-webhook.controller";
 @Module({
   imports: [HttpModule, PrismaModule, ObservabilityModule, NotificationsModule, PayoutsModule, FeesModule, ShippingModule],
   controllers: [OrdersController, PaymentsController, ShippoWebhookController],
-  providers: [OrdersService, PaymentsService, PaystackService, PaymentProviderFactory, TaxService],
+  providers: [OrdersService, PaymentsService, PaymentProviderFactory, TaxService],
   exports: [OrdersService, PaymentsService, TaxService],
 })
 export class OrdersModule { }

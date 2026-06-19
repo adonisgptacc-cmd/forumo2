@@ -8,19 +8,19 @@ export function SellerReviewsView() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-40 rounded-xl bg-slate-800" />
-        <div className="h-24 rounded-xl bg-slate-800" />
+      <div className="space-y-4">
+        <div className="skeleton h-40 rounded-xl" />
+        <div className="skeleton h-24 rounded-xl" />
       </div>
     );
   }
 
   if (!rollup) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-10 text-center space-y-2">
-        <p className="text-3xl">★</p>
-        <p className="text-slate-300 font-medium">No reviews yet</p>
-        <p className="text-sm text-slate-500">
+      <div className="card p-10 text-center space-y-2">
+        <p className="text-3xl text-[color:var(--accent)]">★</p>
+        <p className="subtle font-medium">No reviews yet</p>
+        <p className="text-sm muted">
           Reviews from buyers will appear here once you complete orders.
         </p>
       </div>
@@ -40,16 +40,16 @@ export function SellerReviewsView() {
   return (
     <div className="space-y-6">
       {/* Summary card */}
-      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-6">
+      <section className="card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-6">
           <div className="text-center sm:text-left shrink-0">
-            <p className="text-6xl font-bold text-amber-400">{avg.toFixed(1)}</p>
+            <p className="text-6xl font-bold text-[color:var(--accent)]">{avg.toFixed(1)}</p>
             <div className="flex justify-center sm:justify-start gap-0.5 mt-2 text-xl">
               {[1, 2, 3, 4, 5].map((s) => (
-                <span key={s} className={avg >= s ? 'text-amber-400' : 'text-slate-700'}>★</span>
+                <span key={s} className={avg >= s ? 'text-[color:var(--accent)]' : 'text-[color:var(--line-2)]'}>★</span>
               ))}
             </div>
-            <p className="text-sm text-slate-400 mt-2">
+            <p className="text-sm muted mt-2">
               {rollup.publishedCount} published review{rollup.publishedCount !== 1 ? 's' : ''}
             </p>
           </div>
@@ -62,14 +62,14 @@ export function SellerReviewsView() {
                 : 0;
               return (
                 <div key={s} className="flex items-center gap-3 text-xs">
-                  <span className="text-amber-400 w-5 text-right shrink-0">{s}★</span>
-                  <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <span className="text-[color:var(--accent)] w-5 text-right shrink-0">{s}★</span>
+                  <div className="flex-1 h-2 rounded-full bg-[color:var(--surface-2)] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-amber-500/70"
+                      className="h-full rounded-full bg-[color:var(--accent)]"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-slate-500 w-5 text-right shrink-0">{count}</span>
+                  <span className="muted w-5 text-right shrink-0">{count}</span>
                 </div>
               );
             })}
@@ -78,18 +78,18 @@ export function SellerReviewsView() {
       </section>
 
       {/* Status breakdown */}
-      <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-300">Review Status Breakdown</h3>
+      <section className="card p-5 space-y-3">
+        <h3 className="text-sm font-semibold subtle">Review Status Breakdown</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MiniStat label="Total" value={rollup.reviewCount} />
-          <MiniStat label="Published" value={rollup.publishedCount} color="text-emerald-400" />
-          <MiniStat label="Pending" value={rollup.pendingCount} color="text-yellow-400" />
-          <MiniStat label="Flagged" value={rollup.flaggedCount} color="text-red-400" />
+          <MiniStat label="Published" value={rollup.publishedCount} color="text-[color:var(--escrow)]" />
+          <MiniStat label="Pending" value={rollup.pendingCount} color="text-amber-700" />
+          <MiniStat label="Flagged" value={rollup.flaggedCount} color="text-red-600" />
         </div>
       </section>
 
       {rollup.lastReviewAt && (
-        <p className="text-xs text-slate-600 text-right">
+        <p className="text-xs muted text-right">
           Last review received: {new Date(rollup.lastReviewAt).toLocaleDateString()}
         </p>
       )}
@@ -97,10 +97,10 @@ export function SellerReviewsView() {
   );
 }
 
-function MiniStat({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
+function MiniStat({ label, value, color = 'text-[color:var(--ink)]' }: { label: string; value: number; color?: string }) {
   return (
-    <div className="rounded-lg border border-slate-800 p-3 space-y-1">
-      <p className="text-xs text-slate-500">{label}</p>
+    <div className="rounded-lg border border-[color:var(--line)] p-3 space-y-1">
+      <p className="text-xs muted">{label}</p>
       <p className={`text-2xl font-semibold ${color}`}>{value}</p>
     </div>
   );

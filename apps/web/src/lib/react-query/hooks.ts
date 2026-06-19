@@ -322,6 +322,19 @@ export function useCreateThread() {
   });
 }
 
+export function useMarkThreadRead() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) => api.messaging.markThreadRead(threadId),
+    onSuccess: (_, threadId) => {
+      client.invalidateQueries({ queryKey: queryKeys.thread(threadId) });
+      client.invalidateQueries({ queryKey: ['threads'], exact: false });
+    },
+  });
+}
+
 export function useUnreadMessageCount() {
   const { user } = useCurrentUser();
   const { data } = useMessageThreads();
@@ -891,6 +904,34 @@ export function useCreateAuction() {
   return useMutation({
     mutationFn: (payload: import('@forumo/shared').CreateAuctionDto) => api.auctions.create(payload),
     onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['auctions'] });
+    },
+  });
+}
+
+export function useListingAuction(listingId: string | null) {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  return useQuery<import('@forumo/shared').Auction | null>({
+    queryKey: queryKeys.listingAuction(listingId!),
+    queryFn: async () => {
+      const res = await (api.auctions.list as any)({ listingId, pageSize: 1 });
+      return (res?.data?.[0] ?? null) as import('@forumo/shared').Auction | null;
+    },
+    enabled: !!listingId,
+    refetchInterval: 15_000,
+  });
+}
+
+export function usePlaceBid() {
+  const { accessToken } = useCurrentUser();
+  const api = useApi(accessToken);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ auctionId, amountCents }: { auctionId: string; amountCents: number }) =>
+      api.auctions.placeBid(auctionId, { amountCents }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['auctions', 'listing'] });
       client.invalidateQueries({ queryKey: ['auctions'] });
     },
   });

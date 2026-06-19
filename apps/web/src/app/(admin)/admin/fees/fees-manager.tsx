@@ -88,10 +88,10 @@ export function FeesManager() {
     <div className="space-y-6">
       {/* Warning: no active global fee schedule */}
       {!activeGlobal && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           No active global default fee schedule. Listings without a category-specific schedule will have 0% fee.
           {uncoveredCategories.length > 0 && (
-            <span className="block mt-1 text-amber-300/80">
+            <span className="block mt-1 text-amber-700/80">
               Uncovered categories: {uncoveredCategories.map((c) => c.name).join(', ')}
             </span>
           )}
@@ -99,11 +99,11 @@ export function FeesManager() {
       )}
 
       {/* Live fee calculator */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
-        <h3 className="font-semibold text-sm text-slate-300">Live Fee Calculator</h3>
+      <div className="card p-5 space-y-3">
+        <h3 className="font-semibold text-sm text-[color:var(--ink-2)]">Live Fee Calculator</h3>
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)] text-sm">$</span>
             <input
               type="number"
               min="0"
@@ -111,19 +111,19 @@ export function FeesManager() {
               placeholder="Item price"
               value={calcSubtotal}
               onChange={(e) => setCalcSubtotal(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 pl-7 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] pl-7 pr-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
           {previewSchedule && subtotalCents > 0 && (
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-[color:var(--ink-2)]">
               Platform earns{' '}
-              <span className="font-bold text-amber-400">
+              <span className="font-bold text-[color:var(--accent)]">
                 {formatCents(calcFee(subtotalCents, previewSchedule))}
               </span>{' '}
-              <span className="text-slate-500">({previewSchedule.feePercent}% + {formatCents(previewSchedule.fixedFeeCents)} fixed)</span>
+              <span className="text-[color:var(--ink-3)]">({previewSchedule.feePercent}% + {formatCents(previewSchedule.fixedFeeCents)} fixed)</span>
             </p>
           )}
-          {!previewSchedule && <p className="text-sm text-slate-500">No active schedule found</p>}
+          {!previewSchedule && <p className="text-sm text-[color:var(--ink-3)]">No active schedule found</p>}
         </div>
       </div>
 
@@ -131,7 +131,7 @@ export function FeesManager() {
       <div className="flex justify-end">
         <button
           onClick={openCreate}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-amber-400 transition"
+          className="btn btn-primary btn-sm"
         >
           + Add Fee Schedule
         </button>
@@ -139,22 +139,22 @@ export function FeesManager() {
 
       {/* Modal form */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 space-y-4">
-            <h3 className="font-semibold text-white">{editing ? 'Edit Fee Schedule' : 'New Fee Schedule'}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[oklch(0.20_0.012_50_/_0.45)] backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-[color:var(--line)] bg-[color:var(--surface)] p-6 space-y-4 fade-up shadow-[var(--shadow-lg)]">
+            <h3 className="font-semibold text-[color:var(--ink)]">{editing ? 'Edit Fee Schedule' : 'New Fee Schedule'}</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 required
                 placeholder="Schedule name (e.g. Electronics 8%)"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
               />
 
               <select
                 value={form.categoryId ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value || null }))}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
               >
                 <option value="">All categories (global default)</option>
                 {categories.map((c) => (
@@ -164,7 +164,7 @@ export function FeesManager() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Fee % (0–50)</label>
+                  <label className="block text-xs text-[color:var(--ink-3)] mb-1">Fee % (0–50)</label>
                   <input
                     type="number"
                     min="0"
@@ -173,31 +173,31 @@ export function FeesManager() {
                     required
                     value={form.feePercent}
                     onChange={(e) => setForm((f) => ({ ...f, feePercent: parseFloat(e.target.value) || 0 }))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Fixed fee (cents)</label>
+                  <label className="block text-xs text-[color:var(--ink-3)] mb-1">Fixed fee (cents)</label>
                   <input
                     type="number"
                     min="0"
                     value={form.fixedFeeCents ?? 0}
                     onChange={(e) => setForm((f) => ({ ...f, fixedFeeCents: parseInt(e.target.value) || 0 }))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Min fee (cents)</label>
+                  <label className="block text-xs text-[color:var(--ink-3)] mb-1">Min fee (cents)</label>
                   <input
                     type="number"
                     min="0"
                     value={form.minFeeCents ?? 0}
                     onChange={(e) => setForm((f) => ({ ...f, minFeeCents: parseInt(e.target.value) || 0 }))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Max fee (cents, optional)</label>
+                  <label className="block text-xs text-[color:var(--ink-3)] mb-1">Max fee (cents, optional)</label>
                   <input
                     type="number"
                     min="0"
@@ -205,7 +205,7 @@ export function FeesManager() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, maxFeeCents: e.target.value ? parseInt(e.target.value) : null }))
                     }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                   />
                 </div>
               </div>
@@ -214,14 +214,14 @@ export function FeesManager() {
                 <button
                   type="submit"
                   disabled={create.isPending || update.isPending}
-                  className="flex-1 rounded-lg bg-amber-500 py-2 text-sm font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-50 transition"
+                  className="btn btn-primary flex-1"
                 >
                   {create.isPending || update.isPending ? 'Saving…' : editing ? 'Save changes' : 'Create'}
                 </button>
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="flex-1 rounded-lg border border-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-800 transition"
+                  className="btn btn-ghost flex-1"
                 >
                   Cancel
                 </button>
@@ -233,14 +233,14 @@ export function FeesManager() {
 
       {/* Table */}
       {isLoading ? (
-        <p className="text-slate-400 text-sm">Loading…</p>
+        <p className="text-[color:var(--ink-3)] text-sm">Loading…</p>
       ) : schedules.length === 0 ? (
-        <p className="text-slate-500 text-sm">No fee schedules yet. Create one to start collecting revenue.</p>
+        <p className="text-[color:var(--ink-3)] text-sm">No fee schedules yet. Create one to start collecting revenue.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-[color:var(--line)]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 text-left text-xs text-slate-400">
+              <tr className="border-b border-[color:var(--line)] text-left text-xs text-[color:var(--ink-3)]">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Category</th>
                 <th className="px-4 py-3 font-medium">Fee %</th>
@@ -253,15 +253,15 @@ export function FeesManager() {
             </thead>
             <tbody>
               {schedules.map((s) => (
-                <tr key={s.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                  <td className="px-4 py-3 font-medium text-white">{s.name}</td>
-                  <td className="px-4 py-3 text-slate-300">
-                    {s.category ? s.category.name : <span className="text-amber-400">All categories</span>}
+                <tr key={s.id} className="border-b border-[color:var(--line)]/50 hover:bg-[color:var(--surface-2)] transition-colors">
+                  <td className="px-4 py-3 font-medium text-[color:var(--ink)]">{s.name}</td>
+                  <td className="px-4 py-3 text-[color:var(--ink-2)]">
+                    {s.category ? s.category.name : <span className="text-[color:var(--accent)]">All categories</span>}
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{s.feePercent}%</td>
-                  <td className="px-4 py-3 text-slate-300">{formatCents(s.fixedFeeCents)}</td>
-                  <td className="px-4 py-3 text-slate-300">{formatCents(s.minFeeCents)}</td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-[color:var(--ink-2)]">{s.feePercent}%</td>
+                  <td className="px-4 py-3 text-[color:var(--ink-2)]">{formatCents(s.fixedFeeCents)}</td>
+                  <td className="px-4 py-3 text-[color:var(--ink-2)]">{formatCents(s.minFeeCents)}</td>
+                  <td className="px-4 py-3 text-[color:var(--ink-2)]">
                     {s.maxFeeCents !== null && s.maxFeeCents !== undefined ? formatCents(s.maxFeeCents) : '—'}
                   </td>
                   <td className="px-4 py-3">
@@ -271,8 +271,8 @@ export function FeesManager() {
                       }
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         s.isActive
-                          ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
-                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-[color:var(--surface-2)] text-[color:var(--ink-3)] hover:bg-[color:var(--line)]'
                       }`}
                     >
                       {s.isActive ? 'Active' : 'Inactive'}
@@ -282,14 +282,14 @@ export function FeesManager() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEdit(s)}
-                        className="text-xs text-amber-400 hover:text-amber-300"
+                        className="text-xs text-[color:var(--accent)] hover:text-amber-700"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => remove.mutate(s.id)}
                         disabled={remove.isPending}
-                        className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                        className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
                       >
                         Deactivate
                       </button>

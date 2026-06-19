@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 
 import { SignOutButton } from '../../../components/signout-button';
+import { ErrorBoundary } from '../../../components/ErrorBoundary';
 import { authOptions } from '../../../lib/auth';
 
 const navItems = [
@@ -30,55 +31,55 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const filteredNav = navItems.filter((item) => item.roles.includes((session.user as any).role));
 
   return (
-    <div className="admin-shell text-slate-100">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[240px,1fr]">
-        <aside className="admin-surface h-fit space-y-6 p-6">
+    <div className="min-h-screen bg-[color:var(--bg)]">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[240px,1fr]">
+        <aside className="card card-pad h-fit space-y-6">
           <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Admin console</p>
-            <div className="flex items-center gap-2">
+            <p className="eyebrow">Admin console</p>
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-lg font-semibold">{session.user?.name ?? 'Admin user'}</span>
-              <span className="rounded-full border border-amber-300/60 bg-amber-300/10 px-2 py-0.5 text-[10px] text-amber-100">
+              <span className="rounded-full border border-[color:var(--accent)] bg-[color:var(--accent-bg)] px-2 py-0.5 text-[10px] text-[color:var(--accent-2)]">
                 {(session.user as any).role}
               </span>
             </div>
-            <p className="text-xs text-slate-400">{session.user?.email}</p>
+            <p className="text-xs muted">{session.user?.email}</p>
           </div>
           <div className="space-y-1 text-sm">
             {filteredNav.map((item) => (
               <Link
                 key={item.href}
-                className="flex items-center justify-between rounded-lg border border-transparent px-3 py-2 text-slate-200 transition hover:border-amber-400 hover:bg-amber-400/5"
+                className="flex items-center justify-between rounded-lg border border-transparent px-3 py-2 subtle transition hover:border-[color:var(--accent)] hover:bg-[color:var(--accent-bg)]"
                 href={item.href as any}
               >
                 <span>{item.label}</span>
-                <span aria-hidden className="text-xs text-slate-500">
-                  →
-                </span>
+                <span aria-hidden className="text-xs muted">→</span>
               </Link>
             ))}
           </div>
-          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-400">
-            <p className="font-semibold text-slate-200">Security posture</p>
+          <div className="rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] p-3 text-xs muted">
+            <p className="font-semibold subtle">Security posture</p>
             <p className="mt-1">JWT session validated for privileged roles. Actions are recorded via the admin API.</p>
           </div>
           <SignOutButton />
         </aside>
         <section className="space-y-4 lg:space-y-6">
-          <div className="admin-surface p-6">
+          <div className="card card-pad">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Control plane</p>
-                <h1 className="text-2xl font-semibold text-white">Staff operations</h1>
-                <p className="text-sm text-slate-400">
+                <p className="eyebrow">Control plane</p>
+                <h1 className="h2">Staff operations</h1>
+                <p className="text-sm muted mt-1">
                   Use the KYC queue, listing moderation, and dispute desks to keep the marketplace secure.
                 </p>
               </div>
-              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
                 Signed in with elevated privileges
               </div>
             </div>
           </div>
-          <div className="admin-surface p-6">{children}</div>
+          <div className="card card-pad">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </div>
         </section>
       </div>
     </div>

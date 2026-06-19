@@ -17,7 +17,7 @@ import { useApiClient } from '../../../lib/use-api-client';
 
 const listingStatuses = ['DRAFT', 'PUBLISHED', 'PAUSED'] as const;
 const actionButtonClasses =
-  'inline-flex items-center justify-center rounded-md border border-amber-400 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-70';
+  'btn btn-primary disabled:cursor-not-allowed';
 
 type VariantDraft = {
   id?: string;
@@ -205,7 +205,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {errors.length > 0 ? (
-        <div className="rounded-md border border-red-500/60 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="alert alert-error rounded-md p-4 text-sm">
           <p className="font-semibold">Please fix the following:</p>
           <ul className="list-disc space-y-1 pl-5">
             {errors.map((error) => (
@@ -217,7 +217,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       {message ? (
         <div
-          className={`rounded-md border p-3 text-sm ${message.success ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-red-500/40 bg-red-500/10 text-red-200'
+          className={`rounded-md border p-3 text-sm ${message.success ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'
             }`}
         >
           {message.message}
@@ -226,10 +226,10 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Seller ID {mode === 'create' ? '*' : ''}</span>
+          <span className="text-[color:var(--ink-2)]">Seller ID {mode === 'create' ? '*' : ''}</span>
           <input
             type="text"
-            className="input"
+            className="input-forumo"
             value={sellerId}
             onChange={(event) => setSellerId(event.target.value)}
             placeholder="seller_123"
@@ -238,8 +238,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Status</span>
-          <select className="input" value={status} onChange={(event) => setStatus(event.target.value as any)}>
+          <span className="text-[color:var(--ink-2)]">Status</span>
+          <select className="input-forumo" value={status} onChange={(event) => setStatus(event.target.value as any)}>
             {listingStatuses.map((statusOption) => (
               <option key={statusOption} value={statusOption}>
                 {statusOption}
@@ -248,11 +248,11 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           </select>
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
-          <span className="text-slate-300">Title *</span>
-          <input type="text" className="input" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <span className="text-[color:var(--ink-2)]">Title *</span>
+          <input type="text" className="input-forumo" value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
-          <span className="text-slate-300">Description *</span>
+          <span className="text-[color:var(--ink-2)]">Description *</span>
           <textarea
             className="input min-h-[120px]"
             value={description}
@@ -260,30 +260,30 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Price (in {currency}) *</span>
+          <span className="text-[color:var(--ink-2)]">Price (in {currency}) *</span>
           <input
             type="number"
             step="0.01"
             min="0"
-            className="input"
+            className="input-forumo"
             value={price}
             onChange={(event) => setPrice(event.target.value)}
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-slate-300">Currency *</span>
+          <span className="text-[color:var(--ink-2)]">Currency *</span>
           <input
             type="text"
-            className="input"
+            className="input-forumo"
             value={currency}
             onChange={(event) => setCurrency(event.target.value.toUpperCase())}
           />
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
-          <span className="text-slate-300">Location</span>
+          <span className="text-[color:var(--ink-2)]">Location</span>
           <input
             type="text"
-            className="input"
+            className="input-forumo"
             value={location}
             onChange={(event) => setLocation(event.target.value)}
           />
@@ -293,67 +293,67 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Variants</h2>
-          <button type="button" className="text-sm text-amber-300" onClick={addVariant}>
+          <button type="button" className="text-sm text-[color:var(--accent)]" onClick={addVariant}>
             + Add variant
           </button>
         </div>
         {variants.length === 0 ? (
-          <p className="text-sm text-slate-400">No variants configured. Add one to override pricing per option.</p>
+          <p className="text-sm text-[color:var(--ink-3)]">No variants configured. Add one to override pricing per option.</p>
         ) : (
           <div className="space-y-3">
             {variants.map((variant, index) => (
-              <div key={variant.id ?? index} className="rounded-md border border-slate-800 p-4">
-                <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
+              <div key={variant.id ?? index} className="rounded-md border border-[color:var(--line)] p-4">
+                <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-[color:var(--ink-3)]">
                   <span>Variant #{index + 1}</span>
-                  <button type="button" className="text-amber-300" onClick={() => removeVariant(index)}>
+                  <button type="button" className="text-[color:var(--accent)]" onClick={() => removeVariant(index)}>
                     Remove
                   </button>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1 text-sm">
-                    <span className="text-slate-300">Label *</span>
+                    <span className="text-[color:var(--ink-2)]">Label *</span>
                     <input
                       type="text"
-                      className="input"
+                      className="input-forumo"
                       value={variant.label}
                       onChange={(event) => handleVariantChange(index, 'label', event.target.value)}
                     />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span className="text-slate-300">Price *</span>
+                    <span className="text-[color:var(--ink-2)]">Price *</span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
-                      className="input"
+                      className="input-forumo"
                       value={variant.price}
                       onChange={(event) => handleVariantChange(index, 'price', event.target.value)}
                     />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span className="text-slate-300">Currency</span>
+                    <span className="text-[color:var(--ink-2)]">Currency</span>
                     <input
                       type="text"
-                      className="input"
+                      className="input-forumo"
                       value={variant.currency}
                       onChange={(event) => handleVariantChange(index, 'currency', event.target.value.toUpperCase())}
                     />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span className="text-slate-300">SKU</span>
+                    <span className="text-[color:var(--ink-2)]">SKU</span>
                     <input
                       type="text"
-                      className="input"
+                      className="input-forumo"
                       value={variant.sku ?? ''}
                       onChange={(event) => handleVariantChange(index, 'sku', event.target.value)}
                     />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span className="text-slate-300">Inventory</span>
+                    <span className="text-[color:var(--ink-2)]">Inventory</span>
                     <input
                       type="number"
                       min="0"
-                      className="input"
+                      className="input-forumo"
                       value={variant.inventoryCount ?? ''}
                       onChange={(event) => handleVariantChange(index, 'inventoryCount', event.target.value)}
                     />
@@ -370,8 +370,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         {existingImages.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {existingImages.map((image) => (
-              <div key={image.id} className="space-y-2 rounded-md border border-slate-800 p-2 text-sm">
-                <p className="truncate text-xs text-slate-400">{image.storageKey ?? image.url}</p>
+              <div key={image.id} className="space-y-2 rounded-md border border-[color:var(--line)] p-2 text-sm">
+                <p className="truncate text-xs text-[color:var(--ink-3)]">{image.storageKey ?? image.url}</p>
                 {image.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={image.url} alt={title} className="h-32 w-full rounded-md object-cover" />
@@ -380,14 +380,14 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400">No images attached yet.</p>
+          <p className="text-sm text-[color:var(--ink-3)]">No images attached yet.</p>
         )}
         <label className="space-y-2 text-sm">
-          <span className="text-slate-300">Upload images</span>
+          <span className="text-[color:var(--ink-2)]">Upload images</span>
           <input type="file" accept="image/*" multiple onChange={handleFileChange} />
         </label>
         {files.length > 0 ? (
-          <ul className="text-sm text-slate-400">
+          <ul className="text-sm text-[color:var(--ink-3)]">
             {files.map((file) => (
               <li key={file.name}>{file.name}</li>
             ))}
@@ -399,7 +399,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         <button type="submit" className={actionButtonClasses} disabled={isSubmitting || isMutating}>
           {isSubmitting || isMutating ? 'Saving…' : buttonLabel}
         </button>
-        <p className="text-xs text-slate-500">All required fields are marked with *</p>
+        <p className="text-xs text-[color:var(--ink-3)]">All required fields are marked with *</p>
       </div>
     </form>
   );

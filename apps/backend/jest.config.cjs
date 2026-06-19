@@ -20,4 +20,13 @@ module.exports = {
   },
   testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/src/**/*.test.ts'],
   collectCoverageFrom: ['<rootDir>/src/**/*.ts', '!<rootDir>/src/main.ts'],
+  coverageReporters: ['text', 'lcov'],
+  coverageThreshold: {
+    global: {
+      branches: 23,
+      functions: 38,
+      lines: 44,
+      statements: 44,
+    },
+  },
 };

@@ -8,7 +8,7 @@ import { DataTable, Column } from '../../../components/data-table';
 import { Badge } from '../../../components/badge';
 import { PageHeader } from '../../../components/page-header';
 import { ErrorState } from '../../../components/error-state';
-import type { SafeUser } from '@forumo/shared';
+import type { AdminUserDetail } from '@forumo/shared';
 
 export default function UsersPage() {
   const { data: session } = useSession();
@@ -50,7 +50,7 @@ export default function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
-  const columns: Column<SafeUser>[] = [
+  const columns: Column<AdminUserDetail>[] = [
     { header: 'Name', accessor: 'name' },
     { header: 'Email', accessor: 'email' },
     { header: 'Role', accessor: (u) => <Badge value={u.role} /> },

@@ -115,7 +115,7 @@ export class OrdersService {
           where: { id: dto.buyerId },
           select: { email: true },
         });
-        const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout`;
+        const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout/success`;
         const { authorizationUrl, reference } = await this.paystackService.initializeTransaction(
           totalChargeCents,
           buyer?.email ?? '',
@@ -225,7 +225,7 @@ export class OrdersService {
         where: { id: order.buyerId },
         select: { email: true },
       });
-      const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout`;
+      const callbackUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/app/checkout/success`;
       const { authorizationUrl, reference } = await this.paystackService.initializeTransaction(
         totalChargeCents,
         buyer?.email ?? '',

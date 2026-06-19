@@ -67,17 +67,17 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-6">
+    <form onSubmit={handleSubmit} className="space-y-4 card card-pad">
       {resetSuccess ? (
-        <p className="rounded-md border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-300">
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-[color:var(--escrow)]">
           Password reset successfully. Sign in with your new password.
         </p>
       ) : null}
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">Email</span>
+        <span className="subtle">Email</span>
         <input
           type="email"
-          className="input"
+          className="input-forumo"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
@@ -85,10 +85,10 @@ export function LoginForm() {
         />
       </label>
       <label className="space-y-2 text-sm">
-        <span className="text-slate-300">Password</span>
+        <span className="subtle">Password</span>
         <input
           type="password"
-          className="input"
+          className="input-forumo"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
@@ -96,25 +96,25 @@ export function LoginForm() {
         />
       </label>
       <div className="flex justify-end">
-        <Link className="text-xs text-amber-300 hover:underline" href="/forgot-password">
+        <Link className="text-xs text-[color:var(--accent)] hover:underline" href="/forgot-password">
           Forgot password?
         </Link>
       </div>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button
         type="submit"
-        className="w-full rounded-md bg-amber-400 px-4 py-2 font-semibold text-slate-900 hover:bg-amber-300"
+        className="btn btn-primary btn-block"
         disabled={isSubmitting}
       >
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </button>
       <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
-        <div className="relative flex justify-center text-xs"><span className="bg-slate-950/50 px-2 text-slate-500">or</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[color:var(--line)]" /></div>
+        <div className="relative flex justify-center text-xs"><span className="bg-[color:var(--surface)] px-2 muted">or</span></div>
       </div>
       <GoogleSignInButton />
-      <p className="text-center text-xs text-slate-500">
-        Need an account? <a className="text-amber-300" href="/signup">Create one</a> to unlock dashboards.
+      <p className="text-center text-xs muted">
+        Need an account? <a className="text-[color:var(--accent)]" href="/signup">Create one</a> to unlock dashboards.
       </p>
     </form>
   );

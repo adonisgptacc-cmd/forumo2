@@ -51,7 +51,7 @@ export default function DisputesPage() {
     { header: 'Opened by', accessor: (d) => d.openedBy?.name ?? '—' },
     {
       header: 'Opened',
-      accessor: (d) => new Date(d.createdAt).toLocaleDateString(),
+      accessor: (d) => new Date(d.openedAt).toLocaleDateString(),
     },
     {
       header: 'Actions',

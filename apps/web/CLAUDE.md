@@ -59,6 +59,7 @@ src/app/
 │   ├── wishlist/               # Saved listings
 │   ├── messages/               # Messaging UI
 │   ├── cart/                   # Shopping cart
+│   ├── kyc/                    # KYC document submission — 5-step wizard (kyc-form.tsx)
 │   ├── profile/                # User profile view/edit, avatar, trust score
 │   └── settings/account/       # Account settings — TOS, data export, account deletion
 │
@@ -95,7 +96,7 @@ Two Credentials providers:
 
 The `session.accessToken` field holds the backend JWT. Pass it when constructing `ForumoApiClient`.
 
-There is **no silent token refresh**. The JWT expires after 7 days. Users are silently logged out when it expires.
+Access tokens are short-lived (15 minutes). The NextAuth JWT callback silently calls `POST /api/v1/auth/refresh` (sending the refresh token via `Authorization: Bearer`) 60 seconds before expiry, updates the session on success, and returns `null` to force re-login on failure. Refresh tokens are 30-day JWTs, rotated on every use.
 
 ## ForumoApiClient usage
 
@@ -166,13 +167,12 @@ const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 ## Known gaps
 
-- **Email verification UI** — the backend has OTP endpoints for email verification but there is no frontend flow for it. Users can register without verifying email.
-- **KYC submission UI** — the backend KYC pipeline is complete but there is no frontend page for submitting KYC documents.
-- **Escrow dispute UI** — disputes can be opened via API but there is no buyer-facing dispute form.
+- **Email verification UI** — Implemented. Email verification page exists; users are prompted to verify after registration.
+- **KYC submission UI** — Complete 5-step wizard at `apps/web/src/app/(authenticated)/app/kyc/kyc-form.tsx`.
+- **Escrow dispute UI** — Implemented. Buyer-facing board + detail at `src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, with an `error.tsx`).
 - **Cart variant integration** — cart exists but product variants (size, colour) are not wired into the add-to-cart flow.
-- **No error boundaries** — route segments do not have `error.tsx` files. Unhandled errors bubble to the root layout.
-- **Admin panel** — an `(admin)` route group exists in this app but the full admin experience is a separate app (`apps/admin`). The admin pages here are partially built.
-- **Silent token refresh** — no refresh token flow. 7-day JWT; users must log in again after expiry.
+- **Error boundaries** — Implemented. 11 `error.tsx` segments exist (root, `listings`, `auctions`, `login`, `shops/[slug]`, and several under `(authenticated)/app/` and `(admin)/admin/`).
+- **Admin panel** — an `(admin)` route group exists in this app *and* there is a separate `apps/admin` dashboard. Both are wired and typecheck clean.
 
 ## TypeScript status
 
@@ -181,6 +181,9 @@ const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 - `useEscrowDetails` is typed as `Record<string, unknown>`, not `unknown`, so it can be spread in JSX without errors.
 - `auth.ts` JWT callback is annotated `: Promise<any>` to allow `null` return on token expiry.
 - Dynamic Next.js route `href` values must be cast `as any` — e.g. `href={"/app/orders/" + id as any}`.
+- `router.replace()` with a dynamically-built URL string must also be cast `as any`.
+- All dynamic route pages (`[id]/page.tsx`, `[slug]/page.tsx`) type `params` as `Promise<{...}>` and `await` it — required by Next.js 15 App Router.
+- `searchParams` in server page components is also typed as `Promise<{...}>` and must be awaited (see `account-suspended/page.tsx`).
 - `(order as any).shippingAddress` in order-detail — shippingAddress is not on the SafeOrder schema.
 - `(order.escrow as any).disputes` in admin orders page — disputes sub-array is not typed on the escrow schema.
 - `analytics-view.tsx` uses `point.date`, `point.revenue`, `point.orders`, `listing.revenue`, `overview.gmv`, `overview.avgOrderValue`, `summary.avgRating`, `summary.totalReviews` — match the exact field names from `SellerRevenuePoint`, `SellerTopListing`, `SellerAnalyticsOverview`, `SellerReviewsSummary` in `@forumo/shared`.

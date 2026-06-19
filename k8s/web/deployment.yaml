@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forumo-web
+  namespace: forumo
+  labels:
+    app: forumo-web
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forumo-web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: forumo-web
+        tier: frontend
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: web
+          # Replace with your ECR URI before deploying:
+          #   <account>.dkr.ecr.<region>.amazonaws.com/forumo-web:<git-sha>
+          image: forumo/web:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: forumo-web-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forumo-web
+  namespace: forumo
+  labels:
+    app: forumo-web
+spec:
+  type: ClusterIP
+  selector:
+    app: forumo-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forumo-admin
+  namespace: forumo
+  labels:
+    app: forumo-admin
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forumo-admin
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: forumo-admin
+        tier: frontend
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: admin
+          # Replace with your ECR URI before deploying:
+          #   <account>.dkr.ecr.<region>.amazonaws.com/forumo-admin:<git-sha>
+          image: forumo/admin:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: forumo-admin-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forumo-admin
+  namespace: forumo
+  labels:
+    app: forumo-admin
+spec:
+  type: ClusterIP
+  selector:
+    app: forumo-admin
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP

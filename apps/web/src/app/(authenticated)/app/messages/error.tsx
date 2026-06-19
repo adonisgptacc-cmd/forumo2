@@ -37,7 +37,7 @@ export default function MessagesError({
       <div className="flex gap-3 pt-1">
         <button
           onClick={reset}
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+          className="btn btn-primary btn-sm"
         >
           Try again
         </button>

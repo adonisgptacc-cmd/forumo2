@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { Body, Controller, Get, Param, Post, Query, Request, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
@@ -36,6 +36,14 @@ export class MessagingController {
     @Request() req: { user: { id: string } },
   ): Promise<SafeMessageThread> {
     return this.messagingService.createThread(dto, req.user.id);
+  }
+
+  @Patch('threads/:id/read')
+  markRead(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<void> {
+    return this.messagingService.markThreadRead(id, req.user.id);
   }
 
   @Post('threads/:id/messages')
