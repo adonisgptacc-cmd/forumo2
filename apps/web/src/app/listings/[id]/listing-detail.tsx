@@ -288,9 +288,13 @@ export function ListingDetail({ id }: { id: string }) {
             <div className="space-y-2 pt-2">
               {!isAuctionActive && (
                 <>
+                  {data.variants && data.variants.length > 0 && !selectedVariantId && (
+                    <p className="text-xs text-amber-600 font-medium">Please select an option above</p>
+                  )}
                   <button
                     type="button"
-                    className="btn-forumo block text-center w-full py-3 text-base font-bold"
+                    disabled={!!(data.variants && data.variants.length > 0 && !selectedVariantId)}
+                    className="btn-forumo block text-center w-full py-3 text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => {
                       const variant = selectedVariantId
                         ? (data.variants?.find((v) => v.id === selectedVariantId) ?? null)
@@ -313,7 +317,8 @@ export function ListingDetail({ id }: { id: string }) {
                   </button>
                   <button
                     type="button"
-                    className="block text-center w-full py-3 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 font-medium"
+                    disabled={!!(data.variants && data.variants.length > 0 && !selectedVariantId)}
+                    className="block text-center w-full py-3 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => {
                       const variant = selectedVariantId
                         ? (data.variants?.find((v) => v.id === selectedVariantId) ?? null)

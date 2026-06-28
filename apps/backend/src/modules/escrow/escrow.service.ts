@@ -1,7 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EscrowStatus, DisputeStatus, EscrowTransactionType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { sanitizeText } from '../../common/utils/sanitize';
 
 @Injectable()
 export class EscrowService {
@@ -98,18 +100,18 @@ export class EscrowService {
             throw new NotFoundException('Escrow not found');
         }
 
-        if (escrow.status !== 'HOLDING') {
+        // Atomic conditional update — prevents duplicate releases under concurrent requests
+        const result = await this.prisma.escrowHolding.updateMany({
+            where: { orderId, status: 'HOLDING' },
+            data: { status: 'RELEASED', releasedAt: new Date() },
+        });
+
+        if (result.count === 0) {
             throw new BadRequestException(`Cannot release escrow with status: ${escrow.status}`);
         }
 
-        // Update escrow status
-        const updated = await this.prisma.escrowHolding.update({
-            where: { orderId },
-            data: {
-                status: 'RELEASED',
-                releasedAt: new Date(),
-            },
-        });
+        const updated = await this.prisma.escrowHolding.findUnique({ where: { orderId } });
+        if (!updated) throw new NotFoundException('Escrow not found after release');
 
         // Create transaction record
         await this.prisma.escrowTransaction.create({
@@ -159,7 +161,7 @@ export class EscrowService {
             throw new BadRequestException(`Cannot refund escrow with status: ${escrow.status}`);
         }
 
-        const refundAmount = amountCents || escrow.amountCents;
+        const refundAmount = amountCents ?? escrow.amountCents;
 
         if (refundAmount > escrow.amountCents) {
             throw new BadRequestException('Refund amount exceeds escrow amount');
@@ -209,6 +211,15 @@ export class EscrowService {
     }
 
     async openDispute(orderId: string, openedById: string, reason: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            select: { buyerId: true, sellerId: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        if (order.buyerId !== openedById && order.sellerId !== openedById) {
+            throw new ForbiddenException('Not a party to this order');
+        }
+
         const escrow = await this.prisma.escrowHolding.findUnique({
             where: { orderId },
         });
@@ -297,20 +308,27 @@ export class EscrowService {
         return this.getEscrowByOrderId(dispute.escrow.orderId);
     }
 
-    async addDisputeMessage(disputeId: string, authorId: string, body: string, attachments?: any) {
+    async addDisputeMessage(disputeId: string, authorId: string, body: string, attachments?: any, actorRole?: string) {
         const dispute = await this.prisma.escrowDispute.findUnique({
             where: { id: disputeId },
+            include: { escrow: { select: { order: { select: { buyerId: true, sellerId: true } } } } },
         });
 
         if (!dispute) {
             throw new NotFoundException('Dispute not found');
         }
 
+        const order = dispute.escrow.order;
+        const isStaff = actorRole === 'ADMIN' || actorRole === 'MODERATOR';
+        if (!isStaff && order.buyerId !== authorId && order.sellerId !== authorId) {
+            throw new ForbiddenException('Not a party to this dispute');
+        }
+
         const message = await this.prisma.disputeMessage.create({
             data: {
                 disputeId,
                 authorId,
-                body,
+                body: sanitizeText(body),
                 attachments: attachments || {},
             },
             include: {
@@ -369,5 +387,32 @@ export class EscrowService {
                 openedAt: 'asc',
             },
         });
+    }
+
+    // ─── Auto-release cron ─────────────────────────────────────────────────────
+
+    @Cron('0 * * * *')
+    async autoReleaseExpiredEscrows(): Promise<void> {
+        const now = new Date();
+        const due = await this.prisma.escrowHolding.findMany({
+            where: {
+                status: EscrowStatus.HOLDING,
+                releaseAfter: { lte: now },
+                disputes: { none: { status: { in: ['OPEN', 'UNDER_REVIEW', 'ESCALATED'] } } },
+            },
+            select: { orderId: true, id: true },
+        });
+
+        if (!due.length) return;
+
+        this.logger.log(`autoReleaseExpiredEscrows: releasing ${due.length} escrow(s)`);
+
+        for (const escrow of due) {
+            try {
+                await this.releaseEscrow(escrow.orderId, 'system', 'Auto-released after buyer dispute window expired');
+            } catch (err) {
+                this.logger.error(`autoReleaseExpiredEscrows: failed for order ${escrow.orderId}`, err);
+            }
+        }
     }
 }

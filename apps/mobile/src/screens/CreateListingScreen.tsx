@@ -98,7 +98,7 @@ export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const created = await apiClient.listings.create({
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: description.trim(),
         priceCents: Math.round(parseFloat(price) * 100),
         currency,
         location: location.trim() || undefined,

@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { randomBytes } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateOfferDto } from "./dto/create-offer.dto";
 import { ListingStatus, OrderStatus } from "@prisma/client";
+import { sanitizeText } from "../../common/utils/sanitize";
 
 @Injectable()
 export class OffersService {
@@ -38,7 +40,7 @@ export class OffersService {
                 sellerId: listing.sellerId,
                 amountCents: dto.amountCents,
                 currency: listing.currency,
-                message: dto.message,
+                message: dto.message ? sanitizeText(dto.message) : dto.message,
                 expiresAt,
                 status: "PENDING",
             },
@@ -86,7 +88,7 @@ export class OffersService {
                 where: { id: offer.listingId }
             });
 
-            const orderNumber = "ORD-OFFER-" + Date.now();
+            const orderNumber = 'ORD-' + randomBytes(8).toString('hex').toUpperCase();
             await tx.order.create({
                 data: {
                     orderNumber,

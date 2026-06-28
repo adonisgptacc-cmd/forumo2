@@ -57,11 +57,11 @@ interface Filters {
   categories: string[];   // category slugs
   minPrice: string;
   maxPrice: string;
-  sort: 'newest' | 'price_asc' | 'price_desc' | undefined;
+  sort: 'date_new' | 'price_asc' | 'price_desc' | undefined;
 }
 
 const SORT_OPTIONS: { label: string; value: Filters['sort'] }[] = [
-  { label: 'Newest', value: 'newest' },
+  { label: 'Newest', value: 'date_new' },
   { label: 'Price ↑', value: 'price_asc' },
   { label: 'Price ↓', value: 'price_desc' },
 ];

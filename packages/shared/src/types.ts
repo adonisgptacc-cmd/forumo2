@@ -450,6 +450,7 @@ export const authResponseSchema = z.object({
     email: z.string().email(),
     name: z.string().nullable().optional(),
     role: z.string().optional(),
+    avatarUrl: z.string().nullable().optional(),
     tosVersion: z.string().nullable().optional(),
     termsAcceptedAt: z.union([z.string(), z.date()]).nullable().optional(),
     deletionScheduledAt: z.union([z.string(), z.date()]).nullable().optional(),
@@ -768,6 +769,7 @@ export const savedListingSchema = z.object({
     priceCents: z.number().int(),
     currency: z.string(),
     status: z.string(),
+    location: z.string().nullable().optional(),
     images: z.array(z.object({ url: z.string() })).optional(),
   }).optional(),
 });

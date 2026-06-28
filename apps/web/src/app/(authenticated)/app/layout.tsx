@@ -8,24 +8,28 @@ import { NotificationNavLink } from '../../../components/notification-badge';
 import { MessagesNavLink } from '../../../components/messages-nav-link';
 import { authOptions } from '../../../lib/auth';
 
-const navItems = [
+const buyerNavItems = [
   { href: '/app', label: 'Overview' },
-  { href: '/app/dashboard', label: 'Seller Dashboard' },
-  { href: '/app/listings', label: 'My Listings' },
-  { href: '/app/storefront', label: 'Storefront' },
-  { href: '/app/auctions/new', label: 'Create Auction' },
   { href: '/app/orders', label: 'Orders' },
   { href: '/app/returns', label: 'Returns' },
   { href: '/app/disputes', label: 'Disputes' },
   { href: '/app/offers', label: 'Offers' },
   { href: '/app/wishlist', label: 'Wishlist' },
-  { href: '/app/inventory', label: 'Inventory' },
   { href: '/app/cart', label: 'Cart' },
-  { href: '/app/dashboard/analytics', label: 'Analytics' },
   { href: '/app/reviews', label: 'My Reviews' },
   { href: '/app/profile', label: 'Profile' },
   { href: '/app/kyc', label: 'Verification' },
   { href: '/app/settings/account', label: 'Account Settings' },
+];
+
+const sellerOnlyNavItems = [
+  { href: '/app/dashboard', label: 'Seller Dashboard' },
+  { href: '/app/listings', label: 'My Listings' },
+  { href: '/app/storefront', label: 'Storefront' },
+  { href: '/app/auctions/new', label: 'Create Auction' },
+  { href: '/app/inventory', label: 'Inventory' },
+  { href: '/app/payouts', label: 'Payouts' },
+  { href: '/app/dashboard/analytics', label: 'Analytics' },
 ];
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -34,6 +38,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect('/login?callbackUrl=/app');
   }
 
+  const isSeller = (session.user as any).role === 'SELLER' || (session.user as any).role === 'ADMIN';
+  const navItems = isSeller ? [...sellerOnlyNavItems, ...buyerNavItems] : buyerNavItems;
+
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1280, margin: '0 auto' }}>
       <header className="card card-pad">
@@ -41,7 +48,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <div style={{ minWidth: 0 }}>
             <p className="eyebrow" style={{ marginBottom: 4 }}>Secure workspace</p>
             <h1 style={{ fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 500, letterSpacing: '-0.015em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {session.user?.name ?? 'Unnamed Seller'}
+              {session.user?.name ?? 'Unnamed User'}
             </h1>
             <p style={{ fontSize: 13, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.user?.email}</p>
           </div>

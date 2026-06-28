@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-native",
-    "types": ["jest"],
+    "types": ["jest", "detox", "react-test-renderer"],
     "allowJs": true,
     "noEmit": true
   },

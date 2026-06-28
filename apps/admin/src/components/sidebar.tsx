@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Scale,
   Flag,
+  BarChart2,
   LogOut,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -19,6 +20,7 @@ const nav = [
   { label: 'KYC Queue', href: '/admin/kyc', icon: ShieldCheck },
   { label: 'Disputes', href: '/admin/disputes', icon: Scale },
   { label: 'Moderation', href: '/admin/moderation', icon: Flag },
+  { label: 'Analytics', href: '/admin/analytics', icon: BarChart2 },
 ];
 
 export function Sidebar() {

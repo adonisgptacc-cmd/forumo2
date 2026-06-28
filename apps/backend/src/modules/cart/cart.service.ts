@@ -78,6 +78,8 @@ export class CartService {
       return {
         id: item.id,
         listingId: item.listingId,
+        variantId: item.variantId ?? undefined,
+        variantLabel: item.variantLabel ?? undefined,
         quantity: item.quantity,
         priceSnapshot: item.priceSnapshot,
         addedAt: item.addedAt,
@@ -99,10 +101,10 @@ export class CartService {
     return { id: cart.id, expiresAt: cart.expiresAt, items, total };
   }
 
-  async addItem(userId: string, listingId: string, quantity: number) {
+  async addItem(userId: string, listingId: string, quantity: number, variantId?: string, variantLabel?: string) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
-      include: { variants: { select: { inventoryCount: true } } },
+      include: { variants: { select: { id: true, inventoryCount: true, priceCents: true } } },
     });
 
     if (!listing) throw new NotFoundException('Listing not found');
@@ -110,34 +112,51 @@ export class CartService {
       throw new BadRequestException('Listing is not available');
     }
 
-    const stock = totalStock(listing.variants);
     const hasVariants = listing.variants.length > 0;
-    if (hasVariants && stock === 0) {
-      throw new BadRequestException('Listing is out of stock');
+
+    if (hasVariants && !variantId) {
+      throw new BadRequestException('Please select a variant before adding to cart');
+    }
+
+    let priceSnapshot = listing.priceCents;
+    let stock: number;
+
+    if (variantId) {
+      const variant = listing.variants.find((v) => v.id === variantId);
+      if (!variant) throw new BadRequestException('Variant not found on this listing');
+      stock = variant.inventoryCount;
+      priceSnapshot = variant.priceCents;
+    } else {
+      stock = totalStock(listing.variants);
+      if (hasVariants && stock === 0) {
+        throw new BadRequestException('Listing is out of stock');
+      }
     }
 
     const cart = await this.getOrCreateCart(userId);
 
-    const existing = await this.prisma.cartItem.findUnique({
-      where: { cartId_listingId: { cartId: cart.id, listingId } },
+    const existing = await this.prisma.cartItem.findFirst({
+      where: { cartId: cart.id, listingId, variantId: variantId ?? null },
     });
 
     if (existing) {
       const merged = existing.quantity + quantity;
-      const newQty = hasVariants ? Math.min(merged, stock) : merged;
+      const newQty = variantId ? Math.min(merged, stock) : merged;
       return this.prisma.cartItem.update({
         where: { id: existing.id },
-        data: { quantity: newQty },
+        data: { quantity: newQty, variantId: variantId ?? null, variantLabel: variantLabel ?? null, priceSnapshot },
       });
     }
 
-    const safeQty = hasVariants ? Math.min(quantity, stock) : quantity;
+    const safeQty = variantId ? Math.min(quantity, stock) : quantity;
     return this.prisma.cartItem.create({
       data: {
         cartId: cart.id,
         listingId,
+        variantId: variantId ?? null,
+        variantLabel: variantLabel ?? null,
         quantity: safeQty,
-        priceSnapshot: listing.priceCents,
+        priceSnapshot,
       },
     });
   }
