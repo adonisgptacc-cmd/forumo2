@@ -218,8 +218,8 @@ export class CartService {
       const hasVariants = listing.variants.length > 0;
       if (hasVariants && stock === 0) continue;
 
-      const existing = await this.prisma.cartItem.findUnique({
-        where: { cartId_listingId: { cartId: cart.id, listingId: guest.listingId } },
+      const existing = await this.prisma.cartItem.findFirst({
+        where: { cartId: cart.id, listingId: guest.listingId, variantId: null },
       });
 
       if (existing) {
