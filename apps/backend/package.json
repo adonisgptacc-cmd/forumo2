@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
-    "start": "node dist/main.js",
+    "start": "node dist/apps/backend/src/main.js",
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "typecheck": "tsc --noEmit",

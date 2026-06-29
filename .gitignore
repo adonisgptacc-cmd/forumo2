@@ -48,3 +48,4 @@ docker/minio-data/
 !README.txt
 seller_token.txt
 env_example_copy.txt
+.vercel/

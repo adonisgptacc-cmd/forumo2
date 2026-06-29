@@ -2,7 +2,7 @@
 set -e
 
 echo "Running migrations..."
-pnpm --filter backend prisma migrate deploy
+pnpm --filter backend migrate
 
 echo "Starting application..."
 exec "$@"
