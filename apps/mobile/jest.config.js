@@ -23,7 +23,7 @@ module.exports = {
     '^.+\\.(js|ts|tsx)$': ['babel-jest', { presets: ['babel-preset-expo'] }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@react-navigation)/)',
+    'node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@react-navigation|@react-native-async-storage)/)',
   ],
   testPathIgnorePatterns: ['<rootDir>/e2e/'],
 };

@@ -115,7 +115,6 @@ export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       await apiClient.offers.create({
         listingId,
         amountCents: cents,
-        currency: listing?.currency ?? 'USD',
         message: offerMessage.trim() || undefined,
       });
       setOfferModalVisible(false);

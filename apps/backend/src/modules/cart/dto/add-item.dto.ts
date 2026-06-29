@@ -1,4 +1,4 @@
-import { IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class AddItemDto {
   @IsUUID()
@@ -8,4 +8,12 @@ export class AddItemDto {
   @Min(1)
   @Max(99)
   quantity!: number;
+
+  @IsOptional()
+  @IsString()
+  variantId?: string;
+
+  @IsOptional()
+  @IsString()
+  variantLabel?: string;
 }

@@ -670,6 +670,13 @@ export class ForumoApiClient {
         body: { reason },
       });
     },
+    getAnalytics: async (): Promise<{
+      salesTrend: Array<{ label: string; value: number }>;
+      userGrowth: Array<{ label: string; value: number }>;
+      recentActivity: Array<{ title: string; meta: string; time: string; tone: string }>;
+    }> => {
+      return this.request('/admin/dashboard/analytics', { method: 'GET', auth: true });
+    },
   };
 
   readonly auctions = {
@@ -1050,8 +1057,8 @@ export class ForumoApiClient {
 
   readonly cart = {
     get: () => this.request<unknown>('/cart', { method: 'GET', auth: true }),
-    addItem: (listingId: string, quantity = 1) =>
-      this.request<unknown>('/cart/items', { method: 'POST', auth: true, body: JSON.stringify({ listingId, quantity }) }),
+    addItem: (listingId: string, quantity = 1, variantId?: string, variantLabel?: string) =>
+      this.request<unknown>('/cart/items', { method: 'POST', auth: true, body: JSON.stringify({ listingId, quantity, variantId, variantLabel }) }),
     updateItem: (itemId: string, quantity: number) =>
       this.request<unknown>(`/cart/items/${itemId}`, { method: 'PUT', auth: true, body: JSON.stringify({ quantity }) }),
     removeItem: (itemId: string) =>

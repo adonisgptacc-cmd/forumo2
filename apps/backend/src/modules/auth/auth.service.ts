@@ -100,9 +100,9 @@ export class AuthService {
     return response;
   }
 
-  async me(userId: string): Promise<AuthResponse> {
+  async me(userId: string): Promise<Pick<AuthResponse, 'user'>> {
     const user = await this.usersService.findById(userId);
-    return this.buildAuthResponse(user, {});
+    return { user: sanitizeUser(user)! };
   }
 
   async requestOtp(dto: RequestOtpInput): Promise<OtpIssueResponse> {
@@ -200,10 +200,17 @@ export class AuthService {
 
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: user.id }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
+      // Revoke all OTHER sessions; exclude the current device so it stays verified
+      this.prisma.deviceSession.updateMany({
+        where: {
+          userId: user.id,
+          ...(deviceFingerprint ? { fingerprint: { not: deviceFingerprint } } : {}),
+        },
+        data: { status: 'REVOKED' },
+      }),
       ...(deviceFingerprint
         ? [this.upsertDeviceSession(user.id, deviceFingerprint, dto, { lastVerifiedAt: consumedAt })]
         : []),
-      this.prisma.deviceSession.updateMany({ where: { userId: user.id }, data: { status: 'REVOKED' } }),
     ]);
 
     return { message: 'Password reset successful' };
@@ -522,21 +529,23 @@ export class AuthService {
     const limit = Number.isNaN(limitValue) ? 5 : limitValue;
     const windowSeconds = Number.isNaN(windowSecondsValue) ? 300 : windowSecondsValue;
 
-    if (!fingerprint) {
-      return;
-    }
-
     const windowStart = new Date(Date.now() - windowSeconds * 1000);
-    const recentCount = await this.prisma.otpCode.count({
-      where: {
-        userId,
-        deviceFingerprint: fingerprint,
-        createdAt: { gte: windowStart },
-      },
-    });
 
-    if (recentCount >= limit) {
-      throw new HttpException('Too many OTP requests for this device', HttpStatus.TOO_MANY_REQUESTS);
+    if (fingerprint) {
+      const recentCount = await this.prisma.otpCode.count({
+        where: { userId, deviceFingerprint: fingerprint, createdAt: { gte: windowStart } },
+      });
+      if (recentCount >= limit) {
+        throw new HttpException('Too many OTP requests for this device', HttpStatus.TOO_MANY_REQUESTS);
+      }
+    } else {
+      // No fingerprint — fall back to a per-user global limit to prevent enumeration
+      const recentCount = await this.prisma.otpCode.count({
+        where: { userId, createdAt: { gte: windowStart } },
+      });
+      if (recentCount >= limit) {
+        throw new HttpException('Too many OTP requests', HttpStatus.TOO_MANY_REQUESTS);
+      }
     }
   }
 

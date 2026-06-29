@@ -449,10 +449,11 @@ model ListingVariant {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing    Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
   inventoryItems InventoryItem[]
   reservations   InventoryReservation[]
   orders         OrderItem[]
+  cartItems      CartItem[]
 
   @@index([listingId])
   @@unique([listingId, label])
@@ -1155,14 +1156,17 @@ model CartItem {
   id            String   @id @default(uuid())
   cartId        String
   listingId     String
+  variantId     String?
+  variantLabel  String?
   quantity      Int
   priceSnapshot Int
   addedAt       DateTime @default(now())
 
-  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  listing Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variant ListingVariant? @relation(fields: [variantId], references: [id])
 
-  @@unique([cartId, listingId])
+  @@unique([cartId, listingId, variantId])
   @@index([cartId])
 }
 

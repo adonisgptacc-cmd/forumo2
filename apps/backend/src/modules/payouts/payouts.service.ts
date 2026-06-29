@@ -330,6 +330,23 @@ export class PayoutsService {
       );
     }
 
+    // Validate South African bank account number format (9–11 digits)
+    if (payout.currency.toUpperCase() === 'ZAR') {
+      const zarAccountPattern = /^\d{9,11}$/;
+      if (!zarAccountPattern.test(profile.bankAccountNumber.replace(/\s/g, ''))) {
+        throw new BadRequestException(
+          'Invalid South African bank account number. Must be 9–11 digits.',
+        );
+      }
+      // Validate bank code: SA bank codes are 6 digits
+      const zarBankCodePattern = /^\d{6}$/;
+      if (!zarBankCodePattern.test(profile.bankCode.replace(/\s/g, ''))) {
+        throw new BadRequestException(
+          'Invalid South African bank code. Must be 6 digits (e.g. 632005 for Absa).',
+        );
+      }
+    }
+
     // Use cached recipient code or create a new one
     let recipientCode = seller.paystackRecipientCode;
     if (!recipientCode) {

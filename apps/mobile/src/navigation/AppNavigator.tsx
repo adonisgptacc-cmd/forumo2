@@ -248,7 +248,7 @@ export const AppNavigator: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} theme={mobileNavigationTheme as Theme}>
+    <NavigationContainer ref={navigationRef} linking={linking as any} theme={mobileNavigationTheme as Theme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           <>
