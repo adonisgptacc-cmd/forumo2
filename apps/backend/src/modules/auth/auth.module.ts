@@ -8,6 +8,7 @@ import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { TwoFactorPendingGuard } from "./guards/two-factor-pending.guard";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { OtpDeliveryService } from "./otp-delivery.service";
@@ -37,7 +38,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard, OtpDeliveryService, RolesGuard],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard, TwoFactorPendingGuard, OtpDeliveryService, RolesGuard],
   exports: [AuthService],
 })
 export class AuthModule { }

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { TwoFactorPendingGuard } from "./guards/two-factor-pending.guard";
 import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
 import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { AuthService } from "./auth.service";
@@ -46,15 +47,18 @@ export class AuthController {
   @Throttle({ 'auth-login': {} })
   async login(@Body() dto: LoginDto, @Req() req: any) {
     const result = await this.authService.login(dto);
-    await this.auditLog.record({
-      actorId: result.user.id,
-      action: 'auth.login',
-      entityType: 'user',
-      entityId: result.user.id,
-      payload: { email: dto.email },
-      ipAddress: req.ip ?? null,
-      userAgent: req.headers?.['user-agent'] ?? null,
-    });
+    // Only audit after full authentication (post-2FA); partial tokens skip audit here
+    if ('user' in result) {
+      await this.auditLog.record({
+        actorId: result.user.id,
+        action: 'auth.login',
+        entityType: 'user',
+        entityId: result.user.id,
+        payload: { email: dto.email },
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers?.['user-agent'] ?? null,
+      });
+    }
     return result;
   }
 
@@ -251,4 +255,92 @@ export class AuthController {
     (res as any).clearCookie('oauth_token');
     return { accessToken: token };
   }
+  // ─── Two-Factor Authentication ─────────────────────────────────────────────
+
+  @Post('2fa/setup-init')
+  @UseGuards(TwoFactorPendingGuard)
+  @Throttle({ auth: {} })
+  async twoFactorSetupInit(@Req() req: any) {
+    if (!req.twoFactorSetupRequired) {
+      throw new BadRequestException('2FA already configured; use /auth/2fa/verify to log in');
+    }
+    return this.authService.initSetup2FA(req.twoFactorUserId);
+  }
+
+  @Post('2fa/setup-verify')
+  @UseGuards(TwoFactorPendingGuard)
+  @Throttle({ auth: {} })
+  async twoFactorSetupVerify(
+    @Req() req: any,
+    @Body() body: { code: string; rememberMe?: boolean; deviceFingerprint?: string },
+  ) {
+    if (!req.twoFactorSetupRequired) {
+      throw new BadRequestException('2FA already configured; use /auth/2fa/verify to log in');
+    }
+    const result = await this.authService.verifySetup2FA(req.twoFactorUserId, body.code, {
+      rememberMe: body.rememberMe,
+      deviceFingerprint: body.deviceFingerprint,
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    await this.auditLog.record({
+      actorId: result.user.id,
+      action: 'auth.2fa.setup',
+      entityType: 'user',
+      entityId: result.user.id,
+      payload: {},
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    return result;
+  }
+
+  @Post('2fa/verify')
+  @UseGuards(TwoFactorPendingGuard)
+  @Throttle({ auth: {} })
+  async twoFactorVerify(
+    @Req() req: any,
+    @Body() body: { code: string; rememberMe?: boolean; deviceFingerprint?: string },
+  ) {
+    if (req.twoFactorSetupRequired) {
+      throw new BadRequestException('2FA not set up yet; use /auth/2fa/setup-init first');
+    }
+    const result = await this.authService.completeTwoFactorLogin(req.twoFactorUserId, body.code, {
+      rememberMe: body.rememberMe,
+      deviceFingerprint: body.deviceFingerprint,
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    await this.auditLog.record({
+      actorId: result.user.id,
+      action: 'auth.login',
+      entityType: 'user',
+      entityId: result.user.id,
+      payload: { via: '2fa' },
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    return result;
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ auth: {} })
+  async twoFactorDisable(
+    @Req() req: any,
+    @Body() body: { code: string; password: string },
+  ) {
+    const result = await this.authService.disable2FA(req.user.id, body.code, body.password);
+    await this.auditLog.record({
+      actorId: req.user.id,
+      action: 'auth.2fa.disable',
+      entityType: 'user',
+      entityId: req.user.id,
+      payload: {},
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.['user-agent'] ?? null,
+    });
+    return result;
+  }
+
 }

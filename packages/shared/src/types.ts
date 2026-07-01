@@ -442,6 +442,18 @@ export const pushTokenRegistrationSchema = z.object({
 });
 export type PushTokenRegistration = z.infer<typeof pushTokenRegistrationSchema>;
 
+export const twoFactorRequiredSchema = z.object({
+  twoFactorRequired: z.literal(true),
+  twoFactorToken: z.string(),
+});
+export type TwoFactorRequired = z.infer<typeof twoFactorRequiredSchema>;
+
+export const twoFactorSetupRequiredSchema = z.object({
+  twoFactorSetupRequired: z.literal(true),
+  twoFactorToken: z.string(),
+});
+export type TwoFactorSetupRequired = z.infer<typeof twoFactorSetupRequiredSchema>;
+
 export const authResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string().optional(),

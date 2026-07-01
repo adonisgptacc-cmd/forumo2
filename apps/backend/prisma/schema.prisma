@@ -247,6 +247,9 @@ model User {
   deletionScheduledAt DateTime?
   emailVerified            Boolean   @default(false)
   emailVerificationToken   String?
+  twoFactorEnabled         Boolean   @default(false)
+  twoFactorSecret          String?
+  twoFactorBackupCodes     String[]
   profile        UserProfile?
   otpCodes       OtpCode[]
   deviceSessions DeviceSession[]

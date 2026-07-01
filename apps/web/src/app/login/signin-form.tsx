@@ -35,29 +35,38 @@ export function LoginForm() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const auth = await api.auth.login({ email, password });
-      persistAuth(auth);
-      const result = await signIn('credentials', {
-        email,
-        password,
+      const result = await api.auth.login({ email, password });
+
+      // ── 2FA gate ────────────────────────────────────────────────────────
+      if ('twoFactorToken' in result) {
+        try {
+          sessionStorage.setItem('forumo.2faToken', result.twoFactorToken);
+          sessionStorage.setItem('forumo.callbackUrl', callbackUrl);
+        } catch { /* ignore */ }
+
+        if ('twoFactorSetupRequired' in result) {
+          router.push('/login/2fa?mode=setup');
+        } else {
+          router.push('/login/2fa?mode=verify');
+        }
+        return;
+      }
+
+      // ── Full auth response (should not happen if 2FA is mandatory) ──────
+      persistAuth(result);
+      const nextAuthResult = await signIn('token-auth', {
+        token: result.accessToken,
         redirect: false,
         callbackUrl,
       });
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-      if (!result?.ok && !result?.url) {
-        throw new Error('Authentication failed. Please try again.');
-      }
-      router.push((result?.url ?? callbackUrl) as any);
+      if (nextAuthResult?.error) throw new Error(nextAuthResult.error);
+      router.push((nextAuthResult?.url ?? callbackUrl) as string);
       router.refresh();
     } catch (err) {
       try {
         localStorage.removeItem('forumo.accessToken');
         localStorage.removeItem('forumo.user');
-      } catch {
-        // ignore storage errors
-      }
+      } catch { /* ignore */ }
       const apiErrorMessage = err instanceof ApiError ? err.message : null;
       const genericMessage = err instanceof Error ? err.message : null;
       setError(apiErrorMessage || genericMessage || 'Unable to sign in. Double-check your credentials.');

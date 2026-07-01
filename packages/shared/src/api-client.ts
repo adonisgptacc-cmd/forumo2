@@ -1,5 +1,9 @@
 import {
   AuthResponse,
+  TwoFactorRequired,
+  TwoFactorSetupRequired,
+  twoFactorRequiredSchema,
+  twoFactorSetupRequiredSchema,
   CreateListingDto,
   UpdateListingDto,
   CreateOrderDto,
@@ -189,17 +193,54 @@ export class ForumoApiClient {
   }
 
   readonly auth = {
-    login: async (payload: { email: string; password: string; deviceFingerprint?: string }): Promise<AuthResponse> => {
-      const response = await this.requestJson<AuthResponse>('/auth/login', {
+    login: async (payload: { email: string; password: string; deviceFingerprint?: string }): Promise<AuthResponse | TwoFactorRequired | TwoFactorSetupRequired> => {
+      const response = await this.requestJson<AuthResponse | TwoFactorRequired | TwoFactorSetupRequired>('/auth/login', {
         method: 'POST',
         body: payload,
       });
+      if (twoFactorRequiredSchema.safeParse(response).success) return twoFactorRequiredSchema.parse(response);
+      if (twoFactorSetupRequiredSchema.safeParse(response).success) return twoFactorSetupRequiredSchema.parse(response);
       return authResponseSchema.parse(response);
     },
     refresh: async (refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> => {
       return this.requestJson<{ accessToken: string; refreshToken: string }>('/auth/refresh', {
         method: 'POST',
         headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+    },
+    setup2FAInit: async (twoFactorToken: string): Promise<{ qrCode: string; secret: string }> => {
+      return this.requestJson('/auth/2fa/setup-init', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${twoFactorToken}` },
+      });
+    },
+    setup2FAVerify: async (
+      twoFactorToken: string,
+      code: string,
+      opts?: { rememberMe?: boolean; deviceFingerprint?: string },
+    ): Promise<AuthResponse & { backupCodes: string[] }> => {
+      return this.requestJson('/auth/2fa/setup-verify', {
+        method: 'POST',
+        body: { code, ...opts },
+        headers: { Authorization: `Bearer ${twoFactorToken}` },
+      });
+    },
+    verify2FA: async (
+      twoFactorToken: string,
+      code: string,
+      opts?: { rememberMe?: boolean; deviceFingerprint?: string },
+    ): Promise<AuthResponse> => {
+      return this.requestJson('/auth/2fa/verify', {
+        method: 'POST',
+        body: { code, ...opts },
+        headers: { Authorization: `Bearer ${twoFactorToken}` },
+      });
+    },
+    disable2FA: async (code: string, password: string): Promise<{ message: string }> => {
+      return this.requestJson('/auth/2fa/disable', {
+        method: 'POST',
+        auth: true,
+        body: { code, password },
       });
     },
     register: async (payload: { name: string; email: string; password: string; phone?: string }): Promise<AuthResponse> => {

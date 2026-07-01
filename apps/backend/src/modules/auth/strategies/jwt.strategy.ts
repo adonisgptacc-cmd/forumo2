@@ -12,6 +12,7 @@ export interface JwtPayload {
   sub: string;
   role: string;
   tokenVersion: number;
+  twoFactorPending?: boolean;
 }
 
 @Injectable()
@@ -31,6 +32,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findById(payload.sub);
     if (user.tokenVersion !== payload.tokenVersion) {
       throw new UnauthorizedException('Session expired');
+    }
+    if (payload.twoFactorPending) {
+      throw new UnauthorizedException('2FA verification required');
     }
     assertAccountActive(user, req);
     return user;

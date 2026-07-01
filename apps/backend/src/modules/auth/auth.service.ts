@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { authenticator } from 'otplib';
+import * as QRCode from 'qrcode';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DeviceSessionStatus, NotificationChannel, OtpPurpose, Prisma, User } from '@prisma/client';
@@ -26,6 +28,11 @@ interface OtpIssueResponse {
   channel: NotificationChannel;
   deliveredAt: Date;
 }
+
+export type LoginResult =
+  | { twoFactorRequired: true; twoFactorToken: string }
+  | { twoFactorSetupRequired: true; twoFactorToken: string }
+  | AuthResponse;
 
 @Injectable()
 export class AuthService {
@@ -67,7 +74,7 @@ export class AuthService {
     return { message: 'Registration successful. Please check your email to verify your account.' };
   }
 
-  async login(dto: LoginInput): Promise<AuthResponse> {
+  async login(dto: LoginInput): Promise<LoginResult> {
     const normalizedEmail = this.normalizeEmail(dto.email);
 
     const user = await this.findActiveUserByEmail(normalizedEmail);
@@ -84,7 +91,41 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email before logging in. Check your inbox for the verification link.');
     }
 
-    const response = await this.buildAuthResponse(user, {
+    // ── 2FA gate ────────────────────────────────────────────────────────────
+    const twoFactorToken = await this.issueTwoFactorToken(
+      user.id,
+      !user.twoFactorEnabled,
+    );
+
+    if (user.twoFactorEnabled) {
+      return { twoFactorRequired: true, twoFactorToken };
+    }
+    return { twoFactorSetupRequired: true, twoFactorToken };
+  }
+
+  /** Complete login after 2FA TOTP verification. */
+  async completeTwoFactorLogin(
+    userId: string,
+    code: string,
+    dto: Partial<Pick<LoginInput, 'rememberMe' | 'deviceFingerprint' | 'ipAddress' | 'userAgent'>> & { metadata?: Record<string, unknown> } = {},
+  ): Promise<AuthResponse> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const valid = authenticator.verify({ token: code, secret: user.twoFactorSecret! });
+    if (!valid) {
+      // Check backup codes
+      const idx = (user.twoFactorBackupCodes ?? []).findIndex(
+        (h) => h === createHash('sha256').update(code).digest('hex'),
+      );
+      if (idx === -1) throw new UnauthorizedException('Invalid authentication code');
+      // Consume the backup code (one-time use)
+      const remaining = [...(user.twoFactorBackupCodes ?? [])];
+      remaining.splice(idx, 1);
+      await this.prisma.user.update({ where: { id: userId }, data: { twoFactorBackupCodes: remaining } });
+    }
+
+    const fullUser = await this.findActiveUserByEmail(user.email);
+    const response = await this.buildAuthResponse(fullUser!, {
       rememberMe: dto.rememberMe,
       sessionFingerprint: this.resolveDeviceIdentifier(dto.deviceFingerprint, dto.ipAddress),
       sessionMetadata: dto.metadata,
@@ -92,11 +133,7 @@ export class AuthService {
       ipAddress: dto.ipAddress,
     });
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
+    await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
     return response;
   }
 
@@ -619,4 +656,81 @@ export class AuthService {
 
     return user;
   }
+  // ─── Two-Factor Authentication ───────────────────────────────────────────────
+
+  async issueTwoFactorToken(userId: string, setupRequired: boolean): Promise<string> {
+    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+    return this.jwtService.signAsync(
+      { sub: userId, twoFactorPending: true, twoFactorSetupRequired: setupRequired },
+      { secret, expiresIn: 300 }, // 5 minutes
+    );
+  }
+
+  async initSetup2FA(userId: string): Promise<{ qrCode: string; secret: string }> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.twoFactorEnabled) throw new ForbiddenException('2FA already enabled');
+
+    const secret = authenticator.generateSecret();
+    const otpAuthUrl = authenticator.keyuri(user.email, 'Forumo', secret);
+    const qrCode = await QRCode.toDataURL(otpAuthUrl);
+
+    // Store secret temporarily (not yet enabled)
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret } });
+
+    return { qrCode, secret };
+  }
+
+  async verifySetup2FA(
+    userId: string,
+    code: string,
+    loginDto: Partial<Pick<LoginInput, 'rememberMe' | 'deviceFingerprint' | 'ipAddress' | 'userAgent'>> & { metadata?: Record<string, unknown> } = {},
+  ): Promise<AuthResponse & { backupCodes: string[] }> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.twoFactorSecret) throw new BadRequestException('2FA setup not initiated');
+    if (user.twoFactorEnabled) throw new ForbiddenException('2FA already enabled');
+
+    const valid = authenticator.verify({ token: code, secret: user.twoFactorSecret });
+    if (!valid) throw new UnauthorizedException('Invalid authentication code. Try again.');
+
+    // Generate 8 backup codes
+    const plainCodes = Array.from({ length: 8 }, () =>
+      randomBytes(4).toString('hex').toUpperCase().match(/.{4}/g)!.join('-'),
+    );
+    const hashedCodes = plainCodes.map((c) => createHash('sha256').update(c).digest('hex'));
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true, twoFactorBackupCodes: hashedCodes },
+    });
+
+    const fullUser = await this.findActiveUserByEmail(user.email);
+    const response = await this.buildAuthResponse(fullUser!, {
+      rememberMe: loginDto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(loginDto.deviceFingerprint, loginDto.ipAddress),
+      sessionMetadata: loginDto.metadata,
+      userAgent: loginDto.userAgent,
+      ipAddress: loginDto.ipAddress,
+    });
+
+    await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+    return { ...response, backupCodes: plainCodes };
+  }
+
+  async disable2FA(userId: string, code: string, password: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.twoFactorEnabled) throw new BadRequestException('2FA is not enabled');
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) throw new UnauthorizedException('Invalid password');
+
+    const validCode = authenticator.verify({ token: code, secret: user.twoFactorSecret! });
+    if (!validCode) throw new UnauthorizedException('Invalid authentication code');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorBackupCodes: [] },
+    });
+    return { message: '2FA disabled successfully' };
+  }
+
 }
