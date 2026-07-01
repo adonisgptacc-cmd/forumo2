@@ -152,7 +152,7 @@ export function TwoFactorForm() {
           {backupCodes.map((c) => <span key={c} className="text-center">{c}</span>)}
         </div>
         <button onClick={handleContinue} className="btn btn-primary btn-block">
-          I've saved them — Continue
+          I&apos;ve saved them — Continue
         </button>
       </div>
     );
@@ -181,7 +181,7 @@ export function TwoFactorForm() {
 
       {secret ? (
         <p className="text-center text-xs muted">
-          Can't scan?{' '}
+          Can&apos;t scan?{' '}
           <span className="font-mono font-medium text-[color:var(--foreground)] break-all">{secret}</span>
         </p>
       ) : null}
