@@ -243,12 +243,11 @@ export class ForumoApiClient {
         body: { code, password },
       });
     },
-    register: async (payload: { name: string; email: string; password: string; phone?: string }): Promise<AuthResponse> => {
-      const response = await this.requestJson<AuthResponse>('/auth/register', {
+    register: async (payload: { name: string; email: string; password: string; phone?: string }): Promise<{ message: string }> => {
+      return this.requestJson<{ message: string }>('/auth/register', {
         method: 'POST',
         body: payload,
       });
-      return authResponseSchema.parse(response);
     },
     me: async (): Promise<AuthResponse> => {
       const response = await this.requestJson<AuthResponse>('/auth/me', {
