@@ -3,7 +3,6 @@
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 
 import { ApiError } from '@forumo/shared';
 import { createApiClient } from '../../../lib/api-client';
@@ -101,7 +100,7 @@ export function TwoFactorForm() {
   function handleContinue() {
     sessionStorage.removeItem('forumo.2faToken');
     sessionStorage.removeItem('forumo.callbackUrl');
-    router.push(callbackUrl as string);
+    router.push(callbackUrl as any);
     router.refresh();
   }
 
