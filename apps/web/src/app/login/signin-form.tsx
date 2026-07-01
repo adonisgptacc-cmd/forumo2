@@ -60,7 +60,7 @@ export function LoginForm() {
         callbackUrl,
       });
       if (nextAuthResult?.error) throw new Error(nextAuthResult.error);
-      router.push((nextAuthResult?.url ?? callbackUrl) as string);
+      router.push((nextAuthResult?.url ?? callbackUrl) as any);
       router.refresh();
     } catch (err) {
       try {

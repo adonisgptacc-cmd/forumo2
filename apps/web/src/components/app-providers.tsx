@@ -82,10 +82,10 @@ function AccountSuspensionGuard({ children }: { children: React.ReactNode }) {
         const code = err?.code ?? err?.response?.data?.code ?? err?.body?.code;
         if (code === 'ACCOUNT_SUSPENDED') {
           const reason = err?.message ?? err?.response?.data?.message ?? '';
-          router.push(`/account-suspended?code=ACCOUNT_SUSPENDED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`);
+          router.push((`/account-suspended?code=ACCOUNT_SUSPENDED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`) as any);
         } else if (code === 'ACCOUNT_BANNED') {
           const reason = err?.message ?? err?.response?.data?.message ?? '';
-          router.push(`/account-suspended?code=ACCOUNT_BANNED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`);
+          router.push((`/account-suspended?code=ACCOUNT_BANNED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`) as any);
         }
       }
     });
