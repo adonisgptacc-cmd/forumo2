@@ -57,7 +57,7 @@ export function TwoFactorForm() {
     } catch { /* ignore */ }
     const result = await signIn('token-auth', { token: accessToken, redirect: false, callbackUrl });
     if (result?.error) throw new Error(result.error);
-    router.push((result?.url ?? callbackUrl) as string);
+    router.push((result?.url ?? callbackUrl) as any);
     router.refresh();
   }
 
