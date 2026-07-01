@@ -186,6 +186,9 @@ importers:
       ioredis:
         specifier: ^5.8.2
         version: 5.8.2
+      mailtrap:
+        specifier: ^4.6.1
+        version: 4.6.1
       multer:
         specifier: ^2.0.2
         version: 2.0.2
@@ -8676,6 +8679,18 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  mailtrap@4.6.1:
+    resolution: {integrity: sha512-mObbFhDhpxZvSkDzIPch3lYQ/3m1y2oDr3Vg/YbFHlG6SDb4khCqhb8DkMwdm9heE+mLCzbCjnX6cJIYMAJM+g==}
+    engines: {node: '>=16.20.1', yarn: '>=1.22.17'}
+    peerDependencies:
+      '@types/nodemailer': ^6.4.9
+      nodemailer: ^9.0.1
+    peerDependenciesMeta:
+      '@types/nodemailer':
+        optional: true
+      nodemailer:
+        optional: true
 
   make-dir@2.1.0:
     resolution: {integrity: sha512-LS9X+dc8KLxXCb8dni79fLIIUA5VyZoyjSMCwTluaXA0o27cCK0bhXkpgw+sTXVpPy/lSO57ilRixqk0vDmtRA==}
@@ -18891,7 +18906,7 @@ snapshots:
 
   compressible@2.0.18:
     dependencies:
-      mime-db: 1.52.0
+      mime-db: 1.54.0
 
   compression@1.8.1:
     dependencies:
@@ -22069,6 +22084,13 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  mailtrap@4.6.1:
+    dependencies:
+      axios: 1.13.2
+      qs: 6.15.2
+    transitivePeerDependencies:
+      - debug
+
   make-dir@2.1.0:
     dependencies:
       pify: 4.0.1
@@ -24385,7 +24407,7 @@ snapshots:
       formidable: 3.5.4
       methods: 1.1.2
       mime: 2.6.0
-      qs: 6.13.0
+      qs: 6.15.2
     transitivePeerDependencies:
       - supports-color
 

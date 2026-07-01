@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-import { firstValueFrom } from 'rxjs';
+import { MailtrapClient } from 'mailtrap';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationChannel } from '@prisma/client';
 
@@ -13,7 +12,6 @@ export class NotificationsService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly http: HttpService,
     private readonly prisma: PrismaService,
   ) {
     const region = config.get<string>('SNS_REGION');
@@ -25,28 +23,22 @@ export class NotificationsService {
   }
 
   async sendEmail(to: string, subject: string, html: string): Promise<void> {
-    const apiKey = this.config.get<string>('MAILGUN_API_KEY');
-    const domain = this.config.get<string>('MAILGUN_DOMAIN');
-    const from = this.config.get<string>('MAILGUN_EMAIL_FROM') ?? 'noreply@forumo.app';
-    const base = this.config.get<string>('MAILGUN_API_BASE') ?? 'https://api.mailgun.net';
+    const token = this.config.get<string>('MAILTRAP_API_TOKEN');
 
-    if (!apiKey || !domain) {
-      this.logger.warn(`[EMAIL SKIPPED] Mailgun not configured. To=${to} Subject="${subject}"`);
+    if (!token) {
+      this.logger.warn(`[EMAIL SKIPPED] Mailtrap not configured. To=${to} Subject="${subject}"`);
       return;
     }
 
-    const auth = Buffer.from(`api:${apiKey}`).toString('base64');
-    const body = new URLSearchParams({ from, to, subject, html }).toString();
+    const client = new MailtrapClient({ token });
 
     try {
-      await firstValueFrom(
-        this.http.post(`${base}/v3/${domain}/messages`, body, {
-          headers: {
-            Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }),
-      );
+      await client.send({
+        from: { email: 'hello@demomailtrap.co', name: 'Forumo' },
+        to: [{ email: to }],
+        subject,
+        html,
+      });
       this.logger.log(`Email sent to ${to}: "${subject}"`);
     } catch (err) {
       this.logger.error(`Failed to send email to ${to}: ${(err as Error).message}`);
