@@ -69,6 +69,11 @@ export const authOptions: NextAuthOptions = {
             password: credentials.password,
             deviceFingerprint: fingerprint,
           });
+          // 2FA responses are handled by the signin form directly; Credentials
+          // provider only completes login for full AuthResponse.
+          if ('twoFactorRequired' in auth || 'twoFactorSetupRequired' in auth) {
+            return null;
+          }
           return {
             id: auth.user.id,
             email: auth.user.email,
