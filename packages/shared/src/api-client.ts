@@ -249,12 +249,11 @@ export class ForumoApiClient {
         body: payload,
       });
     },
-    me: async (): Promise<AuthResponse> => {
-      const response = await this.requestJson<AuthResponse>('/auth/me', {
+    me: async (): Promise<Pick<AuthResponse, 'user'>> => {
+      return this.requestJson<Pick<AuthResponse, 'user'>>('/auth/me', {
         method: 'GET',
         auth: true,
       });
-      return authResponseSchema.parse(response);
     },
     changePassword: async (payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
       return this.requestJson<{ message: string }>('/auth/password/change', {
