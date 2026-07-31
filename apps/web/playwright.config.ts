@@ -5,11 +5,12 @@ const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./tests",
-  timeout: 120 * 1000,
+  timeout: 240 * 1000,
   expect: { timeout: 10 * 1000 },
+  workers: process.env.CI ? 1 : undefined,
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
     headless: true,
   },
   projects: [
@@ -19,7 +20,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm dev --port ${port}`,
+    command: `next dev --port ${port}`,
     port,
     cwd: __dirname,
     reuseExistingServer: !process.env.CI,

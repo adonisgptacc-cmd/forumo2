@@ -1,5 +1,11 @@
 module.exports = {
-  preset: 'detox/runners/jest/preset',
+  rootDir: "..",
+  testMatch: ["<rootDir>/e2e/**/*.test.ts"],
   testTimeout: 120000,
-  reporters: ['detox/runners/jest/reporter'],
+  maxWorkers: 1,
+  globalSetup: "detox/runners/jest/globalSetup",
+  globalTeardown: "detox/runners/jest/globalTeardown",
+  reporters: ["detox/runners/jest/reporter"],
+  testEnvironment: "detox/runners/jest/testEnvironment",
+  verbose: true,
 };

@@ -138,7 +138,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-artifacts
-          path: apps/web/playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
       - if: always()
         run: docker compose -f docker-compose.test.yml down --volumes
 
