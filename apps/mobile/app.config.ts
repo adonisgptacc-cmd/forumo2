@@ -18,7 +18,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   platforms: ["ios", "android"],
   assetBundlePatterns: ["**/*"],
-  plugins: ["expo-notifications"],
+  plugins: [
+    "expo-notifications",
+    [
+      "expo-build-properties",
+      {
+        ios: {
+          deploymentTarget: "15.1",
+        },
+      },
+    ],
+  ],
   ios: {
     supportsTablet: true,
     bundleIdentifier: "app.forumo.mobile",
