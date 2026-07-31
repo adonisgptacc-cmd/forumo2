@@ -20,7 +20,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `next dev --port ${port}`,
+    command: process.env.CI
+      ? `next start --port ${port}`
+      : `next dev --port ${port}`,
     port,
     cwd: __dirname,
     reuseExistingServer: !process.env.CI,

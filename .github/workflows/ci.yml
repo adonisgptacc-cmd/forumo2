@@ -132,6 +132,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright browser
         run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Build web app for E2E
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+          NEXT_PUBLIC_USE_API_MOCKS: "true"
+          NEXTAUTH_SECRET: test-secret
+          NEXTAUTH_URL: http://localhost:3000
       - run: docker compose -f docker-compose.test.yml up -d
       - run: pnpm test:e2e
       - if: failure()
@@ -283,6 +290,14 @@ jobs:
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
         run: pod install
+
+      - name: Install Apple simulator utilities
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew tap wix/brew
+          git -C "$(brew --repo wix/brew)" checkout --detach 8f636f84541e08e850f455d7cffdfbd7ba305d3f
+          brew install wix/brew/applesimutils
 
       - name: Build app for Detox
         run: pnpm --filter @forumo/mobile build:detox:ios
