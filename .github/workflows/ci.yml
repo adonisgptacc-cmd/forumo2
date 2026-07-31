@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter backend prisma:generate
       - run: pnpm lint
       - name: Check formatting for changed files
         env:
@@ -150,6 +152,8 @@ jobs:
           node-version: 22
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter backend prisma:generate
       - name: Build all packages
         run: pnpm build
       - name: Backend TypeScript type-check
@@ -172,7 +176,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: "fs"
           severity: "CRITICAL,HIGH"
@@ -256,14 +260,17 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Expo SDK 50's reference build image uses Node 18.18.
+          node-version: 18.18.0
           cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Generate native iOS project
-        run: pnpm --filter @forumo/mobile exec expo prebuild --platform ios --no-install
+        run: |
+          pnpm --filter @forumo/mobile exec expo prebuild --platform ios --no-install
+          test -d apps/mobile/ios
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
