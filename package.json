@@ -78,6 +78,9 @@
       "ws@>=6 <7": "6.2.4",
       "ws@>=7 <8": "7.5.11",
       "ws@>=8 <9": "8.21.0"
+    },
+    "patchedDependencies": {
+      "@expo/cli@0.17.13": "patches/@expo__cli@0.17.13.patch"
     }
   }
 }

@@ -50,6 +50,11 @@ overrides:
   ws@>=7 <8: 7.5.11
   ws@>=8 <9: 8.21.0
 
+patchedDependencies:
+  '@expo/cli@0.17.13':
+    hash: nz7ujaf7id5a5h3hlinuqvzzzu
+    path: patches/@expo__cli@0.17.13.patch
+
 importers:
 
   .:
@@ -14015,7 +14020,7 @@ snapshots:
     dependencies:
       uuid: 8.3.2
 
-  '@expo/cli@0.17.13(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))(expo-modules-autolinking@1.10.3)':
+  '@expo/cli@0.17.13(patch_hash=nz7ujaf7id5a5h3hlinuqvzzzu)(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))(expo-modules-autolinking@1.10.3)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@expo/code-signing-certificates': 0.0.5
@@ -20890,7 +20895,7 @@ snapshots:
   expo@50.0.21(@babel/core@7.28.5)(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))(react-native@0.73.6(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5))(react@18.3.1))(react@18.3.1):
     dependencies:
       '@babel/runtime': 7.28.4
-      '@expo/cli': 0.17.13(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))(expo-modules-autolinking@1.10.3)
+      '@expo/cli': 0.17.13(patch_hash=nz7ujaf7id5a5h3hlinuqvzzzu)(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))(expo-modules-autolinking@1.10.3)
       '@expo/config': 8.5.6
       '@expo/config-plugins': 7.9.2
       '@expo/metro-config': 0.17.8(@react-native/babel-preset@0.73.21(@babel/core@7.28.5)(@babel/preset-env@7.28.5(@babel/core@7.28.5)))
