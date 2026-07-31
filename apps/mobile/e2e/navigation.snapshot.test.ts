@@ -1,12 +1,12 @@
-/* eslint-env detox/detox, jest */
+/* eslint-env jest */
 
-describe('Navigation shell snapshot', () => {
+describe("Navigation shell snapshot", () => {
   beforeAll(async () => {
     await device.launchApp({ newInstance: true });
   });
 
-  it('captures the root shell', async () => {
-    await expect(element(by.id('navigation-shell'))).toBeVisible();
-    await device.takeScreenshot('navigation-shell');
+  it("captures the root shell", async () => {
+    await expect(element(by.id("navigation-shell"))).toBeVisible();
+    await device.takeScreenshot("navigation-shell");
   });
 });

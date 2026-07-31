@@ -17,6 +17,7 @@ exports[`NavigationShell renders the navigation container 1`] = `
       <div />
       <div />
       <div />
+      <div />
     </div>
   </div>
 </div>

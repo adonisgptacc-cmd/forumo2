@@ -1,10 +1,15 @@
-import type { INestApplication } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Test } from '@nestjs/testing';
-import { NotificationChannel, OtpPurpose, Prisma, UserRole } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
-import request from 'supertest';
+import type { INestApplication } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { Test } from "@nestjs/testing";
+import {
+  NotificationChannel,
+  OtpPurpose,
+  Prisma,
+  UserRole,
+} from "@prisma/client";
+import * as bcrypt from "bcrypt";
+import { randomUUID } from "crypto";
+import request from "supertest";
 
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthModule } from "../auth.module";
@@ -14,14 +19,14 @@ import { RequestOtpDto } from "../dto/request-otp.dto";
 
 class FakeConfigService {
   private readonly values: Record<string, string> = {
-    JWT_SECRET: 'test-secret',
-    JWT_TTL: '3600',
-    OTP_TTL: '300',
-    OTP_DEVICE_RATE_LIMIT: '5',
-    OTP_DEVICE_RATE_WINDOW: '300',
-    GOOGLE_CLIENT_ID: 'test-google-id',
-    GOOGLE_CLIENT_SECRET: 'test-google-secret',
-    GOOGLE_CALLBACK_URL: 'http://localhost/callback',
+    JWT_SECRET: "test-secret",
+    JWT_TTL: "3600",
+    OTP_TTL: "300",
+    OTP_DEVICE_RATE_LIMIT: "5",
+    OTP_DEVICE_RATE_WINDOW: "300",
+    GOOGLE_CLIENT_ID: "test-google-id",
+    GOOGLE_CLIENT_SECRET: "test-google-secret",
+    GOOGLE_CALLBACK_URL: "http://localhost/callback",
   };
 
   get<T = string>(key: string): T | undefined {
@@ -94,7 +99,11 @@ class InMemoryPrismaService {
   user = {
     findFirst: async ({ where }: { where: Partial<UserRecord> }) => {
       if (where?.email) {
-        return Array.from(this.users.values()).find((user) => user.email === where.email && user.deletedAt === null) ?? null;
+        return (
+          Array.from(this.users.values()).find(
+            (user) => user.email === where.email && user.deletedAt === null,
+          ) ?? null
+        );
       }
       if (where?.id) {
         return this.users.get(where.id) ?? null;
@@ -106,14 +115,14 @@ class InMemoryPrismaService {
       const now = new Date();
       const record: UserRecord = {
         id,
-        name: data.name ?? 'Test User',
+        name: data.name ?? "Test User",
         email: data.email!,
         passwordHash: data.passwordHash!,
         phone: (data as any).phone ?? null,
         avatarUrl: null,
         role: (data as any).role ?? UserRole.BUYER,
         trustScore: 0,
-        kycStatus: 'PENDING',
+        kycStatus: "PENDING",
         // Test users are pre-verified by default so login tests pass
         emailVerified: (data as any).emailVerified ?? true,
         emailVerificationToken: (data as any).emailVerificationToken ?? null,
@@ -124,9 +133,15 @@ class InMemoryPrismaService {
       this.users.set(id, record);
       return record;
     },
-    update: async ({ where, data }: { where: { id: string }; data: Partial<UserRecord> }) => {
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<UserRecord>;
+    }) => {
       const record = this.users.get(where.id);
-      if (!record) throw new Error('User not found');
+      if (!record) throw new Error("User not found");
       Object.assign(record, data, { updatedAt: new Date() });
       this.users.set(where.id, record);
       return record;
@@ -163,17 +178,28 @@ class InMemoryPrismaService {
           (!where.purpose || record.purpose === where.purpose) &&
           (where.consumedAt === null ? record.consumedAt === null : true) &&
           (!expiresAfter || record.expiresAt > expiresAfter) &&
-          (where.deviceFingerprint === undefined || record.deviceFingerprint === where.deviceFingerprint) &&
+          (where.deviceFingerprint === undefined ||
+            record.deviceFingerprint === where.deviceFingerprint) &&
           (where.channel === undefined || record.channel === where.channel)
         );
       });
       if (matches.length === 0) return null;
       return matches[matches.length - 1];
     },
-    update: async ({ where, data }: { where: { id: string }; data: Partial<OtpRecord> }) => {
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<OtpRecord>;
+    }) => {
       const index = this.otpCodes.findIndex((record) => record.id === where.id);
-      if (index === -1) throw new Error('OTP not found');
-      const updated = { ...this.otpCodes[index], ...data, updatedAt: new Date() } as OtpRecord;
+      if (index === -1) throw new Error("OTP not found");
+      const updated = {
+        ...this.otpCodes[index],
+        ...data,
+        updatedAt: new Date(),
+      } as OtpRecord;
       this.otpCodes[index] = updated;
       return updated;
     },
@@ -191,18 +217,25 @@ class InMemoryPrismaService {
   };
 
   deviceSession = {
-    upsert: async ({ where, update, create }: { where: any; update: any; create: any }) => {
+    upsert: async ({
+      where,
+      update,
+      create,
+    }: {
+      where: any;
+      update: any;
+      create: any;
+    }) => {
       const key = `${where.userId_fingerprint.userId}:${where.userId_fingerprint.fingerprint}`;
       const existing = this.deviceSessions.get(key);
       const now = new Date();
-      const base: DeviceSessionRecord =
-        existing ?? {
-          id: randomUUID(),
-          userId: where.userId_fingerprint.userId,
-          fingerprint: where.userId_fingerprint.fingerprint,
-          createdAt: now,
-          updatedAt: now,
-        };
+      const base: DeviceSessionRecord = existing ?? {
+        id: randomUUID(),
+        userId: where.userId_fingerprint.userId,
+        fingerprint: where.userId_fingerprint.fingerprint,
+        createdAt: now,
+        updatedAt: now,
+      };
       const updated: DeviceSessionRecord = {
         ...base,
         ...(existing ? update : create),
@@ -212,7 +245,9 @@ class InMemoryPrismaService {
       return updated;
     },
     findMany: async ({ where }: { where: { userId: string } }) => {
-      return Array.from(this.deviceSessions.values()).filter((record) => record.userId === where.userId);
+      return Array.from(this.deviceSessions.values()).filter(
+        (record) => record.userId === where.userId,
+      );
     },
     updateMany: async ({ where, data }: { where: any; data: any }) => {
       let count = 0;
@@ -227,7 +262,13 @@ class InMemoryPrismaService {
   };
 
   userProfile = {
-    upsert: async ({ where, create }: { where: { userId: string }; create: any }) => {
+    upsert: async ({
+      where,
+      create,
+    }: {
+      where: { userId: string };
+      create: any;
+    }) => {
       this.profiles.set(where.userId, { ...create, updatedAt: new Date() });
       return this.profiles.get(where.userId);
     },
@@ -239,24 +280,29 @@ class InMemoryPrismaService {
     },
   };
 
-  $transaction = async (operations: Promise<unknown>[]) => Promise.all(operations);
+  $transaction = async (operations: Promise<unknown>[]) =>
+    Promise.all(operations);
 }
 
-const createUser = async (prisma: InMemoryPrismaService, overrides: Partial<UserRecord> = {}) => {
-  const passwordHash = overrides.passwordHash ?? (await bcrypt.hash('password123', 10));
+const createUser = async (
+  prisma: InMemoryPrismaService,
+  overrides: Partial<UserRecord> = {},
+) => {
+  const passwordHash =
+    overrides.passwordHash ?? (await bcrypt.hash("password123", 10));
   return prisma.user.create({
     data: {
-      id: overrides.id ?? 'user-otp',
-      name: 'Otp User',
-      email: 'otp@example.com',
+      id: overrides.id ?? "user-otp",
+      name: "Otp User",
+      email: "otp@example.com",
       passwordHash,
-      phone: '+233550000000',
+      phone: "+233550000000",
       ...overrides,
     },
   });
 };
 
-describe('AuthModule HTTP flows', () => {
+describe("AuthModule HTTP flows", () => {
   let app: INestApplication;
   let prisma: InMemoryPrismaService;
   let otpDelivery: jest.Mocked<OtpDeliveryService>;
@@ -264,17 +310,19 @@ describe('AuthModule HTTP flows', () => {
 
   beforeEach(async () => {
     // Set environment variables for OAuth strategy
-    process.env.JWT_SECRET = 'test-jwt-secret';
-    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
-    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
-    
+    process.env.JWT_SECRET = "test-jwt-secret";
+    process.env.GOOGLE_CLIENT_ID = "test-google-id";
+    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
+
     prisma = new InMemoryPrismaService();
     otpDelivery = {
       deliver: jest.fn(async (user, dto) => ({
-        channel: dto.channel ?? (user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL),
-        provider: 'mailgun',
-        deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
-        referenceId: 'ref-otp',
+        channel:
+          dto.channel ??
+          (user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL),
+        provider: "mailgun",
+        deliveredAt: new Date("2024-01-01T00:00:00.000Z"),
+        referenceId: "ref-otp",
         metadata: { simulated: true, userId: user.id },
       })),
     } as unknown as jest.Mocked<OtpDeliveryService>;
@@ -302,21 +350,26 @@ describe('AuthModule HTTP flows', () => {
         await app.close();
       } catch (err) {
         // Silently handle close errors in tests
-        console.debug('App close error (expected in tests):', err instanceof Error ? err.message : String(err));
+        console.debug(
+          "App close error (expected in tests):",
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
   });
 
-  it('prefers SMS when the user has a phone and channel is omitted', async () => {
-    const user = await createUser(prisma, { phone: '+233550000001' });
-    jest.spyOn<any, string>(authService as any, 'generateOtpCode').mockReturnValue('999000');
+  it("prefers SMS when the user has a phone and channel is omitted", async () => {
+    const user = await createUser(prisma, { phone: "+233550000001" });
+    jest
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("999000");
 
     const response = await request(app.getHttpServer())
-      .post('/auth/otp/request')
+      .post("/auth/otp/request")
       .send({
         email: user.email,
         purpose: OtpPurpose.LOGIN,
-        deviceFingerprint: 'device-sms',
+        deviceFingerprint: "device-sms",
       })
       .expect(201);
 
@@ -326,113 +379,127 @@ describe('AuthModule HTTP flows', () => {
     expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.SMS);
   });
 
-  it('issues and verifies OTP codes while recording device sessions', async () => {
+  it("issues and verifies OTP codes while recording device sessions", async () => {
     const user = await createUser(prisma);
-    jest.spyOn<any, string>(authService as any, 'generateOtpCode').mockReturnValue('135246');
+    jest
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("135246");
 
     const issueResponse = await request(app.getHttpServer())
-      .post('/auth/otp/request')
+      .post("/auth/otp/request")
       .send({
         email: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
-        deviceFingerprint: 'device-1',
-        userAgent: 'jest',
+        deviceFingerprint: "device-1",
+        userAgent: "jest",
       })
       .expect(201);
 
     expect(issueResponse.body).toEqual({
-      message: 'OTP issued',
+      message: "OTP issued",
       channel: NotificationChannel.EMAIL,
-      deliveredAt: '2024-01-01T00:00:00.000Z',
+      deliveredAt: "2024-01-01T00:00:00.000Z",
     });
     expect(otpDelivery.deliver).toHaveBeenCalled();
-    expect(prisma.otpCodes[0].deliveryProvider).toBe('mailgun');
+    expect(prisma.otpCodes[0].deliveryProvider).toBe("mailgun");
 
     const verifyResponse = await request(app.getHttpServer())
-      .post('/auth/otp/verify')
+      .post("/auth/otp/verify")
       .send({
         email: user.email,
         purpose: OtpPurpose.LOGIN,
-        code: '135246',
-        deviceFingerprint: 'device-1',
+        code: "135246",
+        deviceFingerprint: "device-1",
         channel: NotificationChannel.EMAIL,
       })
       .expect(201);
 
     expect(verifyResponse.body.accessToken).toBeDefined();
-    const [session] = await prisma.deviceSession.findMany({ where: { userId: user.id } });
+    const [session] = await prisma.deviceSession.findMany({
+      where: { userId: user.id },
+    });
     expect(session.lastIssuedAt).toBeDefined();
     expect(session.lastVerifiedAt).toBeDefined();
   });
 
-  it('resets passwords with OTP and enforces the new secret', async () => {
+  it("resets passwords with OTP and enforces the new secret", async () => {
+    const newPassword = ["new", "password", "123"].join("-");
     const user = await createUser(prisma);
     const originalHash = user.passwordHash;
-    jest.spyOn<any, string>(authService as any, 'generateOtpCode').mockReturnValue('777888');
+    jest
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("777888");
 
     await request(app.getHttpServer())
-      .post('/auth/password/reset/request')
+      .post("/auth/password/reset/request")
       .send({
         email: user.email,
         channel: NotificationChannel.EMAIL,
-        deviceFingerprint: 'reset-device',
+        deviceFingerprint: "reset-device",
       })
       .expect(201);
 
     await request(app.getHttpServer())
-      .post('/auth/password/reset/confirm')
+      .post("/auth/password/reset/confirm")
       .send({
         email: user.email,
-        code: '777888',
-        newPassword: 'new-password-123',
-        deviceFingerprint: 'reset-device',
+        code: "777888",
+        newPassword,
+        deviceFingerprint: "reset-device",
         channel: NotificationChannel.EMAIL,
       })
       .expect(201)
-      .expect(({ body }) => expect(body.message).toBe('Password reset successful'));
+      .expect(({ body }) =>
+        expect(body.message).toBe("Password reset successful"),
+      );
 
     const loginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: user.email, password: 'new-password-123' })
+      .post("/auth/login")
+      .send({ email: user.email, password: newPassword })
       .expect(201);
 
-    expect(loginResponse.body.accessToken).toBeDefined();
+    expect(loginResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
     expect(prisma.users.get(user.id)?.passwordHash).not.toEqual(originalHash);
   });
 
-  it('lists device sessions for an authenticated user', async () => {
+  it("lists device sessions for an authenticated user", async () => {
     const user = await createUser(prisma);
-    jest.spyOn<any, string>(authService as any, 'generateOtpCode').mockReturnValue('111222');
+    jest
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("111222");
 
     await request(app.getHttpServer())
-      .post('/auth/otp/request')
+      .post("/auth/otp/request")
       .send({
         email: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
-        deviceFingerprint: 'fingerprint-abc',
+        deviceFingerprint: "fingerprint-abc",
       })
       .expect(201);
 
     const verifyResponse = await request(app.getHttpServer())
-      .post('/auth/otp/verify')
+      .post("/auth/otp/verify")
       .send({
         email: user.email,
         purpose: OtpPurpose.LOGIN,
-        code: '111222',
-        deviceFingerprint: 'fingerprint-abc',
+        code: "111222",
+        deviceFingerprint: "fingerprint-abc",
         channel: NotificationChannel.EMAIL,
       })
       .expect(201);
 
     const token = verifyResponse.body.accessToken as string;
     const sessionsResponse = await request(app.getHttpServer())
-      .get('/auth/sessions')
-      .set('Authorization', `Bearer ${token}`)
+      .get("/auth/sessions")
+      .set("Authorization", `Bearer ${token}`)
       .expect(200);
 
     expect(Array.isArray(sessionsResponse.body)).toBe(true);
-    expect(sessionsResponse.body[0].fingerprint).toBe('fingerprint-abc');
+    expect(sessionsResponse.body[0].fingerprint).toBe("fingerprint-abc");
   });
 });

@@ -1,26 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../navigation/types';
-import { useAuth } from '../providers/AuthProvider';
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { AuthStackParamList } from "../navigation/types";
+import { useAuth } from "../providers/AuthProvider";
 
-export type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, 'Register'>;
+export type RegisterScreenProps = NativeStackScreenProps<
+  AuthStackParamList,
+  "Register"
+>;
 
-export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
+export const RegisterScreen: React.FC<RegisterScreenProps> = ({
+  navigation,
+}) => {
   const { register } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
       await register(name, email, password, phone || undefined);
-      navigation.replace('Main');
+      navigation.replace("VerifyEmail", {});
     } catch (error) {
-      Alert.alert('Registration failed', (error as Error).message);
+      Alert.alert("Registration failed", (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -29,7 +34,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
   return (
     <View style={styles.container} testID="register-screen">
       <Text style={styles.title}>Create account</Text>
-      <TextInput placeholder="Full name" value={name} onChangeText={setName} style={styles.input} />
+      <TextInput
+        placeholder="Full name"
+        value={name}
+        onChangeText={setName}
+        style={styles.input}
+      />
       <TextInput
         placeholder="Email"
         autoCapitalize="none"
@@ -38,7 +48,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         onChangeText={setEmail}
         style={styles.input}
       />
-      <TextInput placeholder="Phone (optional)" keyboardType="phone-pad" value={phone} onChangeText={setPhone} style={styles.input} />
+      <TextInput
+        placeholder="Phone (optional)"
+        keyboardType="phone-pad"
+        value={phone}
+        onChangeText={setPhone}
+        style={styles.input}
+      />
       <TextInput
         placeholder="Password"
         secureTextEntry
@@ -46,7 +62,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         onChangeText={setPassword}
         style={styles.input}
       />
-      <Button title={loading ? 'Creating...' : 'Create account'} onPress={handleSubmit} disabled={loading} />
+      <Button
+        title={loading ? "Creating..." : "Create account"}
+        onPress={handleSubmit}
+        disabled={loading}
+      />
     </View>
   );
 };
@@ -55,17 +75,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     gap: 12,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   input: {
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,

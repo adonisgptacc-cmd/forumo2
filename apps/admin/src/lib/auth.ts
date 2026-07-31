@@ -1,23 +1,24 @@
-import type { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 
-import { ForumoApiClient } from '@forumo/shared';
+import { ForumoApiClient } from "@forumo/shared";
 
 function createApiClient(token?: string) {
   return new ForumoApiClient({
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1',
+    baseUrl:
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1",
     getAccessToken: token ? () => token : undefined,
   });
 }
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: 'jwt' },
+  session: { strategy: "jwt" },
   providers: [
     CredentialsProvider({
-      name: 'Admin Credentials',
+      name: "Admin Credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) return null;
@@ -27,7 +28,10 @@ export const authOptions: NextAuthOptions = {
             email: credentials.email,
             password: credentials.password,
           });
-          if (auth.user.role !== 'ADMIN' && auth.user.role !== 'MODERATOR') {
+          if (!("user" in auth) || !("accessToken" in auth)) {
+            return null;
+          }
+          if (auth.user.role !== "ADMIN" && auth.user.role !== "MODERATOR") {
             return null;
           }
           return {
@@ -62,8 +66,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/login',
-    error: '/login',
+    signIn: "/login",
+    error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
