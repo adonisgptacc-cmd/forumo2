@@ -14,6 +14,5 @@ module.exports = function (api) {
         },
       ],
     ],
-    babelrcRoots: [__dirname, '..', '../..'],
   };
 };
