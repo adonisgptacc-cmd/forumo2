@@ -1,12 +1,16 @@
-import type { Express } from 'express';
-import type { CanActivate, INestApplication } from '@nestjs/common';
-import * as jwt from 'jsonwebtoken';
-import { Test } from '@nestjs/testing';
-import { MessageModerationStatus, MessageParticipantRole, MessageStatus } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import type { Express } from "express";
+import type { CanActivate, INestApplication } from "@nestjs/common";
+import * as jwt from "jsonwebtoken";
+import { Test } from "@nestjs/testing";
+import {
+  MessageModerationStatus,
+  MessageParticipantRole,
+  MessageStatus,
+} from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule } from "@nestjs/config";
 import { PrismaService } from "../../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { MessagingModule } from "./messaging.module";
@@ -18,15 +22,15 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 class MockJwtGuard implements CanActivate {
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
-    req.user = { id: BUYER_ID, role: 'BUYER' };
+    req.user = { id: BUYER_ID, role: "BUYER" };
     return true;
   }
 }
 
-const BUYER_ID = 'buyer-1';
-const SELLER_ID = 'seller-1';
+const BUYER_ID = "buyer-1";
+const SELLER_ID = "seller-1";
 
-describe('MessagingModule (integration)', () => {
+describe("MessagingModule (integration)", () => {
   let app: INestApplication;
   let prisma: InMemoryPrismaService;
   let gateway: MessagingGateway;
@@ -38,20 +42,17 @@ describe('MessagingModule (integration)', () => {
 
   beforeEach(async () => {
     // Set environment variables for OAuth and JWT
-    process.env.JWT_SECRET = 'test-jwt-secret';
-    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
-    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
-    
+    process.env.JWT_SECRET = "test-jwt-secret";
+    process.env.GOOGLE_CLIENT_ID = "test-google-id";
+    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
+
     prisma = new InMemoryPrismaService();
     server = new RecordingServer();
     moderation = new MockModerationService();
     storage = new FakeStorageService();
 
     const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        MessagingModule,
-      ],
+      imports: [ConfigModule.forRoot({ isGlobal: true }), MessagingModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
@@ -71,9 +72,9 @@ describe('MessagingModule (integration)', () => {
     messagingService = moduleRef.get(MessagingService);
 
     const createThreadRes = await request(app.getHttpServer())
-      .post('/messages/threads')
+      .post("/messages/threads")
       .send({
-        subject: 'Order Q&A',
+        subject: "Order Q&A",
         participants: [
           { userId: BUYER_ID, role: MessageParticipantRole.BUYER },
           { userId: SELLER_ID, role: MessageParticipantRole.SELLER },
@@ -89,51 +90,82 @@ describe('MessagingModule (integration)', () => {
         await app.close();
       } catch (err) {
         // Silently handle close errors in tests
-        console.debug('App close error (expected in tests):', err instanceof Error ? err.message : String(err));
+        console.debug(
+          "App close error (expected in tests):",
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
   });
 
-  it('streams attachments, persists metadata, and emits realtime payloads', async () => {
+  it("streams attachments, persists metadata, and emits realtime payloads", async () => {
     const response = await request(app.getHttpServer())
       .post(`/messages/threads/${threadId}/messages`)
-      .field('authorId', BUYER_ID)
-      .field('body', 'Product photo attached')
-      .attach('attachments', Buffer.from('file-bytes'), { filename: 'photo.png', contentType: 'image/png' })
+      .field("authorId", BUYER_ID)
+      .field("body", "Product photo attached")
+      .attach("attachments", Buffer.from("file-bytes"), {
+        filename: "photo.png",
+        contentType: "image/png",
+      })
       .expect(201);
 
     const latestMessage = response.body.messages.at(-1);
     expect(latestMessage.attachments).toHaveLength(1);
-    expect(latestMessage.attachments[0].fileName).toBe('photo.png');
+    expect(latestMessage.attachments[0].fileName).toBe("photo.png");
     expect(storage.savedAttachments).toHaveLength(1);
     expect(server.events).toHaveLength(2);
-    expect(server.events[0]).toMatchObject({ room: BUYER_ID, payload: expect.objectContaining({ threadId }) });
-    expect(server.events[1]).toMatchObject({ room: SELLER_ID, payload: expect.objectContaining({ threadId }) });
+    expect(server.events[0]).toMatchObject({
+      room: BUYER_ID,
+      payload: expect.objectContaining({ threadId }),
+    });
+    expect(server.events[1]).toMatchObject({
+      room: SELLER_ID,
+      payload: expect.objectContaining({ threadId }),
+    });
   });
 
-  it('tracks delivery and read receipts for participants', async () => {
+  it("rejects attachments larger than 8 MB before storage", async () => {
+    await request(app.getHttpServer())
+      .post(`/messages/threads/${threadId}/messages`)
+      .field("body", "Oversized attachment")
+      .attach("attachments", Buffer.alloc(8 * 1024 * 1024 + 1), {
+        filename: "oversized.png",
+        contentType: "image/png",
+      })
+      .expect(413);
+
+    expect(storage.savedAttachments).toHaveLength(0);
+  });
+
+  it("tracks delivery and read receipts for participants", async () => {
     const response = await request(app.getHttpServer())
       .post(`/messages/threads/${threadId}/messages`)
-      .field('authorId', BUYER_ID)
-      .field('body', 'Package shipped?')
+      .field("authorId", BUYER_ID)
+      .field("body", "Package shipped?")
       .expect(201);
 
     const messageId = response.body.messages.at(-1).id;
     await messagingService.markDelivered(messageId, SELLER_ID);
     await messagingService.markRead(messageId, SELLER_ID);
 
-    const threadRes = await request(app.getHttpServer()).get(`/messages/threads/${threadId}`).expect(200);
-    const updatedMessage = threadRes.body.messages.find((message: any) => message.id === messageId);
+    const threadRes = await request(app.getHttpServer())
+      .get(`/messages/threads/${threadId}`)
+      .expect(200);
+    const updatedMessage = threadRes.body.messages.find(
+      (message: any) => message.id === messageId,
+    );
     expect(updatedMessage.status).toBe(MessageStatus.READ);
-    const sellerReceipt = updatedMessage.receipts.find((receipt: any) => receipt.userId === SELLER_ID);
+    const sellerReceipt = updatedMessage.receipts.find(
+      (receipt: any) => receipt.userId === SELLER_ID,
+    );
     expect(sellerReceipt.readAt).toBeTruthy();
   });
 
-  it('updates delivery state when gateway receives delivered/read events', async () => {
+  it("updates delivery state when gateway receives delivered/read events", async () => {
     const response = await request(app.getHttpServer())
       .post(`/messages/threads/${threadId}/messages`)
-      .field('authorId', BUYER_ID)
-      .field('body', 'Confirming delivery window')
+      .field("authorId", BUYER_ID)
+      .field("body", "Confirming delivery window")
       .expect(201);
 
     const messageId = response.body.messages.at(-1).id as string;
@@ -143,26 +175,34 @@ describe('MessagingModule (integration)', () => {
     await gateway.handleDelivered(socket as any, { messageId });
     await gateway.handleRead(socket as any, { messageId });
 
-    const threadRes = await request(app.getHttpServer()).get(`/messages/threads/${threadId}`).expect(200);
-    const updatedMessage = threadRes.body.messages.find((message: any) => message.id === messageId);
+    const threadRes = await request(app.getHttpServer())
+      .get(`/messages/threads/${threadId}`)
+      .expect(200);
+    const updatedMessage = threadRes.body.messages.find(
+      (message: any) => message.id === messageId,
+    );
     expect(updatedMessage.status).toBe(MessageStatus.READ);
-    const receipt = updatedMessage.receipts.find((item: any) => item.userId === SELLER_ID);
+    const receipt = updatedMessage.receipts.find(
+      (item: any) => item.userId === SELLER_ID,
+    );
     expect(receipt.deliveredAt).toBeTruthy();
     expect(receipt.readAt).toBeTruthy();
   });
 
-  it('flags risky content and holds delivery when moderation rejects', async () => {
+  it("flags risky content and holds delivery when moderation rejects", async () => {
     moderation.status = MessageModerationStatus.FLAGGED;
-    moderation.notes = 'Contains sensitive information';
+    moderation.notes = "Contains sensitive information";
 
     const response = await request(app.getHttpServer())
       .post(`/messages/threads/${threadId}/messages`)
-      .field('authorId', BUYER_ID)
-      .field('body', 'spam link here')
+      .field("authorId", BUYER_ID)
+      .field("body", "spam link here")
       .expect(201);
 
     const latestMessage = response.body.messages.at(-1);
-    expect(latestMessage.moderationStatus).toBe(MessageModerationStatus.FLAGGED);
+    expect(latestMessage.moderationStatus).toBe(
+      MessageModerationStatus.FLAGGED,
+    );
     expect(server.events).toHaveLength(0);
   });
 });
@@ -182,7 +222,7 @@ class RecordingServer {
   to(room: string) {
     return {
       emit: (event: string, payload: any) => {
-        if (event === 'messages:new') {
+        if (event === "messages:new") {
           this.events.push({ room, payload });
         }
       },
@@ -192,10 +232,14 @@ class RecordingServer {
 
 class FakeSocket {
   id = randomUUID();
-  handshake: { auth: { userId: string; token: string }; query: Record<string, unknown>; headers: Record<string, unknown> };
+  handshake: {
+    auth: { userId: string; token: string };
+    query: Record<string, unknown>;
+    headers: Record<string, unknown>;
+  };
 
   constructor(userId: string) {
-    const token = jwt.sign({ sub: userId }, 'test-jwt-secret');
+    const token = jwt.sign({ sub: userId }, "test-jwt-secret");
     this.handshake = { auth: { userId, token }, query: {}, headers: {} };
   }
 
@@ -213,11 +257,19 @@ class FakeStorageService {
 
   async saveMessageAttachment(threadId: string, file: Express.Multer.File) {
     this.savedAttachments.push({ threadId, filename: file.originalname });
-    return { bucket: 'test', key: `${threadId}/${file.originalname}`, url: `s3://test/${threadId}/${file.originalname}` };
+    return {
+      bucket: "test",
+      key: `${threadId}/${file.originalname}`,
+      url: `s3://test/${threadId}/${file.originalname}`,
+    };
   }
 
   async saveListingImage(listingId: string, file: Express.Multer.File) {
-    return { bucket: 'test', key: `listings/${listingId}/${file.originalname}`, url: `s3://test/${listingId}/${file.originalname}` };
+    return {
+      bucket: "test",
+      key: `listings/${listingId}/${file.originalname}`,
+      url: `s3://test/${listingId}/${file.originalname}`,
+    };
   }
 }
 
@@ -285,10 +337,16 @@ class InMemoryPrismaService {
   private receipts = new Map<string, ReceiptRecord>();
 
   user = {
-    findMany: async ({ where }: { where: { id: { in: string[] }; deletedAt: null } }) => {
+    findMany: async ({
+      where,
+    }: {
+      where: { id: { in: string[] }; deletedAt: null };
+    }) => {
       return where.id.in
         .map((id) => this.users.get(id))
-        .filter((user): user is { id: string; deletedAt: null } => Boolean(user && user.deletedAt === null));
+        .filter((user): user is { id: string; deletedAt: null } =>
+          Boolean(user && user.deletedAt === null),
+        );
     },
   };
 
@@ -300,16 +358,20 @@ class InMemoryPrismaService {
     findMany: async ({ where, include, orderBy }: any) => {
       let results = Array.from(this.threads.values());
       if (where?.listingId) {
-        results = results.filter((thread) => thread.listingId === where.listingId);
+        results = results.filter(
+          (thread) => thread.listingId === where.listingId,
+        );
       }
       if (where?.participants?.some?.userId) {
         results = results.filter((thread) =>
           Array.from(this.participants.values()).some(
-            (participant) => participant.threadId === thread.id && participant.userId === where.participants.some.userId,
+            (participant) =>
+              participant.threadId === thread.id &&
+              participant.userId === where.participants.some.userId,
           ),
         );
       }
-      if (orderBy?.updatedAt === 'desc') {
+      if (orderBy?.updatedAt === "desc") {
         results.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       }
       return results.map((thread) => this.buildThread(thread, include));
@@ -339,10 +401,16 @@ class InMemoryPrismaService {
       this.threads.set(record.id, record);
       return { ...record };
     },
-    update: async ({ where, data }: { where: { id: string }; data: Partial<ThreadRecord> }) => {
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<ThreadRecord>;
+    }) => {
       const thread = this.threads.get(where.id);
       if (!thread) {
-        throw new Error('Thread not found');
+        throw new Error("Thread not found");
       }
       Object.assign(thread, data);
       thread.updatedAt = data.updatedAt ?? new Date();
@@ -351,7 +419,15 @@ class InMemoryPrismaService {
   };
 
   messageThreadParticipant = {
-    createMany: async ({ data }: { data: Array<{ threadId: string; userId: string; role: MessageParticipantRole }> }) => {
+    createMany: async ({
+      data,
+    }: {
+      data: Array<{
+        threadId: string;
+        userId: string;
+        role: MessageParticipantRole;
+      }>;
+    }) => {
       data.forEach((participant) => {
         const record: ParticipantRecord = {
           id: randomUUID(),
@@ -364,7 +440,11 @@ class InMemoryPrismaService {
       });
       return { count: data.length };
     },
-    findFirst: async ({ where }: { where: { threadId: string; userId: string } }) => {
+    findFirst: async ({
+      where,
+    }: {
+      where: { threadId: string; userId: string };
+    }) => {
       return this.participants.get(`${where.threadId}-${where.userId}`) ?? null;
     },
   };
@@ -378,7 +458,8 @@ class InMemoryPrismaService {
         authorId: data.authorId,
         body: data.body,
         status: data.status ?? MessageStatus.SENT,
-        moderationStatus: data.moderationStatus ?? MessageModerationStatus.PENDING,
+        moderationStatus:
+          data.moderationStatus ?? MessageModerationStatus.PENDING,
         moderationNotes: data.moderationNotes ?? null,
         metadata: (data.metadata ?? null) as Record<string, unknown> | null,
         createdAt: now,
@@ -396,7 +477,10 @@ class InMemoryPrismaService {
           fileName: attachment.fileName,
           mimeType: attachment.mimeType ?? null,
           fileSize: attachment.fileSize ?? null,
-          metadata: (attachment.metadata ?? null) as Record<string, unknown> | null,
+          metadata: (attachment.metadata ?? null) as Record<
+            string,
+            unknown
+          > | null,
           createdAt: now,
         };
         this.attachments.set(attachmentRecord.id, attachmentRecord);
@@ -411,15 +495,24 @@ class InMemoryPrismaService {
           readAt: receipt.readAt ?? null,
           createdAt: now,
         };
-        this.receipts.set(`${receiptRecord.messageId}-${receiptRecord.userId}`, receiptRecord);
+        this.receipts.set(
+          `${receiptRecord.messageId}-${receiptRecord.userId}`,
+          receiptRecord,
+        );
       });
 
       return include ? this.buildMessage(record, include) : { ...record };
     },
-    update: async ({ where, data }: { where: { id: string }; data: Partial<MessageRecord> }) => {
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<MessageRecord>;
+    }) => {
       const message = this.messages.get(where.id);
       if (!message) {
-        throw new Error('Message not found');
+        throw new Error("Message not found");
       }
       Object.assign(message, data);
       message.updatedAt = new Date();
@@ -428,16 +521,25 @@ class InMemoryPrismaService {
   };
 
   messageDeliveryReceipt = {
-    findFirst: async ({ where }: { where: { messageId: string; userId: string } }) => {
+    findFirst: async ({
+      where,
+    }: {
+      where: { messageId: string; userId: string };
+    }) => {
       return this.receipts.get(`${where.messageId}-${where.userId}`) ?? null;
     },
     findMany: async ({ where }: { where: { messageId: string } }) => {
-      return Array.from(this.receipts.values()).filter((receipt) => receipt.messageId === where.messageId);
+      return Array.from(this.receipts.values()).filter(
+        (receipt) => receipt.messageId === where.messageId,
+      );
     },
     updateMany: async ({ where, data }: any) => {
       let count = 0;
       for (const receipt of this.receipts.values()) {
-        if (receipt.messageId !== where.messageId || receipt.userId !== where.userId) {
+        if (
+          receipt.messageId !== where.messageId ||
+          receipt.userId !== where.userId
+        ) {
           continue;
         }
         if (where.deliveredAt === null && receipt.deliveredAt !== null) {
@@ -453,11 +555,14 @@ class InMemoryPrismaService {
   private buildThread(thread: ThreadRecord, include?: any) {
     const participants = include?.participants
       ? Array.from(this.participants.values())
-        .filter((participant) => participant.threadId === thread.id)
-        .map((participant) => ({ ...participant }))
+          .filter((participant) => participant.threadId === thread.id)
+          .map((participant) => ({ ...participant }))
       : undefined;
     const messages = include?.messages
-      ? this.buildMessagesForThread(thread.id, include.messages?.orderBy?.createdAt)
+      ? this.buildMessagesForThread(
+          thread.id,
+          include.messages?.orderBy?.createdAt,
+        )
       : undefined;
     return {
       ...thread,
@@ -466,12 +571,16 @@ class InMemoryPrismaService {
     };
   }
 
-  private buildMessagesForThread(threadId: string, orderBy?: 'asc' | 'desc') {
+  private buildMessagesForThread(threadId: string, orderBy?: "asc" | "desc") {
     const messages = Array.from(this.messages.values())
       .filter((message) => message.threadId === threadId)
-      .map((message) => this.buildMessage(message, { attachments: true, receipts: true }));
+      .map((message) =>
+        this.buildMessage(message, { attachments: true, receipts: true }),
+      );
     messages.sort((a, b) =>
-      orderBy === 'desc' ? b.createdAt.getTime() - a.createdAt.getTime() : a.createdAt.getTime() - b.createdAt.getTime(),
+      orderBy === "desc"
+        ? b.createdAt.getTime() - a.createdAt.getTime()
+        : a.createdAt.getTime() - b.createdAt.getTime(),
     );
     return messages;
   }
@@ -479,13 +588,13 @@ class InMemoryPrismaService {
   private buildMessage(message: MessageRecord, include?: any) {
     const attachments = include?.attachments
       ? Array.from(this.attachments.values())
-        .filter((attachment) => attachment.messageId === message.id)
-        .map((attachment) => ({ ...attachment }))
+          .filter((attachment) => attachment.messageId === message.id)
+          .map((attachment) => ({ ...attachment }))
       : undefined;
     const receipts = include?.receipts
       ? Array.from(this.receipts.values())
-        .filter((receipt) => receipt.messageId === message.id)
-        .map((receipt) => ({ ...receipt }))
+          .filter((receipt) => receipt.messageId === message.id)
+          .map((receipt) => ({ ...receipt }))
       : undefined;
     return {
       ...message,

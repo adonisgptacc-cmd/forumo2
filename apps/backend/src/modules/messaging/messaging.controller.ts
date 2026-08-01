@@ -1,6 +1,22 @@
-import type { Express } from 'express';
-import { Body, Controller, Get, Param, Patch, Post, Query, Request, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import type { Express } from "express";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from "@nestjs/common";
+import { FilesInterceptor } from "@nestjs/platform-express";
+import {
+  MAX_UPLOAD_FILES,
+  uploadLimits,
+} from "../../common/config/upload-limits";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
 import { CreateThreadDto } from "./dto/create-thread.dto";
@@ -9,28 +25,34 @@ import { ThreadQueryDto } from "./dto/thread-query.dto";
 import { SafeMessageThread } from "./message.serializer";
 import { MessagingService } from "./messaging.service";
 
-@Controller('messages')
+@Controller("messages")
 @UseGuards(JwtAuthGuard)
 export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}
 
-  @Get('threads')
+  @Get("threads")
   listThreads(
     @Query() query: ThreadQueryDto,
     @Request() req: { user: { id: string } },
-  ): Promise<{ data: SafeMessageThread[]; total: number; page: number; pageSize: number; pageCount: number }> {
+  ): Promise<{
+    data: SafeMessageThread[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pageCount: number;
+  }> {
     return this.messagingService.listThreads(query, req.user.id);
   }
 
-  @Get('threads/:id')
+  @Get("threads/:id")
   getThread(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: { user: { id: string } },
   ): Promise<SafeMessageThread> {
     return this.messagingService.getThread(id, req.user.id);
   }
 
-  @Post('threads')
+  @Post("threads")
   createThread(
     @Body() dto: CreateThreadDto,
     @Request() req: { user: { id: string } },
@@ -38,22 +60,28 @@ export class MessagingController {
     return this.messagingService.createThread(dto, req.user.id);
   }
 
-  @Patch('threads/:id/read')
+  @Patch("threads/:id/read")
   markRead(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Request() req: { user: { id: string } },
   ): Promise<void> {
     return this.messagingService.markThreadRead(id, req.user.id);
   }
 
-  @Post('threads/:id/messages')
-  @UseInterceptors(FilesInterceptor('attachments'))
+  @Post("threads/:id/messages")
+  @UseInterceptors(
+    FilesInterceptor("attachments", MAX_UPLOAD_FILES, { limits: uploadLimits }),
+  )
   sendMessage(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: SendMessageDto,
     @Request() req: { user: { id: string } },
     @UploadedFiles() attachments?: Express.Multer.File[],
   ): Promise<SafeMessageThread> {
-    return this.messagingService.addMessage(id, { ...dto, authorId: req.user.id }, attachments ?? []);
+    return this.messagingService.addMessage(
+      id,
+      { ...dto, authorId: req.user.id },
+      attachments ?? [],
+    );
   }
 }

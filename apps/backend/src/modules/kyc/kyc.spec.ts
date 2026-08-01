@@ -1,27 +1,27 @@
-jest.mock('../notifications/notifications.gateway');
+jest.mock("../notifications/notifications.gateway");
 
-import { CanActivate, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import { CanActivate, INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { KycModule } from './kyc.module';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { StorageService } from '../storage/storage.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from "../../prisma/prisma.service";
+import { KycModule } from "./kyc.module";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { StorageService } from "../storage/storage.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
-const USER_ID = 'user-kyc-1';
-const ADMIN_ID = 'admin-kyc-1';
-const SUBMISSION_ID = 'submission-seed-1';
+const USER_ID = "user-kyc-1";
+const ADMIN_ID = "admin-kyc-1";
+const SUBMISSION_ID = "submission-seed-1";
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
-  static role = 'BUYER';
+  static role = "BUYER";
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -38,9 +38,12 @@ class AllowAllGuard implements CanActivate {
 // ─── Mock Storage ─────────────────────────────────────────────────────────────
 
 class MockStorageService {
+  savedKycDocuments: string[] = [];
+
   async saveKycDocument(userId: string) {
+    this.savedKycDocuments.push(userId);
     return {
-      bucket: 'local-dev',
+      bucket: "local-dev",
       key: `kyc/${userId}/test-doc.jpg`,
       url: `s3://local-dev/kyc/${userId}/test-doc.jpg`,
     };
@@ -56,19 +59,19 @@ class InMemoryPrismaService {
   constructor() {
     this.users.set(USER_ID, {
       id: USER_ID,
-      email: 'user@test.com',
-      name: 'Test User',
-      kycStatus: 'NONE',
+      email: "user@test.com",
+      name: "Test User",
+      kycStatus: "NONE",
     });
 
     // Seed a pending submission so status/review tests work without a real submit
     this.kycSubmissions.set(SUBMISSION_ID, {
       id: SUBMISSION_ID,
       userId: USER_ID,
-      status: 'PENDING',
+      status: "PENDING",
       submittedAt: new Date(),
       documents: [],
-      user: { id: USER_ID, email: 'user@test.com', name: 'Test User' },
+      user: { id: USER_ID, email: "user@test.com", name: "Test User" },
       reviewer: null,
       reviewedAt: null,
       rejectionReason: null,
@@ -82,7 +85,8 @@ class InMemoryPrismaService {
         for (const sub of self.kycSubmissions.values()) {
           let match = true;
           if (where.userId && sub.userId !== where.userId) match = false;
-          if (where.status?.in && !where.status.in.includes(sub.status)) match = false;
+          if (where.status?.in && !where.status.in.includes(sub.status))
+            match = false;
           if (match) return { ...sub };
         }
         return null;
@@ -121,7 +125,7 @@ class InMemoryPrismaService {
           ...updated,
           user: self.users.get(updated.userId),
           reviewer: data.reviewerId
-            ? { id: data.reviewerId, email: 'admin@test.com', name: 'Admin' }
+            ? { id: data.reviewerId, email: "admin@test.com", name: "Admin" }
             : null,
         };
       },
@@ -144,11 +148,12 @@ class InMemoryPrismaService {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('KycModule', () => {
+describe("KycModule", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
+  let storageMock: MockStorageService;
 
-  const buildApp = async (userId = USER_ID, role = 'BUYER') => {
+  const buildApp = async (userId = USER_ID, role = "BUYER") => {
     MockGuard.userId = userId;
     MockGuard.role = role;
     prismaMock = new InMemoryPrismaService();
@@ -172,6 +177,7 @@ describe('KycModule', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    storageMock = moduleRef.get<MockStorageService>(StorageService);
     await app.init();
   };
 
@@ -179,151 +185,200 @@ describe('KycModule', () => {
 
   // ── POST /kyc/submit ──
 
-  describe('POST /kyc/submit', () => {
-    it('submits KYC documents and returns a PENDING submission', async () => {
+  describe("POST /kyc/submit", () => {
+    it("submits KYC documents and returns a PENDING submission", async () => {
       await buildApp();
       // Clear seeded submission so the user has no existing pending/approved
       prismaMock.kycSubmissions.clear();
 
       const res = await request(app.getHttpServer())
-        .post('/kyc/submit')
-        .attach('documents', Buffer.from('fake-id-doc'), {
-          filename: 'id.jpg',
-          contentType: 'image/jpeg',
+        .post("/kyc/submit")
+        .attach("documents", Buffer.from("fake-id-doc"), {
+          filename: "id.jpg",
+          contentType: "image/jpeg",
         })
-        .field('documentTypes', JSON.stringify(['national_id']))
+        .field("documentTypes", JSON.stringify(["national_id"]))
         .expect(201);
 
       expect(res.body.userId).toBe(USER_ID);
-      expect(res.body.status).toBe('PENDING');
+      expect(res.body.status).toBe("PENDING");
     });
 
-    it('returns 400 when no files are uploaded', async () => {
+    it("returns 400 when no files are uploaded", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/kyc/submit')
-        .field('documentTypes', JSON.stringify(['national_id']))
+        .post("/kyc/submit")
+        .field("documentTypes", JSON.stringify(["national_id"]))
         .expect(400);
     });
 
-    it('returns 400 when documentTypes count does not match file count', async () => {
+    it("returns 400 when documentTypes count does not match file count", async () => {
       await buildApp();
       prismaMock.kycSubmissions.clear();
 
       await request(app.getHttpServer())
-        .post('/kyc/submit')
-        .attach('documents', Buffer.from('fake'), {
-          filename: 'id.jpg',
-          contentType: 'image/jpeg',
+        .post("/kyc/submit")
+        .attach("documents", Buffer.from("fake"), {
+          filename: "id.jpg",
+          contentType: "image/jpeg",
         })
-        .field('documentTypes', JSON.stringify(['national_id', 'passport']))
+        .field("documentTypes", JSON.stringify(["national_id", "passport"]))
         .expect(400);
     });
 
-    it('returns 400 when user already has a pending submission', async () => {
+    it("returns 400 for malformed documentTypes JSON", async () => {
+      await buildApp();
+      prismaMock.kycSubmissions.clear();
+
+      await request(app.getHttpServer())
+        .post("/kyc/submit")
+        .attach("documents", Buffer.from("fake"), {
+          filename: "id.jpg",
+          contentType: "image/jpeg",
+        })
+        .field("documentTypes", '["national_id"')
+        .expect(400);
+    });
+
+    it("returns 400 when KYC metadata is not an array of objects", async () => {
+      await buildApp();
+      prismaMock.kycSubmissions.clear();
+
+      await request(app.getHttpServer())
+        .post("/kyc/submit")
+        .attach("documents", Buffer.from("fake"), {
+          filename: "id.jpg",
+          contentType: "image/jpeg",
+        })
+        .field("documentTypes", JSON.stringify(["national_id"]))
+        .field("metadata", JSON.stringify({ unexpected: true }))
+        .expect(400);
+    });
+
+    it("rejects KYC documents larger than 8 MB before storage", async () => {
+      await buildApp();
+      prismaMock.kycSubmissions.clear();
+
+      await request(app.getHttpServer())
+        .post("/kyc/submit")
+        .attach("documents", Buffer.alloc(8 * 1024 * 1024 + 1), {
+          filename: "oversized.jpg",
+          contentType: "image/jpeg",
+        })
+        .field("documentTypes", JSON.stringify(["national_id"]))
+        .expect(413);
+
+      expect(storageMock.savedKycDocuments).toHaveLength(0);
+    });
+
+    it("returns 400 when user already has a pending submission", async () => {
       await buildApp();
       // prismaMock already has a seeded PENDING submission
       await request(app.getHttpServer())
-        .post('/kyc/submit')
-        .attach('documents', Buffer.from('fake'), {
-          filename: 'id.jpg',
-          contentType: 'image/jpeg',
+        .post("/kyc/submit")
+        .attach("documents", Buffer.from("fake"), {
+          filename: "id.jpg",
+          contentType: "image/jpeg",
         })
-        .field('documentTypes', JSON.stringify(['national_id']))
+        .field("documentTypes", JSON.stringify(["national_id"]))
         .expect(400);
     });
   });
 
   // ── GET /kyc/status ──
 
-  describe('GET /kyc/status', () => {
-    it('returns the current submission status', async () => {
+  describe("GET /kyc/status", () => {
+    it("returns the current submission status", async () => {
       await buildApp();
-      const res = await request(app.getHttpServer()).get('/kyc/status').expect(200);
-      expect(res.body.status).toBe('PENDING');
+      const res = await request(app.getHttpServer())
+        .get("/kyc/status")
+        .expect(200);
+      expect(res.body.status).toBe("PENDING");
       expect(res.body.userId).toBe(USER_ID);
     });
 
-    it('returns 404 when the user has no submission', async () => {
-      await buildApp('user-with-no-kyc');
-      await request(app.getHttpServer()).get('/kyc/status').expect(404);
+    it("returns 404 when the user has no submission", async () => {
+      await buildApp("user-with-no-kyc");
+      await request(app.getHttpServer()).get("/kyc/status").expect(404);
     });
   });
 
   // ── GET /kyc/submissions (admin) ──
 
-  describe('GET /kyc/submissions', () => {
-    it('returns all pending submissions for an admin', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
-      const res = await request(app.getHttpServer()).get('/kyc/submissions').expect(200);
+  describe("GET /kyc/submissions", () => {
+    it("returns all pending submissions for an admin", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      const res = await request(app.getHttpServer())
+        .get("/kyc/submissions")
+        .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThan(0);
-      expect(res.body[0].status).toBe('PENDING');
+      expect(res.body[0].status).toBe("PENDING");
     });
   });
 
   // ── GET /kyc/submissions/:id ──
 
-  describe('GET /kyc/submissions/:id', () => {
-    it('returns the submission by id', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+  describe("GET /kyc/submissions/:id", () => {
+    it("returns the submission by id", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       const res = await request(app.getHttpServer())
         .get(`/kyc/submissions/${SUBMISSION_ID}`)
         .expect(200);
       expect(res.body.id).toBe(SUBMISSION_ID);
     });
 
-    it('returns 404 for unknown submission', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+    it("returns 404 for unknown submission", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       await request(app.getHttpServer())
-        .get('/kyc/submissions/does-not-exist')
+        .get("/kyc/submissions/does-not-exist")
         .expect(404);
     });
   });
 
   // ── PATCH /kyc/submissions/:id/review ──
 
-  describe('PATCH /kyc/submissions/:id/review', () => {
-    it('approves a pending submission', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+  describe("PATCH /kyc/submissions/:id/review", () => {
+    it("approves a pending submission", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       const res = await request(app.getHttpServer())
         .patch(`/kyc/submissions/${SUBMISSION_ID}/review`)
-        .send({ status: 'APPROVED' })
+        .send({ status: "APPROVED" })
         .expect(200);
 
-      expect(res.body.status).toBe('APPROVED');
+      expect(res.body.status).toBe("APPROVED");
       expect(res.body.reviewerId).toBe(ADMIN_ID);
     });
 
-    it('rejects a submission with a reason', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+    it("rejects a submission with a reason", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       const res = await request(app.getHttpServer())
         .patch(`/kyc/submissions/${SUBMISSION_ID}/review`)
-        .send({ status: 'REJECTED', rejectionReason: 'Document expired' })
+        .send({ status: "REJECTED", rejectionReason: "Document expired" })
         .expect(200);
 
-      expect(res.body.status).toBe('REJECTED');
-      expect(res.body.rejectionReason).toBe('Document expired');
+      expect(res.body.status).toBe("REJECTED");
+      expect(res.body.rejectionReason).toBe("Document expired");
     });
 
-    it('returns 400 when reviewing an already-reviewed submission', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+    it("returns 400 when reviewing an already-reviewed submission", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       // First review
       await request(app.getHttpServer())
         .patch(`/kyc/submissions/${SUBMISSION_ID}/review`)
-        .send({ status: 'APPROVED' });
+        .send({ status: "APPROVED" });
       // Second review attempt
       await request(app.getHttpServer())
         .patch(`/kyc/submissions/${SUBMISSION_ID}/review`)
-        .send({ status: 'REJECTED' })
+        .send({ status: "REJECTED" })
         .expect(400);
     });
 
-    it('returns 404 for an unknown submission', async () => {
-      await buildApp(ADMIN_ID, 'ADMIN');
+    it("returns 404 for an unknown submission", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
       await request(app.getHttpServer())
-        .patch('/kyc/submissions/nonexistent/review')
-        .send({ status: 'APPROVED' })
+        .patch("/kyc/submissions/nonexistent/review")
+        .send({ status: "APPROVED" })
         .expect(404);
     });
   });
