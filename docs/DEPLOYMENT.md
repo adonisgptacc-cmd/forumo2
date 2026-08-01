@@ -86,7 +86,7 @@ Secrets are stored in AWS Secrets Manager and synced into cluster Kubernetes Sec
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OTLP trace collector endpoint                                  | Your Jaeger/Tempo endpoint                                                              |
 | `OTEL_SERVICE_NAME`             | Service name in traces                                         | `forumo-backend`                                                                        |
 | `LOG_LEVEL`                     | Pino log level                                                 | `info` in production                                                                    |
-| `METRICS_API_KEY`               | Bearer token protecting `/api/v1/metrics`                      | `openssl rand -hex 32`                                                                  |
+| `METRICS_API_KEY`               | API key sent as `x-api-key` to `/api/v1/metrics`               | `openssl rand -hex 32`                                                                  |
 | `PORT`                          | HTTP port                                                      | `4000`                                                                                  |
 | `NODE_ENV`                      | Node environment                                               | `production`                                                                            |
 | `OTP_TTL`                       | OTP validity window (seconds)                                  | `300`                                                                                   |
@@ -540,7 +540,7 @@ kubectl logs -n forumo -l app=backend | jq 'select(.context | test("escrow|order
 
 ### Prometheus metrics
 
-The backend exposes Prometheus-format metrics at `/api/v1/metrics`, protected by `Authorization: Bearer <METRICS_API_KEY>`.
+The backend exposes Prometheus-format metrics at `/api/v1/metrics`, protected by the `x-api-key: <METRICS_API_KEY>` header.
 
 Add the following scrape config to your Prometheus deployment:
 
@@ -549,9 +549,9 @@ scrape_configs:
   - job_name: forumo-backend
     scheme: http
     metrics_path: /api/v1/metrics
-    authorization:
-      type: Bearer
-      credentials: <METRICS_API_KEY>
+    http_headers:
+      x-api-key:
+        secrets: [<METRICS_API_KEY>]
     kubernetes_sd_configs:
       - role: pod
         namespaces:

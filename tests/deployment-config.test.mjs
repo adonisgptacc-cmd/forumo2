@@ -60,3 +60,24 @@ test("deployment docs apply only the canonical production manifests", () => {
     /kubectl apply -f k8s\/apps\/(backend|web)\.yaml/,
   );
 });
+
+test("monitoring docs use the metrics controller x-api-key contract", () => {
+  const deploymentGuide = read("docs/DEPLOYMENT.md");
+
+  assert.match(deploymentGuide, /http_headers:[\s\S]*?x-api-key:/);
+  assert.doesNotMatch(deploymentGuide, /Authorization: Bearer/);
+});
+
+test("paused mobile emulator jobs run only when explicitly dispatched", () => {
+  const workflow = read(".github/workflows/ci.yml");
+
+  assert.match(workflow, /run_android_e2e:/);
+  assert.match(
+    workflow,
+    /if: github\.event_name == 'workflow_dispatch' && inputs\.run_android_e2e/,
+  );
+  assert.match(
+    workflow,
+    /if: github\.event_name == 'workflow_dispatch' && inputs\.run_ios_e2e/,
+  );
+});

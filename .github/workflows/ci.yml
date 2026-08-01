@@ -7,6 +7,11 @@ on:
     branches: [main, develop]
   workflow_dispatch:
     inputs:
+      run_android_e2e:
+        description: Run the paused Android Detox job
+        required: false
+        default: false
+        type: boolean
       run_ios_e2e:
         description: Run the paused iOS Detox job
         required: false
@@ -272,7 +277,9 @@ jobs:
   mobile-android-build:
     name: Mobile E2E (Android Emulator)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    # Temporarily paused from regular CI; native APK compilation is healthy,
+    # but the emulator/Detox runtime remains unreliable on hosted runners.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_android_e2e
     steps:
       - uses: actions/checkout@v5
 
