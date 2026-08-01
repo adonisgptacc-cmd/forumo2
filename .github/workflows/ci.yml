@@ -261,6 +261,53 @@ jobs:
           echo "### Preview deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "[$url]($url)" >> "$GITHUB_STEP_SUMMARY"
 
+  mobile-android-build:
+    name: Mobile Build (Android)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.4
+
+      - uses: actions/setup-node@v5
+        with:
+          # Expo SDK 50's reference build image uses Node 18.18.
+          node-version: 18.18.0
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate native Android project
+        run: |
+          pnpm --filter @forumo/mobile exec expo prebuild --platform android --no-install
+          test -d apps/mobile/android
+          chmod +x apps/mobile/android/gradlew
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build Android debug APK
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Android debug APK
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: forumo-android-debug
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
   mobile-e2e:
     name: Mobile E2E (iOS Simulator)
     runs-on: macos-14
