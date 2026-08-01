@@ -18,6 +18,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   platforms: ["ios", "android"],
   assetBundlePatterns: ["**/*"],
+  splash: {
+    backgroundColor: "#ffffff",
+    resizeMode: "contain",
+  },
   plugins: [
     "expo-notifications",
     [
