@@ -1,22 +1,27 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
-import { createApiClient } from '../../../lib/api-client';
-import { DataTable, Column } from '../../../components/data-table';
-import { Badge } from '../../../components/badge';
-import { PageHeader } from '../../../components/page-header';
-import { ErrorState } from '../../../components/error-state';
-import type { AdminListingModeration } from '@forumo/shared';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { createApiClient } from "../../../lib/api-client";
+import { DataTable, Column } from "../../../components/data-table";
+import { Badge } from "../../../components/badge";
+import { PageHeader } from "../../../components/page-header";
+import { ErrorState } from "../../../components/error-state";
+import type { AdminListingModeration } from "@forumo/shared";
 
 export default function ModerationPage() {
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
   const qc = useQueryClient();
 
-  const { data: items, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin-moderation-queue'],
+  const {
+    data: items,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["admin-moderation-queue"],
     queryFn: () => createApiClient(token).admin.listListingsForReview(),
     enabled: !!token,
   });
@@ -28,51 +33,66 @@ export default function ModerationPage() {
       moderationNotes,
     }: {
       id: string;
-      moderationStatus: AdminListingModeration['moderationStatus'];
+      moderationStatus: AdminListingModeration["moderationStatus"];
       moderationNotes?: string;
-    }) => createApiClient(token).admin.reviewListing(id, { moderationStatus, moderationNotes }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-moderation-queue'] }),
+    }) =>
+      createApiClient(token).admin.reviewListing(id, {
+        moderationStatus,
+        moderationNotes,
+      }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["admin-moderation-queue"] }),
   });
 
   // Show only items that have been flagged by the moderation service
-  const [filter, setFilter] = useState<'FLAGGED' | 'PENDING' | ''>('FLAGGED');
-  const flagged = items?.filter((i) => (filter ? i.moderationStatus === filter : true)) ?? [];
+  const [filter, setFilter] = useState<"FLAGGED" | "PENDING" | "">("FLAGGED");
+  const flagged =
+    items?.filter((i) => (filter ? i.moderationStatus === filter : true)) ?? [];
 
   const columns: Column<AdminListingModeration>[] = [
-    { header: 'Title', accessor: 'title' },
-    { header: 'Seller', accessor: (i) => i.seller?.name ?? '—' },
-    { header: 'Mod Status', accessor: (i) => <Badge value={i.moderationStatus} /> },
+    { header: "Title", accessor: "title" },
+    { header: "Seller", accessor: (i) => i.seller?.name ?? "—" },
     {
-      header: 'Score',
+      header: "Mod Status",
+      accessor: (i) => <Badge value={i.moderationStatus} />,
+    },
+    {
+      header: "Score",
       accessor: (i) => {
         const score = (i as any).moderationScore;
-        return score != null ? (score as number).toFixed(2) : '—';
+        return score != null ? (score as number).toFixed(2) : "—";
       },
     },
     {
-      header: 'Labels',
+      header: "Labels",
       accessor: (i) => {
         const labels: string[] = (i as any).moderationLabels ?? [];
-        return labels.length > 0 ? labels.slice(0, 3).join(', ') : '—';
+        return labels.length > 0 ? labels.slice(0, 3).join(", ") : "—";
       },
     },
     {
-      header: 'Actions',
+      header: "Actions",
       accessor: (i) => (
         <div className="flex gap-2">
           <button
-            onClick={() => moderate.mutate({ id: i.id, moderationStatus: 'APPROVED' })}
-            disabled={moderate.isPending || i.moderationStatus === 'APPROVED'}
+            onClick={() =>
+              moderate.mutate({ id: i.id, moderationStatus: "APPROVED" })
+            }
+            disabled={moderate.isPending || i.moderationStatus === "APPROVED"}
             className="rounded px-2 py-1 text-xs bg-green-100 text-green-800 hover:bg-green-200 disabled:opacity-40"
           >
             Approve
           </button>
           <button
             onClick={() => {
-              const notes = window.prompt('Rejection reason:') ?? undefined;
-              moderate.mutate({ id: i.id, moderationStatus: 'REJECTED', moderationNotes: notes });
+              const notes = window.prompt("Rejection reason:") ?? undefined;
+              moderate.mutate({
+                id: i.id,
+                moderationStatus: "REJECTED",
+                moderationNotes: notes,
+              });
             }}
-            disabled={moderate.isPending || i.moderationStatus === 'REJECTED'}
+            disabled={moderate.isPending || i.moderationStatus === "REJECTED"}
             className="rounded px-2 py-1 text-xs bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-40"
           >
             Reject
@@ -100,12 +120,15 @@ export default function ModerationPage() {
           <option value="">All</option>
         </select>
         <span className="flex items-center text-sm text-gray-500">
-          {flagged.length} item{flagged.length !== 1 ? 's' : ''}
+          {flagged.length} item{flagged.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {isError ? (
-        <ErrorState message="Failed to load moderation queue." onRetry={() => refetch()} />
+        <ErrorState
+          message="Failed to load moderation queue."
+          onRetry={() => refetch()}
+        />
       ) : (
         <DataTable
           columns={columns}

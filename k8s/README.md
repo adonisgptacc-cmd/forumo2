@@ -20,11 +20,11 @@ k8s/
 
 ## Prerequisites
 
-| Tool | Install |
-|---|---|
-| External Secrets Operator | `helm install eso external-secrets/external-secrets -n external-secrets --create-namespace` |
-| cert-manager | `helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true` |
-| nginx ingress controller | `helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace` |
+| Tool                      | Install                                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| External Secrets Operator | `helm install eso external-secrets/external-secrets -n external-secrets --create-namespace`                 |
+| cert-manager              | `helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true` |
+| nginx ingress controller  | `helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace`                |
 
 ### cert-manager ClusterIssuer
 
@@ -46,6 +46,7 @@ spec:
           ingress:
             class: nginx
 ```
+
 ## AWS Secrets Manager setup
 
 Each app reads runtime config from a flat JSON secret. Create three secrets,
@@ -87,6 +88,7 @@ kubectl run migrations --rm -it --restart=Never --image=<ECR>/forumo-backend:<ta
 ```
 
 ### 4. Redis
+
 Provision ElastiCache Redis 7. Set REDIS_URL in the forumo/backend AWS secret.
 
 ### 5. Backend
@@ -128,11 +130,11 @@ kubectl describe ingress forumo-ingress -n forumo
 
 ## Resource summary
 
-| Deployment | Replicas | CPU req/limit | Memory req/limit | HPA range |
-|---|---|---|---|---|
-| forumo-backend | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
-| forumo-web     | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
-| forumo-admin   | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
+| Deployment     | Replicas | CPU req/limit | Memory req/limit | HPA range |
+| -------------- | -------- | ------------- | ---------------- | --------- |
+| forumo-backend | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
+| forumo-web     | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
+| forumo-admin   | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
 
 HPA scales out at **CPU >= 70%** or **memory >= 80%** with a 5-minute scale-down
 stabilisation window to prevent flapping.

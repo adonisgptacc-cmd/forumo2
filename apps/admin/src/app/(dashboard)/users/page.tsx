@@ -1,27 +1,32 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
-import { createApiClient } from '../../../lib/api-client';
-import { DataTable, Column } from '../../../components/data-table';
-import { Badge } from '../../../components/badge';
-import { PageHeader } from '../../../components/page-header';
-import { ErrorState } from '../../../components/error-state';
-import type { AdminUserDetail } from '@forumo/shared';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { createApiClient } from "../../../lib/api-client";
+import { DataTable, Column } from "../../../components/data-table";
+import { Badge } from "../../../components/badge";
+import { PageHeader } from "../../../components/page-header";
+import { ErrorState } from "../../../components/error-state";
+import type { AdminUserDetail } from "@forumo/shared";
 
 export default function UsersPage() {
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
   const qc = useQueryClient();
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data: users, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin-users', search, statusFilter, roleFilter, page],
+  const {
+    data: users,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["admin-users", search, statusFilter, roleFilter, page],
     queryFn: () =>
       createApiClient(token).admin.listUsers({
         search: search || undefined,
@@ -36,34 +41,34 @@ export default function UsersPage() {
   const suspend = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       createApiClient(token).admin.suspendUser(id, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
   const unsuspend = useMutation({
     mutationFn: (id: string) => createApiClient(token).admin.unsuspendUser(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
   const ban = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       createApiClient(token).admin.banUser(id, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
   const columns: Column<AdminUserDetail>[] = [
-    { header: 'Name', accessor: 'name' },
-    { header: 'Email', accessor: 'email' },
-    { header: 'Role', accessor: (u) => <Badge value={u.role} /> },
-    { header: 'Status', accessor: (u) => <Badge value={u.accountStatus} /> },
+    { header: "Name", accessor: "name" },
+    { header: "Email", accessor: "email" },
+    { header: "Role", accessor: (u) => <Badge value={u.role} /> },
+    { header: "Status", accessor: (u) => <Badge value={u.accountStatus} /> },
     {
-      header: 'Joined',
+      header: "Joined",
       accessor: (u) => new Date(u.createdAt).toLocaleDateString(),
     },
     {
-      header: 'Actions',
+      header: "Actions",
       accessor: (u) => (
         <div className="flex gap-2">
-          {u.accountStatus === 'SUSPENDED' ? (
+          {u.accountStatus === "SUSPENDED" ? (
             <button
               onClick={() => unsuspend.mutate(u.id)}
               disabled={unsuspend.isPending}
@@ -71,10 +76,10 @@ export default function UsersPage() {
             >
               Unsuspend
             </button>
-          ) : u.accountStatus === 'ACTIVE' ? (
+          ) : u.accountStatus === "ACTIVE" ? (
             <button
               onClick={() => {
-                const reason = window.prompt('Suspension reason:');
+                const reason = window.prompt("Suspension reason:");
                 if (reason) suspend.mutate({ id: u.id, reason });
               }}
               disabled={suspend.isPending}
@@ -83,10 +88,10 @@ export default function UsersPage() {
               Suspend
             </button>
           ) : null}
-          {u.accountStatus !== 'BANNED' && (
+          {u.accountStatus !== "BANNED" && (
             <button
               onClick={() => {
-                const reason = window.prompt('Ban reason:');
+                const reason = window.prompt("Ban reason:");
                 if (reason && window.confirm(`Permanently ban ${u.email}?`))
                   ban.mutate({ id: u.id, reason });
               }}
@@ -105,7 +110,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="Users"
-        subtitle={`${users?.length ?? 0} user${users?.length === 1 ? '' : 's'} loaded`}
+        subtitle={`${users?.length ?? 0} user${users?.length === 1 ? "" : "s"} loaded`}
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -113,12 +118,18 @@ export default function UsersPage() {
           type="search"
           placeholder="Search name or email…"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500 w-56"
         />
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500"
         >
           <option value="">All statuses</option>
@@ -129,7 +140,10 @@ export default function UsersPage() {
         </select>
         <select
           value={roleFilter}
-          onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500"
         >
           <option value="">All roles</option>
@@ -159,7 +173,9 @@ export default function UsersPage() {
             >
               Previous
             </button>
-            <span className="flex items-center px-2 text-sm text-gray-500">Page {page}</span>
+            <span className="flex items-center px-2 text-sm text-gray-500">
+              Page {page}
+            </span>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={(users?.length ?? 0) < 50}
