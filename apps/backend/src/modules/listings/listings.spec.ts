@@ -128,6 +128,8 @@ describe("ListingsModule (smoke)", () => {
 });
 
 class InMemoryPrismaService {
+  $transaction = async (actions: Promise<unknown>[]) => Promise.all(actions);
+
   private listings = new Map<string, ListingRecord>();
   private variants = new Map<string, ListingVariantRecord>();
   private images = new Map<string, ListingImageRecord>();

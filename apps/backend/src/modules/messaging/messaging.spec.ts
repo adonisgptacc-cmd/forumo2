@@ -388,6 +388,8 @@ interface ReceiptRecord {
 }
 
 class InMemoryPrismaService {
+  $transaction = async (actions: Promise<unknown>[]) => Promise.all(actions);
+
   private users = new Map<string, { id: string; deletedAt: Date | null }>([
     [BUYER_ID, { id: BUYER_ID, deletedAt: null }],
     [SELLER_ID, { id: SELLER_ID, deletedAt: null }],
