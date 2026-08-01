@@ -15,7 +15,7 @@ describe("Marketplace browsing", () => {
   });
 
   it("opens inbox and replies in a thread", async () => {
-    await element(by.text("Inbox")).tap();
+    await element(by.id("inbox-tab")).tap();
     await expect(element(by.id("messaging-inbox"))).toBeVisible();
     await element(
       by.id("thread-card-123e4567-e89b-12d3-a456-426614174000"),

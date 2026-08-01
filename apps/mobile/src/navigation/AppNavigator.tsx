@@ -1,67 +1,75 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer, createNavigationContainerRef, type Theme } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
-import { mobileNavigationTheme } from '@forumo/config';
-import { LoginScreen } from '../screens/LoginScreen';
-import { RegisterScreen } from '../screens/RegisterScreen';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { ListingDiscoveryScreen } from '../screens/ListingDiscoveryScreen';
-import { MessagingInboxScreen } from '../screens/MessagingInboxScreen';
-import { MessageThreadScreen } from '../screens/MessageThreadScreen';
-import { AuctionDetailScreen } from '../screens/AuctionDetailScreen';
-import { AuctionsTab } from '../screens/AuctionsScreen';
-import { CartScreen } from '../screens/CartScreen';
-import { CheckoutScreen } from '../screens/CheckoutScreen';
-import { OrdersTab } from '../screens/OrdersScreen';
-import { OrderDetailScreen } from '../screens/OrderDetailScreen';
-import { ProfileTab } from '../screens/ProfileScreen';
-import { OffersScreen } from '../screens/OffersScreen';
-import { NotificationsScreen } from '../screens/NotificationsScreen';
-import { ListingDetailScreen } from '../screens/ListingDetailScreen';
-import { WishlistScreen } from '../screens/WishlistScreen';
-import { CreateListingScreen } from '../screens/CreateListingScreen';
-import { MyListingsScreen } from '../screens/MyListingsScreen';
-import { EditListingScreen } from '../screens/EditListingScreen';
-import { ReviewsScreen } from '../screens/ReviewsScreen';
-import { SellerDashboardScreen } from '../screens/SellerDashboardScreen';
-import { KYCScreen } from '../screens/KYCScreen';
-import { StorefrontScreen } from '../screens/StorefrontScreen';
-import { VerifyEmailScreen } from '../screens/VerifyEmailScreen';
-import { CheckoutSuccessScreen } from '../screens/CheckoutSuccessScreen';
-import { CheckoutCancelScreen } from '../screens/CheckoutCancelScreen';
-import { AuthStackParamList, MainStackParamList, MainTabParamList } from './types';
-import { useAuth } from '../providers/AuthProvider';
+import React, { useEffect, useState } from "react";
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+  type Theme,
+} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Text, View } from "react-native";
+import { mobileNavigationTheme } from "@forumo/config";
+import { LoginScreen } from "../screens/LoginScreen";
+import { RegisterScreen } from "../screens/RegisterScreen";
+import { OnboardingScreen } from "../screens/OnboardingScreen";
+import { ListingDiscoveryScreen } from "../screens/ListingDiscoveryScreen";
+import { MessagingInboxScreen } from "../screens/MessagingInboxScreen";
+import { MessageThreadScreen } from "../screens/MessageThreadScreen";
+import { AuctionDetailScreen } from "../screens/AuctionDetailScreen";
+import { AuctionsTab } from "../screens/AuctionsScreen";
+import { CartScreen } from "../screens/CartScreen";
+import { CheckoutScreen } from "../screens/CheckoutScreen";
+import { OrdersTab } from "../screens/OrdersScreen";
+import { OrderDetailScreen } from "../screens/OrderDetailScreen";
+import { ProfileTab } from "../screens/ProfileScreen";
+import { OffersScreen } from "../screens/OffersScreen";
+import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { ListingDetailScreen } from "../screens/ListingDetailScreen";
+import { WishlistScreen } from "../screens/WishlistScreen";
+import { CreateListingScreen } from "../screens/CreateListingScreen";
+import { MyListingsScreen } from "../screens/MyListingsScreen";
+import { EditListingScreen } from "../screens/EditListingScreen";
+import { ReviewsScreen } from "../screens/ReviewsScreen";
+import { SellerDashboardScreen } from "../screens/SellerDashboardScreen";
+import { KYCScreen } from "../screens/KYCScreen";
+import { StorefrontScreen } from "../screens/StorefrontScreen";
+import { VerifyEmailScreen } from "../screens/VerifyEmailScreen";
+import { CheckoutSuccessScreen } from "../screens/CheckoutSuccessScreen";
+import { CheckoutCancelScreen } from "../screens/CheckoutCancelScreen";
+import {
+  AuthStackParamList,
+  MainStackParamList,
+  MainTabParamList,
+} from "./types";
+import { useAuth } from "../providers/AuthProvider";
 
 export const navigationRef = createNavigationContainerRef<MainStackParamList>();
 
 const linking = {
-  prefixes: ['forumo://', 'https://forumo.app'],
+  prefixes: ["forumo://", "https://forumo.app"],
   config: {
     screens: {
-      VerifyEmail: 'verify-email',
+      VerifyEmail: "verify-email",
       Main: {
         screens: {
           Tabs: {
             screens: {
-              Discover: 'discover',
-              Auctions: 'auctions',
-              Orders: 'orders',
-              Inbox: 'inbox',
-              Profile: 'profile',
+              Discover: "discover",
+              Auctions: "auctions",
+              Orders: "orders",
+              Inbox: "inbox",
+              Profile: "profile",
             },
           },
-          ListingDetail: 'listings/:listingId',
-          AuctionDetail: 'auction/:auctionId',
-          OrderDetail: 'orders/:orderId',
-          Thread: 'messages/:threadId',
-          Storefront: 'shop/:slug',
-          Notifications: 'notifications',
-          Wishlist: 'wishlist',
-          Reviews: 'reviews/:sellerId',
-          CheckoutSuccess: 'checkout/success',
-          CheckoutCancel: 'checkout/cancel',
+          ListingDetail: "listings/:listingId",
+          AuctionDetail: "auction/:auctionId",
+          OrderDetail: "orders/:orderId",
+          Thread: "messages/:threadId",
+          Storefront: "shop/:slug",
+          Notifications: "notifications",
+          Wishlist: "wishlist",
+          Reviews: "reviews/:sellerId",
+          CheckoutSuccess: "checkout/success",
+          CheckoutCancel: "checkout/cancel",
         },
       },
     },
@@ -75,15 +83,15 @@ const MainStack = createNativeStackNavigator<MainStackParamList>();
 // Simple icon helper (text-based, no icon library required)
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Discover: '🔍',
-    Auctions: '⚡',
-    Orders: '📦',
-    Inbox: '💬',
-    Profile: '👤',
+    Discover: "🔍",
+    Auctions: "⚡",
+    Orders: "📦",
+    Inbox: "💬",
+    Profile: "👤",
   };
   return (
     <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
-      {icons[label] ?? '•'}
+      {icons[label] ?? "•"}
     </Text>
   );
 }
@@ -110,7 +118,9 @@ const MainTabs = () => {
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
+        tabBarIcon: ({ focused }) => (
+          <TabIcon label={route.name} focused={focused} />
+        ),
         tabBarLabelStyle: { fontSize: 11 },
         headerShown: true,
       })}
@@ -118,27 +128,31 @@ const MainTabs = () => {
       <Tabs.Screen
         name="Discover"
         component={ListingDiscoveryScreen}
-        options={{ title: 'Discover' }}
+        options={{ title: "Discover" }}
       />
       <Tabs.Screen
         name="Auctions"
         component={AuctionsTab}
-        options={{ title: 'Auctions' }}
+        options={{ title: "Auctions" }}
       />
       <Tabs.Screen
         name="Orders"
         component={OrdersTab}
-        options={{ title: 'Orders' }}
+        options={{ title: "Orders" }}
       />
       <Tabs.Screen
         name="Inbox"
         component={MessagingInboxScreen}
-        options={{ title: 'Inbox', tabBarBadge: unreadCount > 0 ? unreadCount : undefined }}
+        options={{
+          title: "Inbox",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarTestID: "inbox-tab",
+        }}
       />
       <Tabs.Screen
         name="Profile"
         component={ProfileTab}
-        options={{ title: 'Profile' }}
+        options={{ title: "Profile" }}
       />
     </Tabs.Navigator>
   );
@@ -154,92 +168,92 @@ const MainNavigator = () => (
     <MainStack.Screen
       name="Thread"
       component={MessageThreadScreen}
-      options={{ title: 'Conversation' }}
+      options={{ title: "Conversation" }}
     />
     <MainStack.Screen
       name="AuctionDetail"
       component={AuctionDetailScreen}
-      options={{ title: 'Auction' }}
+      options={{ title: "Auction" }}
     />
     <MainStack.Screen
       name="OrderDetail"
       component={OrderDetailScreen}
-      options={{ title: 'Order' }}
+      options={{ title: "Order" }}
     />
     <MainStack.Screen
       name="Cart"
       component={CartScreen}
-      options={{ title: 'Cart' }}
+      options={{ title: "Cart" }}
     />
     <MainStack.Screen
       name="Checkout"
       component={CheckoutScreen}
-      options={{ title: 'Checkout' }}
+      options={{ title: "Checkout" }}
     />
     <MainStack.Screen
       name="Offers"
       component={OffersScreen}
-      options={{ title: 'Offers' }}
+      options={{ title: "Offers" }}
     />
     <MainStack.Screen
       name="Notifications"
       component={NotificationsScreen}
-      options={{ title: 'Notifications' }}
+      options={{ title: "Notifications" }}
     />
     <MainStack.Screen
       name="ListingDetail"
       component={ListingDetailScreen}
-      options={{ title: 'Listing' }}
+      options={{ title: "Listing" }}
     />
     <MainStack.Screen
       name="Wishlist"
       component={WishlistScreen}
-      options={{ title: 'Wishlist' }}
+      options={{ title: "Wishlist" }}
     />
     <MainStack.Screen
       name="CreateListing"
       component={CreateListingScreen}
-      options={{ title: 'New Listing' }}
+      options={{ title: "New Listing" }}
     />
     <MainStack.Screen
       name="MyListings"
       component={MyListingsScreen}
-      options={{ title: 'My Listings' }}
+      options={{ title: "My Listings" }}
     />
     <MainStack.Screen
       name="EditListing"
       component={EditListingScreen}
-      options={{ title: 'Edit Listing' }}
+      options={{ title: "Edit Listing" }}
     />
     <MainStack.Screen
       name="Reviews"
       component={ReviewsScreen}
-      options={{ title: 'Reviews' }}
+      options={{ title: "Reviews" }}
     />
     <MainStack.Screen
       name="SellerDashboard"
       component={SellerDashboardScreen}
-      options={{ title: 'Seller Dashboard' }}
+      options={{ title: "Seller Dashboard" }}
     />
     <MainStack.Screen
       name="KYC"
       component={KYCScreen}
-      options={{ title: 'Identity Verification' }}
+      options={{ title: "Identity Verification" }}
     />
     <MainStack.Screen
       name="Storefront"
       component={StorefrontScreen}
-      options={{ title: 'Shop' }}
+      options={{ title: "Shop" }}
     />
     <MainStack.Screen
       name="CheckoutSuccess"
       component={CheckoutSuccessScreen}
-      options={{ title: 'Order Confirmed', headerBackVisible: false }}
+      options={{ title: "Order Confirmed", headerBackVisible: false }}
     />
     <MainStack.Screen
       name="CheckoutCancel"
       component={CheckoutCancelScreen}
-      options={{ title: 'Payment Cancelled' }}
+      options={{ title: "Payment Cancelled" }}
     />
   </MainStack.Navigator>
 );
@@ -248,7 +262,11 @@ export const AppNavigator: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking as any} theme={mobileNavigationTheme as Theme}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking as any}
+      theme={mobileNavigationTheme as Theme}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           <>
@@ -257,7 +275,11 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         ) : null}
-        <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ title: 'Verify Email' }} />
+        <Stack.Screen
+          name="VerifyEmail"
+          component={VerifyEmailScreen}
+          options={{ title: "Verify Email" }}
+        />
         <Stack.Screen name="Main" component={MainNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
