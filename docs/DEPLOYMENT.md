@@ -124,7 +124,7 @@ Secrets are stored in AWS Secrets Manager and synced into cluster Kubernetes Sec
 | Variable | Description | Source / value |
 |---|---|---|
 | `NEXTAUTH_SECRET` | NextAuth JWT signing secret | `openssl rand -base64 32` (can differ from web) |
-| `NEXTAUTH_URL` | Canonical URL of the admin app | `https://forumo.africa/admin` |
+| `NEXTAUTH_URL` | Full NextAuth API URL for the admin base path | `https://forumo.africa/admin/api/auth` |
 | `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL | `https://forumo.africa/api/v1` |
 
 ---
@@ -329,11 +329,11 @@ kubectl get externalsecret -n forumo --watch
 # Confirm the Kubernetes Secrets were created
 kubectl get secret forumo-backend-secrets forumo-web-secrets forumo-admin-secrets -n forumo
 
-# 3. Infrastructure
-kubectl apply -f k8s/infrastructure/configmap.yaml
-kubectl apply -f k8s/infrastructure/postgres.yaml
-kubectl apply -f k8s/infrastructure/redis.yaml
-kubectl apply -f k8s/infrastructure/minio.yaml
+# 3. Managed infrastructure
+# Confirm DATABASE_URL, REDIS_URL, and object-storage values in
+# forumo/production/backend point at the provisioned production services.
+# The k8s/infrastructure manifests are development/self-hosting examples and
+# are intentionally not part of the production apply path.
 
 # 4. Run database migrations (one-off pod)
 kubectl run migrate --rm -it \
@@ -344,9 +344,9 @@ kubectl run migrate --rm -it \
   -- npx prisma migrate deploy --schema prisma/schema.prisma
 
 # 5. Applications
-kubectl apply -f k8s/apps/moderation.yaml   # no DB dependency; start first
-kubectl apply -f k8s/apps/backend.yaml       # init container waits for Postgres
-kubectl apply -f k8s/apps/web.yaml           # depends on backend being reachable
+kubectl apply -f k8s/apps/moderation.yaml
+kubectl apply -f k8s/backend/deployment.yaml
+kubectl apply -f k8s/web/deployment.yaml
 
 # 6. HPAs
 kubectl apply -f k8s/backend/hpa.yaml
@@ -381,20 +381,25 @@ kubectl exec -n forumo deploy/forumo-backend -- \
 kubectl exec -n forumo deploy/forumo-web -- \
   curl -sf http://localhost:3000/ -o /dev/null -w "%{http_code}" && echo ""
 
+# Admin (Next.js, mounted under /admin)
+kubectl exec -n forumo deploy/forumo-admin -- \
+  curl -sf http://localhost:3001/admin -o /dev/null -w "%{http_code}" && echo ""
+
 # Rollout status for all deployments
 kubectl rollout status deployment/forumo-backend   -n forumo
 kubectl rollout status deployment/forumo-web       -n forumo
+kubectl rollout status deployment/forumo-admin     -n forumo
 kubectl rollout status deployment/forumo-moderation -n forumo
 
 # End-to-end from public URL (after TLS cert issues — may take 1-2 min)
 curl -sf https://forumo.africa/api/v1/health | jq .
 ```
 
-All deployments should show `successfully rolled out`. Pods should be `2/2 Running` (or `1/1` for moderation).
+All deployments should show `successfully rolled out`. Verify that the configured replica count for each deployment is Running and Ready.
 
 ### Zero-downtime migration steps
 
-The backend `Deployment` runs 2 replicas with `maxUnavailable: 0` and a readiness probe on `/api/v1/health`. Kubernetes will not route traffic to a pod until the probe passes, making additive schema changes safe to deploy with no downtime:
+The backend `Deployment` runs 2 replicas with `maxUnavailable: 0` and a readiness probe on `/api/v1/health/ready`. Kubernetes will not route traffic to a pod until the probe passes, making additive schema changes safe to deploy with no downtime:
 
 1. **Apply the migration before deploying the new image.** Old pods continue running; Postgres ignores new columns they don't reference.
    ```bash

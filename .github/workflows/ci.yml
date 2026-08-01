@@ -53,6 +53,8 @@ jobs:
           else
             echo "No changed files require formatting."
           fi
+      - name: Validate deployment configuration
+        run: pnpm test:deployment
       - run: pnpm typecheck
 
   test:

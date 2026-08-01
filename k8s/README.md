@@ -67,7 +67,7 @@ Apply in this exact order; each step depends on the previous completing successf
 ### 1. Namespace
 
 ```bash
-kubectl apply -f k8s/backend/deployment.yaml   # first doc creates the forumo namespace
+kubectl apply -f k8s/namespace.yaml
 ```
 
 ### 2. Secrets
@@ -115,8 +115,9 @@ sed -i "s|forumo/admin:latest|$IMAGE|" k8s/web/deployment.yaml
 kubectl rollout status deployment/forumo-admin -n forumo
 ```
 
-> **Note:** Build the admin app with basePath: "/admin" in apps/admin/next.config.js so that
-> Next.js assets and server routes resolve correctly under the /admin subpath.
+> **Note:** The admin image is built with `basePath: '/admin'` in
+> `apps/admin/next.config.mjs`. Set `NEXTAUTH_URL` to the full API endpoint,
+> `https://forumo.africa/admin/api/auth`, so NextAuth uses the same base path.
 
 ### 8. Ingress
 

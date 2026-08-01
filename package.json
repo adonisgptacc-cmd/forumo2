@@ -19,6 +19,7 @@
     "docker:clean": "docker-compose down -v",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
+    "test:deployment": "node --test tests/deployment-config.test.mjs",
     "test:coverage": "turbo run test --coverage",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint --fix",

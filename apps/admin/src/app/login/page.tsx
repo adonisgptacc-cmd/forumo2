@@ -21,7 +21,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (result?.ok) {
-      router.push('/admin/users');
+      router.push('/users');
     } else {
       setError('Invalid credentials or insufficient role.');
     }
