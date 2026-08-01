@@ -373,6 +373,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@babel/runtime':
+        specifier: 7.28.4
+        version: 7.28.4
       '@forumo/config':
         specifier: workspace:*
         version: link:../../packages/config
