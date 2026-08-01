@@ -66,7 +66,6 @@ export class AuctionEndProcessor {
               where: { id: auction.listingId },
               data: { status: ListingStatus.PAUSED }, // Back to paused or expired
             });
-            await this.cache.deleteByPrefix("listings:search:");
             this.logger.log(`Auction ${auction.id} ended with no bids`);
             return;
           }
@@ -118,14 +117,13 @@ export class AuctionEndProcessor {
             where: { id: auction.listingId },
             data: { status: ListingStatus.PAUSED },
           });
-          await this.cache.deleteByPrefix("listings:search:");
-
           this.logger.log(
             `Auction ${auction.id} won by ${winningBid.bidderId}. Order ${order.id} created.`,
           );
           createdOrderId = order.id;
           winnerId = winningBid.bidderId;
         });
+        await this.cache.deleteByPrefix("listings:search:");
 
         // Send notifications outside the transaction
         if (createdOrderId && winnerId) {

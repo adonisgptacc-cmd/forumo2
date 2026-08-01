@@ -101,7 +101,7 @@ export class AuctionsService {
     const endAt = new Date();
     endAt.setDate(endAt.getDate() + dto.durationDays);
 
-    return this.prisma.$transaction(async (tx) => {
+    const auction = await this.prisma.$transaction(async (tx) => {
       const auction = await tx.auction.create({
         data: {
           listingId: dto.listingId,
@@ -123,11 +123,11 @@ export class AuctionsService {
           priceCents: dto.startingBidCents,
         },
       });
-      await this.cache.deleteByPrefix("listings:search:");
-
       this.logger.log(`Auction created for listing ${dto.listingId}`);
       return auction;
     });
+    await this.cache.deleteByPrefix("listings:search:");
+    return auction;
   }
 
   async findOne(id: string) {
@@ -212,8 +212,6 @@ export class AuctionsService {
           where: { id: auction.listingId },
           data: { priceCents: bid.amountCents },
         });
-        await this.cache.deleteByPrefix("listings:search:");
-
         return bid;
       }
 
@@ -258,8 +256,6 @@ export class AuctionsService {
           where: { id: auction.listingId },
           data: { priceCents: bid.amountCents },
         });
-        await this.cache.deleteByPrefix("listings:search:");
-
         return bid;
       } else {
         // Old bidder stays in lead, but price increases
@@ -283,12 +279,11 @@ export class AuctionsService {
           where: { id: auction.listingId },
           data: { priceCents: updatedHighest.amountCents },
         });
-        await this.cache.deleteByPrefix("listings:search:");
-
         // We return the updated highest bid so the caller knows who is winning
         return updatedHighest;
       }
     });
+    await this.cache.deleteByPrefix("listings:search:");
 
     // Emit event outside transaction
     this.auctionsGateway.emitBid(auctionId, createdBid);

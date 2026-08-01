@@ -75,7 +75,7 @@ export class OffersService {
   }
 
   async accept(userId: string, offerId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const updatedOffer = await this.prisma.$transaction(async (tx) => {
       const offer = await tx.offer.findUnique({ where: { id: offerId } });
       if (!offer) throw new NotFoundException("Offer not found");
 
@@ -129,10 +129,10 @@ export class OffersService {
         where: { id: offer.listingId },
         data: { status: ListingStatus.PAUSED },
       });
-      await this.cache.deleteByPrefix("listings:search:");
-
       return updated;
     });
+    await this.cache.deleteByPrefix("listings:search:");
+    return updatedOffer;
   }
 
   async decline(userId: string, offerId: string) {
