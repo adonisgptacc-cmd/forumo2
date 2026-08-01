@@ -30,6 +30,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ios: {
           deploymentTarget: "15.1",
         },
+        ...(process.env.DETOX_ANDROID === "true"
+          ? { android: { minSdkVersion: 24 } }
+          : {}),
       },
     ],
     ...(process.env.DETOX_ANDROID === "true"

@@ -39,6 +39,20 @@ describe("mobile app configuration", () => {
         "./plugins/withDetoxAndroid",
       );
       expect(detoxConfig.plugins).toContain("./plugins/withDetoxAndroid");
+
+      const standardBuildProperties = standardConfig.plugins?.find(
+        (plugin) =>
+          Array.isArray(plugin) && plugin[0] === "expo-build-properties",
+      );
+      const detoxBuildProperties = detoxConfig.plugins?.find(
+        (plugin) =>
+          Array.isArray(plugin) && plugin[0] === "expo-build-properties",
+      );
+
+      expect(standardBuildProperties?.[1]).not.toHaveProperty("android");
+      expect(detoxBuildProperties?.[1]).toMatchObject({
+        android: { minSdkVersion: 24 },
+      });
     } finally {
       if (previousDetoxAndroid === undefined) {
         delete process.env.DETOX_ANDROID;
