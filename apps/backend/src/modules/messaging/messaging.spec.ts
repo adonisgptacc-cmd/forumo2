@@ -417,6 +417,8 @@ class InMemoryPrismaService {
   };
 
   messageThread = {
+    count: async ({ where }: any) =>
+      (await this.messageThread.findMany({ where })).length,
     findMany: async ({ where, include, orderBy }: any) => {
       let results = Array.from(this.threads.values());
       if (where?.listingId) {

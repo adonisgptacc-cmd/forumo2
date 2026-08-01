@@ -150,6 +150,8 @@ class InMemoryPrismaService {
   };
 
   listing = {
+    count: async ({ where }: any) =>
+      (await this.listing.findMany({ where })).length,
     findMany: async ({ where, orderBy, include }: any) => {
       let results = Array.from(this.listings.values()).filter(
         (listing) => !listing.deletedAt,
@@ -157,6 +159,14 @@ class InMemoryPrismaService {
       if (where?.sellerId) {
         results = results.filter(
           (listing) => listing.sellerId === where.sellerId,
+        );
+      }
+      if (where?.status) {
+        results = results.filter((listing) => listing.status === where.status);
+      }
+      if (where?.moderationStatus) {
+        results = results.filter(
+          (listing) => listing.moderationStatus === where.moderationStatus,
         );
       }
       if (orderBy?.createdAt === "desc") {
