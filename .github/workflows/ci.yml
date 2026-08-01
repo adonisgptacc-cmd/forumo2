@@ -289,7 +289,14 @@ jobs:
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
-        run: pod install
+        run: |
+          for attempt in 1 2 3; do
+            if pod install; then
+              exit 0
+            fi
+            echo "::warning::CocoaPods install failed on attempt $attempt; retrying"
+          done
+          exit 1
 
       - name: Install Apple simulator utilities
         env:
