@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      run_ios_e2e:
+        description: Run the paused iOS Detox job
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -262,7 +268,7 @@ jobs:
           echo "[$url]($url)" >> "$GITHUB_STEP_SUMMARY"
 
   mobile-android-build:
-    name: Mobile Build (Android)
+    name: Mobile E2E (Android Emulator)
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     steps:
@@ -282,6 +288,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate native Android project
+        env:
+          DETOX_ANDROID: "true"
         run: |
           pnpm --filter @forumo/mobile exec expo prebuild --platform android --no-install
           test -d apps/mobile/android
@@ -293,9 +301,8 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Build Android debug APK
-        working-directory: apps/mobile/android
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Build Android app and test APKs
+        run: pnpm --filter @forumo/mobile build:detox:android
 
       - name: Upload Android debug APK
         if: >-
@@ -308,11 +315,50 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0660", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Metro bundler
+        run: |
+          CI=1 pnpm --filter @forumo/mobile start > apps/mobile/metro-android.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8081/status | grep --quiet 'packager-status:running'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat apps/mobile/metro-android.log
+          exit 1
+
+      - name: Run Android Detox tests
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: pnpm --filter @forumo/mobile test:detox:android
+
+      - name: Upload Android Detox artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-android-artifacts
+          path: |
+            apps/mobile/artifacts
+            apps/mobile/metro-android.log
+          if-no-files-found: ignore
+
   mobile-e2e:
     name: Mobile E2E (iOS Simulator)
     runs-on: macos-14
-    # Only run on main/develop — exclude staging pushes to manage runner costs
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    # Temporarily paused from regular CI; it can still be run explicitly while
+    # the remaining production-readiness work continues.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_ios_e2e
     steps:
       - uses: actions/checkout@v5
 

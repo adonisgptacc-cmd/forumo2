@@ -32,6 +32,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
       },
     ],
+    ...(process.env.DETOX_ANDROID === "true"
+      ? ["./plugins/withDetoxAndroid"]
+      : []),
   ],
   ios: {
     supportsTablet: true,

@@ -10,6 +10,15 @@ module.exports = {
     },
   },
   apps: {
+    "android.debug": {
+      type: "android.apk",
+      binaryPath: "android/app/build/outputs/apk/debug/app-debug.apk",
+      testBinaryPath:
+        "android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk",
+      build:
+        "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug --no-daemon --stacktrace",
+      reversePorts: [8081],
+    },
     "ios.sim.debug": {
       type: "ios.app",
       binaryPath:
@@ -18,6 +27,12 @@ module.exports = {
     },
   },
   devices: {
+    androidEmulator: {
+      type: "android.attached",
+      device: {
+        adbName: "emulator-.*",
+      },
+    },
     simulator: {
       type: "ios.simulator",
       device: {
@@ -26,6 +41,10 @@ module.exports = {
     },
   },
   configurations: {
+    "android.att.debug": {
+      app: "android.debug",
+      device: "androidEmulator",
+    },
     "ios.sim.debug": {
       app: "ios.sim.debug",
       device: "simulator",
