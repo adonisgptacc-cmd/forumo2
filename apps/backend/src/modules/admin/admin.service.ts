@@ -1,16 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { Prisma, AccountStatus, UserRole } from '@prisma/client';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { Prisma, AccountStatus, UserRole } from "@prisma/client";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { AdminDisputeSummary, AdminKycSubmission, AdminListingModeration, AdminUserDetail, AdminOrderSummary } from '@forumo/shared';
+import {
+  AdminDisputeSummary,
+  AdminKycSubmission,
+  AdminListingModeration,
+  AdminUserDetail,
+  AdminOrderSummary,
+} from "@forumo/shared";
+import { CacheService } from "../../common/services/cache.service";
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CacheService,
   ) {}
 
   // ─── Account Status Management ───────────────────────────────────────────────
@@ -20,17 +28,21 @@ export class AdminService {
     reason: string,
     durationDays?: number | null,
   ): Promise<void> {
-    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
-    if (!user) throw new NotFoundException('User not found');
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) throw new NotFoundException("User not found");
 
     const suspendedUntil =
-      durationDays != null ? new Date(Date.now() + durationDays * 86_400_000) : null;
+      durationDays != null
+        ? new Date(Date.now() + durationDays * 86_400_000)
+        : null;
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
         data: {
-          accountStatus: 'SUSPENDED',
+          accountStatus: "SUSPENDED",
           suspensionReason: reason,
           suspendedUntil,
           tokenVersion: { increment: 1 },
@@ -38,22 +50,30 @@ export class AdminService {
       }),
       // Cancel all published listings; use SUSPENDED status so they can be identified later
       this.prisma.listing.updateMany({
-        where: { sellerId: userId, status: 'PUBLISHED', deletedAt: null },
-        data: { status: 'SUSPENDED' },
+        where: { sellerId: userId, status: "PUBLISHED", deletedAt: null },
+        data: { status: "SUSPENDED" },
       }),
     ]);
+    await this.cache.deleteByPrefix("listings:search:");
 
-    await this.notifications.notifyAccountSuspended(user.email, user.name, reason, suspendedUntil);
+    await this.notifications.notifyAccountSuspended(
+      user.email,
+      user.name,
+      reason,
+      suspendedUntil,
+    );
   }
 
   async unsuspendUser(userId: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
-    if (!user) throw new NotFoundException('User not found');
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) throw new NotFoundException("User not found");
 
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        accountStatus: 'ACTIVE',
+        accountStatus: "ACTIVE",
         suspensionReason: null,
         suspendedUntil: null,
       },
@@ -63,14 +83,16 @@ export class AdminService {
   }
 
   async banUser(userId: string, reason: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
-    if (!user) throw new NotFoundException('User not found');
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) throw new NotFoundException("User not found");
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
         data: {
-          accountStatus: 'BANNED',
+          accountStatus: "BANNED",
           banReason: reason,
           suspensionReason: null,
           suspendedUntil: null,
@@ -79,18 +101,19 @@ export class AdminService {
       }),
       // Cancel all published listings
       this.prisma.listing.updateMany({
-        where: { sellerId: userId, status: 'PUBLISHED', deletedAt: null },
-        data: { status: 'SUSPENDED' },
+        where: { sellerId: userId, status: "PUBLISHED", deletedAt: null },
+        data: { status: "SUSPENDED" },
       }),
       // Cancel open orders where the banned user is the buyer or seller
       this.prisma.order.updateMany({
         where: {
-          status: { in: ['PENDING', 'CONFIRMED'] },
+          status: { in: ["PENDING", "CONFIRMED"] },
           OR: [{ buyerId: userId }, { sellerId: userId }],
         },
-        data: { status: 'CANCELLED' },
+        data: { status: "CANCELLED" },
       }),
     ]);
+    await this.cache.deleteByPrefix("listings:search:");
 
     await this.notifications.notifyAccountBanned(user.email, user.name, reason);
   }
@@ -101,7 +124,7 @@ export class AdminService {
   async liftExpiredSuspensions(): Promise<void> {
     const expired = await this.prisma.user.findMany({
       where: {
-        accountStatus: 'SUSPENDED',
+        accountStatus: "SUSPENDED",
         suspendedUntil: { lte: new Date() },
         deletedAt: null,
       },
@@ -112,22 +135,37 @@ export class AdminService {
 
     await this.prisma.user.updateMany({
       where: { id: { in: expired.map((u) => u.id) } },
-      data: { accountStatus: 'ACTIVE', suspensionReason: null, suspendedUntil: null },
+      data: {
+        accountStatus: "ACTIVE",
+        suspensionReason: null,
+        suspendedUntil: null,
+      },
     });
 
     await Promise.all(
-      expired.map((u) => this.notifications.notifyAccountUnsuspended(u.email, u.name)),
+      expired.map((u) =>
+        this.notifications.notifyAccountUnsuspended(u.email, u.name),
+      ),
     );
   }
 
   async getDashboardStats() {
-    const [userCount, listingCount, orderCount, disputeCount, pendingKyc, pendingModeration] = await Promise.all([
+    const [
+      userCount,
+      listingCount,
+      orderCount,
+      disputeCount,
+      pendingKyc,
+      pendingModeration,
+    ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.listing.count({ where: { deletedAt: null } }),
       this.prisma.order.count(),
-      this.prisma.escrowDispute.count({ where: { status: 'OPEN' } }),
-      this.prisma.kycSubmission.count({ where: { status: 'PENDING' } }),
-      this.prisma.listing.count({ where: { moderationStatus: 'PENDING', deletedAt: null } }),
+      this.prisma.escrowDispute.count({ where: { status: "OPEN" } }),
+      this.prisma.kycSubmission.count({ where: { status: "PENDING" } }),
+      this.prisma.listing.count({
+        where: { moderationStatus: "PENDING", deletedAt: null },
+      }),
     ]);
 
     return {
@@ -142,7 +180,7 @@ export class AdminService {
 
   async listKycSubmissions(): Promise<AdminKycSubmission[]> {
     const submissions = await this.prisma.kycSubmission.findMany({
-      orderBy: { submittedAt: 'asc' },
+      orderBy: { submittedAt: "asc" },
       include: {
         documents: true,
         user: { select: { id: true, email: true, name: true } },
@@ -169,10 +207,18 @@ export class AdminService {
         metadata: doc.metadata as Record<string, unknown>,
       })),
       user: submission.user
-        ? { id: submission.user.id, email: submission.user.email, name: submission.user.name }
+        ? {
+            id: submission.user.id,
+            email: submission.user.email,
+            name: submission.user.name,
+          }
         : undefined,
       reviewer: submission.reviewer
-        ? { id: submission.reviewer.id, email: submission.reviewer.email, name: submission.reviewer.name }
+        ? {
+            id: submission.reviewer.id,
+            email: submission.reviewer.email,
+            name: submission.reviewer.name,
+          }
         : null,
     }));
   }
@@ -180,7 +226,7 @@ export class AdminService {
   async listListingsForReview(): Promise<AdminListingModeration[]> {
     const listings = await this.prisma.listing.findMany({
       where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 100,
       include: {
         seller: { select: { id: true, email: true, name: true } },
@@ -197,36 +243,52 @@ export class AdminService {
       createdAt: listing.createdAt.toISOString(),
       updatedAt: listing.updatedAt.toISOString(),
       seller: listing.seller
-        ? { id: listing.seller.id, email: listing.seller.email, name: listing.seller.name }
+        ? {
+            id: listing.seller.id,
+            email: listing.seller.email,
+            name: listing.seller.name,
+          }
         : undefined,
     }));
   }
 
   async listUsers(
-    params: { search?: string; status?: string; role?: string; page?: number; limit?: number } = {},
+    params: {
+      search?: string;
+      status?: string;
+      role?: string;
+      page?: number;
+      limit?: number;
+    } = {},
   ): Promise<AdminUserDetail[]> {
     const page = Math.max(1, Math.trunc(params.page ?? 1));
     const limit = Math.min(200, Math.max(1, Math.trunc(params.limit ?? 50)));
 
     const where: Prisma.UserWhereInput = { deletedAt: null };
 
-    if (params.status && (Object.values(AccountStatus) as string[]).includes(params.status)) {
+    if (
+      params.status &&
+      (Object.values(AccountStatus) as string[]).includes(params.status)
+    ) {
       where.accountStatus = params.status as AccountStatus;
     }
-    if (params.role && (Object.values(UserRole) as string[]).includes(params.role)) {
+    if (
+      params.role &&
+      (Object.values(UserRole) as string[]).includes(params.role)
+    ) {
       where.role = params.role as UserRole;
     }
     if (params.search?.trim()) {
       const term = params.search.trim();
       where.OR = [
-        { name: { contains: term, mode: 'insensitive' } },
-        { email: { contains: term, mode: 'insensitive' } },
+        { name: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
       ];
     }
 
     const users = await this.prisma.user.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
       select: {
@@ -255,7 +317,7 @@ export class AdminService {
 
   async listOrders(): Promise<AdminOrderSummary[]> {
     const orders = await this.prisma.order.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 200,
       select: {
         id: true,
@@ -284,13 +346,20 @@ export class AdminService {
 
   async listDisputes(): Promise<AdminDisputeSummary[]> {
     const disputes = await this.prisma.escrowDispute.findMany({
-      orderBy: { openedAt: 'desc' },
+      orderBy: { openedAt: "desc" },
       include: {
         messages: true,
         openedBy: { select: { id: true, email: true, name: true } },
         escrow: {
           include: {
-            order: { select: { id: true, orderNumber: true, totalItemCents: true, currency: true } },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                totalItemCents: true,
+                currency: true,
+              },
+            },
           },
         },
       },
@@ -306,7 +375,11 @@ export class AdminService {
       reason: dispute.reason,
       resolution: dispute.resolution ?? null,
       openedBy: dispute.openedBy
-        ? { id: dispute.openedBy.id, email: dispute.openedBy.email, name: dispute.openedBy.name }
+        ? {
+            id: dispute.openedBy.id,
+            email: dispute.openedBy.email,
+            name: dispute.openedBy.name,
+          }
         : undefined,
       openedAt: dispute.openedAt.toISOString(),
       resolvedAt: dispute.resolvedAt?.toISOString() ?? null,
@@ -329,11 +402,14 @@ export class AdminService {
 
     // Daily revenue (last 7 days) — sum of totalItemCents per day
     const dailyOrders = await this.prisma.order.findMany({
-      where: { createdAt: { gte: sevenDaysAgo }, status: { notIn: ['CANCELLED', 'REFUNDED'] } },
+      where: {
+        createdAt: { gte: sevenDaysAgo },
+        status: { notIn: ["CANCELLED", "REFUNDED"] },
+      },
       select: { createdAt: true, totalItemCents: true },
     });
 
-    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dailyRevenue: Record<string, number> = {};
     for (let i = 0; i < 7; i++) {
       const d = new Date(sevenDaysAgo);
@@ -356,40 +432,68 @@ export class AdminService {
       select: { createdAt: true },
     });
 
-    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthLabels = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const monthlyCount: Record<string, number> = {};
     for (let i = 0; i < 6; i++) {
       const d = new Date(sixMonthsAgo);
       d.setMonth(d.getMonth() + i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       monthlyCount[key] = 0;
     }
     for (const user of monthlyUsers) {
-      const key = `${user.createdAt.getFullYear()}-${String(user.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${user.createdAt.getFullYear()}-${String(user.createdAt.getMonth() + 1).padStart(2, "0")}`;
       if (key in monthlyCount) monthlyCount[key]++;
     }
     const userGrowth = Object.entries(monthlyCount).map(([key, value]) => ({
-      label: monthLabels[parseInt(key.split('-')[1], 10) - 1],
+      label: monthLabels[parseInt(key.split("-")[1], 10) - 1],
       value,
     }));
 
     // Recent activity (last 10 orders + KYC reviews + disputes)
     const [recentOrders, recentKyc, recentDisputes] = await Promise.all([
       this.prisma.order.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 4,
-        select: { orderNumber: true, createdAt: true, status: true, totalItemCents: true, currency: true },
+        select: {
+          orderNumber: true,
+          createdAt: true,
+          status: true,
+          totalItemCents: true,
+          currency: true,
+        },
       }),
       this.prisma.kycSubmission.findMany({
         where: { reviewedAt: { not: null } },
-        orderBy: { reviewedAt: 'desc' },
+        orderBy: { reviewedAt: "desc" },
         take: 3,
-        select: { status: true, reviewedAt: true, user: { select: { name: true, email: true } } },
+        select: {
+          status: true,
+          reviewedAt: true,
+          user: { select: { name: true, email: true } },
+        },
       }),
       this.prisma.escrowDispute.findMany({
-        orderBy: { openedAt: 'desc' },
+        orderBy: { openedAt: "desc" },
         take: 3,
-        select: { reason: true, openedAt: true, status: true, escrow: { select: { order: { select: { orderNumber: true } } } } },
+        select: {
+          reason: true,
+          openedAt: true,
+          status: true,
+          escrow: { select: { order: { select: { orderNumber: true } } } },
+        },
       }),
     ]);
 
@@ -398,19 +502,24 @@ export class AdminService {
         title: `Order #${o.orderNumber}`,
         meta: `${o.status} · ${(o.totalItemCents / 100).toFixed(2)} ${o.currency}`,
         time: o.createdAt.toISOString(),
-        tone: o.status === 'COMPLETED' ? 'emerald' : o.status === 'DISPUTED' ? 'rose' : 'amber',
+        tone:
+          o.status === "COMPLETED"
+            ? "emerald"
+            : o.status === "DISPUTED"
+              ? "rose"
+              : "amber",
       })),
       ...recentKyc.map((k) => ({
         title: `KYC ${k.status.toLowerCase()}`,
-        meta: k.user?.name ?? k.user?.email ?? 'Unknown user',
+        meta: k.user?.name ?? k.user?.email ?? "Unknown user",
         time: (k.reviewedAt ?? new Date()).toISOString(),
-        tone: k.status === 'APPROVED' ? 'emerald' : 'rose',
+        tone: k.status === "APPROVED" ? "emerald" : "rose",
       })),
       ...recentDisputes.map((d) => ({
         title: `Dispute ${d.status.toLowerCase()}`,
-        meta: `Order #${d.escrow?.order?.orderNumber ?? '—'}: ${d.reason.slice(0, 60)}`,
+        meta: `Order #${d.escrow?.order?.orderNumber ?? "—"}: ${d.reason.slice(0, 60)}`,
         time: d.openedAt.toISOString(),
-        tone: 'rose',
+        tone: "rose",
       })),
     ]
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
@@ -426,7 +535,7 @@ export class AdminService {
   private formatRelativeTime(date: Date): string {
     const diffMs = Date.now() - date.getTime();
     const diffMin = Math.floor(diffMs / 60_000);
-    if (diffMin < 1) return 'just now';
+    if (diffMin < 1) return "just now";
     if (diffMin < 60) return `${diffMin}m ago`;
     const diffHr = Math.floor(diffMin / 60);
     if (diffHr < 24) return `${diffHr}h ago`;
@@ -436,10 +545,12 @@ export class AdminService {
 
   async reviewKycSubmission(
     id: string,
-    body: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string | null },
+    body: { status: "APPROVED" | "REJECTED"; rejectionReason?: string | null },
   ): Promise<AdminKycSubmission> {
-    const existing = await this.prisma.kycSubmission.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('KYC submission not found');
+    const existing = await this.prisma.kycSubmission.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException("KYC submission not found");
 
     const updated = await this.prisma.kycSubmission.update({
       where: { id },
@@ -473,10 +584,18 @@ export class AdminService {
         metadata: doc.metadata as Record<string, unknown>,
       })),
       user: updated.user
-        ? { id: updated.user.id, email: updated.user.email, name: updated.user.name }
+        ? {
+            id: updated.user.id,
+            email: updated.user.email,
+            name: updated.user.name,
+          }
         : undefined,
       reviewer: updated.reviewer
-        ? { id: updated.reviewer.id, email: updated.reviewer.email, name: updated.reviewer.name }
+        ? {
+            id: updated.reviewer.id,
+            email: updated.reviewer.email,
+            name: updated.reviewer.name,
+          }
         : null,
     };
   }
@@ -485,8 +604,10 @@ export class AdminService {
     id: string,
     body: { moderationStatus: string; moderationNotes?: string | null },
   ): Promise<AdminListingModeration> {
-    const existing = await this.prisma.listing.findUnique({ where: { id, deletedAt: null } });
-    if (!existing) throw new NotFoundException('Listing not found');
+    const existing = await this.prisma.listing.findUnique({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) throw new NotFoundException("Listing not found");
 
     const updated = await this.prisma.listing.update({
       where: { id },
@@ -495,6 +616,7 @@ export class AdminService {
         moderationNotes: body.moderationNotes ?? null,
       },
     });
+    await this.cache.deleteByPrefix("listings:search:");
 
     return {
       id: updated.id,
@@ -519,26 +641,40 @@ export class AdminService {
         openedBy: { select: { id: true, email: true, name: true } },
         escrow: {
           include: {
-            order: { select: { id: true, orderNumber: true, totalItemCents: true, currency: true } },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                totalItemCents: true,
+                currency: true,
+              },
+            },
           },
         },
       },
     });
-    if (!existing) throw new NotFoundException('Dispute not found');
+    if (!existing) throw new NotFoundException("Dispute not found");
 
     const updated = await this.prisma.escrowDispute.update({
       where: { id },
       data: {
         status: body.status as any,
         resolution: body.resolution ?? null,
-        resolvedAt: body.status === 'RESOLVED' ? new Date() : undefined,
+        resolvedAt: body.status === "RESOLVED" ? new Date() : undefined,
       },
       include: {
         messages: true,
         openedBy: { select: { id: true, email: true, name: true } },
         escrow: {
           include: {
-            order: { select: { id: true, orderNumber: true, totalItemCents: true, currency: true } },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                totalItemCents: true,
+                currency: true,
+              },
+            },
           },
         },
       },
@@ -553,7 +689,11 @@ export class AdminService {
       reason: updated.reason,
       resolution: updated.resolution ?? null,
       openedBy: updated.openedBy
-        ? { id: updated.openedBy.id, email: updated.openedBy.email, name: updated.openedBy.name }
+        ? {
+            id: updated.openedBy.id,
+            email: updated.openedBy.email,
+            name: updated.openedBy.name,
+          }
         : undefined,
       openedAt: updated.openedAt.toISOString(),
       resolvedAt: updated.resolvedAt?.toISOString() ?? null,

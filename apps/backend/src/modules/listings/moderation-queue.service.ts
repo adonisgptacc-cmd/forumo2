@@ -1,11 +1,17 @@
-import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
-import { firstValueFrom } from 'rxjs';
-import { Job, Queue, Worker } from 'bullmq';
-import IORedis from 'ioredis';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { HttpService } from "@nestjs/axios";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { ListingModerationStatus, ListingStatus, Prisma } from "@prisma/client";
+import { firstValueFrom } from "rxjs";
+import { Job, Queue, Worker } from "bullmq";
+import IORedis from "ioredis";
+import { CacheService } from "../../common/services/cache.service";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -18,7 +24,7 @@ interface ModerationJobPayload {
 
 interface ModerationDecisionResponse {
   listing_id: string;
-  status: 'approved' | 'flagged' | 'rejected';
+  status: "approved" | "flagged" | "rejected";
   score: number;
   labels: string[];
   notes?: string | null;
@@ -48,11 +54,11 @@ export interface ModerationQueueMetrics {
 @Injectable()
 export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ModerationQueueService.name);
-  private readonly tracer = trace.getTracer('listings.moderation');
+  private readonly tracer = trace.getTracer("listings.moderation");
   private readonly serviceUrl: string;
   private readonly requestTimeoutMs: number;
-  private readonly queueName = 'listing-moderation';
-  private readonly dlqName = 'listing-moderation-dlq';
+  private readonly queueName = "listing-moderation";
+  private readonly dlqName = "listing-moderation-dlq";
   private readonly maxAttempts: number;
   private readonly backoffDelayMs: number;
   private readonly concurrency: number;
@@ -68,15 +74,26 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly cache: CacheService,
   ) {
-    this.serviceUrl = this.configService?.get<string>('MODERATION_SERVICE_URL') ?? 'http://localhost:5005';
-    const timeoutValue = Number(this.configService?.get<string>('MODERATION_SERVICE_TIMEOUT_MS') ?? 5000);
+    this.serviceUrl =
+      this.configService?.get<string>("MODERATION_SERVICE_URL") ??
+      "http://localhost:5005";
+    const timeoutValue = Number(
+      this.configService?.get<string>("MODERATION_SERVICE_TIMEOUT_MS") ?? 5000,
+    );
     this.requestTimeoutMs = Number.isNaN(timeoutValue) ? 5000 : timeoutValue;
-    const attemptsValue = Number(this.configService?.get<string>('MODERATION_MAX_ATTEMPTS') ?? 5);
+    const attemptsValue = Number(
+      this.configService?.get<string>("MODERATION_MAX_ATTEMPTS") ?? 5,
+    );
     this.maxAttempts = Number.isNaN(attemptsValue) ? 5 : attemptsValue;
-    const backoffValue = Number(this.configService?.get<string>('MODERATION_RETRY_BACKOFF_MS') ?? 2000);
+    const backoffValue = Number(
+      this.configService?.get<string>("MODERATION_RETRY_BACKOFF_MS") ?? 2000,
+    );
     this.backoffDelayMs = Number.isNaN(backoffValue) ? 2000 : backoffValue;
-    const concurrencyValue = Number(this.configService?.get<string>('MODERATION_WORKER_CONCURRENCY') ?? 2);
+    const concurrencyValue = Number(
+      this.configService?.get<string>("MODERATION_WORKER_CONCURRENCY") ?? 2,
+    );
     this.concurrency = Number.isNaN(concurrencyValue) ? 2 : concurrencyValue;
   }
 
@@ -95,7 +112,8 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async initializeQueues(): Promise<void> {
-    const redisUrl = this.configService.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+    const redisUrl =
+      this.configService.get<string>("REDIS_URL") ?? "redis://localhost:6379";
     this.connection = new IORedis(redisUrl, {
       maxRetriesPerRequest: null,
     });
@@ -105,7 +123,7 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
         attempts: this.maxAttempts,
         removeOnComplete: true,
         removeOnFail: false,
-        backoff: { type: 'exponential', delay: this.backoffDelayMs },
+        backoff: { type: "exponential", delay: this.backoffDelayMs },
       },
     });
     this.deadLetterQueue = new Queue(this.dlqName, {
@@ -122,16 +140,16 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
       { connection: this.connection, concurrency: this.concurrency },
     );
 
-    this.worker.on('failed', async (job, err) => {
+    this.worker.on("failed", async (job, err) => {
       if (!job) {
         return;
       }
       this.lastFailureAt = new Date();
-      this.logStructured('error', 'Listing moderation job failed', {
+      this.logStructured("error", "Listing moderation job failed", {
         jobId: job.id,
         listingId: job.data.listingId,
         attemptsMade: job.attemptsMade,
-        error: err?.message ?? 'unknown',
+        error: err?.message ?? "unknown",
       });
 
       const maxAttempts = job.opts.attempts ?? this.maxAttempts;
@@ -154,24 +172,27 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
 
   async enqueueListingScan(payload: ModerationJobPayload): Promise<void> {
     await this.ensureInitialized();
-    const span = this.tracer.startSpan('moderation.enqueue', {
+    const span = this.tracer.startSpan("moderation.enqueue", {
       attributes: {
-        'listing.id': payload.listingId,
-        'moderation.reason': payload.reason,
+        "listing.id": payload.listingId,
+        "moderation.reason": payload.reason,
       },
     });
     try {
       await this.queue.add(this.queueName, payload);
-      this.logStructured('log', 'Queued listing moderation job', {
+      this.logStructured("log", "Queued listing moderation job", {
         listingId: payload.listingId,
         sellerId: payload.sellerId,
         desiredStatus: payload.desiredStatus,
       });
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown moderation enqueue error';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown moderation enqueue error";
       span.setStatus({ code: SpanStatusCode.ERROR, message });
-      this.logStructured('error', 'Failed to enqueue moderation job', {
+      this.logStructured("error", "Failed to enqueue moderation job", {
         listingId: payload.listingId,
         sellerId: payload.sellerId,
         error: message,
@@ -183,11 +204,11 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processJob(job: Job<ModerationJobPayload>): Promise<void> {
-    const span = this.tracer.startSpan('moderation.process', {
+    const span = this.tracer.startSpan("moderation.process", {
       attributes: {
-        'listing.id': job.data.listingId,
-        'job.id': job.id ?? 'unknown',
-        'moderation.attempt': job.attemptsMade + 1,
+        "listing.id": job.data.listingId,
+        "job.id": job.id ?? "unknown",
+        "moderation.attempt": job.attemptsMade + 1,
       },
     });
     try {
@@ -197,8 +218,11 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
       });
 
       if (!listing) {
-        span.setStatus({ code: SpanStatusCode.ERROR, message: 'Listing not found' });
-        this.logStructured('warn', 'Listing missing for moderation job', {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: "Listing not found",
+        });
+        this.logStructured("warn", "Listing missing for moderation job", {
           listingId: job.data.listingId,
         });
         return;
@@ -235,18 +259,25 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
           { timeout: this.requestTimeoutMs },
         ),
       );
-      await this.applyDecision(listing.id, response.data, job.data.desiredStatus ?? listing.status);
-      this.logStructured('log', 'Moderation decision applied', {
+      await this.applyDecision(
+        listing.id,
+        response.data,
+        job.data.desiredStatus ?? listing.status,
+      );
+      this.logStructured("log", "Moderation decision applied", {
         listingId: listing.id,
         status: response.data.status,
         score: response.data.score,
       });
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown moderation processing error';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown moderation processing error";
       span.recordException(error as Error);
       span.setStatus({ code: SpanStatusCode.ERROR, message });
-      this.logStructured('error', 'Moderation job processing failed', {
+      this.logStructured("error", "Moderation job processing failed", {
         listingId: job.data.listingId,
         error: message,
       });
@@ -261,27 +292,35 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
     decision: ModerationDecisionResponse,
     desiredStatus?: ListingStatus,
   ): Promise<void> {
-    const statusMap: Record<ModerationDecisionResponse['status'], ListingModerationStatus> = {
+    const statusMap: Record<
+      ModerationDecisionResponse["status"],
+      ListingModerationStatus
+    > = {
       approved: ListingModerationStatus.APPROVED,
       flagged: ListingModerationStatus.FLAGGED,
       rejected: ListingModerationStatus.REJECTED,
     };
 
-    const moderationStatus = statusMap[decision.status] ?? ListingModerationStatus.FLAGGED;
+    const moderationStatus =
+      statusMap[decision.status] ?? ListingModerationStatus.FLAGGED;
     const data: Prisma.ListingUpdateInput = {
       moderationStatus,
       moderationNotes: decision.notes ?? null,
     };
 
-    if (moderationStatus === ListingModerationStatus.APPROVED && desiredStatus) {
+    if (
+      moderationStatus === ListingModerationStatus.APPROVED &&
+      desiredStatus
+    ) {
       data.status = desiredStatus;
     } else if (moderationStatus !== ListingModerationStatus.APPROVED) {
       data.status = ListingStatus.PAUSED;
     }
 
     await this.prisma.listing.update({ where: { id: listingId }, data });
+    await this.cache.deleteByPrefix("listings:search:");
     await this.recordModerationEvent(listingId, moderationStatus, {
-      reason: 'automated_service_decision',
+      reason: "automated_service_decision",
       notes: decision.notes,
       score: decision.score,
       labels: decision.labels,
@@ -294,14 +333,20 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
       where: { id: listingId },
       data: {
         moderationStatus: ListingModerationStatus.FLAGGED,
-        moderationNotes: 'Automatic moderation unavailable. Manual review required.',
+        moderationNotes:
+          "Automatic moderation unavailable. Manual review required.",
         status: ListingStatus.PAUSED,
       },
     });
-    await this.recordModerationEvent(listingId, ListingModerationStatus.FLAGGED, {
-      reason: 'manual_review_required',
-      notes: 'Automatic moderation unavailable. Manual review required.',
-    });
+    await this.cache.deleteByPrefix("listings:search:");
+    await this.recordModerationEvent(
+      listingId,
+      ListingModerationStatus.FLAGGED,
+      {
+        reason: "manual_review_required",
+        notes: "Automatic moderation unavailable. Manual review required.",
+      },
+    );
   }
 
   private async recordModerationEvent(
@@ -340,8 +385,14 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     const [jobCounts, dlqCounts] = await Promise.all([
-      this.queue.getJobCounts('waiting', 'delayed', 'failed', 'completed', 'active'),
-      this.deadLetterQueue.getJobCounts('waiting', 'failed'),
+      this.queue.getJobCounts(
+        "waiting",
+        "delayed",
+        "failed",
+        "completed",
+        "active",
+      ),
+      this.deadLetterQueue.getJobCounts("waiting", "failed"),
     ]);
 
     const waiting = jobCounts.waiting ?? 0;
@@ -362,11 +413,17 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
       backlogDepth: waiting + delayed,
       failureRate,
       deadLetterSize,
-      lastFailureAt: this.lastFailureAt ? this.lastFailureAt.toISOString() : null,
+      lastFailureAt: this.lastFailureAt
+        ? this.lastFailureAt.toISOString()
+        : null,
     };
   }
 
-  private logStructured(level: 'log' | 'error' | 'warn', message: string, context: Record<string, unknown>): void {
+  private logStructured(
+    level: "log" | "error" | "warn",
+    message: string,
+    context: Record<string, unknown>,
+  ): void {
     const payload = JSON.stringify({ msg: message, ...context });
     this.logger[level](payload);
   }

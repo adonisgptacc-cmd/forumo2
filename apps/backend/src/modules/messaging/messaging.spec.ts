@@ -18,6 +18,36 @@ import { MessagingGateway } from "./messaging.gateway";
 import { MessageModerationService } from "./moderation.service";
 import { MessagingService } from "./messaging.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CacheService } from "../../common/services/cache.service";
+
+class RecordingCacheService {
+  readonly values = new Map<string, unknown>();
+  readonly readKeys: string[] = [];
+  readonly writtenKeys: string[] = [];
+  readonly invalidatedPrefixes: string[] = [];
+
+  async get<T>(key: string): Promise<T | undefined> {
+    this.readKeys.push(key);
+    return this.values.get(key) as T | undefined;
+  }
+
+  async set<T>(key: string, value: T): Promise<void> {
+    this.writtenKeys.push(key);
+    this.values.set(key, value);
+  }
+
+  async deleteByPrefix(prefix: string): Promise<number> {
+    this.invalidatedPrefixes.push(prefix);
+    let deleted = 0;
+    for (const key of [...this.values.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.values.delete(key);
+        deleted += 1;
+      }
+    }
+    return deleted;
+  }
+}
 
 class MockJwtGuard implements CanActivate {
   canActivate(context: any) {
@@ -38,6 +68,7 @@ describe("MessagingModule (integration)", () => {
   let moderation: MockModerationService;
   let storage: FakeStorageService;
   let messagingService: MessagingService;
+  let cache: RecordingCacheService;
   let threadId: string;
 
   beforeEach(async () => {
@@ -50,6 +81,7 @@ describe("MessagingModule (integration)", () => {
     server = new RecordingServer();
     moderation = new MockModerationService();
     storage = new FakeStorageService();
+    cache = new RecordingCacheService();
 
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true }), MessagingModule],
@@ -60,6 +92,8 @@ describe("MessagingModule (integration)", () => {
       .useValue(moderation)
       .overrideProvider(StorageService)
       .useValue(storage)
+      .overrideProvider(CacheService)
+      .useValue(cache)
       .overrideGuard(JwtAuthGuard)
       .useClass(MockJwtGuard)
       .compile();
@@ -159,6 +193,34 @@ describe("MessagingModule (integration)", () => {
       (receipt: any) => receipt.userId === SELLER_ID,
     );
     expect(sellerReceipt.readAt).toBeTruthy();
+  });
+
+  it("isolates cached thread lists by user and invalidates participant caches", async () => {
+    cache.readKeys.length = 0;
+    cache.writtenKeys.length = 0;
+    cache.invalidatedPrefixes.length = 0;
+
+    await messagingService.listThreads({}, BUYER_ID);
+    await messagingService.listThreads({}, SELLER_ID);
+
+    expect(cache.writtenKeys).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`messages:threads:${BUYER_ID}:`),
+        expect.stringContaining(`messages:threads:${SELLER_ID}:`),
+      ]),
+    );
+
+    await messagingService.addMessage(threadId, {
+      authorId: BUYER_ID,
+      body: "Invalidate both views",
+    });
+
+    expect(cache.invalidatedPrefixes).toEqual(
+      expect.arrayContaining([
+        `messages:threads:${BUYER_ID}:`,
+        `messages:threads:${SELLER_ID}:`,
+      ]),
+    );
   });
 
   it("updates delivery state when gateway receives delivered/read events", async () => {
@@ -447,9 +509,26 @@ class InMemoryPrismaService {
     }) => {
       return this.participants.get(`${where.threadId}-${where.userId}`) ?? null;
     },
+    findMany: async ({ where }: { where: { threadId: string } }) =>
+      Array.from(this.participants.values())
+        .filter((participant) => participant.threadId === where.threadId)
+        .map((participant) => ({ userId: participant.userId })),
   };
 
   message = {
+    findUnique: async ({ where }: { where: { id: string } }) => {
+      const message = this.messages.get(where.id);
+      if (!message) {
+        return null;
+      }
+      return {
+        thread: {
+          participants: Array.from(this.participants.values())
+            .filter((participant) => participant.threadId === message.threadId)
+            .map((participant) => ({ userId: participant.userId })),
+        },
+      };
+    },
     create: async ({ data, include }: any) => {
       const now = new Date();
       const record: MessageRecord = {

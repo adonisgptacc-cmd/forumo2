@@ -1,11 +1,24 @@
-import type { Express } from 'express';
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Listing, ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
+import type { Express } from "express";
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
+import {
+  Listing,
+  ListingModerationStatus,
+  ListingStatus,
+  Prisma,
+} from "@prisma/client";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
-import { CreateListingDto, CreateListingVariantDto } from "./dto/create-listing.dto";
+import {
+  CreateListingDto,
+  CreateListingVariantDto,
+} from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
 import {
   ListingWithRelations,
@@ -17,6 +30,7 @@ import {
 import { listingDefaultInclude } from "./listings.prisma";
 import { ModerationQueueService } from "./moderation-queue.service";
 import { StorageService } from "../storage/storage.service";
+import { CacheService } from "../../common/services/cache.service";
 
 @Injectable()
 export class ListingsService {
@@ -27,12 +41,13 @@ export class ListingsService {
     private readonly moderationQueue: ModerationQueueService,
     private readonly storageService: StorageService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CacheService,
   ) {}
 
   async findAll(): Promise<SafeListing[]> {
     const listings = await this.prisma.listing.findMany({
-      where: { deletedAt: null, status: 'PUBLISHED' },
-      orderBy: { createdAt: 'desc' },
+      where: { deletedAt: null, status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
       include: listingDefaultInclude,
     });
     return listings.map((listing) => serializeListing(listing));
@@ -44,7 +59,7 @@ export class ListingsService {
       include: listingDefaultInclude,
     });
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException("Listing not found");
     }
     return serializeListing(listing);
   }
@@ -53,15 +68,20 @@ export class ListingsService {
     await this.ensureSellerExists(sellerId);
 
     const requestedStatus = dto.status ?? ListingStatus.DRAFT;
-    const initialStatus = requestedStatus === ListingStatus.PUBLISHED ? ListingStatus.PAUSED : requestedStatus;
+    const initialStatus =
+      requestedStatus === ListingStatus.PUBLISHED
+        ? ListingStatus.PAUSED
+        : requestedStatus;
 
     const listing = await this.prisma.listing.create({
       data: {
         sellerId,
         title: sanitizeText(dto.title),
-        description: dto.description ? sanitizeText(dto.description) : dto.description,
+        description: dto.description
+          ? sanitizeText(dto.description)
+          : dto.description,
         priceCents: dto.priceCents,
-        currency: dto.currency ?? 'USD',
+        currency: dto.currency ?? "USD",
         status: initialStatus,
         location: dto.location,
         metadata: this.toJsonInput(dto.metadata),
@@ -72,11 +92,12 @@ export class ListingsService {
     if (dto.variants?.length) {
       await this.createVariants(listing.id, dto.variants);
     }
+    await this.invalidateSearchCache();
 
     await this.moderationQueue.enqueueListingScan({
       listingId: listing.id,
       sellerId,
-      reason: 'listing_created',
+      reason: "listing_created",
       desiredStatus: requestedStatus,
     });
 
@@ -84,13 +105,19 @@ export class ListingsService {
     return this.findById(listing.id);
   }
 
-  async update(id: string, dto: UpdateListingDto, userId: string): Promise<SafeListing> {
+  async update(
+    id: string,
+    dto: UpdateListingDto,
+    userId: string,
+  ): Promise<SafeListing> {
     const current = await this.ensureListingExists(id);
-    if (current.sellerId !== userId) throw new ForbiddenException('Not your listing');
+    if (current.sellerId !== userId)
+      throw new ForbiddenException("Not your listing");
     const desiredStatus = dto.status ?? current.status;
     const data: Prisma.ListingUpdateInput = {
       title: dto.title != null ? sanitizeText(dto.title) : undefined,
-      description: dto.description != null ? sanitizeText(dto.description) : undefined,
+      description:
+        dto.description != null ? sanitizeText(dto.description) : undefined,
       priceCents: dto.priceCents ?? undefined,
       currency: dto.currency ?? undefined,
       status: dto.status ?? undefined,
@@ -102,7 +129,10 @@ export class ListingsService {
     if (shouldRemoderate) {
       data.moderationStatus = ListingModerationStatus.PENDING;
       data.moderationNotes = null;
-      if (desiredStatus === ListingStatus.PUBLISHED || current.status === ListingStatus.PUBLISHED) {
+      if (
+        desiredStatus === ListingStatus.PUBLISHED ||
+        current.status === ListingStatus.PUBLISHED
+      ) {
         data.status = ListingStatus.PAUSED;
       }
     }
@@ -115,12 +145,13 @@ export class ListingsService {
         await this.createVariants(id, dto.variants);
       }
     }
+    await this.invalidateSearchCache();
 
     if (shouldRemoderate || dto.variants !== undefined) {
       await this.moderationQueue.enqueueListingScan({
         listingId: id,
         sellerId: current.sellerId,
-        reason: 'listing_updated',
+        reason: "listing_updated",
         desiredStatus,
       });
     }
@@ -130,11 +161,13 @@ export class ListingsService {
 
   async softDelete(id: string, userId: string): Promise<void> {
     const listing = await this.ensureListingExists(id);
-    if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');
+    if (listing.sellerId !== userId)
+      throw new ForbiddenException("Not your listing");
     await this.prisma.listing.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
+    await this.invalidateSearchCache();
   }
 
   async bulkUpdateStatus(
@@ -146,20 +179,30 @@ export class ListingsService {
       where: { id: { in: ids }, sellerId: userId, deletedAt: null },
       data: { status },
     });
+    await this.invalidateSearchCache();
     return { updated: ids.length };
   }
 
-  async bulkDelete(ids: string[], userId: string): Promise<{ deleted: number }> {
+  async bulkDelete(
+    ids: string[],
+    userId: string,
+  ): Promise<{ deleted: number }> {
     await this.prisma.listing.updateMany({
       where: { id: { in: ids }, sellerId: userId, deletedAt: null },
       data: { deletedAt: new Date() },
     });
+    await this.invalidateSearchCache();
     return { deleted: ids.length };
   }
 
-  async attachImage(id: string, file: Express.Multer.File, userId: string): Promise<SafeListingImage> {
+  async attachImage(
+    id: string,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<SafeListingImage> {
     const listing = await this.ensureListingExists(id);
-    if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');
+    if (listing.sellerId !== userId)
+      throw new ForbiddenException("Not your listing");
     const desiredStatus = listing.status;
     const shouldPause = listing.status === ListingStatus.PUBLISHED;
     await this.prisma.listing.update({
@@ -171,7 +214,9 @@ export class ListingsService {
       },
     });
     const storedObject = await this.storageService.saveListingImage(id, file);
-    const position = await this.prisma.listingImage.count({ where: { listingId: id } });
+    const position = await this.prisma.listingImage.count({
+      where: { listingId: id },
+    });
     const image = await this.prisma.listingImage.create({
       data: {
         listingId: id,
@@ -183,11 +228,12 @@ export class ListingsService {
         position,
       },
     });
+    await this.invalidateSearchCache();
 
     await this.moderationQueue.enqueueListingScan({
       listingId: id,
       sellerId: listing.sellerId,
-      reason: 'image_uploaded',
+      reason: "image_uploaded",
       desiredStatus,
     });
 
@@ -195,16 +241,22 @@ export class ListingsService {
   }
 
   private async ensureSellerExists(sellerId: string): Promise<void> {
-    const seller = await this.prisma.user.findFirst({ where: { id: sellerId, deletedAt: null } });
+    const seller = await this.prisma.user.findFirst({
+      where: { id: sellerId, deletedAt: null },
+    });
     if (!seller) {
-      throw new NotFoundException('Seller not found');
+      throw new NotFoundException("Seller not found");
     }
   }
 
-  private async ensureListingExists(id: string): Promise<Pick<Listing, 'id' | 'sellerId' | 'status'>> {
-    const listing = await this.prisma.listing.findFirst({ where: { id, deletedAt: null } });
+  private async ensureListingExists(
+    id: string,
+  ): Promise<Pick<Listing, "id" | "sellerId" | "status">> {
+    const listing = await this.prisma.listing.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException("Listing not found");
     }
     return listing;
   }
@@ -212,22 +264,25 @@ export class ListingsService {
   private requiresRemoderation(dto: UpdateListingDto): boolean {
     return Boolean(
       dto.title ??
-        dto.description ??
-        dto.priceCents ??
-        dto.metadata ??
-        dto.location ??
-        dto.status ??
-        dto.variants !== undefined,
+      dto.description ??
+      dto.priceCents ??
+      dto.metadata ??
+      dto.location ??
+      dto.status ??
+      dto.variants !== undefined,
     );
   }
 
-  private async createVariants(listingId: string, variants: CreateListingVariantDto[]): Promise<void> {
+  private async createVariants(
+    listingId: string,
+    variants: CreateListingVariantDto[],
+  ): Promise<void> {
     await this.prisma.listingVariant.createMany({
       data: variants.map((variant) => ({
         listingId,
         label: variant.label,
         priceCents: variant.priceCents,
-        currency: variant.currency ?? 'USD',
+        currency: variant.currency ?? "USD",
         sku: variant.sku,
         inventoryCount: variant.inventoryCount ?? 0,
         metadata: this.toJsonInput(variant.metadata),
@@ -256,7 +311,7 @@ export class ListingsService {
       where: { id: listingId, deletedAt: null },
       select: { id: true, title: true, sellerId: true, moderationStatus: true },
     });
-    if (!listing) throw new NotFoundException('Listing not found');
+    if (!listing) throw new NotFoundException("Listing not found");
 
     // Flag the listing for admin review
     await this.prisma.listing.update({
@@ -268,21 +323,29 @@ export class ListingsService {
     await this.prisma.auditLog.create({
       data: {
         actorId: reporterId,
-        action: 'listing.report',
-        entityType: 'listing',
+        action: "listing.report",
+        entityType: "listing",
         entityId: listingId,
-        payload: this.toJsonInput({ reason, listingTitle: listing.title }) ?? Prisma.JsonNull,
+        payload:
+          this.toJsonInput({ reason, listingTitle: listing.title }) ??
+          Prisma.JsonNull,
       },
     });
+    await this.invalidateSearchCache();
 
     // Notify admin
-    void this.notifications.notifyDisputeOpened(
-      listingId,
-      `report:${listingId}`,
-      `User report on listing "${listing.title}": ${reason}`,
-    ).catch(() => undefined);
+    void this.notifications
+      .notifyDisputeOpened(
+        listingId,
+        `report:${listingId}`,
+        `User report on listing "${listing.title}": ${reason}`,
+      )
+      .catch(() => undefined);
 
-    return { message: 'Report submitted. Our team will review this listing.' };
+    return { message: "Report submitted. Our team will review this listing." };
   }
 
+  private async invalidateSearchCache(): Promise<void> {
+    await this.cache.deleteByPrefix("listings:search:");
+  }
 }

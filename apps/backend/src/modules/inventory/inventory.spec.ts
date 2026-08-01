@@ -1,22 +1,23 @@
-import { CanActivate, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import { CanActivate, INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { InventoryModule } from './inventory.module';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { PrismaService } from "../../prisma/prisma.service";
+import { InventoryModule } from "./inventory.module";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { CacheService } from "../../common/services/cache.service";
 
-const VARIANT_ID = 'variant-inv-1';
-const ORDER_ID = 'order-inv-1';
+const VARIANT_ID = "variant-inv-1";
+const ORDER_ID = "order-inv-1";
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 class MockGuard implements CanActivate {
-  static userId = 'seller-1';
-  static role = 'SELLER';
+  static userId = "seller-1";
+  static role = "SELLER";
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -35,10 +36,11 @@ class AllowAllGuard implements CanActivate {
 function applyPrismaUpdate(current: any, data: any): any {
   const result = { ...current };
   for (const [key, val] of Object.entries(data)) {
-    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
       const op = val as Record<string, number>;
-      if ('increment' in op) result[key] = (current[key] ?? 0) + op.increment;
-      else if ('decrement' in op) result[key] = (current[key] ?? 0) - op.decrement;
+      if ("increment" in op) result[key] = (current[key] ?? 0) + op.increment;
+      else if ("decrement" in op)
+        result[key] = (current[key] ?? 0) - op.decrement;
       else result[key] = val; // nested object (e.g. metadata)
     } else {
       result[key] = val;
@@ -57,9 +59,9 @@ class InMemoryPrismaService {
   constructor() {
     this.variants.set(VARIANT_ID, {
       id: VARIANT_ID,
-      label: 'Size M',
+      label: "Size M",
       inventoryCount: 0,
-      listing: { id: 'listing-1', title: 'Test Product', sellerId: 'seller-1' },
+      listing: { id: "listing-1", title: "Test Product", sellerId: "seller-1" },
     });
   }
 
@@ -82,16 +84,23 @@ class InMemoryPrismaService {
     return {
       findMany: async ({ where, orderBy, take }: any) => {
         let items = Array.from(self.inventoryItems.values());
-        if (where?.variantId) items = items.filter((i) => i.variantId === where.variantId);
+        if (where?.variantId)
+          items = items.filter((i) => i.variantId === where.variantId);
         if (where?.availableQuantity?.gte !== undefined) {
-          items = items.filter((i) => i.availableQuantity >= where.availableQuantity.gte);
+          items = items.filter(
+            (i) => i.availableQuantity >= where.availableQuantity.gte,
+          );
         }
         if (where?.reservedQuantity?.gte !== undefined) {
-          items = items.filter((i) => i.reservedQuantity >= where.reservedQuantity.gte);
+          items = items.filter(
+            (i) => i.reservedQuantity >= where.reservedQuantity.gte,
+          );
         }
         // Sort: createdAt asc/desc
-        if (orderBy?.createdAt === 'asc') items.sort((a, b) => a.createdAt - b.createdAt);
-        if (orderBy?.createdAt === 'desc') items.sort((a, b) => b.createdAt - a.createdAt);
+        if (orderBy?.createdAt === "asc")
+          items.sort((a, b) => a.createdAt - b.createdAt);
+        if (orderBy?.createdAt === "desc")
+          items.sort((a, b) => b.createdAt - a.createdAt);
         if (take !== undefined) items = items.slice(0, take);
         // Attach variant with listing
         return items.map((i) => ({
@@ -104,7 +113,8 @@ class InMemoryPrismaService {
             : null,
         }));
       },
-      findUnique: async ({ where }: any) => self.inventoryItems.get(where.id) ?? null,
+      findUnique: async ({ where }: any) =>
+        self.inventoryItems.get(where.id) ?? null,
       create: async ({ data }: any) => {
         const item = { id: randomUUID(), ...data, createdAt: Date.now() };
         self.inventoryItems.set(item.id, item);
@@ -123,13 +133,18 @@ class InMemoryPrismaService {
   get inventoryReservation() {
     const self = this;
     return {
-      findUnique: async ({ where }: any) => self.reservations.get(where.id) ?? null,
+      findUnique: async ({ where }: any) =>
+        self.reservations.get(where.id) ?? null,
       findMany: async ({ where }: any) => {
         let items = Array.from(self.reservations.values());
-        if (where?.orderId) items = items.filter((r) => r.orderId === where.orderId);
-        if (where?.status) items = items.filter((r) => r.status === where.status);
+        if (where?.orderId)
+          items = items.filter((r) => r.orderId === where.orderId);
+        if (where?.status)
+          items = items.filter((r) => r.status === where.status);
         if (where?.expiresAt?.lte) {
-          items = items.filter((r) => new Date(r.expiresAt) <= where.expiresAt.lte);
+          items = items.filter(
+            (r) => new Date(r.expiresAt) <= where.expiresAt.lte,
+          );
         }
         return items.map((r) => ({
           ...r,
@@ -156,11 +171,11 @@ class InMemoryPrismaService {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('InventoryModule', () => {
+describe("InventoryModule", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
 
-  const buildApp = async (role = 'SELLER') => {
+  const buildApp = async (role = "SELLER") => {
     MockGuard.role = role;
     prismaMock = new InMemoryPrismaService();
 
@@ -169,6 +184,8 @@ describe('InventoryModule', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(CacheService)
+      .useValue({ deleteByPrefix: jest.fn().mockResolvedValue(0) })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockGuard)
       .overrideGuard(RolesGuard)
@@ -183,8 +200,8 @@ describe('InventoryModule', () => {
 
   // ── GET /inventory/variant/:variantId ──
 
-  describe('GET /inventory/variant/:variantId', () => {
-    it('returns inventory summary for a variant with no stock', async () => {
+  describe("GET /inventory/variant/:variantId", () => {
+    it("returns inventory summary for a variant with no stock", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
         .get(`/inventory/variant/${VARIANT_ID}`)
@@ -195,7 +212,7 @@ describe('InventoryModule', () => {
       expect(res.body.summary.availableQuantity).toBe(0);
     });
 
-    it('reflects stock added via addStock', async () => {
+    it("reflects stock added via addStock", async () => {
       await buildApp();
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
@@ -212,29 +229,29 @@ describe('InventoryModule', () => {
 
   // ── POST /inventory/variant/:variantId/add ──
 
-  describe('POST /inventory/variant/:variantId/add', () => {
-    it('adds stock and returns the inventory item', async () => {
+  describe("POST /inventory/variant/:variantId/add", () => {
+    it("adds stock and returns the inventory item", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
-        .send({ quantity: 5, location: 'warehouse-A' })
+        .send({ quantity: 5, location: "warehouse-A" })
         .expect(201);
 
       expect(res.body.variantId).toBe(VARIANT_ID);
       expect(res.body.quantity).toBe(5);
       expect(res.body.availableQuantity).toBe(5);
-      expect(res.body.location).toBe('warehouse-A');
+      expect(res.body.location).toBe("warehouse-A");
     });
 
-    it('returns 404 for an unknown variant', async () => {
+    it("returns 404 for an unknown variant", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/inventory/variant/nonexistent/add')
+        .post("/inventory/variant/nonexistent/add")
         .send({ quantity: 5 })
         .expect(404);
     });
 
-    it('updates the variant inventoryCount after adding stock', async () => {
+    it("updates the variant inventoryCount after adding stock", async () => {
       await buildApp();
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
@@ -246,7 +263,7 @@ describe('InventoryModule', () => {
 
   // ── POST /inventory/variant/:variantId/reserve ──
 
-  describe('POST /inventory/variant/:variantId/reserve', () => {
+  describe("POST /inventory/variant/:variantId/reserve", () => {
     let itemId: string;
 
     beforeEach(async () => {
@@ -257,7 +274,7 @@ describe('InventoryModule', () => {
       itemId = addRes.body.id;
     });
 
-    it('creates a reservation and decrements available stock', async () => {
+    it("creates a reservation and decrements available stock", async () => {
       const res = await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/reserve`)
         .send({ quantity: 3, orderId: ORDER_ID })
@@ -265,14 +282,14 @@ describe('InventoryModule', () => {
 
       expect(res.body.variantId).toBe(VARIANT_ID);
       expect(res.body.quantity).toBe(3);
-      expect(res.body.status).toBe('PENDING');
+      expect(res.body.status).toBe("PENDING");
       // Available should be decremented, reserved incremented
       const item = prismaMock.inventoryItems.get(itemId)!;
       expect(item.availableQuantity).toBe(7);
       expect(item.reservedQuantity).toBe(3);
     });
 
-    it('returns 400 when there is insufficient stock', async () => {
+    it("returns 400 when there is insufficient stock", async () => {
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/reserve`)
         .send({ quantity: 999, orderId: ORDER_ID })
@@ -282,7 +299,7 @@ describe('InventoryModule', () => {
 
   // ── PATCH /inventory/reservations/:reservationId/confirm ──
 
-  describe('PATCH /inventory/reservations/:reservationId/confirm', () => {
+  describe("PATCH /inventory/reservations/:reservationId/confirm", () => {
     let reservationId: string;
     let itemId: string;
 
@@ -298,36 +315,37 @@ describe('InventoryModule', () => {
       reservationId = resRes.body.id;
     });
 
-    it('confirms a pending reservation and deducts from stock', async () => {
+    it("confirms a pending reservation and deducts from stock", async () => {
       const res = await request(app.getHttpServer())
         .patch(`/inventory/reservations/${reservationId}/confirm`)
         .expect(200);
 
-      expect(res.body.status).toBe('CONFIRMED');
+      expect(res.body.status).toBe("CONFIRMED");
       // Stock should be deducted from reserved and total
       const item = prismaMock.inventoryItems.get(itemId)!;
       expect(item.reservedQuantity).toBe(0);
       expect(item.quantity).toBe(8);
     });
 
-    it('returns 400 when confirming an already-confirmed reservation', async () => {
-      await request(app.getHttpServer())
-        .patch(`/inventory/reservations/${reservationId}/confirm`);
+    it("returns 400 when confirming an already-confirmed reservation", async () => {
+      await request(app.getHttpServer()).patch(
+        `/inventory/reservations/${reservationId}/confirm`,
+      );
       await request(app.getHttpServer())
         .patch(`/inventory/reservations/${reservationId}/confirm`)
         .expect(400);
     });
 
-    it('returns 404 for an unknown reservation', async () => {
+    it("returns 404 for an unknown reservation", async () => {
       await request(app.getHttpServer())
-        .patch('/inventory/reservations/nonexistent/confirm')
+        .patch("/inventory/reservations/nonexistent/confirm")
         .expect(404);
     });
   });
 
   // ── PATCH /inventory/reservations/:reservationId/release ──
 
-  describe('PATCH /inventory/reservations/:reservationId/release', () => {
+  describe("PATCH /inventory/reservations/:reservationId/release", () => {
     let reservationId: string;
     let itemId: string;
 
@@ -343,20 +361,21 @@ describe('InventoryModule', () => {
       reservationId = resRes.body.id;
     });
 
-    it('releases a pending reservation and restores available stock', async () => {
+    it("releases a pending reservation and restores available stock", async () => {
       const res = await request(app.getHttpServer())
         .patch(`/inventory/reservations/${reservationId}/release`)
         .expect(200);
 
-      expect(res.body.status).toBe('RELEASED');
+      expect(res.body.status).toBe("RELEASED");
       const item = prismaMock.inventoryItems.get(itemId)!;
       expect(item.availableQuantity).toBe(10);
       expect(item.reservedQuantity).toBe(0);
     });
 
-    it('returns 400 when releasing an already-released reservation', async () => {
-      await request(app.getHttpServer())
-        .patch(`/inventory/reservations/${reservationId}/release`);
+    it("returns 400 when releasing an already-released reservation", async () => {
+      await request(app.getHttpServer()).patch(
+        `/inventory/reservations/${reservationId}/release`,
+      );
       await request(app.getHttpServer())
         .patch(`/inventory/reservations/${reservationId}/release`)
         .expect(400);
@@ -365,7 +384,7 @@ describe('InventoryModule', () => {
 
   // ── POST /inventory/items/:itemId/damage ──
 
-  describe('POST /inventory/items/:itemId/damage', () => {
+  describe("POST /inventory/items/:itemId/damage", () => {
     let itemId: string;
 
     beforeEach(async () => {
@@ -376,26 +395,26 @@ describe('InventoryModule', () => {
       itemId = addRes.body.id;
     });
 
-    it('marks items as damaged and reduces available stock', async () => {
+    it("marks items as damaged and reduces available stock", async () => {
       const res = await request(app.getHttpServer())
         .post(`/inventory/items/${itemId}/damage`)
-        .send({ quantity: 2, reason: 'Warehouse accident' })
+        .send({ quantity: 2, reason: "Warehouse accident" })
         .expect(201);
 
       expect(res.body.availableQuantity).toBe(8);
       expect(res.body.damagedQuantity).toBe(2);
     });
 
-    it('returns 400 when damaged quantity exceeds available stock', async () => {
+    it("returns 400 when damaged quantity exceeds available stock", async () => {
       await request(app.getHttpServer())
         .post(`/inventory/items/${itemId}/damage`)
         .send({ quantity: 999 })
         .expect(400);
     });
 
-    it('returns 404 for an unknown inventory item', async () => {
+    it("returns 404 for an unknown inventory item", async () => {
       await request(app.getHttpServer())
-        .post('/inventory/items/nonexistent/damage')
+        .post("/inventory/items/nonexistent/damage")
         .send({ quantity: 1 })
         .expect(404);
     });
@@ -403,18 +422,18 @@ describe('InventoryModule', () => {
 
   // ── POST /inventory/variant/:variantId/adjust ──
 
-  describe('POST /inventory/variant/:variantId/adjust', () => {
-    it('creates stock via adjust when no inventory exists yet', async () => {
+  describe("POST /inventory/variant/:variantId/adjust", () => {
+    it("creates stock via adjust when no inventory exists yet", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/adjust`)
-        .send({ adjustment: 15, reason: 'Initial stock count' })
+        .send({ adjustment: 15, reason: "Initial stock count" })
         .expect(201);
 
       expect(res.body.quantity).toBe(15);
     });
 
-    it('increments existing stock by adjustment amount', async () => {
+    it("increments existing stock by adjustment amount", async () => {
       await buildApp();
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
@@ -422,7 +441,7 @@ describe('InventoryModule', () => {
 
       const res = await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/adjust`)
-        .send({ adjustment: 5, reason: 'Recount correction' })
+        .send({ adjustment: 5, reason: "Recount correction" })
         .expect(201);
 
       expect(res.body.quantity).toBe(15);
@@ -432,8 +451,8 @@ describe('InventoryModule', () => {
 
   // ── GET /inventory/orders/:orderId/reservations ──
 
-  describe('GET /inventory/orders/:orderId/reservations', () => {
-    it('returns reservations for a given order', async () => {
+  describe("GET /inventory/orders/:orderId/reservations", () => {
+    it("returns reservations for a given order", async () => {
       await buildApp();
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
@@ -450,10 +469,10 @@ describe('InventoryModule', () => {
       expect(res.body[0].orderId).toBe(ORDER_ID);
     });
 
-    it('returns an empty list for an order with no reservations', async () => {
+    it("returns an empty list for an order with no reservations", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/inventory/orders/no-such-order/reservations')
+        .get("/inventory/orders/no-such-order/reservations")
         .expect(200);
 
       expect(res.body).toHaveLength(0);
@@ -462,9 +481,9 @@ describe('InventoryModule', () => {
 
   // ── POST /inventory/cleanup-expired ──
 
-  describe('POST /inventory/cleanup-expired', () => {
-    it('releases expired reservations and reports count', async () => {
-      await buildApp('ADMIN');
+  describe("POST /inventory/cleanup-expired", () => {
+    it("releases expired reservations and reports count", async () => {
+      await buildApp("ADMIN");
       await request(app.getHttpServer())
         .post(`/inventory/variant/${VARIANT_ID}/add`)
         .send({ quantity: 10 });
@@ -480,16 +499,16 @@ describe('InventoryModule', () => {
       });
 
       const res = await request(app.getHttpServer())
-        .post('/inventory/cleanup-expired')
+        .post("/inventory/cleanup-expired")
         .expect(201);
 
       expect(res.body.released).toBe(1);
     });
 
-    it('returns zero when there are no expired reservations', async () => {
-      await buildApp('ADMIN');
+    it("returns zero when there are no expired reservations", async () => {
+      await buildApp("ADMIN");
       const res = await request(app.getHttpServer())
-        .post('/inventory/cleanup-expired')
+        .post("/inventory/cleanup-expired")
         .expect(201);
 
       expect(res.body.released).toBe(0);

@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, Optional } from '@nestjs/common';
-import { ListingModerationStatus, ListingStatus, Prisma } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
+import { ListingModerationStatus, ListingStatus, Prisma } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
+import { createHash } from "node:crypto";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { listingDefaultInclude } from "./listings.prisma";
@@ -8,12 +9,7 @@ import { SafeListing, serializeListing } from "./listing.serializer";
 import { CacheService } from "../../common/services/cache.service";
 
 export type ListingSearchSort =
-  | 'relevance'
-  | 'price_asc'
-  | 'price_desc'
-  | 'date_new'
-  | 'date_old'
-  | 'title';
+  "relevance" | "price_asc" | "price_desc" | "date_new" | "date_old" | "title";
 
 export interface ListingSearchParams {
   keyword?: string;
@@ -51,17 +47,27 @@ export class ListingSearchService {
     private readonly prisma: PrismaService,
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly configService?: ConfigService,
-  ) { }
+  ) {}
 
   async search(params: ListingSearchParams): Promise<ListingSearchResponse> {
+    this.assertBoundedInputs(params);
     const page = params.page > 0 ? params.page : 1;
-    const cappedPageSize = Math.min(params.pageSize > 0 ? params.pageSize : 20, 100);
+    const cappedPageSize = Math.min(
+      params.pageSize > 0 ? params.pageSize : 20,
+      100,
+    );
     const offset = (page - 1) * cappedPageSize;
 
-    const cacheKey = this.buildCacheKey({ ...params, page, pageSize: cappedPageSize });
-    const cached = await this.cache?.get<ListingSearchResponse>(cacheKey);
-    if (cached) {
-      return cached;
+    const normalizedParams = { ...params, page, pageSize: cappedPageSize };
+    const cacheable = this.shouldCache(normalizedParams);
+    const cacheKey = cacheable
+      ? this.buildCacheKey(normalizedParams)
+      : undefined;
+    if (cacheKey) {
+      const cached = await this.cache?.get<ListingSearchResponse>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     if (
@@ -69,17 +75,28 @@ export class ListingSearchService {
       params.minPriceCents !== undefined &&
       params.maxPriceCents < params.minPriceCents
     ) {
-      throw new BadRequestException('maxPriceCents must be greater than or equal to minPriceCents');
+      throw new BadRequestException(
+        "maxPriceCents must be greater than or equal to minPriceCents",
+      );
     }
 
-    if (params.createdAfter && params.createdBefore && params.createdAfter > params.createdBefore) {
-      throw new BadRequestException('createdBefore must be after createdAfter');
+    if (
+      params.createdAfter &&
+      params.createdBefore &&
+      params.createdAfter > params.createdBefore
+    ) {
+      throw new BadRequestException("createdBefore must be after createdAfter");
     }
 
     const tagSlugs = this.normalizeStrings(params.tags);
     const categorySlugs = this.normalizeStrings(params.categories);
     const sellerIds = this.normalizeStrings(params.sellerIds);
-    const where: Prisma.ListingWhereInput = this.buildWhereFilter(params, tagSlugs, categorySlugs, sellerIds);
+    const where: Prisma.ListingWhereInput = this.buildWhereFilter(
+      params,
+      tagSlugs,
+      categorySlugs,
+      sellerIds,
+    );
 
     if (!params.keyword) {
       const [total, listings] = await this.prisma.$transaction([
@@ -94,7 +111,10 @@ export class ListingSearchService {
       ]);
       // Listings from Prisma are passed directly to serializeListing which handles the conversion
 
-      const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
+      const pageCount =
+        cappedPageSize === 0
+          ? 0
+          : Math.max(1, Math.ceil(total / cappedPageSize));
 
       const response: ListingSearchResponse = {
         data: listings.map((listing) => serializeListing(listing)),
@@ -103,13 +123,22 @@ export class ListingSearchService {
         pageSize: cappedPageSize,
         pageCount: total === 0 ? 0 : pageCount,
       };
-      await this.cache?.set(cacheKey, response, this.cacheTtlMs);
+      if (cacheKey) {
+        await this.cache?.set(cacheKey, response, this.cacheTtlMs);
+      }
       return response;
     }
 
     const keyword = this.normalizeKeyword(params.keyword);
-    const { tsQueries, headlineQuery, similarityTerm } = this.buildKeywordQueries(keyword);
-    const searchableCte = this.buildSearchableCte(params, tagSlugs, categorySlugs, sellerIds, keyword);
+    const { tsQueries, headlineQuery, similarityTerm } =
+      this.buildKeywordQueries(keyword);
+    const searchableCte = this.buildSearchableCte(
+      params,
+      tagSlugs,
+      categorySlugs,
+      sellerIds,
+      keyword,
+    );
     const matchCondition = this.buildSearchCondition(tsQueries, similarityTerm);
     const rankExpression = this.buildRankExpression(tsQueries);
 
@@ -137,26 +166,38 @@ export class ListingSearchService {
 
     const [countRows, rows] = await this.prisma.$transaction([
       this.prisma.$queryRaw<{ count: number }[]>(countQuery),
-      this.prisma.$queryRaw<{ id: string; rank?: number; snippet?: string | null }[]>(searchQuery),
+      this.prisma.$queryRaw<
+        { id: string; rank?: number; snippet?: string | null }[]
+      >(searchQuery),
     ]);
 
     const total = countRows?.[0]?.count ?? 0;
     const listingIds = rows.map((row) => row.id);
     const listings = listingIds.length
       ? await this.prisma.listing.findMany({
-        where: { id: { in: listingIds } },
-        include: listingDefaultInclude,
-      })
+          where: { id: { in: listingIds } },
+          include: listingDefaultInclude,
+        })
       : [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const listingMap = new Map(listings.map((listing) => [listing.id, listing] as [string, any]));
+    const listingMap = new Map(
+      listings.map((listing) => [listing.id, listing] as [string, any]),
+    );
     const ordered = listingIds
       .map((id) => listingMap.get(id))
-      .filter((listing): listing is NonNullable<typeof listing> => Boolean(listing));
+      .filter((listing): listing is NonNullable<typeof listing> =>
+        Boolean(listing),
+      );
 
-    const pageCount = cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
+    const pageCount =
+      cappedPageSize === 0 ? 0 : Math.max(1, Math.ceil(total / cappedPageSize));
 
-    const rankMap = new Map(rows.map((row) => [row.id, row as { id: string; rank?: number; snippet?: string | null }]));
+    const rankMap = new Map(
+      rows.map((row) => [
+        row.id,
+        row as { id: string; rank?: number; snippet?: string | null },
+      ]),
+    );
 
     const response: ListingSearchResponse = {
       data: ordered.map((listing) => ({
@@ -169,46 +210,108 @@ export class ListingSearchService {
       pageSize: cappedPageSize,
       pageCount: total === 0 ? 0 : pageCount,
     };
-    await this.cache?.set(cacheKey, response, this.cacheTtlMs);
+    if (cacheKey) {
+      await this.cache?.set(cacheKey, response, this.cacheTtlMs);
+    }
     return response;
   }
 
-  private buildCacheKey(params: ListingSearchParams & { page: number; pageSize: number }): string {
-    return `listings:search:${JSON.stringify(params)}`;
+  private buildCacheKey(
+    params: ListingSearchParams & { page: number; pageSize: number },
+  ): string {
+    const canonical = JSON.stringify({
+      page: params.page,
+      pageSize: params.pageSize,
+      status: params.status ?? null,
+      moderationStatus: params.moderationStatus ?? null,
+      sort: params.sort ?? "relevance",
+    });
+    return `listings:search:${createHash("sha256").update(canonical).digest("hex")}`;
+  }
+
+  private shouldCache(
+    params: ListingSearchParams & { page: number; pageSize: number },
+  ): boolean {
+    return (
+      !params.keyword &&
+      params.minPriceCents === undefined &&
+      params.maxPriceCents === undefined &&
+      params.createdAfter === undefined &&
+      params.createdBefore === undefined &&
+      params.sellerId === undefined &&
+      params.sellerIds === undefined &&
+      params.tags === undefined &&
+      params.categories === undefined &&
+      params.page <= 10 &&
+      [10, 20, 50, 100].includes(params.pageSize)
+    );
+  }
+
+  private assertBoundedInputs(params: ListingSearchParams): void {
+    if (params.page > 1_000) {
+      throw new BadRequestException("page must be 1000 or less");
+    }
+    if (params.keyword && params.keyword.length > 200) {
+      throw new BadRequestException("keyword must be 200 characters or fewer");
+    }
+    if (params.sellerId && params.sellerId.length > 128) {
+      throw new BadRequestException("sellerId must be 128 characters or fewer");
+    }
+    for (const [name, values] of [
+      ["sellerIds", this.normalizeStrings(params.sellerIds)],
+      ["tags", this.normalizeStrings(params.tags)],
+      ["categories", this.normalizeStrings(params.categories)],
+    ] as const) {
+      if (values.length > 20) {
+        throw new BadRequestException(`${name} supports at most 20 values`);
+      }
+      if (values.some((value) => value.length > 128)) {
+        throw new BadRequestException(
+          `${name} values must be 128 characters or fewer`,
+        );
+      }
+    }
   }
 
   private get cacheTtlMs() {
-    const ttlSeconds = Number(this.configService?.get<string>('CACHE_TTL_SECONDS') ?? 30);
-    return (Number.isNaN(ttlSeconds) ? 30 : ttlSeconds) * 1000;
+    const ttlSeconds = Number(
+      this.configService?.get<string>("CACHE_TTL_SECONDS") ?? 30,
+    );
+    const boundedTtlSeconds = Number.isNaN(ttlSeconds)
+      ? 30
+      : Math.min(Math.max(ttlSeconds, 1), 30);
+    return boundedTtlSeconds * 1000;
   }
 
   private normalizeStrings(values?: string | string[]): string[] {
     if (!values) return [];
-    const arr = Array.isArray(values) ? values : String(values).split(',');
+    const arr = Array.isArray(values) ? values : String(values).split(",");
     return arr
-      .map((value) => value?.trim())
+      .map((value) => String(value).trim())
       .filter((value): value is string => Boolean(value))
       .map((value) => value.toLowerCase());
   }
 
   private normalizeKeyword(keyword?: string): string {
-    if (!keyword) return '';
-    return keyword.trim().replace(/\s+/g, ' ');
+    if (!keyword) return "";
+    return keyword.trim().replace(/\s+/g, " ");
   }
 
   private buildKeywordQueries(rawKeyword: string) {
     const keyword = this.normalizeKeyword(rawKeyword);
-    const tokens = keyword.split(' ').filter(Boolean);
+    const tokens = keyword.split(" ").filter(Boolean);
     const baseQuery = Prisma.sql`websearch_to_tsquery('english', ${keyword})`;
     const prefixQuery = tokens.length
-      ? Prisma.sql`to_tsquery('english', ${tokens.map((token) => `${this.escapeTsQueryToken(token)}:*`).join(' & ')})`
+      ? Prisma.sql`to_tsquery('english', ${tokens.map((token) => `${this.escapeTsQueryToken(token)}:*`).join(" & ")})`
       : undefined;
 
-    const phraseQueries = this.extractPhrases(keyword).map((phrase) =>
-      Prisma.sql`phraseto_tsquery('english', ${phrase})`,
+    const phraseQueries = this.extractPhrases(keyword).map(
+      (phrase) => Prisma.sql`phraseto_tsquery('english', ${phrase})`,
     );
 
-    const fallbackQuery = tokens.length ? Prisma.sql`plainto_tsquery('english', ${keyword})` : undefined;
+    const fallbackQuery = tokens.length
+      ? Prisma.sql`plainto_tsquery('english', ${keyword})`
+      : undefined;
     const similarityTerm = keyword.toLowerCase();
 
     return {
@@ -227,46 +330,62 @@ export class ListingSearchService {
     const where: Prisma.ListingWhereInput = {
       deletedAt: null,
       ...(params.status ? { status: params.status } : {}),
-      ...(params.moderationStatus ? { moderationStatus: params.moderationStatus } : {}),
+      ...(params.moderationStatus
+        ? { moderationStatus: params.moderationStatus }
+        : {}),
       ...(params.sellerId || sellerIds.length
         ? {
-          sellerId: sellerIds.length
-            ? { in: Array.from(new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])])) }
-            : params.sellerId,
-        }
+            sellerId: sellerIds.length
+              ? {
+                  in: Array.from(
+                    new Set([
+                      ...sellerIds,
+                      ...(params.sellerId ? [params.sellerId] : []),
+                    ]),
+                  ),
+                }
+              : params.sellerId,
+          }
         : {}),
       ...(params.createdAfter || params.createdBefore
         ? {
-          createdAt: {
-            ...(params.createdAfter ? { gte: params.createdAfter } : {}),
-            ...(params.createdBefore ? { lte: params.createdBefore } : {}),
-          },
-        }
+            createdAt: {
+              ...(params.createdAfter ? { gte: params.createdAfter } : {}),
+              ...(params.createdBefore ? { lte: params.createdBefore } : {}),
+            },
+          }
         : {}),
       ...(tagSlugs.length
         ? {
-          tags: {
-            some: {
-              tag: { slug: { in: tagSlugs } },
+            tags: {
+              some: {
+                tag: { slug: { in: tagSlugs } },
+              },
             },
-          },
-        }
+          }
         : {}),
       ...(categorySlugs.length
         ? {
-          categories: {
-            some: {
-              category: { slug: { in: categorySlugs } },
+            categories: {
+              some: {
+                category: { slug: { in: categorySlugs } },
+              },
             },
-          },
-        }
+          }
         : {}),
     };
 
-    if (params.minPriceCents !== undefined || params.maxPriceCents !== undefined) {
+    if (
+      params.minPriceCents !== undefined ||
+      params.maxPriceCents !== undefined
+    ) {
       where.priceCents = {
-        ...(params.minPriceCents !== undefined ? { gte: params.minPriceCents } : {}),
-        ...(params.maxPriceCents !== undefined ? { lte: params.maxPriceCents } : {}),
+        ...(params.minPriceCents !== undefined
+          ? { gte: params.minPriceCents }
+          : {}),
+        ...(params.maxPriceCents !== undefined
+          ? { lte: params.maxPriceCents }
+          : {}),
       };
     }
 
@@ -282,17 +401,25 @@ export class ListingSearchService {
     const conditions: Prisma.Sql[] = [Prisma.sql`l."deletedAt" IS NULL`];
 
     if (params.status) {
-      conditions.push(Prisma.sql`l."status" = ${params.status}::"ListingStatus"`);
+      conditions.push(
+        Prisma.sql`l."status" = ${params.status}::"ListingStatus"`,
+      );
     }
     if (params.moderationStatus) {
-      conditions.push(Prisma.sql`l."moderationStatus" = ${params.moderationStatus}::"ListingModerationStatus"`);
+      conditions.push(
+        Prisma.sql`l."moderationStatus" = ${params.moderationStatus}::"ListingModerationStatus"`,
+      );
     }
     if (params.sellerId || sellerIds.length) {
-      const sellers = Array.from(new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])]));
+      const sellers = Array.from(
+        new Set([...sellerIds, ...(params.sellerId ? [params.sellerId] : [])]),
+      );
       if (sellers.length === 1) {
         conditions.push(Prisma.sql`l."sellerId" = ${sellers[0]}`);
       } else {
-        conditions.push(Prisma.sql`l."sellerId" IN (${Prisma.join(sellers.map((id) => Prisma.sql`${id}`))})`);
+        conditions.push(
+          Prisma.sql`l."sellerId" IN (${Prisma.join(sellers.map((id) => Prisma.sql`${id}`))})`,
+        );
       }
     }
     if (params.minPriceCents !== undefined) {
@@ -308,10 +435,14 @@ export class ListingSearchService {
       conditions.push(Prisma.sql`l."createdAt" <= ${params.createdBefore}`);
     }
     if (tagSlugs.length) {
-      conditions.push(Prisma.sql`lt."slug" IN (${Prisma.join(tagSlugs.map((tag) => Prisma.sql`${tag}`))})`);
+      conditions.push(
+        Prisma.sql`lt."slug" IN (${Prisma.join(tagSlugs.map((tag) => Prisma.sql`${tag}`))})`,
+      );
     }
     if (categorySlugs.length) {
-      conditions.push(Prisma.sql`lc."slug" IN (${Prisma.join(categorySlugs.map((slug) => Prisma.sql`${slug}`))})`);
+      conditions.push(
+        Prisma.sql`lc."slug" IN (${Prisma.join(categorySlugs.map((slug) => Prisma.sql`${slug}`))})`,
+      );
     }
 
     return conditions;
@@ -324,8 +455,15 @@ export class ListingSearchService {
     sellerIds: string[],
     keyword: string,
   ) {
-    const conditions = this.buildSqlConditions(params, tagSlugs, categorySlugs, sellerIds);
-    const whereSql = conditions.length ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}` : Prisma.empty;
+    const conditions = this.buildSqlConditions(
+      params,
+      tagSlugs,
+      categorySlugs,
+      sellerIds,
+    );
+    const whereSql = conditions.length
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+      : Prisma.empty;
 
     const baseDocument = Prisma.sql`
       coalesce(
@@ -375,7 +513,9 @@ export class ListingSearchService {
     },
     similarityTerm: string,
   ) {
-    const textConditions: Prisma.Sql[] = [Prisma.sql`document @@ ${tsQueries.baseQuery}`];
+    const textConditions: Prisma.Sql[] = [
+      Prisma.sql`document @@ ${tsQueries.baseQuery}`,
+    ];
 
     if (tsQueries.prefixQuery) {
       textConditions.push(Prisma.sql`document @@ ${tsQueries.prefixQuery}`);
@@ -384,10 +524,14 @@ export class ListingSearchService {
       textConditions.push(Prisma.sql`document @@ ${tsQueries.fallbackQuery}`);
     }
     if (tsQueries.phraseQueries.length) {
-      textConditions.push(Prisma.sql`document @@ (${Prisma.join(tsQueries.phraseQueries, ' | ')})`);
+      textConditions.push(
+        Prisma.sql`document @@ (${Prisma.join(tsQueries.phraseQueries, " | ")})`,
+      );
     }
 
-    const combinedText = textConditions.length ? Prisma.sql`(${Prisma.join(textConditions, ' OR ')})` : Prisma.sql`FALSE`;
+    const combinedText = textConditions.length
+      ? Prisma.sql`(${Prisma.join(textConditions, " OR ")})`
+      : Prisma.sql`FALSE`;
     const fuzzyCondition = Prisma.sql`(fuzzy_text % ${similarityTerm})`;
 
     return Prisma.sql`${combinedText} OR ${fuzzyCondition}`;
@@ -399,62 +543,72 @@ export class ListingSearchService {
     phraseQueries: Prisma.Sql[];
     fallbackQuery?: Prisma.Sql;
   }) {
-    const rankParts: Prisma.Sql[] = [Prisma.sql`ts_rank_cd(document, ${tsQueries.baseQuery}, 32)`];
+    const rankParts: Prisma.Sql[] = [
+      Prisma.sql`ts_rank_cd(document, ${tsQueries.baseQuery}, 32)`,
+    ];
     if (tsQueries.prefixQuery) {
-      rankParts.push(Prisma.sql`ts_rank_cd(document, ${tsQueries.prefixQuery}, 8)`);
+      rankParts.push(
+        Prisma.sql`ts_rank_cd(document, ${tsQueries.prefixQuery}, 8)`,
+      );
     }
     if (tsQueries.fallbackQuery) {
-      rankParts.push(Prisma.sql`ts_rank_cd(document, ${tsQueries.fallbackQuery}, 4)`);
+      rankParts.push(
+        Prisma.sql`ts_rank_cd(document, ${tsQueries.fallbackQuery}, 4)`,
+      );
     }
     if (tsQueries.phraseQueries.length) {
-      rankParts.push(Prisma.sql`ts_rank_cd(document, (${Prisma.join(tsQueries.phraseQueries, ' | ')}), 16)`);
+      rankParts.push(
+        Prisma.sql`ts_rank_cd(document, (${Prisma.join(tsQueries.phraseQueries, " | ")}), 16)`,
+      );
     }
 
-    const rankSql = Prisma.sql`${Prisma.join(rankParts, ' + ')} + coalesce(fuzzy_score, 0) * 0.25`;
+    const rankSql = Prisma.sql`${Prisma.join(rankParts, " + ")} + coalesce(fuzzy_score, 0) * 0.25`;
     return Prisma.sql`(${rankSql})`;
   }
 
   private buildOrderByClause(sort?: ListingSearchSort) {
     switch (sort) {
-      case 'price_asc':
+      case "price_asc":
         return Prisma.sql`rank DESC, s."priceCents" ASC, s."createdAt" DESC`;
-      case 'price_desc':
+      case "price_desc":
         return Prisma.sql`rank DESC, s."priceCents" DESC, s."createdAt" DESC`;
-      case 'date_old':
+      case "date_old":
         return Prisma.sql`rank DESC, s."createdAt" ASC`;
-      case 'title':
+      case "title":
         return Prisma.sql`rank DESC, s."title" ASC`;
-      case 'date_new':
-      case 'relevance':
+      case "date_new":
+      case "relevance":
       default:
         return Prisma.sql`rank DESC, s."createdAt" DESC`;
     }
   }
 
-  private buildPrismaOrder(sort?: ListingSearchSort): Prisma.ListingOrderByWithRelationInput[] {
+  private buildPrismaOrder(
+    sort?: ListingSearchSort,
+  ): Prisma.ListingOrderByWithRelationInput[] {
     switch (sort) {
-      case 'price_asc':
-        return [{ priceCents: 'asc' }, { createdAt: 'desc' }];
-      case 'price_desc':
-        return [{ priceCents: 'desc' }, { createdAt: 'desc' }];
-      case 'date_old':
-        return [{ createdAt: 'asc' }];
-      case 'title':
-        return [{ title: 'asc' }, { createdAt: 'desc' }];
-      case 'date_new':
-        return [{ createdAt: 'desc' }];
-      case 'relevance':
+      case "price_asc":
+        return [{ priceCents: "asc" }, { createdAt: "desc" }];
+      case "price_desc":
+        return [{ priceCents: "desc" }, { createdAt: "desc" }];
+      case "date_old":
+        return [{ createdAt: "asc" }];
+      case "title":
+        return [{ title: "asc" }, { createdAt: "desc" }];
+      case "date_new":
+        return [{ createdAt: "desc" }];
+      case "relevance":
       default:
-        return [{ createdAt: 'desc' }];
+        return [{ createdAt: "desc" }];
     }
   }
 
   private escapeTsQueryToken(token: string): string {
-    return token.replace(/[':]/g, '');
+    return token.replace(/[':]/g, "");
   }
 
   private extractPhrases(keyword: string): string[] {
     const matches = keyword.match(/"([^"]+)"/g) ?? [];
-    return matches.map((match) => match.replace(/"/g, '')).filter(Boolean);
+    return matches.map((match) => match.replace(/"/g, "")).filter(Boolean);
   }
 }

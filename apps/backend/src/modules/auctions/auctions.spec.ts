@@ -1,22 +1,23 @@
-import { CanActivate, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { AuctionStatus, ListingStatus, ListingType } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import { CanActivate, INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { AuctionStatus, ListingStatus, ListingType } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuctionsModule } from './auctions.module';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from "../../prisma/prisma.service";
+import { AuctionsModule } from "./auctions.module";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CacheService } from "../../common/services/cache.service";
 
-const SELLER_ID = 'seller-1';
-const BIDDER_ID = 'bidder-1';
-const BIDDER_2_ID = 'bidder-2';
-const LISTING_ID = 'listing-draft-1';
-const AUCTION_ID = 'auction-1';
+const SELLER_ID = "seller-1";
+const BIDDER_ID = "bidder-1";
+const BIDDER_2_ID = "bidder-2";
+const LISTING_ID = "listing-draft-1";
+const AUCTION_ID = "auction-1";
 
 // Mock the AuctionsGateway so we don't need a real WebSocket server
-jest.mock('./auctions.gateway', () => ({
+jest.mock("./auctions.gateway", () => ({
   AuctionsGateway: jest.fn().mockImplementation(() => ({
     emitBid: jest.fn(),
     emitAuctionEnd: jest.fn(),
@@ -27,7 +28,7 @@ class MockGuard implements CanActivate {
   static userId = BIDDER_ID;
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
-    req.user = { id: MockGuard.userId, role: 'BUYER' };
+    req.user = { id: MockGuard.userId, role: "BUYER" };
     return true;
   }
 }
@@ -44,9 +45,9 @@ class InMemoryPrismaService {
     this.listings.set(LISTING_ID, {
       id: LISTING_ID,
       sellerId: SELLER_ID,
-      title: 'Draft Item for Auction',
+      title: "Draft Item for Auction",
       priceCents: 5000,
-      currency: 'USD',
+      currency: "USD",
       status: ListingStatus.DRAFT,
       type: null,
       images: [],
@@ -68,7 +69,7 @@ class InMemoryPrismaService {
       createdAt: new Date(),
       updatedAt: new Date(),
       listing: this.listings.get(LISTING_ID),
-      seller: { id: SELLER_ID, name: 'Seller', avatarUrl: null },
+      seller: { id: SELLER_ID, name: "Seller", avatarUrl: null },
       _count: { bids: 0 },
     });
     this.bids.set(AUCTION_ID, []);
@@ -102,7 +103,12 @@ class InMemoryPrismaService {
       },
       create: async ({ data }: any) => {
         const id = randomUUID();
-        const auction = { id, ...data, createdAt: new Date(), updatedAt: new Date() };
+        const auction = {
+          id,
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
         self.auctions.set(id, auction);
         self.bids.set(id, []);
         return auction;
@@ -143,7 +149,12 @@ class InMemoryPrismaService {
       },
       create: async ({ data, include }: any) => {
         const id = randomUUID();
-        const bid = { id, ...data, createdAt: new Date(), bidder: { id: data.bidderId, name: 'Bidder', avatarUrl: null } };
+        const bid = {
+          id,
+          ...data,
+          createdAt: new Date(),
+          bidder: { id: data.bidderId, name: "Bidder", avatarUrl: null },
+        };
         const bids = self.bids.get(data.auctionId) ?? [];
         bids.push(bid);
         self.bids.set(data.auctionId, bids);
@@ -184,7 +195,7 @@ class InMemoryPrismaService {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe('AuctionsModule', () => {
+describe("AuctionsModule", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
 
@@ -196,6 +207,8 @@ describe('AuctionsModule', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(CacheService)
+      .useValue({ deleteByPrefix: jest.fn().mockResolvedValue(0) })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockGuard)
       .compile();
@@ -210,11 +223,11 @@ describe('AuctionsModule', () => {
 
   // ── List ──
 
-  describe('GET /auctions', () => {
-    it('returns paginated active auctions', async () => {
+  describe("GET /auctions", () => {
+    it("returns paginated active auctions", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/auctions')
+        .get("/auctions")
         .expect(200);
 
       expect(res.body.data).toHaveLength(1);
@@ -223,10 +236,10 @@ describe('AuctionsModule', () => {
       expect(res.body.pageCount).toBe(1);
     });
 
-    it('filters by status', async () => {
+    it("filters by status", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/auctions?status=COMPLETED')
+        .get("/auctions?status=COMPLETED")
         .expect(200);
       expect(res.body.data).toHaveLength(0);
     });
@@ -234,8 +247,8 @@ describe('AuctionsModule', () => {
 
   // ── Get one ──
 
-  describe('GET /auctions/:id', () => {
-    it('returns auction with bids', async () => {
+  describe("GET /auctions/:id", () => {
+    it("returns auction with bids", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
         .get(`/auctions/${AUCTION_ID}`)
@@ -245,22 +258,26 @@ describe('AuctionsModule', () => {
       expect(res.body.status).toBe(AuctionStatus.ACTIVE);
     });
 
-    it('returns 404 for unknown auction', async () => {
+    it("returns 404 for unknown auction", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .get('/auctions/does-not-exist')
+        .get("/auctions/does-not-exist")
         .expect(404);
     });
   });
 
   // ── Create ──
 
-  describe('POST /auctions', () => {
-    it('creates auction from a draft listing owned by seller', async () => {
+  describe("POST /auctions", () => {
+    it("creates auction from a draft listing owned by seller", async () => {
       await buildApp(SELLER_ID);
       const res = await request(app.getHttpServer())
-        .post('/auctions')
-        .send({ listingId: LISTING_ID, startingBidCents: 5000, durationDays: 7 })
+        .post("/auctions")
+        .send({
+          listingId: LISTING_ID,
+          startingBidCents: 5000,
+          durationDays: 7,
+        })
         .expect(201);
 
       expect(res.body.listingId).toBe(LISTING_ID);
@@ -272,27 +289,35 @@ describe('AuctionsModule', () => {
       expect(listing.status).toBe(ListingStatus.PUBLISHED);
     });
 
-    it('rejects creation if listing does not exist', async () => {
+    it("rejects creation if listing does not exist", async () => {
       await buildApp(SELLER_ID);
       await request(app.getHttpServer())
-        .post('/auctions')
-        .send({ listingId: 'no-such-listing', startingBidCents: 1000, durationDays: 3 })
+        .post("/auctions")
+        .send({
+          listingId: "no-such-listing",
+          startingBidCents: 1000,
+          durationDays: 3,
+        })
         .expect(404);
     });
 
-    it('rejects if caller is not the listing owner', async () => {
+    it("rejects if caller is not the listing owner", async () => {
       await buildApp(BIDDER_ID); // not the seller
       await request(app.getHttpServer())
-        .post('/auctions')
-        .send({ listingId: LISTING_ID, startingBidCents: 1000, durationDays: 3 })
+        .post("/auctions")
+        .send({
+          listingId: LISTING_ID,
+          startingBidCents: 1000,
+          durationDays: 3,
+        })
         .expect(403);
     });
   });
 
   // ── Bidding ──
 
-  describe('POST /auctions/:id/bids', () => {
-    it('places the first bid at starting price', async () => {
+  describe("POST /auctions/:id/bids", () => {
+    it("places the first bid at starting price", async () => {
       await buildApp(BIDDER_ID);
       const res = await request(app.getHttpServer())
         .post(`/auctions/${AUCTION_ID}/bids`)
@@ -303,7 +328,7 @@ describe('AuctionsModule', () => {
       expect(res.body.amountCents).toBe(1000);
     });
 
-    it('rejects a bid below the minimum', async () => {
+    it("rejects a bid below the minimum", async () => {
       await buildApp(BIDDER_ID);
       // Place first bid to set current price
       await request(app.getHttpServer())
@@ -317,7 +342,7 @@ describe('AuctionsModule', () => {
         .expect(400);
     });
 
-    it('rejects a seller bidding on own auction', async () => {
+    it("rejects a seller bidding on own auction", async () => {
       await buildApp(SELLER_ID);
       await request(app.getHttpServer())
         .post(`/auctions/${AUCTION_ID}/bids`)
@@ -325,15 +350,15 @@ describe('AuctionsModule', () => {
         .expect(403);
     });
 
-    it('returns 404 for unknown auction', async () => {
+    it("returns 404 for unknown auction", async () => {
       await buildApp(BIDDER_ID);
       await request(app.getHttpServer())
-        .post('/auctions/no-such-auction/bids')
+        .post("/auctions/no-such-auction/bids")
         .send({ amountCents: 1000 })
         .expect(404);
     });
 
-    it('proxy bid: existing bidder wins when outbid within max', async () => {
+    it("proxy bid: existing bidder wins when outbid within max", async () => {
       await buildApp(BIDDER_ID);
       // BIDDER_1 places auto-bid with max 5000
       await request(app.getHttpServer())
@@ -351,7 +376,7 @@ describe('AuctionsModule', () => {
       expect(res.body.bidderId).toBe(BIDDER_ID);
     });
 
-    it('anti-sniping extends auction when bid placed in last 2 minutes', async () => {
+    it("anti-sniping extends auction when bid placed in last 2 minutes", async () => {
       await buildApp(BIDDER_ID);
 
       // Set auction to end in 90 seconds
@@ -370,7 +395,7 @@ describe('AuctionsModule', () => {
       expect(updated.endAt.getTime()).toBeGreaterThan(originalEndAt);
     });
 
-    it('rejects bid on ended auction', async () => {
+    it("rejects bid on ended auction", async () => {
       await buildApp(BIDDER_ID);
 
       // Set auction to already ended

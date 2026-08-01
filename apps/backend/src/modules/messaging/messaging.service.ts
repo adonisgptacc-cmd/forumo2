@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
-import { MessageModerationStatus, MessageStatus, Prisma } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
+import { MessageModerationStatus, MessageStatus, Prisma } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
+import { createHash } from "node:crypto";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { sanitizeText } from "../../common/utils/sanitize";
@@ -9,7 +15,11 @@ import { StorageService } from "../storage/storage.service";
 import { CreateThreadDto } from "./dto/create-thread.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { ThreadQueryDto } from "./dto/thread-query.dto";
-import { MessageThreadWithRelations, SafeMessageThread, serializeThread } from "./message.serializer";
+import {
+  MessageThreadWithRelations,
+  SafeMessageThread,
+  serializeThread,
+} from "./message.serializer";
 import { MessagingGateway } from "./messaging.gateway";
 import { MessageModerationService } from "./moderation.service";
 import { CacheService } from "../../common/services/cache.service";
@@ -35,13 +45,18 @@ export class MessagingService implements OnModuleInit {
     private readonly moduleRef: ModuleRef,
     private readonly cache: CacheService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   onModuleInit() {
-    this.messagingGateway = this.moduleRef.get(MessagingGateway, { strict: false });
+    this.messagingGateway = this.moduleRef.get(MessagingGateway, {
+      strict: false,
+    });
   }
 
-  async listThreads(query: ThreadQueryDto, userId: string): Promise<{
+  async listThreads(
+    query: ThreadQueryDto,
+    userId: string,
+  ): Promise<{
     data: SafeMessageThread[];
     total: number;
     page: number;
@@ -49,13 +64,14 @@ export class MessagingService implements OnModuleInit {
     pageCount: number;
   }> {
     const page = query.page && query.page > 0 ? query.page : 1;
-    const pageSize = query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
+    const pageSize =
+      query.pageSize && query.pageSize > 0 ? Math.min(query.pageSize, 100) : 20;
     const where: Prisma.MessageThreadWhereInput = {
       participants: { some: { userId } },
       listingId: query.listingId ?? undefined,
     };
 
-    const cacheKey = this.buildCacheKey({ ...query, page, pageSize });
+    const cacheKey = this.buildCacheKey(userId, { ...query, page, pageSize });
     const cached = await this.cache.get<{
       data: SafeMessageThread[];
       total: number;
@@ -71,14 +87,15 @@ export class MessagingService implements OnModuleInit {
       this.prisma.messageThread.count({ where }),
       this.prisma.messageThread.findMany({
         where,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { updatedAt: "desc" },
         include: this.defaultInclude,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
     ]);
 
-    const pageCount = pageSize === 0 ? 0 : Math.max(1, Math.ceil(total / pageSize));
+    const pageCount =
+      pageSize === 0 ? 0 : Math.max(1, Math.ceil(total / pageSize));
     const response = {
       data: threads.map((thread) => serializeThread(thread)),
       total,
@@ -97,23 +114,28 @@ export class MessagingService implements OnModuleInit {
       include: this.defaultInclude,
     });
     if (!thread) {
-      throw new NotFoundException('Thread not found');
+      throw new NotFoundException("Thread not found");
     }
     return serializeThread(thread);
   }
 
-  async createThread(dto: CreateThreadDto, userId: string): Promise<SafeMessageThread> {
+  async createThread(
+    dto: CreateThreadDto,
+    userId: string,
+  ): Promise<SafeMessageThread> {
     if (!dto.participants.some((p) => p.userId === userId)) {
-      throw new BadRequestException('Authenticated user must be a participant in the thread');
+      throw new BadRequestException(
+        "Authenticated user must be a participant in the thread",
+      );
     }
     await this.ensureParticipantsExist(dto.participants.map((p) => p.userId));
     if (dto.listingId) {
       await this.ensureListingExists(dto.listingId);
     }
 
-    if (dto.initialMessage) {
-      dto.initialMessage.authorId = userId;
-    }
+    const initialMessage = dto.initialMessage
+      ? { ...dto.initialMessage, authorId: userId }
+      : undefined;
 
     const thread = await this.prisma.messageThread.create({
       data: {
@@ -131,18 +153,29 @@ export class MessagingService implements OnModuleInit {
       })),
     });
 
-    if (dto.initialMessage) {
-      await this.addMessage(thread.id, dto.initialMessage);
+    if (initialMessage) {
+      await this.addMessage(thread.id, initialMessage);
+    } else {
+      await this.invalidateThreadCaches(
+        dto.participants.map((participant) => participant.userId),
+      );
     }
 
     return this.getThread(thread.id, userId);
   }
 
-  async addMessage(id: string, dto: SendMessageDto, attachments: Express.Multer.File[] = []): Promise<SafeMessageThread> {
+  async addMessage(
+    id: string,
+    dto: SendMessageDto,
+    attachments: Express.Multer.File[] = [],
+  ): Promise<SafeMessageThread> {
     const thread = await this.ensureThreadExists(id);
     await this.ensureParticipantInThread(id, dto.authorId);
 
-    const storedAttachments = await this.persistUploadedAttachments(id, attachments);
+    const storedAttachments = await this.persistUploadedAttachments(
+      id,
+      attachments,
+    );
     const moderationDecision = await this.moderation.scanMessage({
       threadId: id,
       authorId: dto.authorId,
@@ -165,21 +198,22 @@ export class MessagingService implements OnModuleInit {
         moderationNotes: moderationDecision.notes ?? null,
         attachments: storedAttachments.length
           ? {
-            create: storedAttachments.map((attachment) => ({
-              bucket: attachment.bucket,
-              storageKey: attachment.storageKey,
-              url: attachment.url,
-              fileName: attachment.fileName,
-              mimeType: attachment.mimeType,
-              fileSize: attachment.fileSize,
-              metadata: this.toJsonInput(attachment.metadata),
-            })),
-          }
+              create: storedAttachments.map((attachment) => ({
+                bucket: attachment.bucket,
+                storageKey: attachment.storageKey,
+                url: attachment.url,
+                fileName: attachment.fileName,
+                mimeType: attachment.mimeType,
+                fileSize: attachment.fileSize,
+                metadata: this.toJsonInput(attachment.metadata),
+              })),
+            }
           : undefined,
         receipts: {
           create: thread.participants.map((participant) => ({
             userId: participant.userId,
-            deliveredAt: participant.userId === dto.authorId ? new Date() : null,
+            deliveredAt:
+              participant.userId === dto.authorId ? new Date() : null,
             readAt: participant.userId === dto.authorId ? new Date() : null,
           })),
         },
@@ -187,7 +221,13 @@ export class MessagingService implements OnModuleInit {
       include: { attachments: true, receipts: true },
     });
 
-    await this.prisma.messageThread.update({ where: { id }, data: { updatedAt: new Date() } });
+    await this.prisma.messageThread.update({
+      where: { id },
+      data: { updatedAt: new Date() },
+    });
+    await this.invalidateThreadCaches(
+      thread.participants.map((participant) => participant.userId),
+    );
 
     const updatedThread = await this.getThread(id, dto.authorId);
     if (moderationDecision.status === MessageModerationStatus.APPROVED) {
@@ -205,6 +245,7 @@ export class MessagingService implements OnModuleInit {
     });
     if (result.count > 0) {
       await this.refreshMessageStatus(messageId);
+      await this.invalidateMessageCaches(messageId);
     }
   }
 
@@ -217,13 +258,21 @@ export class MessagingService implements OnModuleInit {
     });
     if (result.count > 0) {
       await this.refreshMessageStatus(messageId);
+      await this.invalidateMessageCaches(messageId);
     }
   }
 
-  private async ensureReceiptExists(messageId: string, userId: string): Promise<void> {
-    const receipt = await this.prisma.messageDeliveryReceipt.findFirst({ where: { messageId, userId } });
+  private async ensureReceiptExists(
+    messageId: string,
+    userId: string,
+  ): Promise<void> {
+    const receipt = await this.prisma.messageDeliveryReceipt.findFirst({
+      where: { messageId, userId },
+    });
     if (!receipt) {
-      throw new NotFoundException('Receipt not found for this message and user');
+      throw new NotFoundException(
+        "Receipt not found for this message and user",
+      );
     }
   }
 
@@ -236,7 +285,10 @@ export class MessagingService implements OnModuleInit {
     }
     const results: AttachmentInput[] = [];
     for (const file of files) {
-      const stored = await this.storageService.saveMessageAttachment(threadId, file);
+      const stored = await this.storageService.saveMessageAttachment(
+        threadId,
+        file,
+      );
       results.push({
         bucket: stored.bucket,
         storageKey: stored.key,
@@ -250,50 +302,68 @@ export class MessagingService implements OnModuleInit {
   }
 
   private async refreshMessageStatus(messageId: string): Promise<void> {
-    const receipts = await this.prisma.messageDeliveryReceipt.findMany({ where: { messageId } });
+    const receipts = await this.prisma.messageDeliveryReceipt.findMany({
+      where: { messageId },
+    });
     if (!receipts.length) {
       return;
     }
     const allDelivered = receipts.every((receipt) => receipt.deliveredAt);
     const allRead = receipts.every((receipt) => receipt.readAt);
-    const newStatus = allRead ? MessageStatus.READ : allDelivered ? MessageStatus.DELIVERED : MessageStatus.SENT;
-    await this.prisma.message.update({ where: { id: messageId }, data: { status: newStatus } });
+    const newStatus = allRead
+      ? MessageStatus.READ
+      : allDelivered
+        ? MessageStatus.DELIVERED
+        : MessageStatus.SENT;
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data: { status: newStatus },
+    });
   }
 
   private async ensureParticipantsExist(userIds: string[]): Promise<void> {
     if (!userIds.length) {
-      throw new NotFoundException('Participants are required');
+      throw new NotFoundException("Participants are required");
     }
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds }, deletedAt: null } });
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, deletedAt: null },
+    });
     if (users.length !== userIds.length) {
-      throw new NotFoundException('One or more participants do not exist');
+      throw new NotFoundException("One or more participants do not exist");
     }
   }
 
   private async ensureListingExists(listingId: string): Promise<void> {
-    const listing = await this.prisma.listing.findFirst({ where: { id: listingId, deletedAt: null } });
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, deletedAt: null },
+    });
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException("Listing not found");
     }
   }
 
-  private async ensureThreadExists(id: string): Promise<MessageThreadWithRelations> {
+  private async ensureThreadExists(
+    id: string,
+  ): Promise<MessageThreadWithRelations> {
     const thread = await this.prisma.messageThread.findFirst({
       where: { id },
       include: this.defaultInclude,
     });
     if (!thread) {
-      throw new NotFoundException('Thread not found');
+      throw new NotFoundException("Thread not found");
     }
     return thread;
   }
 
-  private async ensureParticipantInThread(threadId: string, userId: string): Promise<void> {
+  private async ensureParticipantInThread(
+    threadId: string,
+    userId: string,
+  ): Promise<void> {
     const participant = await this.prisma.messageThreadParticipant.findFirst({
       where: { threadId, userId },
     });
     if (!participant) {
-      throw new NotFoundException('User is not part of this conversation');
+      throw new NotFoundException("User is not part of this conversation");
     }
   }
 
@@ -314,7 +384,7 @@ export class MessagingService implements OnModuleInit {
       where: { threadId, userId },
     });
     if (!participant) {
-      throw new NotFoundException('Thread not found');
+      throw new NotFoundException("Thread not found");
     }
     const now = new Date();
     await this.prisma.messageDeliveryReceipt.updateMany({
@@ -325,6 +395,11 @@ export class MessagingService implements OnModuleInit {
       where: { id: participant.id },
       data: { lastReadAt: now },
     });
+    const participants = await this.prisma.messageThreadParticipant.findMany({
+      where: { threadId },
+      select: { userId: true },
+    });
+    await this.invalidateThreadCaches(participants.map((item) => item.userId));
   }
 
   private get defaultInclude() {
@@ -335,18 +410,44 @@ export class MessagingService implements OnModuleInit {
         },
       },
       messages: {
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
         include: { attachments: true, receipts: true },
       },
     } satisfies Prisma.MessageThreadInclude;
   }
 
-  private buildCacheKey(query: ThreadQueryDto): string {
-    return `messages:threads:${JSON.stringify(query)}`;
+  private buildCacheKey(userId: string, query: ThreadQueryDto): string {
+    const digest = createHash("sha256")
+      .update(JSON.stringify(query))
+      .digest("hex");
+    return `messages:threads:${userId}:${digest}`;
+  }
+
+  private async invalidateMessageCaches(messageId: string): Promise<void> {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: {
+        thread: { select: { participants: { select: { userId: true } } } },
+      },
+    });
+    await this.invalidateThreadCaches(
+      message?.thread.participants.map((participant) => participant.userId) ??
+        [],
+    );
+  }
+
+  private async invalidateThreadCaches(userIds: string[]): Promise<void> {
+    await Promise.all(
+      [...new Set(userIds)].map((userId) =>
+        this.cache.deleteByPrefix(`messages:threads:${userId}:`),
+      ),
+    );
   }
 
   private get cacheTtlMs() {
-    const ttlSeconds = Number(this.configService.get<string>('CACHE_TTL_SECONDS') ?? 30);
+    const ttlSeconds = Number(
+      this.configService.get<string>("CACHE_TTL_SECONDS") ?? 30,
+    );
     return (Number.isNaN(ttlSeconds) ? 30 : ttlSeconds) * 1000;
   }
 }
