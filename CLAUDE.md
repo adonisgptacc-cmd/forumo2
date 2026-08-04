@@ -29,27 +29,27 @@ forumo2/
 
 ### Per app/package
 
-| App / Package | Language | Framework | Key Libraries | ORM / DB |
-|---|---|---|---|---|
-| `apps/backend` | TypeScript 5.4 | NestJS 10 | Prisma 5.20, BullMQ 5, Socket.IO 4.8, Stripe SDK 20, Shippo 2.18, Pino 9, nestjs-zod 5 | Prisma → PostgreSQL 16 |
-| `apps/web` | TypeScript 5.4 | Next.js 15 (App Router) | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1, Stripe.js 5, Framer Motion 12, React Hook Form 7, Recharts 3, Socket.IO client 4.8 | — (API-only) |
-| `apps/admin` | TypeScript 5.4 | Next.js 15 (App Router) | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1 | — (API-only) |
-| `apps/mobile` | TypeScript | Expo 50 / React Native 0.73 | React Navigation 7, expo-notifications, @forumo/shared | — (API-only) |
-| `apps/moderation-service` | Python 3 | FastAPI 0.115 | Uvicorn 0.30, Pydantic, OpenTelemetry 1.27 | — (stateless) |
-| `packages/shared` | TypeScript 5.4 | — | Zod 3.23 | — |
-| `packages/design-system` | TypeScript 5.4 | React 18 (peer) | clsx 2, tailwind-merge 3 | — |
+| App / Package             | Language       | Framework                   | Key Libraries                                                                                                                           | ORM / DB               |
+| ------------------------- | -------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `apps/backend`            | TypeScript 5.4 | NestJS 10                   | Prisma 5.20, BullMQ 5, Socket.IO 4.8, Stripe SDK 20, Shippo 2.18, Pino 9, nestjs-zod 5                                                  | Prisma → PostgreSQL 16 |
+| `apps/web`                | TypeScript 5.4 | Next.js 15 (App Router)     | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1, Stripe.js 5, Framer Motion 12, React Hook Form 7, Recharts 3, Socket.IO client 4.8 | — (API-only)           |
+| `apps/admin`              | TypeScript 5.4 | Next.js 15 (App Router)     | NextAuth 4.24, TanStack Query 5.51, TailwindCSS 4.1                                                                                     | — (API-only)           |
+| `apps/mobile`             | TypeScript     | Expo 50 / React Native 0.73 | React Navigation 7, expo-notifications, @forumo/shared                                                                                  | — (API-only)           |
+| `apps/moderation-service` | Python 3       | FastAPI 0.115               | Uvicorn 0.30, Pydantic, OpenTelemetry 1.27                                                                                              | — (stateless)          |
+| `packages/shared`         | TypeScript 5.4 | —                           | Zod 3.23                                                                                                                                | —                      |
+| `packages/design-system`  | TypeScript 5.4 | React 18 (peer)             | clsx 2, tailwind-merge 3                                                                                                                | —                      |
 
 ### Shared infrastructure
 
-| Layer | Technology |
-|---|---|
-| Package manager | pnpm 9.1.4 |
-| Task runner | Turbo 2.x |
-| Node version | 20+ |
-| Database | PostgreSQL 16 |
-| Cache / queues | Redis 7 |
-| Object storage | MinIO (S3-compatible) |
-| Email preview | Mailpit |
+| Layer           | Technology            |
+| --------------- | --------------------- |
+| Package manager | pnpm 9.1.4            |
+| Task runner     | Turbo 2.x             |
+| Node version    | 20+                   |
+| Database        | PostgreSQL 16         |
+| Cache / queues  | Redis 7               |
+| Object storage  | MinIO (S3-compatible) |
+| Email preview   | Mailpit               |
 
 ## Environment setup (run in order)
 
@@ -103,6 +103,7 @@ Web: `NEXT_PUBLIC_API_BASE_URL`, `NEXTAUTH_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHA
 ## CI pipeline
 
 `.github/workflows/ci.yml` runs on every push and PR:
+
 1. **Lint** — ESLint, Prettier, TypeScript typecheck
 2. **Test** — Jest matrix across backend/web/mobile/shared with Postgres + Redis service containers
 3. **E2E** — Playwright tests against `docker-compose.test.yml`
@@ -118,6 +119,7 @@ Web: `NEXT_PUBLIC_API_BASE_URL`, `NEXTAUTH_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHA
 ## TypeScript health
 
 `pnpm typecheck` passes clean across `apps/backend`, `apps/web`, and `packages/shared`. Before opening a PR, run:
+
 ```bash
 pnpm --filter backend exec tsc --noEmit
 pnpm --filter web exec tsc --noEmit
@@ -155,15 +157,15 @@ pnpm --filter @forumo/shared exec tsc --noEmit
 
 As of last update (2026-05-29):
 
-| Gap | Notes |
-|---|---|
-| ~~**Account suspension enforcement**~~ | RESOLVED — enforced via `assertAccountActive()` inside `JwtStrategy.validate()` (not a guard). Blocks SUSPENDED/BANNED on every authenticated route. See `apps/backend/CLAUDE.md` "Guard and interceptor chain". |
-| ~~**Authenticated-only review submission**~~ | RESOLVED — `POST/PATCH/DELETE /reviews` now require `JwtAuthGuard`. `reviewerId` is taken from the token (never the body); `update`/`remove` enforce author-or-ADMIN/MODERATOR; party-to-order check (`checkPurchaseEligibility`) was already present. |
-| ~~**Seller payout flow (ZAR)**~~ | RESOLVED — ZAR is actually charged via Paystack, not Stripe (`PaymentProviderFactory` routes NGN/GHS/KES/ZAR to Paystack). Fixed two bugs: `createTransferRecipient` (`paystack.service.ts`) hardcoded Paystack recipient `type: 'nuban'` for every currency — now maps ZAR to `'basa'` (Nigeria keeps `'nuban'`; GHS/KES still unverified, left as-is). `schedulePayouts()` (`payouts.service.ts`) created PENDING `Payout` rows but nothing ever called `processPayout()` on them — added a second cron (`processPendingPayouts`, 4am) to actually process them. Non-ZAR Stripe Connect payout path is untouched and still unverified end-to-end. |
-| ~~**Revenue admin dashboard**~~ | RESOLVED — `apps/admin/src/app/admin/analytics/page.tsx` is built and wired into the sidebar nav, consuming `GET /admin/dashboard/analytics`. The 6 built admin pages are users, kyc, listings, moderation, disputes, analytics — there is no dedicated `/admin` overview page (`/admin` redirects to `/admin/users`). |
-| ~~**Frontend — escrow dispute UI**~~ | RESOLVED — buyer-facing board + detail at `apps/web/src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, `error.tsx`). |
-| ~~**Frontend — cart variant integration**~~ | RESOLVED — variants flow end-to-end: selector in `listing-detail.tsx` → `cart-context.tsx` (keyed by `listingId:variantId`) → `checkout-flow.tsx` → `createOrderItemSchema` → `orders.service.ts` → `OrderItem`/`CartItem` in the Prisma schema. |
-| **Mobile app** | 27 screens implemented and navigation-wired (auth, listings, cart, checkout, KYC, orders, offers, messaging, reviews, storefront, seller dashboard). Caveats: data fetching is direct `useAuth().apiClient` calls (no React Query), no test suite, not verified end-to-end against a live backend. |
+| Gap                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~**Account suspension enforcement**~~       | RESOLVED — enforced via `assertAccountActive()` inside `JwtStrategy.validate()` (not a guard). Blocks SUSPENDED/BANNED on every authenticated route. See `apps/backend/CLAUDE.md` "Guard and interceptor chain".                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ~~**Authenticated-only review submission**~~ | RESOLVED — `POST/PATCH/DELETE /reviews` now require `JwtAuthGuard`. `reviewerId` is taken from the token (never the body); `update`/`remove` enforce author-or-ADMIN/MODERATOR; party-to-order check (`checkPurchaseEligibility`) was already present.                                                                                                                                                                                                                                                                                                                                                                                              |
+| ~~**Seller payout flow (ZAR)**~~             | RESOLVED — ZAR is actually charged via Paystack, not Stripe (`PaymentProviderFactory` routes NGN/GHS/KES/ZAR to Paystack). Fixed two bugs: `createTransferRecipient` (`paystack.service.ts`) hardcoded Paystack recipient `type: 'nuban'` for every currency — now maps ZAR to `'basa'` (Nigeria keeps `'nuban'`; GHS/KES still unverified, left as-is). `schedulePayouts()` (`payouts.service.ts`) created PENDING `Payout` rows but nothing ever called `processPayout()` on them — added a second cron (`processPendingPayouts`, 4am) to actually process them. Non-ZAR Stripe Connect payout path is untouched and still unverified end-to-end. |
+| ~~**Revenue admin dashboard**~~              | RESOLVED — `apps/admin/src/app/admin/analytics/page.tsx` is built and wired into the sidebar nav, consuming `GET /admin/dashboard/analytics`. The 6 built admin pages are users, kyc, listings, moderation, disputes, analytics — there is no dedicated `/admin` overview page (`/admin` redirects to `/admin/users`).                                                                                                                                                                                                                                                                                                                              |
+| ~~**Frontend — escrow dispute UI**~~         | RESOLVED — buyer-facing board + detail at `apps/web/src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, `error.tsx`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ~~**Frontend — cart variant integration**~~  | RESOLVED — variants flow end-to-end: selector in `listing-detail.tsx` → `cart-context.tsx` (keyed by `listingId:variantId`) → `checkout-flow.tsx` → `createOrderItemSchema` → `orders.service.ts` → `OrderItem`/`CartItem` in the Prisma schema.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Mobile app**                               | 27 screens implemented and navigation-wired (auth, listings, cart, checkout, KYC, orders, offers, messaging, reviews, storefront, seller dashboard). Caveats: data fetching is direct `useAuth().apiClient` calls (no React Query), no test suite, not verified end-to-end against a live backend.                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Agent instructions
 

@@ -4,18 +4,18 @@ Next.js 15 (App Router) frontend for Forumo buyers and sellers. Handles listing 
 
 ## Tech stack
 
-| | Version |
-|---|---|
-| Next.js | 15.0.0-canary.36 |
-| React | 18.3.x |
-| NextAuth | 4.24.x |
-| TanStack Query | 5.51.x |
-| TailwindCSS | 4.1.x |
-| Stripe.js | @stripe/react-stripe-js 5.x |
-| Framer Motion | 12.x |
-| Socket.IO client | 4.8.x |
-| React Hook Form | 7.x |
-| Recharts | 3.x |
+|                  | Version                     |
+| ---------------- | --------------------------- |
+| Next.js          | 15.0.0-canary.36            |
+| React            | 18.3.x                      |
+| NextAuth         | 4.24.x                      |
+| TanStack Query   | 5.51.x                      |
+| TailwindCSS      | 4.1.x                       |
+| Stripe.js        | @stripe/react-stripe-js 5.x |
+| Framer Motion    | 12.x                        |
+| Socket.IO client | 4.8.x                       |
+| React Hook Form  | 7.x                         |
+| Recharts         | 3.x                         |
 
 ## Run locally
 
@@ -91,6 +91,7 @@ src/app/
 `src/lib/auth.ts` — NextAuth v4, JWT session strategy.
 
 Two Credentials providers:
+
 1. **token-auth** — accepts a pre-issued JWT token, calls `/auth/me` to validate it.
 2. **credentials** — email/password login via `api.auth.login()`. In dev with `NEXT_PUBLIC_USE_API_MOCKS=true`, falls back to a mock SELLER user when the API call fails.
 
@@ -101,15 +102,15 @@ Access tokens are short-lived (15 minutes). The NextAuth JWT callback silently c
 ## ForumoApiClient usage
 
 ```ts
-import { useApiClient } from '@/lib/use-api-client';
+import { useApiClient } from "@/lib/use-api-client";
 
 // In a component
 const api = useApiClient(); // returns ForumoApiClient with session token attached
 
 // Or directly
-import { createApiClient } from '@/lib/api-client';
+import { createApiClient } from "@/lib/api-client";
 const api = createApiClient(token);
-await api.listings.search({ q: 'shoes', page: 1 });
+await api.listings.search({ q: "shoes", page: 1 });
 ```
 
 `src/lib/api-client.ts` wraps `ForumoApiClient` from `@forumo/shared` and attaches the NextAuth session token. When `NEXT_PUBLIC_USE_API_MOCKS=true`, it returns a mock client backed by `sessionStorage`.
@@ -119,10 +120,11 @@ await api.listings.search({ q: 'shoes', page: 1 });
 All hooks live in `src/lib/react-query/hooks.ts`. Query keys are in `src/lib/react-query/query-keys.ts`.
 
 Pattern for a new data-fetching hook:
+
 ```ts
 // query-keys.ts
 export const keys = {
-  myThing: (id: string) => ['my-thing', id] as const,
+  myThing: (id: string) => ["my-thing", id] as const,
 };
 
 // hooks.ts
@@ -136,6 +138,7 @@ export function useMyThing(id: string) {
 ```
 
 Pattern for a mutation hook:
+
 ```ts
 export function useUpdateMyThing() {
   const api = useApiClient();
@@ -152,6 +155,7 @@ export function useUpdateMyThing() {
 Config is via `postcss.config.mjs` using `@tailwindcss/postcss`. There is no `tailwind.config.js` — Tailwind 4 reads config from `globals.css` directly.
 
 Custom design tokens (defined in `globals.css`):
+
 - `forumo-orange` — primary brand orange
 - `forumo-gold` — accent gold
 - `forumo-link` — link colour
@@ -159,9 +163,10 @@ Custom design tokens (defined in `globals.css`):
 - `btn-forumo` — primary button utility class
 
 Always use `clsx` + `tailwind-merge` for conditional className composition:
+
 ```ts
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 ```
 
@@ -172,11 +177,12 @@ const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 - **Escrow dispute UI** — Implemented. Buyer-facing board + detail at `src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, with an `error.tsx`).
 - **Cart variant integration** — Implemented. Variant selector in `listing-detail.tsx` sets `variantId`/`variantLabel`, which `cart-context.tsx` keys line items by (`listingId:variantId`) and `checkout-flow.tsx` carries through to order creation.
 - **Error boundaries** — Implemented. 11 `error.tsx` segments exist (root, `listings`, `auctions`, `login`, `shops/[slug]`, and several under `(authenticated)/app/` and `(admin)/admin/`).
-- **Admin panel** — an `(admin)` route group exists in this app *and* there is a separate `apps/admin` dashboard. Both are wired and typecheck clean.
+- **Admin panel** — an `(admin)` route group exists in this app _and_ there is a separate `apps/admin` dashboard. Both are wired and typecheck clean.
 
 ## TypeScript status
 
 `tsc --noEmit` is clean (zero errors). Non-obvious things keeping it that way:
+
 - All listing search hooks return `response.data` (paginated), not `response.listings` — the API wraps results in `{ data, total, page, pageSize, pageCount }`.
 - `useEscrowDetails` is typed as `Record<string, unknown>`, not `unknown`, so it can be spread in JSX without errors.
 - `auth.ts` JWT callback is annotated `: Promise<any>` to allow `null` return on token expiry.

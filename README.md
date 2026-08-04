@@ -12,16 +12,16 @@ A peer-to-peer marketplace with escrow-protected payments, seller verification, 
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|------------|
-| Backend API | NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, BullMQ, Socket.IO |
-| Frontend | Next.js 15, React 18, TailwindCSS 4, NextAuth v4, TanStack Query v5 |
-| Payments | Stripe (escrow + capture) |
-| Storage | MinIO (S3-compatible) |
-| Moderation | FastAPI (Python 3) — separate service |
-| Mobile | Expo 50 / React Native 0.73 (pre-alpha — not functional yet) |
-| Shared | Zod schemas + typed API client (`packages/shared`) |
-| Infra | Docker Compose (dev), Kubernetes (planned) |
+| Layer       | Technology                                                          |
+| ----------- | ------------------------------------------------------------------- |
+| Backend API | NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, BullMQ, Socket.IO      |
+| Frontend    | Next.js 15, React 18, TailwindCSS 4, NextAuth v4, TanStack Query v5 |
+| Payments    | Stripe (escrow + capture)                                           |
+| Storage     | MinIO (S3-compatible)                                               |
+| Moderation  | FastAPI (Python 3) — separate service                               |
+| Mobile      | Expo 50 / React Native 0.73 (pre-alpha — not functional yet)        |
+| Shared      | Zod schemas + typed API client (`packages/shared`)                  |
+| Infra       | Docker Compose (dev), Kubernetes (planned)                          |
 
 ## Getting started
 
@@ -72,15 +72,15 @@ pnpm db:setup
 pnpm dev
 ```
 
-| Service | URL |
-|---------|-----|
-| Web app | http://localhost:3000 |
-| Admin dashboard | http://localhost:3001 |
-| Backend API | http://localhost:4000 |
-| API docs (Swagger) | http://localhost:4000/docs |
-| Moderation service | http://localhost:5005 |
-| MinIO console | http://localhost:9001 |
-| Email viewer (Mailpit) | http://localhost:8025 |
+| Service                | URL                        |
+| ---------------------- | -------------------------- |
+| Web app                | http://localhost:3000      |
+| Admin dashboard        | http://localhost:3001      |
+| Backend API            | http://localhost:4000      |
+| API docs (Swagger)     | http://localhost:4000/docs |
+| Moderation service     | http://localhost:5005      |
+| MinIO console          | http://localhost:9001      |
+| Email viewer (Mailpit) | http://localhost:8025      |
 
 ---
 
@@ -90,35 +90,35 @@ All variables live in a single `.env` file at the repo root. Copy `.env.example`
 
 ### Backend
 
-| Variable | What it does | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `REDIS_URL` | Redis connection string | Yes |
-| `JWT_SECRET` | Signs access tokens — **change in production** | Yes |
-| `JWT_TTL` | Access token TTL in seconds (default: `900`) | Yes |
-| `STRIPE_SECRET_KEY` | Stripe API key for payment capture | Yes |
-| `PAYSTACK_SECRET_KEY` | Paystack API key for NGN/GHS/KES/ZAR payments | Yes |
-| `MINIO_ENDPOINT` | MinIO / S3 host | Yes |
-| `MINIO_ACCESS_KEY` | MinIO access key | Yes |
-| `MINIO_SECRET_KEY` | MinIO secret key | Yes |
-| `UPLOADS_BUCKET` | S3 bucket name for user uploads | Yes |
-| `MODERATION_SERVICE_URL` | URL of the moderation microservice | Yes |
-| `FRONTEND_URL` | Used for CORS and email callback links | Yes |
-| `MAILGUN_API_KEY` | Mailgun for email — omit to use Mailpit dev simulator | Optional |
-| `SNS_ACCESS_KEY_ID` | AWS SNS for SMS OTP — omit to use dev simulator | Optional |
-| `GOOGLE_CLIENT_ID` | Google OAuth — omit to disable | Optional |
+| Variable                 | What it does                                          | Required |
+| ------------------------ | ----------------------------------------------------- | -------- |
+| `DATABASE_URL`           | PostgreSQL connection string                          | Yes      |
+| `REDIS_URL`              | Redis connection string                               | Yes      |
+| `JWT_SECRET`             | Signs access tokens — **change in production**        | Yes      |
+| `JWT_TTL`                | Access token TTL in seconds (default: `900`)          | Yes      |
+| `STRIPE_SECRET_KEY`      | Stripe API key for payment capture                    | Yes      |
+| `PAYSTACK_SECRET_KEY`    | Paystack API key for NGN/GHS/KES/ZAR payments         | Yes      |
+| `MINIO_ENDPOINT`         | MinIO / S3 host                                       | Yes      |
+| `MINIO_ACCESS_KEY`       | MinIO access key                                      | Yes      |
+| `MINIO_SECRET_KEY`       | MinIO secret key                                      | Yes      |
+| `UPLOADS_BUCKET`         | S3 bucket name for user uploads                       | Yes      |
+| `MODERATION_SERVICE_URL` | URL of the moderation microservice                    | Yes      |
+| `FRONTEND_URL`           | Used for CORS and email callback links                | Yes      |
+| `MAILGUN_API_KEY`        | Mailgun for email — omit to use Mailpit dev simulator | Optional |
+| `SNS_ACCESS_KEY_ID`      | AWS SNS for SMS OTP — omit to use dev simulator       | Optional |
+| `GOOGLE_CLIENT_ID`       | Google OAuth — omit to disable                        | Optional |
 
 ### Frontend
 
-| Variable | What it does | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL | Yes |
-| `NEXT_PUBLIC_WS_URL` | WebSocket server URL for real-time messaging | Yes |
-| `NEXTAUTH_URL` | NextAuth canonical URL | Yes |
-| `NEXTAUTH_SECRET` | NextAuth session signing key — **change in production** | Yes |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key for checkout | Yes |
-| `NEXT_PUBLIC_TOS_VERSION` | Must match backend `TOS_VERSION` env var | Yes |
-| `NEXT_PUBLIC_USE_API_MOCKS` | Enable frontend mocks (development only, never production) | Optional |
+| Variable                             | What it does                                               | Required |
+| ------------------------------------ | ---------------------------------------------------------- | -------- |
+| `NEXT_PUBLIC_API_BASE_URL`           | Backend API base URL                                       | Yes      |
+| `NEXT_PUBLIC_WS_URL`                 | WebSocket server URL for real-time messaging               | Yes      |
+| `NEXTAUTH_URL`                       | NextAuth canonical URL                                     | Yes      |
+| `NEXTAUTH_SECRET`                    | NextAuth session signing key — **change in production**    | Yes      |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key for checkout                             | Yes      |
+| `NEXT_PUBLIC_TOS_VERSION`            | Must match backend `TOS_VERSION` env var                   | Yes      |
+| `NEXT_PUBLIC_USE_API_MOCKS`          | Enable frontend mocks (development only, never production) | Optional |
 
 ---
 
@@ -165,10 +165,12 @@ For a minimal production setup:
 ## Roadmap
 
 **Next (before public launch)**
+
 - Validate the non-ZAR Stripe Connect payout path end-to-end (ZAR/Paystack payouts already validated and automated)
 - Test mobile app against a live backend
 
 **Soon**
+
 - Seller analytics dashboard
 - Shipping label generation (Shippo / EasyPost)
 - Counter-offer negotiation
@@ -176,6 +178,7 @@ For a minimal production setup:
 - Real-time auction bid updates via WebSocket
 
 **Later**
+
 - Mobile app (React Native / Expo)
 - Promoted listings
 - Bundle discounts

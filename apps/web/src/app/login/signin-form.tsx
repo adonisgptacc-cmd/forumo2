@@ -1,30 +1,30 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
 
-import { ApiError, type AuthResponse } from '@forumo/shared';
+import { ApiError, type AuthResponse } from "@forumo/shared";
 
-import { createApiClient } from '../../lib/api-client';
-import { GoogleSignInButton } from '../../components/google-signin-button';
+import { createApiClient } from "../../lib/api-client";
+import { GoogleSignInButton } from "../../components/google-signin-button";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') ?? '/app';
+  const callbackUrl = searchParams?.get("callbackUrl") ?? "/app";
   const api = createApiClient();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const resetSuccess = searchParams?.get('reset') === 'success';
+  const resetSuccess = searchParams?.get("reset") === "success";
 
   const persistAuth = useCallback((auth: AuthResponse) => {
     try {
-      localStorage.setItem('forumo.accessToken', auth.accessToken);
-      localStorage.setItem('forumo.user', JSON.stringify(auth.user));
+      localStorage.setItem("forumo.accessToken", auth.accessToken);
+      localStorage.setItem("forumo.user", JSON.stringify(auth.user));
     } catch {
       // ignore write errors (e.g., Safari private mode)
     }
@@ -38,23 +38,25 @@ export function LoginForm() {
       const result = await api.auth.login({ email, password });
 
       // ── 2FA gate ────────────────────────────────────────────────────────
-      if ('twoFactorToken' in result) {
+      if ("twoFactorToken" in result) {
         try {
-          sessionStorage.setItem('forumo.2faToken', result.twoFactorToken);
-          sessionStorage.setItem('forumo.callbackUrl', callbackUrl);
-        } catch { /* ignore */ }
+          sessionStorage.setItem("forumo.2faToken", result.twoFactorToken);
+          sessionStorage.setItem("forumo.callbackUrl", callbackUrl);
+        } catch {
+          /* ignore */
+        }
 
-        if ('twoFactorSetupRequired' in result) {
-          router.push('/login/2fa?mode=setup' as any);
+        if ("twoFactorSetupRequired" in result) {
+          router.push("/login/2fa?mode=setup" as any);
         } else {
-          router.push('/login/2fa?mode=verify' as any);
+          router.push("/login/2fa?mode=verify" as any);
         }
         return;
       }
 
       // ── Full auth response (should not happen if 2FA is mandatory) ──────
       persistAuth(result);
-      const nextAuthResult = await signIn('token-auth', {
+      const nextAuthResult = await signIn("token-auth", {
         token: result.accessToken,
         redirect: false,
         callbackUrl,
@@ -64,12 +66,18 @@ export function LoginForm() {
       router.refresh();
     } catch (err) {
       try {
-        localStorage.removeItem('forumo.accessToken');
-        localStorage.removeItem('forumo.user');
-      } catch { /* ignore */ }
+        localStorage.removeItem("forumo.accessToken");
+        localStorage.removeItem("forumo.user");
+      } catch {
+        /* ignore */
+      }
       const apiErrorMessage = err instanceof ApiError ? err.message : null;
       const genericMessage = err instanceof Error ? err.message : null;
-      setError(apiErrorMessage || genericMessage || 'Unable to sign in. Double-check your credentials.');
+      setError(
+        apiErrorMessage ||
+          genericMessage ||
+          "Unable to sign in. Double-check your credentials.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -105,7 +113,10 @@ export function LoginForm() {
         />
       </label>
       <div className="flex justify-end">
-        <Link className="text-xs text-[color:var(--accent)] hover:underline" href="/forgot-password">
+        <Link
+          className="text-xs text-[color:var(--accent)] hover:underline"
+          href="/forgot-password"
+        >
           Forgot password?
         </Link>
       </div>
@@ -115,15 +126,23 @@ export function LoginForm() {
         className="btn btn-primary btn-block"
         disabled={isSubmitting}
       >
-        {isSubmitting ? 'Signing in…' : 'Sign in'}
+        {isSubmitting ? "Signing in…" : "Sign in"}
       </button>
       <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[color:var(--line)]" /></div>
-        <div className="relative flex justify-center text-xs"><span className="bg-[color:var(--surface)] px-2 muted">or</span></div>
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-[color:var(--line)]" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-[color:var(--surface)] px-2 muted">or</span>
+        </div>
       </div>
       <GoogleSignInButton />
       <p className="text-center text-xs muted">
-        Need an account? <a className="text-[color:var(--accent)]" href="/signup">Create one</a> to unlock dashboards.
+        Need an account?{" "}
+        <a className="text-[color:var(--accent)]" href="/signup">
+          Create one
+        </a>{" "}
+        to unlock dashboards.
       </p>
     </form>
   );

@@ -1,8 +1,8 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from "crypto";
 
-import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
-import { firstValueFrom } from 'rxjs';
+import { HttpService } from "@nestjs/axios";
+import { Injectable, Logger } from "@nestjs/common";
+import { firstValueFrom } from "rxjs";
 
 interface PaystackInitData {
   authorization_url: string;
@@ -27,11 +27,13 @@ interface PaystackApiResponse<T> {
 @Injectable()
 export class PaystackService {
   private readonly logger = new Logger(PaystackService.name);
-  private readonly baseUrl = 'https://api.paystack.co';
+  private readonly baseUrl = "https://api.paystack.co";
 
   constructor(private readonly http: HttpService) {
     if (!process.env.PAYSTACK_SECRET_KEY) {
-      this.logger.warn('PAYSTACK_SECRET_KEY not set — Paystack payments will use mock mode');
+      this.logger.warn(
+        "PAYSTACK_SECRET_KEY not set — Paystack payments will use mock mode",
+      );
     }
   }
 
@@ -51,7 +53,10 @@ export class PaystackService {
   ): Promise<{ authorizationUrl: string; reference: string }> {
     if (!this.secretKey) {
       const reference = `mock_ps_${Date.now()}`;
-      return { authorizationUrl: `${callbackUrl}?reference=${reference}&mock=true`, reference };
+      return {
+        authorizationUrl: `${callbackUrl}?reference=${reference}&mock=true`,
+        reference,
+      };
     }
 
     const { data } = await firstValueFrom(
@@ -75,7 +80,7 @@ export class PaystackService {
     metadata: Record<string, unknown>;
   }> {
     if (!this.secretKey) {
-      return { success: true, amountKobo: 0, currency: 'NGN', metadata: {} };
+      return { success: true, amountKobo: 0, currency: "NGN", metadata: {} };
     }
 
     const { data } = await firstValueFrom(
@@ -87,16 +92,21 @@ export class PaystackService {
 
     const tx = data.data;
     return {
-      success: tx.status === 'success',
+      success: tx.status === "success",
       amountKobo: tx.amount,
       currency: tx.currency,
       metadata: tx.metadata ?? {},
     };
   }
 
-  async refundTransaction(reference: string, amountKobo?: number): Promise<void> {
+  async refundTransaction(
+    reference: string,
+    amountKobo?: number,
+  ): Promise<void> {
     if (!this.secretKey) {
-      this.logger.warn(`[Paystack] Not configured — skipping refund for ${reference}`);
+      this.logger.warn(
+        `[Paystack] Not configured — skipping refund for ${reference}`,
+      );
       return;
     }
 
@@ -104,7 +114,10 @@ export class PaystackService {
       await firstValueFrom(
         this.http.post<PaystackApiResponse<unknown>>(
           `${this.baseUrl}/refund`,
-          { transaction: reference, ...(amountKobo !== undefined && { amount: amountKobo }) },
+          {
+            transaction: reference,
+            ...(amountKobo !== undefined && { amount: amountKobo }),
+          },
           { headers: this.authHeaders },
         ),
       );
@@ -123,13 +136,22 @@ export class PaystackService {
     // 'nuban' = Nigerian bank accounts, 'basa' = South African bank accounts.
     // GHS/KES are left on 'nuban' (today's behavior) — not confirmed which type Paystack
     // expects for bank-account-based payouts in those markets.
-    const RECIPIENT_TYPE_BY_CURRENCY: Record<string, string> = { NGN: 'nuban', ZAR: 'basa' };
-    const type = RECIPIENT_TYPE_BY_CURRENCY[currency.toUpperCase()] ?? 'nuban';
+    const RECIPIENT_TYPE_BY_CURRENCY: Record<string, string> = {
+      NGN: "nuban",
+      ZAR: "basa",
+    };
+    const type = RECIPIENT_TYPE_BY_CURRENCY[currency.toUpperCase()] ?? "nuban";
 
     const { data } = await firstValueFrom(
       this.http.post<PaystackApiResponse<{ recipient_code: string }>>(
         `${this.baseUrl}/transferrecipient`,
-        { type, bank_code: bankCode, account_number: accountNumber, name, currency },
+        {
+          type,
+          bank_code: bankCode,
+          account_number: accountNumber,
+          name,
+          currency,
+        },
         { headers: this.authHeaders },
       ),
     );
@@ -143,9 +165,17 @@ export class PaystackService {
     reference: string,
   ): Promise<{ transferCode: string; status: string }> {
     const { data } = await firstValueFrom(
-      this.http.post<PaystackApiResponse<{ transfer_code: string; status: string }>>(
+      this.http.post<
+        PaystackApiResponse<{ transfer_code: string; status: string }>
+      >(
         `${this.baseUrl}/transfer`,
-        { source: 'balance', amount: amountKobo, recipient: recipientCode, reason, reference },
+        {
+          source: "balance",
+          amount: amountKobo,
+          recipient: recipientCode,
+          reason,
+          reference,
+        },
         { headers: this.authHeaders },
       ),
     );
@@ -165,17 +195,23 @@ export class PaystackService {
     return data.data;
   }
 
-  validateWebhookSignature(rawBody: Buffer | string, signature: string): boolean {
+  validateWebhookSignature(
+    rawBody: Buffer | string,
+    signature: string,
+  ): boolean {
     const secret = process.env.PAYSTACK_SECRET_KEY;
     if (!secret) {
-      this.logger.warn('PAYSTACK_SECRET_KEY is not configured — webhook signature cannot be verified');
+      this.logger.warn(
+        "PAYSTACK_SECRET_KEY is not configured — webhook signature cannot be verified",
+      );
       return false;
     }
-    const hash = createHmac('sha512', secret)
-      .update(rawBody)
-      .digest('hex');
+    const hash = createHmac("sha512", secret).update(rawBody).digest("hex");
     try {
-      return timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(signature, 'hex'));
+      return timingSafeEqual(
+        Buffer.from(hash, "hex"),
+        Buffer.from(signature, "hex"),
+      );
     } catch {
       // Buffer lengths differ — signature is malformed
       return false;

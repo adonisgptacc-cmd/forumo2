@@ -4,15 +4,15 @@ Separate Next.js 15 dashboard for Forumo internal staff. Runs on port 3001. Requ
 
 ## Tech stack
 
-| | Version |
-|---|---|
-| Next.js | 15.0.0-canary.36 (App Router) |
-| React | 18.3.x |
-| NextAuth | 4.24.x |
-| TanStack Query | 5.51.x |
-| TailwindCSS | 4.1.x |
-| @forumo/shared | workspace |
-| @forumo/design-system | workspace |
+|                       | Version                       |
+| --------------------- | ----------------------------- |
+| Next.js               | 15.0.0-canary.36 (App Router) |
+| React                 | 18.3.x                        |
+| NextAuth              | 4.24.x                        |
+| TanStack Query        | 5.51.x                        |
+| TailwindCSS           | 4.1.x                         |
+| @forumo/shared        | workspace                     |
+| @forumo/design-system | workspace                     |
 
 ## Run locally
 
@@ -40,16 +40,16 @@ Only users with role `ADMIN` or `MODERATOR` should be able to access this app. T
 
 ## Planned pages
 
-| Page | Purpose |
-|---|---|
-| `/admin` | Overview dashboard — pending actions, counts |
+| Page                | Purpose                                                    |
+| ------------------- | ---------------------------------------------------------- |
+| `/admin`            | Overview dashboard — pending actions, counts               |
 | `/admin/moderation` | Listing moderation queue — approve/reject pending listings |
-| `/admin/kyc` | KYC submission review — approve/reject user KYC documents |
-| `/admin/disputes` | Dispute management — review and resolve order disputes |
-| `/admin/users` | User management — view, suspend, ban accounts |
-| `/admin/categories` | Category and tag CRUD |
-| `/admin/fees` | Fee schedule management |
-| `/admin/analytics` | Platform-wide analytics |
+| `/admin/kyc`        | KYC submission review — approve/reject user KYC documents  |
+| `/admin/disputes`   | Dispute management — review and resolve order disputes     |
+| `/admin/users`      | User management — view, suspend, ban accounts              |
+| `/admin/categories` | Category and tag CRUD                                      |
+| `/admin/fees`       | Fee schedule management                                    |
+| `/admin/analytics`  | Platform-wide analytics                                    |
 
 ## How it connects to the backend
 
