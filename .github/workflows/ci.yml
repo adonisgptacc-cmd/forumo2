@@ -155,7 +155,7 @@ jobs:
       - run: docker compose -f docker-compose.test.yml up -d
       - run: pnpm test:e2e
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-artifacts
           path: |
@@ -317,7 +317,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' ||
           github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: forumo-android-debug
           path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
@@ -354,7 +354,7 @@ jobs:
 
       - name: Upload Android Detox artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: detox-android-artifacts
           path: |
@@ -428,7 +428,7 @@ jobs:
 
       - name: Upload Detox artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: detox-artifacts
           path: |
