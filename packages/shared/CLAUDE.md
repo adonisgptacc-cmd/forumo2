@@ -14,17 +14,17 @@ No runtime framework dependency. No browser-specific code — safe to use in Nod
 Already a workspace dependency. Import directly:
 
 ```ts
-import { ForumoApiClient, SafeUser, safeUserSchema } from '@forumo/shared';
+import { ForumoApiClient, SafeUser, safeUserSchema } from "@forumo/shared";
 ```
 
 ## ForumoApiClient
 
 ```ts
-import { ForumoApiClient } from '@forumo/shared';
+import { ForumoApiClient } from "@forumo/shared";
 
 const api = new ForumoApiClient({
-  baseUrl: 'http://localhost:4000',
-  getToken: () => yourAuthToken,  // called on every request; return undefined for unauthenticated calls
+  baseUrl: "http://localhost:4000",
+  getToken: () => yourAuthToken, // called on every request; return undefined for unauthenticated calls
 });
 ```
 
@@ -40,7 +40,7 @@ api.messages      listThreads, createThread, listMessages, sendMessage, markRead
 api.reviews       list, create, updateStatus
 api.auctions      list, get, create, placeBid, listBids
 api.offers        list, get, create, accept, decline
-api.cart          get, addItem, updateItem, removeItem, clear
+api.cart          get, addItem, updateItem, removeItem, clear, merge
 api.wishlist      list, save, remove
 api.storefronts   get, getBySlug, create, update, delete, listCollections, createCollection
 api.shipping      getRates, createLabel, trackShipment
@@ -59,25 +59,26 @@ api.categories    list, create, update, delete, listTags, createTag
 ### Generic HTTP methods
 
 If you need to call an endpoint not yet wrapped in a namespace:
+
 ```ts
-api.get<ReturnType>('/some/path', schema)
-api.post<ReturnType>('/some/path', body, schema)
-api.patch<ReturnType>('/some/path', body, schema)
-api.delete<ReturnType>('/some/path', schema)
+api.get<ReturnType>("/some/path", schema);
+api.post<ReturnType>("/some/path", body, schema);
+api.patch<ReturnType>("/some/path", body, schema);
+api.delete<ReturnType>("/some/path", schema);
 ```
 
 ## Zod schema conventions
 
 All schemas are in `src/types.ts`. Naming pattern:
 
-| Purpose | Naming |
-|---|---|
-| Response type | `Safe{Model}` (e.g. `SafeUser`, `SafeListing`) |
-| Schema for response type | `safe{Model}Schema` (e.g. `safeUserSchema`) |
-| Create DTO | `Create{Model}Dto` + `create{Model}Schema` |
-| Update DTO | `Update{Model}Dto` + `update{Model}Schema` |
-| List/search params | `{Model}SearchParams` + `{model}SearchParamsSchema` |
-| Admin types | `Admin{Purpose}` (e.g. `AdminKycSubmission`) |
+| Purpose                  | Naming                                              |
+| ------------------------ | --------------------------------------------------- |
+| Response type            | `Safe{Model}` (e.g. `SafeUser`, `SafeListing`)      |
+| Schema for response type | `safe{Model}Schema` (e.g. `safeUserSchema`)         |
+| Create DTO               | `Create{Model}Dto` + `create{Model}Schema`          |
+| Update DTO               | `Update{Model}Dto` + `update{Model}Schema`          |
+| List/search params       | `{Model}SearchParams` + `{model}SearchParamsSchema` |
+| Admin types              | `Admin{Purpose}` (e.g. `AdminKycSubmission`)        |
 
 Every exported type has a corresponding exported Zod schema. Always export both.
 

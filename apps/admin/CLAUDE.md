@@ -4,15 +4,15 @@ Separate Next.js 15 dashboard for Forumo internal staff. Runs on port 3001. Requ
 
 ## Tech stack
 
-| | Version |
-|---|---|
-| Next.js | 15.0.0-canary.36 (App Router) |
-| React | 18.3.x |
-| NextAuth | 4.24.x |
-| TanStack Query | 5.51.x |
-| TailwindCSS | 4.1.x |
-| @forumo/shared | workspace |
-| @forumo/design-system | workspace |
+|                       | Version                       |
+| --------------------- | ----------------------------- |
+| Next.js               | 15.0.0-canary.36 (App Router) |
+| React                 | 18.3.x                        |
+| NextAuth              | 4.24.x                        |
+| TanStack Query        | 5.51.x                        |
+| TailwindCSS           | 4.1.x                         |
+| @forumo/shared        | workspace                     |
+| @forumo/design-system | workspace                     |
 
 ## Run locally
 
@@ -40,16 +40,16 @@ Only users with role `ADMIN` or `MODERATOR` should be able to access this app. T
 
 ## Planned pages
 
-| Page | Purpose |
-|---|---|
-| `/admin` | Overview dashboard — pending actions, counts |
+| Page                | Purpose                                                    |
+| ------------------- | ---------------------------------------------------------- |
+| `/admin`            | Overview dashboard — pending actions, counts               |
 | `/admin/moderation` | Listing moderation queue — approve/reject pending listings |
-| `/admin/kyc` | KYC submission review — approve/reject user KYC documents |
-| `/admin/disputes` | Dispute management — review and resolve order disputes |
-| `/admin/users` | User management — view, suspend, ban accounts |
-| `/admin/categories` | Category and tag CRUD |
-| `/admin/fees` | Fee schedule management |
-| `/admin/analytics` | Platform-wide analytics |
+| `/admin/kyc`        | KYC submission review — approve/reject user KYC documents  |
+| `/admin/disputes`   | Dispute management — review and resolve order disputes     |
+| `/admin/users`      | User management — view, suspend, ban accounts              |
+| `/admin/categories` | Category and tag CRUD                                      |
+| `/admin/fees`       | Fee schedule management                                    |
+| `/admin/analytics`  | Platform-wide analytics                                    |
 
 ## How it connects to the backend
 
@@ -73,9 +73,9 @@ All admin endpoints on the backend require `@Roles('ADMIN')` (`AdminController` 
 ## Current state
 
 - NextAuth is wired (`src/lib/auth.ts`) with a role-gated `src/middleware.ts` that redirects non-admins to `/403`.
-- Six pages are implemented and functional (TanStack Query + the shared client): `/admin` overview, `/admin/users`, `/admin/kyc`, `/admin/listings`, `/admin/moderation`, `/admin/disputes`. Shared UI in `src/components/` (DataTable, Badge, PageHeader, ErrorState, Sidebar).
+- Six pages are implemented and functional (TanStack Query + the shared client): `/admin/users`, `/admin/kyc`, `/admin/listings`, `/admin/moderation`, `/admin/disputes`, `/admin/analytics`. Shared UI in `src/components/` (DataTable, Badge, PageHeader, ErrorState, Sidebar). There is no dedicated `/admin` overview page — it redirects to `/admin/users`.
 - `tsc --noEmit` is clean.
-- Not yet built: `/admin/categories`, `/admin/fees`, `/admin/analytics` (see "Planned pages"). No test suite configured yet.
+- Not yet built: `/admin/categories`, `/admin/fees` (see "Planned pages"). No test suite configured yet.
 
 ## Sharp edges
 
