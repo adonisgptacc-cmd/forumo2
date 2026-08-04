@@ -45,9 +45,9 @@ export function LoginForm() {
         } catch { /* ignore */ }
 
         if ('twoFactorSetupRequired' in result) {
-          router.push('/login/2fa?mode=setup');
+          router.push('/login/2fa?mode=setup' as any);
         } else {
-          router.push('/login/2fa?mode=verify');
+          router.push('/login/2fa?mode=verify' as any);
         }
         return;
       }
