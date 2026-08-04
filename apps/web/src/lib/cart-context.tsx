@@ -75,6 +75,17 @@ function itemKey(listingId: string, variantId?: string) {
   return variantId ? `${listingId}:${variantId}` : listingId;
 }
 
+// Fire-and-forget backend sync: swallows both async rejections and synchronous
+// throws (e.g. a mock API client with no `cart` namespace) so a backend sync
+// failure never blocks the local cart update that already happened.
+function syncToBackend(call: () => Promise<unknown>) {
+  try {
+    call()?.catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
 // Maps a backend cart row (CartService.getCart()) into the local shape.
 function fromBackendItem(item: BackendCartItem): CartItem {
   return {
@@ -195,14 +206,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return [...prev, { ...item, quantity: item.quantity ?? 1 }];
       });
       if (userId) {
-        api.cart
-          .addItem(
+        syncToBackend(() =>
+          api.cart.addItem(
             item.listingId,
             item.quantity ?? 1,
             item.variantId,
             item.variantLabel,
-          )
-          .catch(() => {});
+          ),
+        );
       }
     },
     [userId, api],
@@ -215,7 +226,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         prev.filter((i) => itemKey(i.listingId, i.variantId) !== key),
       );
       if (userId) {
-        api.cart.removeItem(listingId, variantId).catch(() => {});
+        syncToBackend(() => api.cart.removeItem(listingId, variantId));
       }
     },
     [userId, api],
@@ -228,15 +239,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setItems((prev) =>
           prev.filter((i) => itemKey(i.listingId, i.variantId) !== key),
         );
-        if (userId) api.cart.removeItem(listingId, variantId).catch(() => {});
+        if (userId) {
+          syncToBackend(() => api.cart.removeItem(listingId, variantId));
+        }
       } else {
         setItems((prev) =>
           prev.map((i) =>
             itemKey(i.listingId, i.variantId) === key ? { ...i, quantity } : i,
           ),
         );
-        if (userId)
-          api.cart.updateItem(listingId, quantity, variantId).catch(() => {});
+        if (userId) {
+          syncToBackend(() =>
+            api.cart.updateItem(listingId, quantity, variantId),
+          );
+        }
       }
     },
     [userId, api],
@@ -244,7 +260,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
-    if (userId) api.cart.clear().catch(() => {});
+    if (userId) syncToBackend(() => api.cart.clear());
   }, [userId, api]);
 
   const clearSellerItems = useCallback(
@@ -252,7 +268,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (userId) {
         for (const item of items) {
           if (item.sellerId === sellerId) {
-            api.cart.removeItem(item.listingId, item.variantId).catch(() => {});
+            syncToBackend(() =>
+              api.cart.removeItem(item.listingId, item.variantId),
+            );
           }
         }
       }
