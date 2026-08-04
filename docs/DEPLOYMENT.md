@@ -8,21 +8,21 @@ Production deployment to Kubernetes. All manifests live under [`k8s/`](../k8s/).
 
 ### Cloud services
 
-| Service | Purpose | Where to provision |
-|---|---|---|
-| AWS EKS (or equivalent) | Kubernetes cluster | AWS console → EKS |
-| AWS Secrets Manager | Secret storage synced by External Secrets Operator | AWS console → Secrets Manager |
-| PostgreSQL 16 | Primary database | RDS (`db.t4g.medium` minimum), or in-cluster via `k8s/infrastructure/postgres.yaml` |
-| Redis 7 | Session cache, OTP rate-limiting, throttle counters | ElastiCache (Serverless or `cache.t4g.small`), or in-cluster via `k8s/infrastructure/redis.yaml` |
-| MinIO / AWS S3 | User-uploaded file storage | Self-hosted MinIO (via `k8s/infrastructure/minio.yaml`) or an S3 bucket |
-| Stripe | USD/EUR/GBP payments + Connect seller payouts | dashboard.stripe.com |
-| Paystack | NGN/GHS/KES/ZAR payments | dashboard.paystack.com |
-| Mailgun | Transactional email (OTP, order receipts, etc.) | app.mailgun.com |
-| AWS SNS | SMS OTP delivery | AWS console → SNS → Text messaging |
-| Google Cloud | OAuth 2.0 social login | console.cloud.google.com → APIs & Services → Credentials |
-| Shippo | Shipping label creation + tracking webhooks | goshippo.com |
-| Sentry | Error tracking — two separate projects (backend, web) | sentry.io |
-| cert-manager + Let's Encrypt | Automatic TLS certificate provisioning | Installed in cluster (see §3) |
+| Service                      | Purpose                                               | Where to provision                                                                               |
+| ---------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| AWS EKS (or equivalent)      | Kubernetes cluster                                    | AWS console → EKS                                                                                |
+| AWS Secrets Manager          | Secret storage synced by External Secrets Operator    | AWS console → Secrets Manager                                                                    |
+| PostgreSQL 16                | Primary database                                      | RDS (`db.t4g.medium` minimum), or in-cluster via `k8s/infrastructure/postgres.yaml`              |
+| Redis 7                      | Session cache, OTP rate-limiting, throttle counters   | ElastiCache (Serverless or `cache.t4g.small`), or in-cluster via `k8s/infrastructure/redis.yaml` |
+| MinIO / AWS S3               | User-uploaded file storage                            | Self-hosted MinIO (via `k8s/infrastructure/minio.yaml`) or an S3 bucket                          |
+| Stripe                       | USD/EUR/GBP payments + Connect seller payouts         | dashboard.stripe.com                                                                             |
+| Paystack                     | NGN/GHS/KES/ZAR payments                              | dashboard.paystack.com                                                                           |
+| Mailgun                      | Transactional email (OTP, order receipts, etc.)       | app.mailgun.com                                                                                  |
+| AWS SNS                      | SMS OTP delivery                                      | AWS console → SNS → Text messaging                                                               |
+| Google Cloud                 | OAuth 2.0 social login                                | console.cloud.google.com → APIs & Services → Credentials                                         |
+| Shippo                       | Shipping label creation + tracking webhooks           | goshippo.com                                                                                     |
+| Sentry                       | Error tracking — two separate projects (backend, web) | sentry.io                                                                                        |
+| cert-manager + Let's Encrypt | Automatic TLS certificate provisioning                | Installed in cluster (see §3)                                                                    |
 
 ### Required CLI tools
 
@@ -37,95 +37,95 @@ Production deployment to Kubernetes. All manifests live under [`k8s/`](../k8s/).
 
 Secrets are stored in AWS Secrets Manager and synced into cluster Kubernetes Secrets by [`k8s/secrets/external-secrets.yaml`](../k8s/secrets/external-secrets.yaml). Populate the three secret paths before deploying.
 
-> **`NEXT_PUBLIC_*` build-time note:** Next.js bakes `NEXT_PUBLIC_` variables into the bundle at image build time. Pass them as Docker `--build-arg` in your CI pipeline *in addition* to providing them as runtime Kubernetes secrets.
+> **`NEXT_PUBLIC_*` build-time note:** Next.js bakes `NEXT_PUBLIC_` variables into the bundle at image build time. Pass them as Docker `--build-arg` in your CI pipeline _in addition_ to providing them as runtime Kubernetes secrets.
 
 #### Backend — `forumo/production/backend`
 
-| Variable | Description | Source / value |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://forumo:<pw>@<host>:5432/forumo?schema=public` — set after DB provisioning |
-| `DATABASE_POOL_MIN` | Prisma connection pool minimum | `2` |
-| `DATABASE_POOL_MAX` | Prisma connection pool maximum | `10` |
-| `REDIS_URL` | Redis connection string | `redis://<host>:6379` — set after Redis provisioning |
-| `REDIS_TTL_SECONDS` | Default cache TTL (seconds) | `3600` |
-| `JWT_SECRET` | HMAC signing secret for access tokens (32+ random bytes) | `openssl rand -base64 32` |
-| `JWT_EXPIRES_IN` | Access token lifetime | `15m` |
-| `REFRESH_TOKEN_EXPIRES_IN` | Refresh token lifetime | `30d` |
-| `MINIO_ENDPOINT` | MinIO/S3 hostname (no protocol) | MinIO host or S3 regional endpoint (e.g. `s3.amazonaws.com`) |
-| `MINIO_PORT` | MinIO port | `9000` for MinIO, `443` for S3 |
-| `MINIO_ACCESS_KEY` | MinIO root user or IAM access key | MinIO console / AWS IAM |
-| `MINIO_SECRET_KEY` | MinIO root password or IAM secret key | MinIO console / AWS IAM |
-| `MINIO_USE_SSL` | Enable TLS for object storage | `true` in production |
-| `UPLOADS_BUCKET` | Object storage bucket name | `forumo-uploads` (created in §2) |
-| `GOOGLE_CLIENT_ID` | OAuth 2.0 client ID | GCP console → Credentials → OAuth 2.0 Client IDs |
-| `GOOGLE_CLIENT_SECRET` | OAuth 2.0 client secret | Same |
-| `GOOGLE_CALLBACK_URL` | OAuth redirect URI | `https://forumo.africa/api/v1/auth/google/callback` |
-| `FRONTEND_URL` | Canonical frontend URL (used in email links) | `https://forumo.africa` |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins | `https://forumo.africa` |
-| `STRIPE_SECRET_KEY` | Live secret key | Stripe dashboard → Developers → API keys → `sk_live_…` |
-| `STRIPE_WEBHOOK_SECRET` | Signing secret for `/payments/webhook/stripe` | Stripe dashboard → Developers → Webhooks → `whsec_…` (see §2) |
-| `STRIPE_CONNECT_WEBHOOK_SECRET` | Signing secret for `/payments/webhook/stripe-connect` | Stripe Connect webhook endpoint (see §2) |
-| `PAYSTACK_SECRET_KEY` | Live secret key | Paystack dashboard → Settings → API Keys → `sk_live_…` |
-| `PAYSTACK_PUBLIC_KEY` | Live public key | Same → `pk_live_…` |
-| `PAYSTACK_WEBHOOK_SECRET` | HMAC-SHA512 webhook secret | Paystack dashboard → Settings → Webhooks (see §2) |
-| `MAILGUN_API_KEY` | Sending API key | Mailgun dashboard → Settings → API Keys |
-| `MAILGUN_DOMAIN` | Verified sending domain | `mg.forumo.africa` (see §2) |
-| `MAILGUN_EMAIL_FROM` | From address | `noreply@forumo.africa` |
-| `MAILGUN_API_BASE` | Mailgun API base URL | `https://api.mailgun.net` (US) or `https://api.eu.mailgun.net` (EU) |
-| `SNS_REGION` | AWS region for SMS | `us-east-1` (or your region) |
-| `SNS_ACCESS_KEY_ID` | IAM access key for SNS | AWS IAM → Users → Security credentials |
-| `SNS_SECRET_ACCESS_KEY` | IAM secret key for SNS | Same |
-| `SNS_SMS_SENDER_ID` | SMS sender ID shown to recipients | `Forumo` |
-| `ADMIN_NOTIFICATION_EMAIL` | Email address for admin alerts | Your ops email |
-| `SHIPPO_API_KEY` | Shippo live API key | goshippo.com → API |
-| `SHIPPO_WEBHOOK_SECRET` | Shippo webhook signing secret | goshippo.com → Webhooks |
-| `ESCROW_AUTO_RELEASE_DAYS` | Days after delivery before escrow auto-releases | `5` |
-| `MODERATION_SERVICE_URL` | Internal URL of the moderation microservice | `http://forumo-moderation:5005` |
-| `TOS_VERSION` | Current TOS date string — must match `NEXT_PUBLIC_TOS_VERSION` | e.g. `2024-01-01` |
-| `SENTRY_DSN` | Backend Sentry DSN | sentry.io → Project → Settings → Client Keys |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP trace collector endpoint | Your Jaeger/Tempo endpoint |
-| `OTEL_SERVICE_NAME` | Service name in traces | `forumo-backend` |
-| `LOG_LEVEL` | Pino log level | `info` in production |
-| `METRICS_API_KEY` | Bearer token protecting `/api/v1/metrics` | `openssl rand -hex 32` |
-| `PORT` | HTTP port | `4000` |
-| `NODE_ENV` | Node environment | `production` |
-| `OTP_TTL` | OTP validity window (seconds) | `300` |
-| `OTP_DEVICE_RATE_LIMIT` | Max OTP requests per device per window | `5` |
-| `OTP_DEVICE_RATE_WINDOW` | OTP rate-limit window (seconds) | `300` |
-| `AUTH_RATE_LIMIT` | Max auth requests per IP per window | `10` |
-| `AUTH_RATE_WINDOW_MS` | Auth rate-limit window (ms) | `60000` |
-| `LOGIN_ATTEMPT_LIMIT` | Max failed login attempts before lockout | `5` |
-| `LOGIN_ATTEMPT_WINDOW_MS` | Login lockout window (ms) | `900000` |
-| `RESEND_RATE_LIMIT` | Max OTP resend requests per window | `3` |
-| `RESEND_RATE_WINDOW_MS` | OTP resend rate-limit window (ms) | `3600000` |
-| `PAYMENT_RATE_LIMIT` | Max payment requests per IP per window | `30` |
-| `PAYMENT_RATE_WINDOW_MS` | Payment rate-limit window (ms) | `60000` |
-| `CACHE_TTL_SECONDS` | Response cache TTL | `30` |
+| Variable                        | Description                                                    | Source / value                                                                          |
+| ------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | PostgreSQL connection string                                   | `postgresql://forumo:<pw>@<host>:5432/forumo?schema=public` — set after DB provisioning |
+| `DATABASE_POOL_MIN`             | Prisma connection pool minimum                                 | `2`                                                                                     |
+| `DATABASE_POOL_MAX`             | Prisma connection pool maximum                                 | `10`                                                                                    |
+| `REDIS_URL`                     | Redis connection string                                        | `redis://<host>:6379` — set after Redis provisioning                                    |
+| `REDIS_TTL_SECONDS`             | Default cache TTL (seconds)                                    | `3600`                                                                                  |
+| `JWT_SECRET`                    | HMAC signing secret for access tokens (32+ random bytes)       | `openssl rand -base64 32`                                                               |
+| `JWT_EXPIRES_IN`                | Access token lifetime                                          | `15m`                                                                                   |
+| `REFRESH_TOKEN_EXPIRES_IN`      | Refresh token lifetime                                         | `30d`                                                                                   |
+| `MINIO_ENDPOINT`                | MinIO/S3 hostname (no protocol)                                | MinIO host or S3 regional endpoint (e.g. `s3.amazonaws.com`)                            |
+| `MINIO_PORT`                    | MinIO port                                                     | `9000` for MinIO, `443` for S3                                                          |
+| `MINIO_ACCESS_KEY`              | MinIO root user or IAM access key                              | MinIO console / AWS IAM                                                                 |
+| `MINIO_SECRET_KEY`              | MinIO root password or IAM secret key                          | MinIO console / AWS IAM                                                                 |
+| `MINIO_USE_SSL`                 | Enable TLS for object storage                                  | `true` in production                                                                    |
+| `UPLOADS_BUCKET`                | Object storage bucket name                                     | `forumo-uploads` (created in §2)                                                        |
+| `GOOGLE_CLIENT_ID`              | OAuth 2.0 client ID                                            | GCP console → Credentials → OAuth 2.0 Client IDs                                        |
+| `GOOGLE_CLIENT_SECRET`          | OAuth 2.0 client secret                                        | Same                                                                                    |
+| `GOOGLE_CALLBACK_URL`           | OAuth redirect URI                                             | `https://forumo.africa/api/v1/auth/google/callback`                                     |
+| `FRONTEND_URL`                  | Canonical frontend URL (used in email links)                   | `https://forumo.africa`                                                                 |
+| `ALLOWED_ORIGINS`               | Comma-separated CORS origins                                   | `https://forumo.africa`                                                                 |
+| `STRIPE_SECRET_KEY`             | Live secret key                                                | Stripe dashboard → Developers → API keys → `sk_live_…`                                  |
+| `STRIPE_WEBHOOK_SECRET`         | Signing secret for `/payments/webhook/stripe`                  | Stripe dashboard → Developers → Webhooks → `whsec_…` (see §2)                           |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Signing secret for `/payments/webhook/stripe-connect`          | Stripe Connect webhook endpoint (see §2)                                                |
+| `PAYSTACK_SECRET_KEY`           | Live secret key                                                | Paystack dashboard → Settings → API Keys → `sk_live_…`                                  |
+| `PAYSTACK_PUBLIC_KEY`           | Live public key                                                | Same → `pk_live_…`                                                                      |
+| `PAYSTACK_WEBHOOK_SECRET`       | HMAC-SHA512 webhook secret                                     | Paystack dashboard → Settings → Webhooks (see §2)                                       |
+| `MAILGUN_API_KEY`               | Sending API key                                                | Mailgun dashboard → Settings → API Keys                                                 |
+| `MAILGUN_DOMAIN`                | Verified sending domain                                        | `mg.forumo.africa` (see §2)                                                             |
+| `MAILGUN_EMAIL_FROM`            | From address                                                   | `noreply@forumo.africa`                                                                 |
+| `MAILGUN_API_BASE`              | Mailgun API base URL                                           | `https://api.mailgun.net` (US) or `https://api.eu.mailgun.net` (EU)                     |
+| `SNS_REGION`                    | AWS region for SMS                                             | `us-east-1` (or your region)                                                            |
+| `SNS_ACCESS_KEY_ID`             | IAM access key for SNS                                         | AWS IAM → Users → Security credentials                                                  |
+| `SNS_SECRET_ACCESS_KEY`         | IAM secret key for SNS                                         | Same                                                                                    |
+| `SNS_SMS_SENDER_ID`             | SMS sender ID shown to recipients                              | `Forumo`                                                                                |
+| `ADMIN_NOTIFICATION_EMAIL`      | Email address for admin alerts                                 | Your ops email                                                                          |
+| `SHIPPO_API_KEY`                | Shippo live API key                                            | goshippo.com → API                                                                      |
+| `SHIPPO_WEBHOOK_SECRET`         | Shippo webhook signing secret                                  | goshippo.com → Webhooks                                                                 |
+| `ESCROW_AUTO_RELEASE_DAYS`      | Days after delivery before escrow auto-releases                | `5`                                                                                     |
+| `MODERATION_SERVICE_URL`        | Internal URL of the moderation microservice                    | `http://forumo-moderation:5005`                                                         |
+| `TOS_VERSION`                   | Current TOS date string — must match `NEXT_PUBLIC_TOS_VERSION` | e.g. `2024-01-01`                                                                       |
+| `SENTRY_DSN`                    | Backend Sentry DSN                                             | sentry.io → Project → Settings → Client Keys                                            |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`   | OTLP trace collector endpoint                                  | Your Jaeger/Tempo endpoint                                                              |
+| `OTEL_SERVICE_NAME`             | Service name in traces                                         | `forumo-backend`                                                                        |
+| `LOG_LEVEL`                     | Pino log level                                                 | `info` in production                                                                    |
+| `METRICS_API_KEY`               | API key sent as `x-api-key` to `/api/v1/metrics`               | `openssl rand -hex 32`                                                                  |
+| `PORT`                          | HTTP port                                                      | `4000`                                                                                  |
+| `NODE_ENV`                      | Node environment                                               | `production`                                                                            |
+| `OTP_TTL`                       | OTP validity window (seconds)                                  | `300`                                                                                   |
+| `OTP_DEVICE_RATE_LIMIT`         | Max OTP requests per device per window                         | `5`                                                                                     |
+| `OTP_DEVICE_RATE_WINDOW`        | OTP rate-limit window (seconds)                                | `300`                                                                                   |
+| `AUTH_RATE_LIMIT`               | Max auth requests per IP per window                            | `10`                                                                                    |
+| `AUTH_RATE_WINDOW_MS`           | Auth rate-limit window (ms)                                    | `60000`                                                                                 |
+| `LOGIN_ATTEMPT_LIMIT`           | Max failed login attempts before lockout                       | `5`                                                                                     |
+| `LOGIN_ATTEMPT_WINDOW_MS`       | Login lockout window (ms)                                      | `900000`                                                                                |
+| `RESEND_RATE_LIMIT`             | Max OTP resend requests per window                             | `3`                                                                                     |
+| `RESEND_RATE_WINDOW_MS`         | OTP resend rate-limit window (ms)                              | `3600000`                                                                               |
+| `PAYMENT_RATE_LIMIT`            | Max payment requests per IP per window                         | `30`                                                                                    |
+| `PAYMENT_RATE_WINDOW_MS`        | Payment rate-limit window (ms)                                 | `60000`                                                                                 |
+| `CACHE_TTL_SECONDS`             | Response cache TTL                                             | `30`                                                                                    |
 
 #### Web — `forumo/production/web`
 
-| Variable | Description | Source / value |
-|---|---|---|
-| `NEXTAUTH_SECRET` | NextAuth JWT signing secret (32+ bytes) | `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | Canonical URL of the web app | `https://forumo.africa` |
-| `NEXT_PUBLIC_SITE_URL` | Used for OG tags and sitemap | `https://forumo.africa` |
-| `NEXT_PUBLIC_API_URL` | Backend API base URL | `https://forumo.africa/api/v1` |
-| `NEXT_PUBLIC_API_BASE_URL` | Same as above (both must be set) | `https://forumo.africa/api/v1` |
-| `NEXT_PUBLIC_WS_URL` | WebSocket URL | `wss://forumo.africa` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe live publishable key | `pk_live_…` — Stripe dashboard |
-| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | Paystack live public key | `pk_live_…` — Paystack dashboard |
-| `NEXT_PUBLIC_ENVIRONMENT` | Environment identifier | `production` |
-| `NEXT_PUBLIC_USE_API_MOCKS` | Must be `false` in production | `false` |
-| `NEXT_PUBLIC_SENTRY_DSN` | Web Sentry DSN (separate project from backend) | sentry.io → web project |
-| `NEXT_PUBLIC_TOS_VERSION` | Must match backend `TOS_VERSION` | e.g. `2024-01-01` |
+| Variable                             | Description                                    | Source / value                   |
+| ------------------------------------ | ---------------------------------------------- | -------------------------------- |
+| `NEXTAUTH_SECRET`                    | NextAuth JWT signing secret (32+ bytes)        | `openssl rand -base64 32`        |
+| `NEXTAUTH_URL`                       | Canonical URL of the web app                   | `https://forumo.africa`          |
+| `NEXT_PUBLIC_SITE_URL`               | Used for OG tags and sitemap                   | `https://forumo.africa`          |
+| `NEXT_PUBLIC_API_URL`                | Backend API base URL                           | `https://forumo.africa/api/v1`   |
+| `NEXT_PUBLIC_API_BASE_URL`           | Same as above (both must be set)               | `https://forumo.africa/api/v1`   |
+| `NEXT_PUBLIC_WS_URL`                 | WebSocket URL                                  | `wss://forumo.africa`            |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe live publishable key                    | `pk_live_…` — Stripe dashboard   |
+| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`    | Paystack live public key                       | `pk_live_…` — Paystack dashboard |
+| `NEXT_PUBLIC_ENVIRONMENT`            | Environment identifier                         | `production`                     |
+| `NEXT_PUBLIC_USE_API_MOCKS`          | Must be `false` in production                  | `false`                          |
+| `NEXT_PUBLIC_SENTRY_DSN`             | Web Sentry DSN (separate project from backend) | sentry.io → web project          |
+| `NEXT_PUBLIC_TOS_VERSION`            | Must match backend `TOS_VERSION`               | e.g. `2024-01-01`                |
 
 #### Admin — `forumo/production/admin`
 
-| Variable | Description | Source / value |
-|---|---|---|
-| `NEXTAUTH_SECRET` | NextAuth JWT signing secret | `openssl rand -base64 32` (can differ from web) |
-| `NEXTAUTH_URL` | Canonical URL of the admin app | `https://forumo.africa/admin` |
-| `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL | `https://forumo.africa/api/v1` |
+| Variable                   | Description                                   | Source / value                                  |
+| -------------------------- | --------------------------------------------- | ----------------------------------------------- |
+| `NEXTAUTH_SECRET`          | NextAuth JWT signing secret                   | `openssl rand -base64 32` (can differ from web) |
+| `NEXTAUTH_URL`             | Full NextAuth API URL for the admin base path | `https://forumo.africa/admin/api/auth`          |
+| `NEXT_PUBLIC_API_BASE_URL` | Backend API base URL                          | `https://forumo.africa/api/v1`                  |
 
 ---
 
@@ -185,12 +185,14 @@ Complete these steps once before the first deploy. They do not repeat on subsequ
    ```json
    {
      "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Principal": { "AWS": ["arn:aws:iam:::user/forumo-backend"] },
-       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-       "Resource": ["arn:aws:s3:::forumo-uploads/*"]
-     }]
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": { "AWS": ["arn:aws:iam:::user/forumo-backend"] },
+         "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+         "Resource": ["arn:aws:s3:::forumo-uploads/*"]
+       }
+     ]
    }
    ```
 
@@ -220,10 +222,10 @@ Complete these steps once before the first deploy. They do not repeat on subsequ
    - Enable OAuth if sellers onboard via the OAuth flow.
 2. Register two webhook endpoints under **Developers → Webhooks**:
 
-   | Endpoint URL | Events to enable |
-   |---|---|
-   | `https://forumo.africa/api/v1/payments/webhook/stripe` | `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created` |
-   | `https://forumo.africa/api/v1/payments/webhook/stripe-connect` | `transfer.paid`, `transfer.failed`, `account.updated`, `payout.paid`, `payout.failed` |
+   | Endpoint URL                                                   | Events to enable                                                                                         |
+   | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+   | `https://forumo.africa/api/v1/payments/webhook/stripe`         | `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created` |
+   | `https://forumo.africa/api/v1/payments/webhook/stripe-connect` | `transfer.paid`, `transfer.failed`, `account.updated`, `payout.paid`, `payout.failed`                    |
 
 3. Copy the signing secrets (`whsec_…`) into `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` in AWS Secrets Manager.
 4. Set `STRIPE_SECRET_KEY` (live `sk_live_…`) and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live `pk_live_…`) in the respective secrets.
@@ -329,11 +331,11 @@ kubectl get externalsecret -n forumo --watch
 # Confirm the Kubernetes Secrets were created
 kubectl get secret forumo-backend-secrets forumo-web-secrets forumo-admin-secrets -n forumo
 
-# 3. Infrastructure
-kubectl apply -f k8s/infrastructure/configmap.yaml
-kubectl apply -f k8s/infrastructure/postgres.yaml
-kubectl apply -f k8s/infrastructure/redis.yaml
-kubectl apply -f k8s/infrastructure/minio.yaml
+# 3. Managed infrastructure
+# Confirm DATABASE_URL, REDIS_URL, and object-storage values in
+# forumo/production/backend point at the provisioned production services.
+# The k8s/infrastructure manifests are development/self-hosting examples and
+# are intentionally not part of the production apply path.
 
 # 4. Run database migrations (one-off pod)
 kubectl run migrate --rm -it \
@@ -344,9 +346,9 @@ kubectl run migrate --rm -it \
   -- npx prisma migrate deploy --schema prisma/schema.prisma
 
 # 5. Applications
-kubectl apply -f k8s/apps/moderation.yaml   # no DB dependency; start first
-kubectl apply -f k8s/apps/backend.yaml       # init container waits for Postgres
-kubectl apply -f k8s/apps/web.yaml           # depends on backend being reachable
+kubectl apply -f k8s/apps/moderation.yaml
+kubectl apply -f k8s/backend/deployment.yaml
+kubectl apply -f k8s/web/deployment.yaml
 
 # 6. HPAs
 kubectl apply -f k8s/backend/hpa.yaml
@@ -381,22 +383,28 @@ kubectl exec -n forumo deploy/forumo-backend -- \
 kubectl exec -n forumo deploy/forumo-web -- \
   curl -sf http://localhost:3000/ -o /dev/null -w "%{http_code}" && echo ""
 
+# Admin (Next.js, mounted under /admin)
+kubectl exec -n forumo deploy/forumo-admin -- \
+  curl -sf http://localhost:3001/admin -o /dev/null -w "%{http_code}" && echo ""
+
 # Rollout status for all deployments
 kubectl rollout status deployment/forumo-backend   -n forumo
 kubectl rollout status deployment/forumo-web       -n forumo
+kubectl rollout status deployment/forumo-admin     -n forumo
 kubectl rollout status deployment/forumo-moderation -n forumo
 
 # End-to-end from public URL (after TLS cert issues — may take 1-2 min)
 curl -sf https://forumo.africa/api/v1/health | jq .
 ```
 
-All deployments should show `successfully rolled out`. Pods should be `2/2 Running` (or `1/1` for moderation).
+All deployments should show `successfully rolled out`. Verify that the configured replica count for each deployment is Running and Ready.
 
 ### Zero-downtime migration steps
 
-The backend `Deployment` runs 2 replicas with `maxUnavailable: 0` and a readiness probe on `/api/v1/health`. Kubernetes will not route traffic to a pod until the probe passes, making additive schema changes safe to deploy with no downtime:
+The backend `Deployment` runs 2 replicas with `maxUnavailable: 0` and a readiness probe on `/api/v1/health/ready`. Kubernetes will not route traffic to a pod until the probe passes, making additive schema changes safe to deploy with no downtime:
 
 1. **Apply the migration before deploying the new image.** Old pods continue running; Postgres ignores new columns they don't reference.
+
    ```bash
    kubectl run migrate --rm -it \
      --image=<account>.dkr.ecr.<region>.amazonaws.com/forumo-backend:<new-sha> \
@@ -407,6 +415,7 @@ The backend `Deployment` runs 2 replicas with `maxUnavailable: 0` and a readines
    ```
 
 2. **Deploy the new backend image** (rolling update — one pod at a time):
+
    ```bash
    kubectl set image deployment/forumo-backend \
      backend=<account>.dkr.ecr.<region>.amazonaws.com/forumo-backend:<new-sha> \
@@ -451,6 +460,7 @@ curl -sf https://forumo.africa/api/v1/health | jq .
 ```
 
 To roll back to a specific revision (e.g. two deployments ago):
+
 ```bash
 kubectl rollout undo deployment/forumo-backend --to-revision=<N> -n forumo
 ```
@@ -503,14 +513,14 @@ Prisma does not auto-generate down migrations. Use one of the two options below.
 
 All applications log to stdout. Logs are collected by your cluster log aggregator (Fluent Bit → CloudWatch Logs / OpenSearch).
 
-| Service | Live tail command | Format |
-|---|---|---|
-| Backend | `kubectl logs -n forumo -l app=backend -f --tail=200` | Pino structured JSON |
-| Web (Next.js) | `kubectl logs -n forumo -l app=web -f --tail=200` | Next.js text |
-| Admin | `kubectl logs -n forumo -l app=admin -f --tail=200` | Next.js text |
-| Moderation | `kubectl logs -n forumo -l app=moderation -f --tail=200` | Uvicorn text |
-| Postgres | `kubectl logs -n forumo -l app=postgres -f --tail=100` | PostgreSQL text |
-| Redis | `kubectl logs -n forumo -l app=redis -f --tail=100` | Redis text |
+| Service       | Live tail command                                        | Format               |
+| ------------- | -------------------------------------------------------- | -------------------- |
+| Backend       | `kubectl logs -n forumo -l app=backend -f --tail=200`    | Pino structured JSON |
+| Web (Next.js) | `kubectl logs -n forumo -l app=web -f --tail=200`        | Next.js text         |
+| Admin         | `kubectl logs -n forumo -l app=admin -f --tail=200`      | Next.js text         |
+| Moderation    | `kubectl logs -n forumo -l app=moderation -f --tail=200` | Uvicorn text         |
+| Postgres      | `kubectl logs -n forumo -l app=postgres -f --tail=100`   | PostgreSQL text      |
+| Redis         | `kubectl logs -n forumo -l app=redis -f --tail=100`      | Redis text           |
 
 Useful backend log filters (pipe through `jq`):
 
@@ -530,7 +540,7 @@ kubectl logs -n forumo -l app=backend | jq 'select(.context | test("escrow|order
 
 ### Prometheus metrics
 
-The backend exposes Prometheus-format metrics at `/api/v1/metrics`, protected by `Authorization: Bearer <METRICS_API_KEY>`.
+The backend exposes Prometheus-format metrics at `/api/v1/metrics`, protected by the `x-api-key: <METRICS_API_KEY>` header.
 
 Add the following scrape config to your Prometheus deployment:
 
@@ -539,9 +549,9 @@ scrape_configs:
   - job_name: forumo-backend
     scheme: http
     metrics_path: /api/v1/metrics
-    authorization:
-      type: Bearer
-      credentials: <METRICS_API_KEY>
+    http_headers:
+      x-api-key:
+        secrets: [<METRICS_API_KEY>]
     kubernetes_sd_configs:
       - role: pod
         namespaces:
@@ -560,8 +570,8 @@ https://<your-grafana-host>/d/forumo-observability
 
 **Pre-configured alert rule** ([`monitoring/alerts/high_error_rate.yml`](../monitoring/alerts/high_error_rate.yml)):
 
-| Alert | PromQL expression | Threshold | Severity |
-|---|---|---|---|
+| Alert           | PromQL expression                                                                        | Threshold       | Severity |
+| --------------- | ---------------------------------------------------------------------------------------- | --------------- | -------- |
 | `HighErrorRate` | `sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))` | > 5 % for 5 min | critical |
 
 ### Sentry alerts and triage
@@ -570,14 +580,14 @@ Two separate Sentry projects must exist: one for the backend (`SENTRY_DSN`) and 
 
 **Key alert rules to configure in Sentry:**
 
-| Alert | Project | Trigger condition | Routing |
-|---|---|---|---|
-| Unhandled exception spike | backend | Error count > 10 in 5 min | Page on-call |
-| Payment webhook signature failure | backend | Event matching `StripeWebhookException` or `PaystackWebhookException` | Page on-call — likely a rotated secret not yet synced |
-| TOS interceptor 403 spike | backend | HTTP 403 count > 50 in 5 min | Alert — possible `TOS_VERSION` / `NEXT_PUBLIC_TOS_VERSION` mismatch |
-| Refresh token failure | web | Event matching `"token refresh failed"` | Alert — users being logged out unexpectedly |
-| Unhandled Next.js crash | web | Any unhandled error | Notify frontend team |
-| Account deletion cron failure | backend | Event matching `AccountDeletionService` | Notify — GDPR compliance risk |
+| Alert                             | Project | Trigger condition                                                     | Routing                                                             |
+| --------------------------------- | ------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Unhandled exception spike         | backend | Error count > 10 in 5 min                                             | Page on-call                                                        |
+| Payment webhook signature failure | backend | Event matching `StripeWebhookException` or `PaystackWebhookException` | Page on-call — likely a rotated secret not yet synced               |
+| TOS interceptor 403 spike         | backend | HTTP 403 count > 50 in 5 min                                          | Alert — possible `TOS_VERSION` / `NEXT_PUBLIC_TOS_VERSION` mismatch |
+| Refresh token failure             | web     | Event matching `"token refresh failed"`                               | Alert — users being logged out unexpectedly                         |
+| Unhandled Next.js crash           | web     | Any unhandled error                                                   | Notify frontend team                                                |
+| Account deletion cron failure     | backend | Event matching `AccountDeletionService`                               | Notify — GDPR compliance risk                                       |
 
 **Triage workflow for a 5xx spike:**
 

@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { createHash } from 'crypto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { createHash } from "crypto";
+import { PrismaService } from "../../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { ConfigService } from "@nestjs/config";
+import { CacheService } from "../../common/services/cache.service";
 
 @Injectable()
 export class AccountDeletionService {
@@ -13,6 +14,7 @@ export class AccountDeletionService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly cache: CacheService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -29,7 +31,9 @@ export class AccountDeletionService {
       try {
         await this.executeAccountDeletion(id);
       } catch (err) {
-        this.logger.error(`Failed to delete account ${id}: ${(err as Error).message}`);
+        this.logger.error(
+          `Failed to delete account ${id}: ${(err as Error).message}`,
+        );
       }
     }
   }
@@ -40,16 +44,20 @@ export class AccountDeletionService {
 
     this.logger.log(`Executing account deletion for user ${userId}`);
 
-    const anonymisedEmail = createHash('sha256').update(user.email).digest('hex') + '@deleted.forumo.app';
-    const adminEmail = this.config.get<string>('ADMIN_NOTIFICATION_EMAIL');
+    const anonymisedEmail =
+      createHash("sha256").update(user.email).digest("hex") +
+      "@deleted.forumo.app";
+    const adminEmail = this.config.get<string>("ADMIN_NOTIFICATION_EMAIL");
 
     // Check for pending payouts that need admin attention
     const pendingPayout = await this.prisma.payout.findFirst({
-      where: { sellerId: userId, status: 'PENDING' },
+      where: { sellerId: userId, status: "PENDING" },
     });
 
     if (pendingPayout) {
-      this.logger.warn(`User ${userId} has pending payout ${pendingPayout.id} — freezing and notifying admin`);
+      this.logger.warn(
+        `User ${userId} has pending payout ${pendingPayout.id} — freezing and notifying admin`,
+      );
       if (adminEmail) {
         await this.notifications.sendEmail(
           adminEmail,
@@ -61,14 +69,18 @@ export class AccountDeletionService {
 
     // Cancel active listings
     await this.prisma.listing.updateMany({
-      where: { sellerId: userId, status: { in: ['PUBLISHED', 'PAUSED'] } },
-      data: { status: 'PAUSED' },
+      where: { sellerId: userId, status: { in: ["PUBLISHED", "PAUSED"] } },
+      data: { status: "PAUSED" },
     });
+    await this.cache.deleteByPrefix("listings:search:");
 
     // Cancel pending/confirmed orders and trigger refunds via status update
     await this.prisma.order.updateMany({
-      where: { OR: [{ buyerId: userId }, { sellerId: userId }], status: { in: ['PENDING', 'CONFIRMED'] } },
-      data: { status: 'CANCELLED' },
+      where: {
+        OR: [{ buyerId: userId }, { sellerId: userId }],
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+      data: { status: "CANCELLED" },
     });
 
     // Soft-delete and anonymise PII — financial records remain intact (anonymised) for 7 years
@@ -77,12 +89,12 @@ export class AccountDeletionService {
       data: {
         deletedAt: new Date(),
         deletionScheduledAt: null,
-        accountStatus: 'DELETED',
-        name: 'Deleted User',
+        accountStatus: "DELETED",
+        name: "Deleted User",
         email: anonymisedEmail,
         phone: null,
         avatarUrl: null,
-        passwordHash: '',
+        passwordHash: "",
         tokenVersion: { increment: 1 }, // invalidate all existing sessions
       },
     });
@@ -97,8 +109,8 @@ export class AccountDeletionService {
     try {
       await this.notifications.sendEmail(
         user.email,
-        'Your Forumo account has been deleted',
-        `<p>Hi ${user.name ?? 'there'},</p><p>Your Forumo account has been permanently deleted as requested.</p><p>Your personal information has been removed from our systems. Financial records have been anonymised and retained for 7 years as required by law.</p><p>We're sorry to see you go. If you ever wish to return, you're welcome to create a new account at any time.</p>`,
+        "Your Forumo account has been deleted",
+        `<p>Hi ${user.name ?? "there"},</p><p>Your Forumo account has been permanently deleted as requested.</p><p>Your personal information has been removed from our systems. Financial records have been anonymised and retained for 7 years as required by law.</p><p>We're sorry to see you go. If you ever wish to return, you're welcome to create a new account at any time.</p>`,
       );
     } catch {
       // email already anonymised, ignore send failures

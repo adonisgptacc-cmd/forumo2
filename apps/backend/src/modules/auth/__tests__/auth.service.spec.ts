@@ -1,7 +1,7 @@
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { NotificationChannel, OtpPurpose, User } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
+import { NotificationChannel, OtpPurpose, User } from "@prisma/client";
+import * as bcrypt from "bcrypt";
 
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthService } from "../auth.service";
@@ -12,21 +12,21 @@ import { OtpDeliveryService } from "../otp-delivery.service";
 import { NotificationsService } from "../../notifications/notifications.service";
 
 const createUser = (): User => ({
-  id: 'user-1',
-  name: 'Zuri',
-  email: 'zuri@example.com',
-  passwordHash: 'hashed',
-  phone: '+27123456789',
+  id: "user-1",
+  name: "Zuri",
+  email: "zuri@example.com",
+  passwordHash: "hashed",
+  phone: "+27123456789",
   avatarUrl: null,
-  role: 'BUYER',
+  role: "BUYER",
   trustScore: 0,
-  kycStatus: 'PENDING',
+  kycStatus: "PENDING",
   tokenVersion: 0,
   lastLoginAt: null,
-  createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+  createdAt: new Date("2024-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2024-01-02T00:00:00.000Z"),
   deletedAt: null,
-  accountStatus: 'ACTIVE',
+  accountStatus: "ACTIVE",
   suspensionReason: null,
   suspendedUntil: null,
   banReason: null,
@@ -36,6 +36,9 @@ const createUser = (): User => ({
   deletionScheduledAt: null,
   emailVerified: true,
   emailVerificationToken: null,
+  twoFactorEnabled: false,
+  twoFactorSecret: null,
+  twoFactorBackupCodes: [],
   stripeConnectAccountId: null,
   stripeConnectOnboarded: false,
   paystackRecipientCode: null,
@@ -61,7 +64,7 @@ type PrismaMock = {
   $transaction: jest.Mock;
 };
 
-describe('AuthService OTP flows', () => {
+describe("AuthService OTP flows", () => {
   let service: AuthService;
   let prisma: PrismaMock;
   let jwtService: jest.Mocked<JwtService>;
@@ -87,24 +90,26 @@ describe('AuthService OTP flows', () => {
       userProfile: {
         upsert: jest.fn(),
       },
-      $transaction: jest.fn((operations: Promise<unknown>[]) => Promise.all(operations)),
+      $transaction: jest.fn((operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+      ),
     };
 
     jwtService = {
-      signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
+      signAsync: jest.fn().mockResolvedValue("signed.jwt.token"),
     } as unknown as jest.Mocked<JwtService>;
 
     configService = {
       get: jest.fn((key: string) => {
-        if (key === 'OTP_TTL') {
-          return '300';
+        if (key === "OTP_TTL") {
+          return "300";
         }
-        if (key === 'JWT_TTL') {
-          return '3600';
+        if (key === "JWT_TTL") {
+          return "3600";
         }
         return undefined;
       }),
-      getOrThrow: jest.fn().mockReturnValue('jwt-secret'),
+      getOrThrow: jest.fn().mockReturnValue("jwt-secret"),
     } as unknown as jest.Mocked<ConfigService>;
 
     usersService = {
@@ -114,10 +119,10 @@ describe('AuthService OTP flows', () => {
     otpDelivery = {
       deliver: jest.fn().mockResolvedValue({
         channel: NotificationChannel.EMAIL,
-        provider: 'ses',
-        referenceId: 'ref-123',
-        deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
-        metadata: { region: 'us-east-1' },
+        provider: "ses",
+        referenceId: "ref-123",
+        deliveredAt: new Date("2024-01-01T00:00:00.000Z"),
+        metadata: { region: "us-east-1" },
       }),
     } as unknown as jest.Mocked<OtpDeliveryService>;
 
@@ -139,7 +144,7 @@ describe('AuthService OTP flows', () => {
     jest.restoreAllMocks();
   });
 
-  it('issues OTP codes, enforces rate limits, and records delivery metadata', async () => {
+  it("issues OTP codes, enforces rate limits, and records delivery metadata", async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.create.mockImplementation(async (args) => args as never);
@@ -147,18 +152,20 @@ describe('AuthService OTP flows', () => {
     const dto: RequestOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      deviceFingerprint: 'fingerprint-123',
-      ipAddress: '127.0.0.1',
-      userAgent: 'jest',
-      metadata: { platform: 'web' },
+      deviceFingerprint: "fingerprint-123",
+      ipAddress: "127.0.0.1",
+      userAgent: "jest",
+      metadata: { platform: "web" },
     };
 
-    jest.spyOn<any, string>(service as any, 'generateOtpCode').mockReturnValue('123456');
+    jest
+      .spyOn<any, string>(service as any, "generateOtpCode")
+      .mockReturnValue("123456");
 
     await expect(service.requestOtp(dto)).resolves.toEqual({
-      message: 'OTP issued',
+      message: "OTP issued",
       channel: NotificationChannel.EMAIL,
-      deliveredAt: new Date('2024-01-01T00:00:00.000Z'),
+      deliveredAt: new Date("2024-01-01T00:00:00.000Z"),
     });
 
     expect(prisma.otpCode.create).toHaveBeenCalledWith(
@@ -168,25 +175,34 @@ describe('AuthService OTP flows', () => {
           purpose: dto.purpose,
           secret: expect.any(String),
           channel: NotificationChannel.EMAIL,
-          deliveryProvider: 'ses',
+          deliveryProvider: "ses",
         }),
       }),
     );
 
-    const callArgs = prisma.otpCode.create.mock.calls[0][0] as { data: { codeHash: string } };
-    await expect(bcrypt.compare('123456', callArgs.data.codeHash)).resolves.toBe(true);
+    const callArgs = prisma.otpCode.create.mock.calls[0][0] as {
+      data: { codeHash: string };
+    };
+    await expect(
+      bcrypt.compare("123456", callArgs.data.codeHash),
+    ).resolves.toBe(true);
 
     expect(prisma.deviceSession.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId_fingerprint: { userId: user.id, fingerprint: dto.deviceFingerprint } },
+        where: {
+          userId_fingerprint: {
+            userId: user.id,
+            fingerprint: dto.deviceFingerprint,
+          },
+        },
         update: expect.objectContaining({ lastIssuedAt: expect.any(Date) }),
       }),
     );
 
-    expect(otpDelivery.deliver).toHaveBeenCalledWith(user, dto, '123456');
+    expect(otpDelivery.deliver).toHaveBeenCalledWith(user, dto, "123456");
   });
 
-  it('locks devices when rate limit exceeded', async () => {
+  it("locks devices when rate limit exceeded", async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.count.mockResolvedValue(5);
@@ -194,24 +210,26 @@ describe('AuthService OTP flows', () => {
     const dto: RequestOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      deviceFingerprint: 'fingerprint-123',
+      deviceFingerprint: "fingerprint-123",
     } as RequestOtpDto;
 
-    await expect(service.requestOtp(dto)).rejects.toThrow('Too many OTP requests for this device');
+    await expect(service.requestOtp(dto)).rejects.toThrow(
+      "Too many OTP requests for this device",
+    );
   });
 
-  it('verifies OTP codes and returns auth response', async () => {
+  it("verifies OTP codes and returns auth response", async () => {
     const user = createUser();
-    const codeHash = await bcrypt.hash('654321', 10);
+    const codeHash = await bcrypt.hash("654321", 10);
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.findFirst.mockResolvedValue({
-      id: 'otp-1',
+      id: "otp-1",
       userId: user.id,
       purpose: OtpPurpose.LOGIN,
-      secret: 'secret',
+      secret: "secret",
       codeHash,
       channel: NotificationChannel.SMS,
-      deviceFingerprint: 'fingerprint-123',
+      deviceFingerprint: "fingerprint-123",
       expiresAt: new Date(Date.now() + 60_000),
       consumedAt: null,
       attempts: 0,
@@ -224,19 +242,19 @@ describe('AuthService OTP flows', () => {
     const dto: VerifyOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      code: '654321',
-      deviceFingerprint: 'fingerprint-123',
+      code: "654321",
+      deviceFingerprint: "fingerprint-123",
       channel: NotificationChannel.SMS,
     };
 
     const response = await service.verifyOtp(dto);
 
     expect(response.user.id).toEqual(user.id);
-    expect(response.accessToken).toEqual('signed.jwt.token');
+    expect(response.accessToken).toEqual("signed.jwt.token");
 
     expect(prisma.otpCode.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'otp-1' },
+        where: { id: "otp-1" },
         data: expect.objectContaining({ consumedAt: expect.any(Date) }),
       }),
     );
@@ -248,19 +266,19 @@ describe('AuthService OTP flows', () => {
     );
   });
 
-  it('prevents OTP replay after a code has been consumed', async () => {
+  it("prevents OTP replay after a code has been consumed", async () => {
     const user = createUser();
-    const codeHash = await bcrypt.hash('222333', 10);
+    const codeHash = await bcrypt.hash("222333", 10);
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.findFirst
       .mockResolvedValueOnce({
-        id: 'otp-2',
+        id: "otp-2",
         userId: user.id,
         purpose: OtpPurpose.LOGIN,
-        secret: 'secret',
+        secret: "secret",
         codeHash,
         channel: NotificationChannel.EMAIL,
-        deviceFingerprint: 'fingerprint-xyz',
+        deviceFingerprint: "fingerprint-xyz",
         expiresAt: new Date(Date.now() + 60_000),
         consumedAt: null,
         attempts: 0,
@@ -274,23 +292,23 @@ describe('AuthService OTP flows', () => {
     const dto: VerifyOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      code: '222333',
-      deviceFingerprint: 'fingerprint-xyz',
+      code: "222333",
+      deviceFingerprint: "fingerprint-xyz",
       channel: NotificationChannel.EMAIL,
     };
 
     await expect(service.verifyOtp(dto)).resolves.toBeDefined();
-    await expect(service.verifyOtp(dto)).rejects.toThrow('Invalid code');
+    await expect(service.verifyOtp(dto)).rejects.toThrow("Invalid code");
 
     expect(prisma.otpCode.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'otp-2' },
+        where: { id: "otp-2" },
         data: expect.objectContaining({ consumedAt: expect.any(Date) }),
       }),
     );
   });
 
-  it('enforces IP-based rate limits when device fingerprint is missing', async () => {
+  it("enforces IP-based rate limits when device fingerprint is missing", async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.count.mockResolvedValue(5);
@@ -298,20 +316,22 @@ describe('AuthService OTP flows', () => {
     const dto: RequestOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      deviceFingerprint: '',
-      ipAddress: '127.0.0.1',
+      deviceFingerprint: "",
+      ipAddress: "127.0.0.1",
     } as RequestOtpDto;
 
-    await expect(service.requestOtp(dto)).rejects.toThrow('Too many OTP requests for this device');
+    await expect(service.requestOtp(dto)).rejects.toThrow(
+      "Too many OTP requests for this device",
+    );
 
     expect(prisma.otpCode.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ deviceFingerprint: 'ip:127.0.0.1' }),
+        where: expect.objectContaining({ deviceFingerprint: "ip:127.0.0.1" }),
       }),
     );
   });
 
-  it('rejects OTP verification when device or channel do not match the issued code', async () => {
+  it("rejects OTP verification when device or channel do not match the issued code", async () => {
     const user = createUser();
     prisma.user.findFirst.mockResolvedValue(user);
     prisma.otpCode.findFirst.mockResolvedValue(null);
@@ -319,16 +339,19 @@ describe('AuthService OTP flows', () => {
     const dto: VerifyOtpDto = {
       email: user.email,
       purpose: OtpPurpose.LOGIN,
-      code: '111111',
-      deviceFingerprint: 'different-device',
+      code: "111111",
+      deviceFingerprint: "different-device",
       channel: NotificationChannel.EMAIL,
     };
 
-    await expect(service.verifyOtp(dto)).rejects.toThrow('Invalid code');
+    await expect(service.verifyOtp(dto)).rejects.toThrow("Invalid code");
 
     expect(prisma.otpCode.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ deviceFingerprint: 'different-device', channel: NotificationChannel.EMAIL }),
+        where: expect.objectContaining({
+          deviceFingerprint: "different-device",
+          channel: NotificationChannel.EMAIL,
+        }),
       }),
     );
   });

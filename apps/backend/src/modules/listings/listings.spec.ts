@@ -1,6 +1,6 @@
-import type { CanActivate } from '@nestjs/common';
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import type { CanActivate } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
 import {
   Listing,
   ListingImage,
@@ -9,32 +9,35 @@ import {
   ListingVariant,
   Prisma,
   ListingType,
-} from '@prisma/client';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+} from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule } from "@nestjs/config";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ListingsModule } from "./listings.module";
 import { ListingWithRelations } from "./listing.serializer";
 import { ModerationQueueService } from "./moderation-queue.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CacheService } from "../../common/services/cache.service";
 
-const SELLER_ID = 'seller-1';
+const SELLER_ID = "seller-1";
 
 class MockJwtGuard implements CanActivate {
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
-    req.user = { id: SELLER_ID, role: 'SELLER' };
+    req.user = { id: SELLER_ID, role: "SELLER" };
     return true;
   }
 }
 
-describe('ListingsModule (smoke)', () => {
+describe("ListingsModule (smoke)", () => {
   let app: INestApplication;
+  let cache: { deleteByPrefix: jest.Mock };
 
   beforeEach(async () => {
     const prismaMock = new InMemoryPrismaService();
+    cache = { deleteByPrefix: jest.fn().mockResolvedValue(0) };
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true }), ListingsModule],
     })
@@ -42,6 +45,12 @@ describe('ListingsModule (smoke)', () => {
       .useValue(prismaMock)
       .overrideProvider(ModerationQueueService)
       .useValue(new ImmediateModerationQueueService(prismaMock))
+      .overrideProvider(CacheService)
+      .useValue({
+        get: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn().mockResolvedValue(undefined),
+        deleteByPrefix: cache.deleteByPrefix,
+      })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockJwtGuard)
       .compile();
@@ -54,41 +63,73 @@ describe('ListingsModule (smoke)', () => {
     await app.close();
   });
 
-  it('creates, reads, updates, and deletes listings', async () => {
+  it("creates, reads, updates, and deletes listings", async () => {
     const payload = {
       sellerId: SELLER_ID,
-      title: 'Vintage Kente Fabric',
-      description: 'Handwoven Kente cloth direct from artisans.',
+      title: "Vintage Kente Fabric",
+      description: "Handwoven Kente cloth direct from artisans.",
       priceCents: 45000,
       status: ListingStatus.PUBLISHED,
       variants: [
-        { label: '2 yards', priceCents: 45000, inventoryCount: 4 },
-        { label: '4 yards', priceCents: 80000, inventoryCount: 2 },
+        { label: "2 yards", priceCents: 45000, inventoryCount: 4 },
+        { label: "4 yards", priceCents: 80000, inventoryCount: 2 },
       ],
     };
 
-    const createRes = await request(app.getHttpServer()).post('/listings').send(payload).expect(201);
+    const createRes = await request(app.getHttpServer())
+      .post("/listings")
+      .send(payload)
+      .expect(201);
     expect(createRes.body.title).toBe(payload.title);
     expect(createRes.body.variants).toHaveLength(2);
 
     const listingId = createRes.body.id;
 
-    const listRes = await request(app.getHttpServer()).get('/listings').expect(200);
+    const listRes = await request(app.getHttpServer())
+      .get("/listings")
+      .expect(200);
     expect(Array.isArray(listRes.body)).toBe(true);
     expect(listRes.body[0].id).toBe(listingId);
 
     const updateRes = await request(app.getHttpServer())
       .patch(`/listings/${listingId}`)
-      .send({ title: 'Updated title' })
+      .send({ title: "Updated title" })
       .expect(200);
-    expect(updateRes.body.title).toBe('Updated title');
+    expect(updateRes.body.title).toBe("Updated title");
 
-    await request(app.getHttpServer()).delete(`/listings/${listingId}`).expect(204);
-    await request(app.getHttpServer()).get(`/listings/${listingId}`).expect(404);
+    await request(app.getHttpServer())
+      .delete(`/listings/${listingId}`)
+      .expect(204);
+    expect(cache.deleteByPrefix).toHaveBeenCalledWith("listings:search:");
+    expect(cache.deleteByPrefix).toHaveBeenCalledTimes(3);
+    await request(app.getHttpServer())
+      .get(`/listings/${listingId}`)
+      .expect(404);
+  });
+
+  it("does not expose draft listings through public search filters", async () => {
+    const createRes = await request(app.getHttpServer())
+      .post("/listings")
+      .send({
+        title: "Private draft",
+        priceCents: 5000,
+        status: ListingStatus.DRAFT,
+      })
+      .expect(201);
+
+    const searchRes = await request(app.getHttpServer())
+      .get("/listings/search?status=DRAFT")
+      .expect(200);
+
+    expect(
+      searchRes.body.data.map((listing: { id: string }) => listing.id),
+    ).not.toContain(createRes.body.id);
   });
 });
 
 class InMemoryPrismaService {
+  $transaction = async (actions: Promise<unknown>[]) => Promise.all(actions);
+
   private listings = new Map<string, ListingRecord>();
   private variants = new Map<string, ListingVariantRecord>();
   private images = new Map<string, ListingImageRecord>();
@@ -97,7 +138,11 @@ class InMemoryPrismaService {
   ]);
 
   user = {
-    findFirst: async ({ where }: { where: { id: string; deletedAt: null } }) => {
+    findFirst: async ({
+      where,
+    }: {
+      where: { id: string; deletedAt: null };
+    }) => {
       const user = this.users.get(where.id);
       if (!user || user.deletedAt) {
         return null;
@@ -107,12 +152,26 @@ class InMemoryPrismaService {
   };
 
   listing = {
+    count: async ({ where }: any) =>
+      (await this.listing.findMany({ where })).length,
     findMany: async ({ where, orderBy, include }: any) => {
-      let results = Array.from(this.listings.values()).filter((listing) => !listing.deletedAt);
+      let results = Array.from(this.listings.values()).filter(
+        (listing) => !listing.deletedAt,
+      );
       if (where?.sellerId) {
-        results = results.filter((listing) => listing.sellerId === where.sellerId);
+        results = results.filter(
+          (listing) => listing.sellerId === where.sellerId,
+        );
       }
-      if (orderBy?.createdAt === 'desc') {
+      if (where?.status) {
+        results = results.filter((listing) => listing.status === where.status);
+      }
+      if (where?.moderationStatus) {
+        results = results.filter(
+          (listing) => listing.moderationStatus === where.moderationStatus,
+        );
+      }
+      if (orderBy?.createdAt === "desc") {
         results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       }
       return results.map((listing) => this.buildListing(listing, include));
@@ -140,7 +199,7 @@ class InMemoryPrismaService {
         title: data.title!,
         description: data.description!,
         priceCents: data.priceCents!,
-        currency: data.currency ?? 'USD',
+        currency: data.currency ?? "USD",
         type: data.type ?? ListingType.FIXED_PRICE,
         status: data.status ?? ListingStatus.DRAFT,
         moderationStatus: data.moderationStatus!,
@@ -156,10 +215,16 @@ class InMemoryPrismaService {
       this.listings.set(record.id, record);
       return { ...record };
     },
-    update: async ({ where, data }: { where: { id: string }; data: Partial<Listing> }) => {
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<Listing>;
+    }) => {
       const listing = this.listings.get(where.id);
       if (!listing) {
-        throw new Error('Listing not found');
+        throw new Error("Listing not found");
       }
       Object.assign(listing, data);
       listing.updatedAt = new Date();
@@ -185,7 +250,7 @@ class InMemoryPrismaService {
           listingId: variant.listingId,
           label: variant.label,
           priceCents: variant.priceCents,
-          currency: variant.currency ?? 'USD',
+          currency: variant.currency ?? "USD",
           sku: variant.sku ?? null,
           inventoryCount: variant.inventoryCount ?? 0,
           metadata: variant.metadata ?? null,
@@ -200,9 +265,15 @@ class InMemoryPrismaService {
 
   listingImage = {
     count: async ({ where }: { where: { listingId: string } }) => {
-      return Array.from(this.images.values()).filter((image) => image.listingId === where.listingId).length;
+      return Array.from(this.images.values()).filter(
+        (image) => image.listingId === where.listingId,
+      ).length;
     },
-    create: async ({ data }: { data: Partial<ListingImage> & { listingId: string } }) => {
+    create: async ({
+      data,
+    }: {
+      data: Partial<ListingImage> & { listingId: string };
+    }) => {
       const record: ListingImageRecord = {
         id: randomUUID(),
         listingId: data.listingId,
@@ -221,7 +292,10 @@ class InMemoryPrismaService {
     },
   };
 
-  private buildListing(listing: ListingRecord, include?: any): Listing | ListingWithRelations {
+  private buildListing(
+    listing: ListingRecord,
+    include?: any,
+  ): Listing | ListingWithRelations {
     if (!include) {
       return { ...listing };
     }
@@ -234,7 +308,9 @@ class InMemoryPrismaService {
   }
 
   private getVariants(listingId: string): ListingVariantRecord[] {
-    return Array.from(this.variants.values()).filter((variant) => variant.listingId === listingId);
+    return Array.from(this.variants.values()).filter(
+      (variant) => variant.listingId === listingId,
+    );
   }
 
   private getImages(listingId: string): ListingImageRecord[] {
@@ -245,9 +321,12 @@ class InMemoryPrismaService {
 }
 
 class ImmediateModerationQueueService {
-  constructor(private readonly prisma: InMemoryPrismaService) { }
+  constructor(private readonly prisma: InMemoryPrismaService) {}
 
-  async enqueueListingScan(payload: { listingId: string; desiredStatus?: ListingStatus }): Promise<void> {
+  async enqueueListingScan(payload: {
+    listingId: string;
+    desiredStatus?: ListingStatus;
+  }): Promise<void> {
     await this.prisma.listing.update({
       where: { id: payload.listingId },
       data: {

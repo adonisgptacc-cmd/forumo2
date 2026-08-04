@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { clsx } from 'clsx';
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { clsx } from "clsx";
 import {
   Users,
   Package,
@@ -11,25 +11,28 @@ import {
   Flag,
   BarChart2,
   LogOut,
-} from 'lucide-react';
-import { signOut } from 'next-auth/react';
+} from "lucide-react";
+import { signOut } from "next-auth/react";
 
 const nav = [
-  { label: 'Users', href: '/admin/users', icon: Users },
-  { label: 'Listings', href: '/admin/listings', icon: Package },
-  { label: 'KYC Queue', href: '/admin/kyc', icon: ShieldCheck },
-  { label: 'Disputes', href: '/admin/disputes', icon: Scale },
-  { label: 'Moderation', href: '/admin/moderation', icon: Flag },
-  { label: 'Analytics', href: '/admin/analytics', icon: BarChart2 },
+  { label: "Users", href: "/users", icon: Users },
+  { label: "Listings", href: "/listings", icon: Package },
+  { label: "KYC Queue", href: "/kyc", icon: ShieldCheck },
+  { label: "Disputes", href: "/disputes", icon: Scale },
+  { label: "Moderation", href: "/moderation", icon: Flag },
+  { label: "Analytics", href: "/analytics", icon: BarChart2 },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-gray-200 bg-gray-50">
       <div className="flex h-14 items-center border-b border-gray-200 px-4">
-        <span className="font-semibold text-gray-900 tracking-tight">Forumo Admin</span>
+        <span className="font-semibold text-gray-900 tracking-tight">
+          Forumo Admin
+        </span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
@@ -38,10 +41,10 @@ export function Sidebar() {
             key={href}
             href={href}
             className={clsx(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               pathname.startsWith(href)
-                ? 'bg-gray-200 text-gray-900'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                ? "bg-gray-200 text-gray-900"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -52,7 +55,10 @@ export function Sidebar() {
 
       <div className="border-t border-gray-200 p-3">
         <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={async () => {
+            await signOut({ redirect: false });
+            router.push("/login");
+          }}
           className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
         >
           <LogOut className="h-4 w-4 shrink-0" />

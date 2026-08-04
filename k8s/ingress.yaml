@@ -38,7 +38,7 @@ spec:
                 port:
                   number: 4000
           # /admin/** -> admin Next.js dashboard (port 3001).
-          # Requires apps/admin/next.config.js to set basePath: '/admin'.
+          # apps/admin/next.config.mjs sets basePath: '/admin'.
           - path: /admin(/|$)(.*)
             pathType: ImplementationSpecific
             backend:

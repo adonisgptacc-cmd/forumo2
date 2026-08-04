@@ -1,3 +1,5 @@
+# Local-development manifest. Production uses k8s/web/deployment.yaml,
+# which consumes forumo-web-secrets and forumo-admin-secrets from ESO.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -20,11 +20,11 @@ k8s/
 
 ## Prerequisites
 
-| Tool | Install |
-|---|---|
-| External Secrets Operator | `helm install eso external-secrets/external-secrets -n external-secrets --create-namespace` |
-| cert-manager | `helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true` |
-| nginx ingress controller | `helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace` |
+| Tool                      | Install                                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| External Secrets Operator | `helm install eso external-secrets/external-secrets -n external-secrets --create-namespace`                 |
+| cert-manager              | `helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set installCRDs=true` |
+| nginx ingress controller  | `helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace`                |
 
 ### cert-manager ClusterIssuer
 
@@ -46,6 +46,7 @@ spec:
           ingress:
             class: nginx
 ```
+
 ## AWS Secrets Manager setup
 
 Each app reads runtime config from a flat JSON secret. Create three secrets,
@@ -67,7 +68,7 @@ Apply in this exact order; each step depends on the previous completing successf
 ### 1. Namespace
 
 ```bash
-kubectl apply -f k8s/backend/deployment.yaml   # first doc creates the forumo namespace
+kubectl apply -f k8s/namespace.yaml
 ```
 
 ### 2. Secrets
@@ -87,6 +88,7 @@ kubectl run migrations --rm -it --restart=Never --image=<ECR>/forumo-backend:<ta
 ```
 
 ### 4. Redis
+
 Provision ElastiCache Redis 7. Set REDIS_URL in the forumo/backend AWS secret.
 
 ### 5. Backend
@@ -115,8 +117,9 @@ sed -i "s|forumo/admin:latest|$IMAGE|" k8s/web/deployment.yaml
 kubectl rollout status deployment/forumo-admin -n forumo
 ```
 
-> **Note:** Build the admin app with basePath: "/admin" in apps/admin/next.config.js so that
-> Next.js assets and server routes resolve correctly under the /admin subpath.
+> **Note:** The admin image is built with `basePath: '/admin'` in
+> `apps/admin/next.config.mjs`. Set `NEXTAUTH_URL` to the full API endpoint,
+> `https://forumo.africa/admin/api/auth`, so NextAuth uses the same base path.
 
 ### 8. Ingress
 
@@ -127,11 +130,11 @@ kubectl describe ingress forumo-ingress -n forumo
 
 ## Resource summary
 
-| Deployment | Replicas | CPU req/limit | Memory req/limit | HPA range |
-|---|---|---|---|---|
-| forumo-backend | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
-| forumo-web     | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
-| forumo-admin   | 2 | 250m / 500m | 256Mi / 512Mi | 2-10 |
+| Deployment     | Replicas | CPU req/limit | Memory req/limit | HPA range |
+| -------------- | -------- | ------------- | ---------------- | --------- |
+| forumo-backend | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
+| forumo-web     | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
+| forumo-admin   | 2        | 250m / 500m   | 256Mi / 512Mi    | 2-10      |
 
 HPA scales out at **CPU >= 70%** or **memory >= 80%** with a 5-minute scale-down
 stabilisation window to prevent flapping.

@@ -1,9 +1,15 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base';
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from "@opentelemetry/semantic-conventions";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import {
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
+} from "@opentelemetry/sdk-trace-base";
 
 export interface TracerOptions {
   serviceName: string;
@@ -17,10 +23,10 @@ export const startTracing = (options: TracerOptions): NodeSDK => {
   const exporterConfig = options.endpoint ? { url: options.endpoint } : {};
   const exporter = new OTLPTraceExporter(exporterConfig);
 
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: options.serviceName,
-    [ATTR_SERVICE_VERSION]: options.serviceVersion ?? '0.1.0',
-    'deployment.environment': options.environment ?? 'development',
+    [ATTR_SERVICE_VERSION]: options.serviceVersion ?? "0.1.0",
+    "deployment.environment": options.environment ?? "development",
   });
 
   const sdk = new NodeSDK({
@@ -28,11 +34,10 @@ export const startTracing = (options: TracerOptions): NodeSDK => {
     resource,
     instrumentations: [
       getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-http': { enabled: true },
-        '@opentelemetry/instrumentation-pg': { enabled: true },
-        '@opentelemetry/instrumentation-redis-4': { enabled: true },
-        '@opentelemetry/instrumentation-express': { enabled: true },
-        '@opentelemetry/instrumentation-fastify': { enabled: false },
+        "@opentelemetry/instrumentation-http": { enabled: true },
+        "@opentelemetry/instrumentation-pg": { enabled: true },
+        "@opentelemetry/instrumentation-redis": { enabled: true },
+        "@opentelemetry/instrumentation-express": { enabled: true },
       }),
     ],
     sampler: new ParentBasedSampler({
@@ -43,7 +48,7 @@ export const startTracing = (options: TracerOptions): NodeSDK => {
   try {
     sdk.start();
   } catch (error) {
-    console.error('Failed to initialize tracing', error);
+    console.error("Failed to initialize tracing", error);
   }
 
   return sdk;

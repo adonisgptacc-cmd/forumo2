@@ -1,39 +1,43 @@
-'use client';
+"use client";
 
-import { useState, FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useState, FormEvent } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
     const form = new FormData(e.currentTarget);
-    const result = await signIn('credentials', {
-      email: form.get('email') as string,
-      password: form.get('password') as string,
+    const result = await signIn("credentials", {
+      email: form.get("email") as string,
+      password: form.get("password") as string,
       redirect: false,
     });
     setLoading(false);
     if (result?.ok) {
-      router.push('/admin/users');
+      router.push("/users");
     } else {
-      setError('Invalid credentials or insufficient role.');
+      setError("Invalid credentials or insufficient role.");
     }
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Forumo Admin</h1>
+        <h1 className="mb-6 text-xl font-semibold text-gray-900">
+          Forumo Admin
+        </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
             <input
               name="email"
               type="email"
@@ -43,7 +47,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
             <input
               name="password"
               type="password"
@@ -58,7 +64,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
       </div>

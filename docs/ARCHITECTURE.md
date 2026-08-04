@@ -36,17 +36,17 @@ This document translates the PRD into a pragmatic architecture that can scale fr
 
 ## Technology choices
 
-| Concern              | Tech                                    | Notes |
-|----------------------|-----------------------------------------|-------|
-| API & domain logic   | NestJS (modular monolith to start)      | Module boundaries mirror PRD microservices. |
-| Database             | PostgreSQL + Prisma ORM                 | Prisma migrations keep schemas versioned. |
-| Search               | PostgreSQL full-text → OpenSearch later | Keep adapters to swap engines. |
-| Caching / queues     | Redis + BullMQ                          | Shared connection factory per module. |
-| Realtime messaging   | Socket.IO                               | Works for chat + auctions + notifications. |
-| File storage         | AWS S3 compatible (MinIO locally)       | Uploads proxied through backend for validation. |
-| Web                  | Next.js 15 (app router)                 | Seller dashboards + buyer flows + admin. |
-| Mobile               | Expo / React Native                     | Shares API layer + design system. |
-| Infra                | Docker + Kubernetes                     | CI builds images; Helm charts tracked in `/infra`. |
+| Concern            | Tech                                    | Notes                                              |
+| ------------------ | --------------------------------------- | -------------------------------------------------- |
+| API & domain logic | NestJS (modular monolith to start)      | Module boundaries mirror PRD microservices.        |
+| Database           | PostgreSQL + Prisma ORM                 | Prisma migrations keep schemas versioned.          |
+| Search             | PostgreSQL full-text → OpenSearch later | Keep adapters to swap engines.                     |
+| Caching / queues   | Redis + BullMQ                          | Shared connection factory per module.              |
+| Realtime messaging | Socket.IO                               | Works for chat + auctions + notifications.         |
+| File storage       | AWS S3 compatible (MinIO locally)       | Uploads proxied through backend for validation.    |
+| Web                | Next.js 15 (app router)                 | Seller dashboards + buyer flows + admin.           |
+| Mobile             | Expo / React Native                     | Shares API layer + design system.                  |
+| Infra              | Docker + Kubernetes                     | CI builds images; Helm charts tracked in `/infra`. |
 
 ## Module boundaries
 
@@ -76,6 +76,29 @@ Each Nest module maps to a domain context. Modules interact via service interfac
 3. **PII handling** – S3 buckets enforce server-side encryption; signed URLs expire within 5 minutes.
 4. **Fraud detection** – risk-scoring middleware surfaces suspicious payments to the admin console.
 5. **Secrets** – `.env` only for dev; production uses AWS Secrets Manager.
+
+### PostgreSQL row-level security decision
+
+RLS is intentionally deferred for the current server-only Prisma architecture. The
+browser and mobile apps never connect to PostgreSQL directly, and the backend uses
+one pooled `PrismaClient` without transaction-scoped actor context. Enabling user
+policies in that model would either be bypassed by an owner-level database role or
+deny legitimate background jobs and admin operations; policies that simply allow
+the service role would not add isolation.
+
+RLS must not be enabled until all of these prerequisites are implemented together:
+
+1. Migrations run through a dedicated owner role and the backend connects through a
+   separate non-owner, non-`BYPASSRLS` role.
+2. Every request and background job executes database work in a transaction that
+   sets trusted actor and role values with `set_config(..., true)`.
+3. Policies cover user-owned rows, admin access, and system jobs, with integration
+   tests proving cross-user reads and writes are denied.
+4. Connection-pool tests prove actor context cannot leak between transactions.
+
+Until then, Nest guards plus service-layer ownership checks remain the enforced
+authorization boundary. This is a rollout gate, not a claim that empty or
+allow-all RLS policies provide defense in depth.
 
 ## Deployment strategy
 

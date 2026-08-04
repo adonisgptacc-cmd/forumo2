@@ -1,3 +1,5 @@
+# Local-development manifest. Production uses k8s/backend/deployment.yaml,
+# which consumes forumo-backend-secrets from External Secrets Operator.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

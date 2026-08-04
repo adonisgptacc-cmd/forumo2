@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
-import { ConfigModule } from '@nestjs/config';
-import { MulterModule } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { Module } from "@nestjs/common";
+import { HttpModule } from "@nestjs/axios";
+import { ConfigModule } from "@nestjs/config";
+import { MulterModule } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -12,7 +12,7 @@ import { ModerationQueueService } from "./moderation-queue.service";
 import { LocalSearchService } from "./local-search.service";
 import { ListingSearchService } from "./search.service";
 import { StorageModule } from "../storage/storage.module";
-import { CacheService } from "../../common/services/cache.service";
+import { CacheModule } from "../../common/services/cache.module";
 import { CategoriesController } from "./categories.controller";
 import { CategoriesService } from "./categories.service";
 
@@ -24,9 +24,21 @@ import { CategoriesService } from "./categories.service";
     MulterModule.register({ storage: memoryStorage() }),
     StorageModule,
     NotificationsModule,
+    CacheModule,
   ],
   controllers: [ListingsController, CategoriesController],
-  providers: [ListingsService, ListingSearchService, ModerationQueueService, CacheService, LocalSearchService, CategoriesService],
-  exports: [ListingsService, ListingSearchService, ModerationQueueService, CategoriesService],
+  providers: [
+    ListingsService,
+    ListingSearchService,
+    ModerationQueueService,
+    LocalSearchService,
+    CategoriesService,
+  ],
+  exports: [
+    ListingsService,
+    ListingSearchService,
+    ModerationQueueService,
+    CategoriesService,
+  ],
 })
-export class ListingsModule { }
+export class ListingsModule {}

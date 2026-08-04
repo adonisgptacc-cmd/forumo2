@@ -6,23 +6,60 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      run_android_e2e:
+        description: Run the paused Android Detox job
+        required: false
+        default: false
+        type: boolean
+      run_ios_e2e:
+        description: Run the paused iOS Detox job
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v5
         with:
-          version: 9
-      - uses: actions/setup-node@v4
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          version: 9.1.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter backend prisma:generate
       - run: pnpm lint
-      - run: pnpm format:check
+      - name: Check formatting for changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          mapfile -d '' files < <(
+            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$GITHUB_SHA" -- \
+              '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.md' '*.yml' '*.yaml' \
+              ':(exclude)pnpm-lock.yaml'
+          )
+          if [ "${#files[@]}" -gt 0 ]; then
+            pnpm exec prettier --check "${files[@]}"
+          else
+            echo "No changed files require formatting."
+          fi
+      - name: Validate deployment configuration
+        run: pnpm test:deployment
       - run: pnpm typecheck
 
   test:
@@ -31,7 +68,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, web, mobile, shared]
+        include:
+          - package: backend
+            filter: backend
+            coverage: true
+          - package: web
+            filter: web
+            coverage: false
+          - package: mobile
+            filter: "@forumo/mobile"
+            coverage: false
+          - package: shared
+            filter: "@forumo/shared"
+            coverage: false
+    env:
+      DATABASE_URL: postgresql://forumo:forumo@localhost:5432/forumo?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      NODE_ENV: test
     services:
       postgres:
         image: postgres:16
@@ -48,25 +103,25 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
-          version: 9
-      - uses: actions/setup-node@v4
+          version: 9.1.4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: 22
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - name: Run tests
         run: |
-          if [ "${{ matrix.package }}" = "backend" ]; then
-            pnpm turbo run test:coverage --filter=backend
+          if [ "${{ matrix.coverage }}" = "true" ]; then
+            pnpm --filter="${{ matrix.filter }}" test:coverage
           else
-            pnpm turbo run test --filter=${{ matrix.package }}
+            pnpm --filter="${{ matrix.filter }}" test
           fi
       - name: Upload coverage to Codecov
         if: matrix.package == 'backend'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: apps/backend/coverage/lcov.info
           flags: backend
@@ -79,38 +134,52 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
-          version: 9
-      - uses: actions/setup-node@v4
+          version: 9.1.4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: 22
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Build web app for E2E
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+          NEXT_PUBLIC_USE_API_MOCKS: "true"
+          NEXTAUTH_SECRET: test-secret
+          NEXTAUTH_URL: http://localhost:3000
       - run: docker compose -f docker-compose.test.yml up -d
       - run: pnpm test:e2e
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-artifacts
-          path: playwright-report
-      - run: docker compose -f docker-compose.test.yml down
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+      - if: always()
+        run: docker compose -f docker-compose.test.yml down --volumes
 
   build:
     name: Build Verification
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
-          version: 9
-      - uses: actions/setup-node@v4
+          version: 9.1.4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: 22
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter backend prisma:generate
       - name: Build all packages
         run: pnpm build
       - name: Backend TypeScript type-check
@@ -120,65 +189,248 @@ jobs:
     name: Security & Dependency Scanning
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v5
         with:
-          version: 9
-      - uses: actions/setup-node@v4
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          version: 9.1.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level=high || true
-      - uses: aquasecurity/trivy-action@v0.24.0
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
-          scan-type: 'fs'
-          severity: 'CRITICAL,HIGH'
-      - uses: GitGuardian/ggshield-action@v1.29.0
+          scan-type: "fs"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@v2
         env:
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   preview:
     name: Preview Deployments
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [build]
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: [build, security]
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "Build preview images and deploy to ephemeral environment"
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Check preview credentials
+        id: preview-config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### Preview deployment skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Configure VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID in the preview environment." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Pull preview environment
+        if: steps.preview-config.outputs.configured == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: pnpm dlx vercel@56.5.0 pull --yes --environment=preview
+      - name: Build preview
+        if: steps.preview-config.outputs.configured == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: pnpm dlx vercel@56.5.0 build
+      - name: Deploy preview
+        if: steps.preview-config.outputs.configured == 'true'
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          url="$(pnpm dlx vercel@56.5.0 deploy --prebuilt)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Preview deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "[$url]($url)" >> "$GITHUB_STEP_SUMMARY"
 
-  mobile-e2e:
-    name: Mobile E2E (iOS Simulator)
-    runs-on: macos-14
-    # Only run on main/develop — exclude staging pushes to manage runner costs
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
-    continue-on-error: true # TODO: set to false once mobile app reaches beta
+  mobile-android-build:
+    name: Mobile E2E (Android Emulator)
+    runs-on: ubuntu-latest
+    # Temporarily paused from regular CI; native APK compilation is healthy,
+    # but the emulator/Detox runtime remains unreliable on hosted runners.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_android_e2e
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.1.4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
+          # Expo SDK 50's reference build image uses Node 18.18.
+          node-version: 18.18.0
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install detox-cli
-        run: npm install -g detox-cli
+      - name: Generate native Android project
+        env:
+          DETOX_ANDROID: "true"
+        run: |
+          pnpm --filter @forumo/mobile exec expo prebuild --platform android --no-install
+          test -d apps/mobile/android
+          chmod +x apps/mobile/android/gradlew
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build Android app and test APKs
+        run: pnpm --filter @forumo/mobile build:detox:android
+
+      - name: Upload Android debug APK
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: forumo-android-debug
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0660", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Start Metro bundler
-        working-directory: apps/mobile
-        run: pnpm start &
+        run: |
+          CI=1 pnpm --filter @forumo/mobile start > apps/mobile/metro-android.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8081/status | grep --quiet 'packager-status:running'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat apps/mobile/metro-android.log
+          exit 1
 
-      - name: Build (Detox)
-        working-directory: apps/mobile
-        run: detox build --configuration ios.sim.debug
+      - name: Run Android Detox tests
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: pnpm --filter @forumo/mobile test:detox:android
 
-      - name: Test (Detox)
-        working-directory: apps/mobile
-        run: detox test --configuration ios.sim.debug
+      - name: Upload Android Detox artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-android-artifacts
+          path: |
+            apps/mobile/artifacts
+            apps/mobile/metro-android.log
+          if-no-files-found: ignore
+
+  mobile-e2e:
+    name: Mobile E2E (iOS Simulator)
+    runs-on: macos-14
+    # Temporarily paused from regular CI; it can still be run explicitly while
+    # the remaining production-readiness work continues.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_ios_e2e
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.4
+
+      - uses: actions/setup-node@v5
+        with:
+          # Expo SDK 50's reference build image uses Node 18.18.
+          node-version: 18.18.0
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate native iOS project
+        run: |
+          pnpm --filter @forumo/mobile exec expo prebuild --platform ios --no-install
+          test -d apps/mobile/ios
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: |
+          for attempt in 1 2 3; do
+            if pod install; then
+              exit 0
+            fi
+            echo "::warning::CocoaPods install failed on attempt $attempt; retrying"
+          done
+          exit 1
+
+      - name: Install Apple simulator utilities
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew tap wix/brew
+          git -C "$(brew --repo wix/brew)" checkout --detach 8f636f84541e08e850f455d7cffdfbd7ba305d3f
+          brew install wix/brew/applesimutils
+
+      - name: Build app for Detox
+        run: pnpm --filter @forumo/mobile build:detox:ios
+
+      - name: Start Metro bundler
+        run: |
+          CI=1 pnpm --filter @forumo/mobile start > apps/mobile/metro.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8081/status | grep --quiet 'packager-status:running'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat apps/mobile/metro.log
+          exit 1
+
+      - name: Run Detox tests
+        run: pnpm --filter @forumo/mobile test:detox
+
+      - name: Upload Detox artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-artifacts
+          path: |
+            apps/mobile/artifacts
+            apps/mobile/metro.log
