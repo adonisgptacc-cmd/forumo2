@@ -1098,11 +1098,19 @@ export class ForumoApiClient {
     get: () => this.request<unknown>('/cart', { method: 'GET', auth: true }),
     addItem: (listingId: string, quantity = 1, variantId?: string, variantLabel?: string) =>
       this.request<unknown>('/cart/items', { method: 'POST', auth: true, body: JSON.stringify({ listingId, quantity, variantId, variantLabel }) }),
-    updateItem: (itemId: string, quantity: number) =>
-      this.request<unknown>(`/cart/items/${itemId}`, { method: 'PUT', auth: true, body: JSON.stringify({ quantity }) }),
-    removeItem: (itemId: string) =>
-      this.request<void>(`/cart/items/${itemId}`, { method: 'DELETE', auth: true }),
+    updateItem: (listingId: string, quantity: number, variantId?: string) =>
+      this.request<unknown>(
+        `/cart/items/${listingId}${variantId ? `?variantId=${encodeURIComponent(variantId)}` : ''}`,
+        { method: 'PUT', auth: true, body: JSON.stringify({ quantity }) },
+      ),
+    removeItem: (listingId: string, variantId?: string) =>
+      this.request<void>(
+        `/cart/items/${listingId}${variantId ? `?variantId=${encodeURIComponent(variantId)}` : ''}`,
+        { method: 'DELETE', auth: true },
+      ),
     clear: () => this.request<void>('/cart', { method: 'DELETE', auth: true }),
+    merge: (items: { listingId: string; quantity: number; variantId?: string; variantLabel?: string }[]) =>
+      this.request<unknown>('/cart/merge', { method: 'POST', auth: true, body: JSON.stringify({ items }) }),
   };
 
   readonly analytics = {

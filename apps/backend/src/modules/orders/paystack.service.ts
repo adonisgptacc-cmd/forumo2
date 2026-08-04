@@ -119,10 +119,17 @@ export class PaystackService {
     name: string,
     currency: string,
   ): Promise<string> {
+    // Paystack's transfer-recipient "type" is bank-account-format-specific, not just a label:
+    // 'nuban' = Nigerian bank accounts, 'basa' = South African bank accounts.
+    // GHS/KES are left on 'nuban' (today's behavior) — not confirmed which type Paystack
+    // expects for bank-account-based payouts in those markets.
+    const RECIPIENT_TYPE_BY_CURRENCY: Record<string, string> = { NGN: 'nuban', ZAR: 'basa' };
+    const type = RECIPIENT_TYPE_BY_CURRENCY[currency.toUpperCase()] ?? 'nuban';
+
     const { data } = await firstValueFrom(
       this.http.post<PaystackApiResponse<{ recipient_code: string }>>(
         `${this.baseUrl}/transferrecipient`,
-        { type: 'nuban', bank_code: bankCode, account_number: accountNumber, name, currency },
+        { type, bank_code: bankCode, account_number: accountNumber, name, currency },
         { headers: this.authHeaders },
       ),
     );

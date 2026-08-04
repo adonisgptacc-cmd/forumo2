@@ -170,7 +170,7 @@ const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 - **Email verification UI** — Implemented. Email verification page exists; users are prompted to verify after registration.
 - **KYC submission UI** — Complete 5-step wizard at `apps/web/src/app/(authenticated)/app/kyc/kyc-form.tsx`.
 - **Escrow dispute UI** — Implemented. Buyer-facing board + detail at `src/app/(authenticated)/app/disputes/` (`page.tsx`, `disputes-board.tsx`, `[id]/dispute-detail.tsx`, with an `error.tsx`).
-- **Cart variant integration** — cart exists but product variants (size, colour) are not wired into the add-to-cart flow.
+- **Cart variant integration** — Implemented. Variant selector in `listing-detail.tsx` sets `variantId`/`variantLabel`, which `cart-context.tsx` keys line items by (`listingId:variantId`) and `checkout-flow.tsx` carries through to order creation.
 - **Error boundaries** — Implemented. 11 `error.tsx` segments exist (root, `listings`, `auctions`, `login`, `shops/[slug]`, and several under `(authenticated)/app/` and `(admin)/admin/`).
 - **Admin panel** — an `(admin)` route group exists in this app *and* there is a separate `apps/admin` dashboard. Both are wired and typecheck clean.
 

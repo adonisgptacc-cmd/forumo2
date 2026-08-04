@@ -73,9 +73,9 @@ All admin endpoints on the backend require `@Roles('ADMIN')` (`AdminController` 
 ## Current state
 
 - NextAuth is wired (`src/lib/auth.ts`) with a role-gated `src/middleware.ts` that redirects non-admins to `/403`.
-- Six pages are implemented and functional (TanStack Query + the shared client): `/admin` overview, `/admin/users`, `/admin/kyc`, `/admin/listings`, `/admin/moderation`, `/admin/disputes`. Shared UI in `src/components/` (DataTable, Badge, PageHeader, ErrorState, Sidebar).
+- Six pages are implemented and functional (TanStack Query + the shared client): `/admin/users`, `/admin/kyc`, `/admin/listings`, `/admin/moderation`, `/admin/disputes`, `/admin/analytics`. Shared UI in `src/components/` (DataTable, Badge, PageHeader, ErrorState, Sidebar). There is no dedicated `/admin` overview page — it redirects to `/admin/users`.
 - `tsc --noEmit` is clean.
-- Not yet built: `/admin/categories`, `/admin/fees`, `/admin/analytics` (see "Planned pages"). No test suite configured yet.
+- Not yet built: `/admin/categories`, `/admin/fees` (see "Planned pages"). No test suite configured yet.
 
 ## Sharp edges
 

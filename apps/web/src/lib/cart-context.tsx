@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { createApiClient } from './api-client';
+import { useCurrentUser, type BackendCart, type BackendCartItem } from './react-query/hooks';
 
 export interface CartItem {
   listingId: string;
@@ -58,24 +59,91 @@ function itemKey(listingId: string, variantId?: string) {
   return variantId ? `${listingId}:${variantId}` : listingId;
 }
 
+// Maps a backend cart row (CartService.getCart()) into the local shape.
+function fromBackendItem(item: BackendCartItem): CartItem {
+  return {
+    listingId: item.listingId,
+    variantId: item.variantId,
+    variantLabel: item.variantLabel,
+    sellerId: item.listing.sellerId,
+    title: item.listing.title,
+    priceCents: item.priceSnapshot,
+    currency: item.listing.currency,
+    quantity: item.quantity,
+    imageUrl: item.listing.images[0]?.url,
+  };
+}
+
+// Best-effort fallback when a backend merge/fetch fails (e.g. offline) — keeps
+// both sets of items rather than silently dropping the guest cart.
+function mergeLocalItems(base: CartItem[], extra: CartItem[]): CartItem[] {
+  const map = new Map<string, CartItem>();
+  for (const item of base) map.set(itemKey(item.listingId, item.variantId), item);
+  for (const item of extra) {
+    const key = itemKey(item.listingId, item.variantId);
+    const existing = map.get(key);
+    map.set(key, existing ? { ...existing, quantity: Math.max(existing.quantity, item.quantity) } : item);
+  }
+  return Array.from(map.values());
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
-  const userId = (session?.user as any)?.id as string | undefined;
+  const { user, accessToken } = useCurrentUser();
+  const userId = user?.id as string | undefined;
+  const api = useMemo(() => createApiClient(accessToken), [accessToken]);
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const prevUserIdRef = useRef<string | undefined>(undefined);
 
-  // Load (or reload) when userId is known or changes
-  useEffect(() => {
-    if (prevUserIdRef.current !== userId) {
-      prevUserIdRef.current = userId;
-      setItems(loadFromStorage(userId));
+  // Reconciles the local cart with the backend the moment a guest becomes
+  // signed in (or a signed-in session is established on load): any guest
+  // cart is merged into the account's backend cart, then the merged result
+  // (or the account's existing backend cart, if there was no guest cart)
+  // becomes the local state. Falls back to plain local-storage behavior if
+  // the backend call fails, so the cart still works offline.
+  const hydrateFromBackend = useCallback(async (uid: string) => {
+    const guestItems = loadFromStorage(undefined);
+    try {
+      if (guestItems.length > 0) {
+        const merged = (await api.cart.merge(
+          guestItems.map((i) => ({
+            listingId: i.listingId,
+            quantity: i.quantity,
+            variantId: i.variantId,
+            variantLabel: i.variantLabel,
+          })),
+        )) as BackendCart;
+        setItems(merged.items.map(fromBackendItem));
+        try {
+          localStorage.removeItem(storageKey(undefined));
+        } catch {
+          // ignore
+        }
+      } else {
+        const backendCart = (await api.cart.get()) as BackendCart;
+        setItems(backendCart.items.length > 0 ? backendCart.items.map(fromBackendItem) : loadFromStorage(uid));
+      }
+    } catch {
+      setItems(mergeLocalItems(loadFromStorage(uid), guestItems));
+    } finally {
       setHydrated(true);
-    } else if (!hydrated) {
+    }
+  }, [api]);
+
+  useEffect(() => {
+    const changed = prevUserIdRef.current !== userId;
+    if (!changed && hydrated) return;
+
+    const previousUserId = prevUserIdRef.current;
+    prevUserIdRef.current = userId;
+
+    if (changed && !previousUserId && userId) {
+      void hydrateFromBackend(userId);
+    } else {
       setItems(loadFromStorage(userId));
       setHydrated(true);
     }
-  }, [userId, hydrated]);
+  }, [userId, hydrated, hydrateFromBackend]);
 
   useEffect(() => {
     if (hydrated) saveToStorage(items, userId);
@@ -94,29 +162,47 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { ...item, quantity: item.quantity ?? 1 }];
     });
-  }, []);
+    if (userId) {
+      api.cart.addItem(item.listingId, item.quantity ?? 1, item.variantId, item.variantLabel).catch(() => {});
+    }
+  }, [userId, api]);
 
   const removeItem = useCallback((listingId: string, variantId?: string) => {
     const key = itemKey(listingId, variantId);
     setItems((prev) => prev.filter((i) => itemKey(i.listingId, i.variantId) !== key));
-  }, []);
+    if (userId) {
+      api.cart.removeItem(listingId, variantId).catch(() => {});
+    }
+  }, [userId, api]);
 
   const updateQuantity = useCallback((listingId: string, quantity: number, variantId?: string) => {
     const key = itemKey(listingId, variantId);
     if (quantity <= 0) {
       setItems((prev) => prev.filter((i) => itemKey(i.listingId, i.variantId) !== key));
+      if (userId) api.cart.removeItem(listingId, variantId).catch(() => {});
     } else {
       setItems((prev) =>
         prev.map((i) => (itemKey(i.listingId, i.variantId) === key ? { ...i, quantity } : i)),
       );
+      if (userId) api.cart.updateItem(listingId, quantity, variantId).catch(() => {});
     }
-  }, []);
+  }, [userId, api]);
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const clearCart = useCallback(() => {
+    setItems([]);
+    if (userId) api.cart.clear().catch(() => {});
+  }, [userId, api]);
 
   const clearSellerItems = useCallback((sellerId: string) => {
+    if (userId) {
+      for (const item of items) {
+        if (item.sellerId === sellerId) {
+          api.cart.removeItem(item.listingId, item.variantId).catch(() => {});
+        }
+      }
+    }
     setItems((prev) => prev.filter((i) => i.sellerId !== sellerId));
-  }, []);
+  }, [userId, api, items]);
 
   const itemCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
   const totalCents = useMemo(() => items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0), [items]);

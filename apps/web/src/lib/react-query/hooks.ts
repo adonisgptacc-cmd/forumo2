@@ -1286,44 +1286,34 @@ export function useConfirmReturnReceived() {
 }
 
 // --- Backend Cart ---
+// Matches the actual response shape of CartService.getCart() / mergeGuestCart()
+// (apps/backend/src/modules/cart/cart.service.ts) — kept here rather than as a
+// shared Zod schema per packages/shared/CLAUDE.md ("cart response shape is flexible").
 
 export interface BackendCartItem {
   id: string;
   listingId: string;
+  variantId?: string;
+  variantLabel?: string;
   quantity: number;
-  listing?: {
-    id: string;
+  priceSnapshot: number;
+  addedAt: string;
+  listing: {
     title: string;
-    priceCents: number;
+    images: { url: string }[];
     currency: string;
     sellerId: string;
   };
+  inStock: boolean;
+  priceChanged: boolean;
+  currentPrice: number;
 }
 
 export interface BackendCart {
-  id?: string;
+  id: string | null;
+  expiresAt?: string;
   items: BackendCartItem[];
-}
-
-export function useBackendCart() {
-  const { accessToken } = useCurrentUser();
-  const api = useApi(accessToken);
-  return useQuery<BackendCart>({
-    queryKey: ['cart', 'backend'],
-    queryFn: () => api.cart.get() as Promise<BackendCart>,
-    enabled: !!accessToken,
-    staleTime: 30_000,
-  });
-}
-
-export function useClearBackendCart() {
-  const { accessToken } = useCurrentUser();
-  const api = useApi(accessToken);
-  const client = useQueryClient();
-  return useMutation<void, Error, void>({
-    mutationFn: () => api.cart.clear() as Promise<void>,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['cart', 'backend'] }),
-  });
+  total: number;
 }
 
 // --- Legal / GDPR ---

@@ -281,6 +281,40 @@ export class PayoutsService {
     }
   }
 
+  // Bridges schedulePayouts() (which only creates PENDING rows) to actual money
+  // movement — previously nothing ever called processPayout() automatically, so
+  // payouts sat at PENDING until an admin manually processed each one by id.
+  @Cron('0 4 * * *')
+  async processPendingPayouts(): Promise<void> {
+    const pending = await this.prisma.payout.findMany({
+      where: { status: PayoutStatus.PENDING },
+      select: { id: true },
+    });
+
+    if (!pending.length) {
+      this.logger.log('processPendingPayouts: no pending payouts found');
+      return;
+    }
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const { id } of pending) {
+      try {
+        await this.processPayout(id);
+        succeeded += 1;
+      } catch (err) {
+        failed += 1;
+        const reason = err instanceof Error ? err.message : 'Unknown error';
+        this.logger.warn(`processPendingPayouts: payout ${id} failed to process: ${reason}`);
+      }
+    }
+
+    this.logger.log(
+      `processPendingPayouts: processed ${pending.length} payout(s) — ${succeeded} succeeded, ${failed} failed`,
+    );
+  }
+
   private async processStripePayout(payoutId: string, payout: PayoutWithSeller): Promise<void> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');

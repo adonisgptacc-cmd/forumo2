@@ -9,7 +9,6 @@ import {
   useCurrentUser,
   useCreateOrder,
   useInitiatePayment,
-  useClearBackendCart,
   useAddresses,
   useFeePreview,
   useGetShippingRates,
@@ -107,7 +106,6 @@ export function CheckoutFlow() {
   const { user } = useCurrentUser();
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiatePayment();
-  const clearBackendCart = useClearBackendCart();
   const getShippingRates = useGetShippingRates();
   const { data: rawAddresses = [] } = useAddresses();
 
@@ -195,20 +193,17 @@ export function CheckoutFlow() {
         const payment = await initiatePayment.mutateAsync(order.id);
 
         if (payment.provider === 'paystack' && payment.authorizationUrl) {
-          clearBackendCart.mutate();
           window.location.href = payment.authorizationUrl;
           return;
         }
 
         if (payment.provider === 'stripe' && payment.clientSecret) {
-          clearBackendCart.mutate();
           setStripePayment({ orderId: order.id, clientSecret: payment.clientSecret });
           return;
         }
       }
 
       // All orders placed; no payment gateway needed (shouldn't normally happen)
-      clearBackendCart.mutate();
       router.push('/app/orders' as any);
     } catch (err) {
       setOrderError(err instanceof Error ? err.message : 'Failed to place order. Please try again.');

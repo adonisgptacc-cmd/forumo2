@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -30,18 +31,23 @@ export class CartController {
     return this.cartService.addItem(req.user.id, dto.listingId, dto.quantity, dto.variantId, dto.variantLabel);
   }
 
-  @Put('items/:id')
+  @Put('items/:listingId')
   updateQuantity(
     @Req() req: any,
-    @Param('id') id: string,
+    @Param('listingId') listingId: string,
+    @Query('variantId') variantId: string | undefined,
     @Body() dto: UpdateQuantityDto,
   ) {
-    return this.cartService.updateQuantity(req.user.id, id, dto.quantity);
+    return this.cartService.updateQuantityByKey(req.user.id, listingId, dto.quantity, variantId);
   }
 
-  @Delete('items/:id')
-  removeItem(@Req() req: any, @Param('id') id: string) {
-    return this.cartService.removeItem(req.user.id, id);
+  @Delete('items/:listingId')
+  removeItem(
+    @Req() req: any,
+    @Param('listingId') listingId: string,
+    @Query('variantId') variantId: string | undefined,
+  ) {
+    return this.cartService.removeItemByKey(req.user.id, listingId, variantId);
   }
 
   @Delete()

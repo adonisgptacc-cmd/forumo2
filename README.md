@@ -157,21 +157,16 @@ For a minimal production setup:
 
 ## Known issues / limitations
 
-- **Escrow dispute UI is missing** — dispute resolution requires direct API calls; no buyer-facing form yet
-- **Cart variant integration is incomplete** — variant selection does not correctly update the cart payload
-- **Mobile app is pre-alpha** — navigation scaffold only, no screens implemented
-- **No error boundaries** — a component error causes a blank page rather than a graceful fallback
-- **Revenue admin dashboard is a stub** — `apps/admin` analytics page has no charts or real data wired up
+- **Mobile app is pre-alpha** — 27 screens implemented and navigation-wired, but not tested end-to-end against a live backend
+- **Seller payout flow (ZAR + Stripe Connect)** — not validated end-to-end
 
 ---
 
 ## Roadmap
 
 **Next (before public launch)**
-- Escrow dispute UI
-- Error boundaries on all routes
-- Cart variant payload fix
-- Revenue admin dashboard
+- Validate the non-ZAR Stripe Connect payout path end-to-end (ZAR/Paystack payouts already validated and automated)
+- Test mobile app against a live backend
 
 **Soon**
 - Seller analytics dashboard

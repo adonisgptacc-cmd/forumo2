@@ -40,7 +40,7 @@ api.messages      listThreads, createThread, listMessages, sendMessage, markRead
 api.reviews       list, create, updateStatus
 api.auctions      list, get, create, placeBid, listBids
 api.offers        list, get, create, accept, decline
-api.cart          get, addItem, updateItem, removeItem, clear
+api.cart          get, addItem, updateItem, removeItem, clear, merge
 api.wishlist      list, save, remove
 api.storefronts   get, getBySlug, create, update, delete, listCollections, createCollection
 api.shipping      getRates, createLabel, trackShipment
