@@ -33,7 +33,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -107,7 +107,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -138,7 +138,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -173,7 +173,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -195,7 +195,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -228,7 +228,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 9.1.4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -287,7 +287,7 @@ jobs:
         with:
           version: 9.1.4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           # Expo SDK 50's reference build image uses Node 18.18.
           node-version: 18.18.0
@@ -375,7 +375,7 @@ jobs:
         with:
           version: 9.1.4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           # Expo SDK 50's reference build image uses Node 18.18.
           node-version: 18.18.0
