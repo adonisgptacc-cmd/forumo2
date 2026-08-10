@@ -121,7 +121,7 @@ jobs:
           fi
       - name: Upload coverage to Codecov
         if: matrix.package == 'backend'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: apps/backend/coverage/lcov.info
           flags: backend
