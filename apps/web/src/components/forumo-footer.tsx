@@ -28,7 +28,7 @@ export function ForumoFooter() {
           <div>
             <p className="eyebrow" style={{ marginBottom: 12 }}>Selling</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--ink-3)' }}>
-              <Link href={'/listings/new' as any} style={{ color: 'var(--ink-3)', textDecoration: 'none' }}>Sell on Forumo</Link>
+              <Link href={'/app/listings/new' as any} style={{ color: 'var(--ink-3)', textDecoration: 'none' }}>Sell on Forumo</Link>
               <Link href={'/app/dashboard' as any} style={{ color: 'var(--ink-3)', textDecoration: 'none' }}>Seller Dashboard</Link>
               <Link href={'/app/kyc' as any} style={{ color: 'var(--ink-3)', textDecoration: 'none' }}>Seller Verification</Link>
             </div>

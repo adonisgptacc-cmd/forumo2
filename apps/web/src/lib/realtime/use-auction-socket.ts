@@ -2,9 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useSession } from 'next-auth/react';
 
 export const useAuctionSocket = (auctionId: string) => {
     const socketRef = useRef<Socket | null>(null);
+    const { data: session } = useSession();
+    const accessToken = (session as any)?.accessToken as string | undefined;
 
     useEffect(() => {
         // Only connect if we have an auctionId
@@ -20,6 +23,7 @@ export const useAuctionSocket = (auctionId: string) => {
 
         socketRef.current = io(`${socketUrl}/auctions`, {
             query: { auctionId },
+            auth: { token: accessToken },
             transports: ['websocket'],
         });
 
@@ -34,7 +38,7 @@ export const useAuctionSocket = (auctionId: string) => {
                 socket.disconnect();
             }
         };
-    }, [auctionId]);
+    }, [auctionId, accessToken]);
 
     return socketRef.current;
 };

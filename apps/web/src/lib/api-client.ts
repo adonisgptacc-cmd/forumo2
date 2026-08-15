@@ -713,9 +713,9 @@ class MockApiClient {
         updatedAt: new Date().toISOString(),
         reviewer: {
           id: payload.reviewerId,
-          email: "reviewer@example.com",
           name: "Mock Reviewer",
-          role: "BUYER",
+          trustScore: 0,
+          createdAt: new Date().toISOString(),
         },
         flags: [],
         verifiedPurchase: false,

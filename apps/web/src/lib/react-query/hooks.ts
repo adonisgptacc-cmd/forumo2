@@ -25,6 +25,7 @@ import type {
   SafeReview,
   SafeUser,
   SavedListing,
+  EscrowDetails,
   SendMessageDto,
   UpdateListingDto,
   ListingReviewResponse,
@@ -1042,9 +1043,9 @@ export function useOpenDispute() {
 export function useEscrowDetails(orderId: string | null) {
   const { accessToken } = useCurrentUser();
   const api = useApi(accessToken);
-  return useQuery<Record<string, unknown>>({
+  return useQuery<EscrowDetails>({
     queryKey: orderId ? queryKeys.escrowDetails(orderId) : ['escrow', null],
-    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }) as Promise<Record<string, unknown>>,
+    queryFn: () => api.get(`/escrow/order/${orderId}`, { auth: true }) as Promise<EscrowDetails>,
     enabled: Boolean(accessToken) && Boolean(orderId),
   });
 }

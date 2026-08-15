@@ -117,7 +117,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             {children}
           </CartProvider>
         </AccountSuspensionGuard>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </SessionProvider>
   );

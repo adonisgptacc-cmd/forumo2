@@ -467,7 +467,7 @@ export function ListingDetail({ id }: { id: string }) {
             <p className="text-sm text-emerald-600">Bid placed successfully!</p>
           )}
           {!user && isAuctionActive && (
-            <Link href={"/auth/login" as any} className="btn-forumo block text-center text-sm py-2">
+            <Link href={"/login" as any} className="btn-forumo block text-center text-sm py-2">
               Sign in to place a bid
             </Link>
           )}
@@ -891,7 +891,7 @@ function ReviewsTab({
           {!user ? (
             <div className="text-center py-8 bg-slate-50 rounded">
               <p className="text-sm text-slate-500">Sign in to leave a review</p>
-              <Link href={"/auth/login" as any} className="btn-forumo inline-block mt-2 text-sm">Sign in</Link>
+               <Link href={"/login" as any} className="btn-forumo inline-block mt-2 text-sm">Sign in</Link>
             </div>
           ) : !eligibleOrder ? (
             <div className="py-6 bg-slate-50 rounded px-4">

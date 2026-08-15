@@ -103,7 +103,7 @@ export function ForumoHeader() {
                 <Link href={'/listings' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>All Listings</Link>
                 <Link href={'/auctions' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Auctions</Link>
                 <Link href={'/app/messages' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--ink-2)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Messages</Link>
-                <Link href={'/listings/new' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, fontWeight: 600, color: 'var(--accent)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Sell on Forumo</Link>
+                <Link href={'/app/listings/new' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, fontWeight: 600, color: 'var(--accent)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Sell on Forumo</Link>
                 {user && (user as any).role === 'ADMIN' && (
                     <Link href={'/admin' as any} style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: 'var(--escrow)', borderRadius: 6, whiteSpace: 'nowrap', textDecoration: 'none' }}>Admin</Link>
                 )}
