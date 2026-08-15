@@ -14,6 +14,7 @@ import type { Server, Socket } from 'socket.io';
 
 import { SafeMessageThread } from "./message.serializer";
 import { MessagingService } from "./messaging.service";
+import { PrismaService } from '../../prisma/prisma.service';
 
 interface MessageAckPayload {
   messageId: string;
@@ -45,10 +46,11 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly messagingService: MessagingService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) { }
 
-  handleConnection(client: Socket): void {
-    const userId = this.verifyAndExtractUserId(client);
+  async handleConnection(client: Socket): Promise<void> {
+    const userId = await this.verifyAndExtractUserId(client);
     if (!userId) {
       this.logger.warn(`Socket connection rejected — invalid or missing JWT (id=${client.id})`);
       client.disconnect(true);
@@ -112,13 +114,19 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   /** Verifies the JWT from the handshake and returns the confirmed userId, or null on failure. */
-  private verifyAndExtractUserId(client: Socket): string | null {
+  private async verifyAndExtractUserId(client: Socket): Promise<string | null> {
     const token = this.extractToken(client);
     if (!token) return null;
     try {
       const secret = this.configService.getOrThrow<string>('JWT_SECRET');
       const payload = this.jwtService.verify<{ sub: string; tokenVersion: number }>(token, { secret });
       if (!payload?.sub) return null;
+      // Verify tokenVersion matches the database to reject revoked tokens
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { tokenVersion: true },
+      });
+      if (!user || user.tokenVersion !== payload.tokenVersion) return null;
       return payload.sub;
     } catch {
       return null;

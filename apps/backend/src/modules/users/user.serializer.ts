@@ -1,6 +1,9 @@
 import { User } from '@prisma/client';
 
-export type SafeUser = Omit<User, 'passwordHash' | 'emailVerificationToken'>;
+export type SafeUser = Omit<
+  User,
+  'passwordHash' | 'emailVerificationToken' | 'twoFactorSecret' | 'twoFactorBackupCodes'
+>;
 
 type WithPassword = User & { passwordHash: string };
 
@@ -12,6 +15,7 @@ export const sanitizeUser = (user: SanitizableUser | null): SafeUser | null => {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { passwordHash, emailVerificationToken, ...rest } = user as User & { emailVerificationToken?: string };
+  const { passwordHash, emailVerificationToken, twoFactorSecret, twoFactorBackupCodes, ...rest } =
+    user as User & { emailVerificationToken?: string };
   return rest as SafeUser;
 };

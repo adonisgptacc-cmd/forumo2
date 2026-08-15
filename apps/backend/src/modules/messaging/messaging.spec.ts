@@ -232,7 +232,7 @@ describe("MessagingModule (integration)", () => {
 
     const messageId = response.body.messages.at(-1).id as string;
     const socket = new FakeSocket(SELLER_ID);
-    gateway.handleConnection(socket as any);
+    await gateway.handleConnection(socket as any);
 
     await gateway.handleDelivered(socket as any, { messageId });
     await gateway.handleRead(socket as any, { messageId });
@@ -301,7 +301,7 @@ class FakeSocket {
   };
 
   constructor(userId: string) {
-    const token = jwt.sign({ sub: userId }, "test-jwt-secret");
+    const token = jwt.sign({ sub: userId, tokenVersion: 0 }, "test-jwt-secret");
     this.handshake = { auth: { userId, token }, query: {}, headers: {} };
   }
 
@@ -411,6 +411,11 @@ class InMemoryPrismaService {
         .filter((user): user is { id: string; deletedAt: null } =>
           Boolean(user && user.deletedAt === null),
         );
+    },
+    findUnique: async ({ where }: { where: { id: string } }) => {
+      const user = this.users.get(where.id);
+      if (!user) return null;
+      return { ...user, tokenVersion: 0 };
     },
   };
 

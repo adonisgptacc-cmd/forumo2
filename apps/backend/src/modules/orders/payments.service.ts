@@ -29,9 +29,9 @@ export class PaymentsService {
       throw new BadRequestException('Missing Stripe webhook signature');
     }
 
-    // Dev/test: skip verification if Stripe not configured
+    // Non-prod: reject if Stripe not configured or signature missing (prevents fabricated events)
     if (!this.stripe || !secret || !signature || !rawBody) {
-      return payload as Stripe.Event;
+      throw new BadRequestException('Stripe webhook verification unavailable — missing configuration or signature');
     }
 
     try {

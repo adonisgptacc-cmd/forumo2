@@ -1,5 +1,5 @@
 import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, ShipmentStatus } from '@prisma/client';
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -186,7 +186,7 @@ export class OrdersController {
   @HttpCode(HttpStatus.OK)
   updateShipment(
     @Param('id') id: string,
-    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: string; estimatedDelivery?: string; deliveredAt?: string },
+    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: ShipmentStatus; estimatedDelivery?: string; deliveredAt?: string },
     @Request() req: { user: { id: string } },
   ) {
     return this.ordersService.updateShipment(id, req.user.id, body);

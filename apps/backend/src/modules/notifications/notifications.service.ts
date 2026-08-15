@@ -5,6 +5,16 @@ import { MailtrapClient } from 'mailtrap';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationChannel } from '@prisma/client';
 
+/** Escape HTML special characters to prevent XSS in email templates. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -71,9 +81,9 @@ export class NotificationsService {
   }
 
   async sendVerificationEmail(toEmail: string, toName: string, verificationLink: string): Promise<void> {
-    const html = `<p>Hi ${toName},</p>
+    const html = `<p>Hi ${escapeHtml(toName)},</p>
 <p>Thanks for signing up to Forumo. Please verify your email address by clicking the link below:</p>
-<p><a href="${verificationLink}">Verify my email</a></p>
+<p><a href="${escapeHtml(verificationLink)}">Verify my email</a></p>
 <p>This link expires in 24 hours. If you did not create an account, you can safely ignore this email.</p>`;
     await this.sendEmail(toEmail, 'Verify your Forumo email address', html);
   }
@@ -89,8 +99,8 @@ export class NotificationsService {
       ? 'Your identity verification was approved'
       : 'Your identity verification was not approved';
     const html = approved
-      ? `<p>Hi ${toName},</p><p>Your identity verification has been approved. You can now start selling on Forumo.</p>`
-      : `<p>Hi ${toName},</p><p>Unfortunately your identity verification was not approved.${reason ? ` Reason: <em>${reason}</em>` : ''}</p><p>Please resubmit with the correct documents.</p>`;
+      ? `<p>Hi ${escapeHtml(toName)},</p><p>Your identity verification has been approved. You can now start selling on Forumo.</p>`
+      : `<p>Hi ${escapeHtml(toName)},</p><p>Unfortunately your identity verification was not approved.${reason ? ` Reason: <em>${escapeHtml(reason)}</em>` : ''}</p><p>Please resubmit with the correct documents.</p>`;
     await this.sendEmail(toEmail, subject, html);
   }
 
@@ -103,7 +113,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${toName},</p><p>Congratulations — you won the auction for <strong>${itemTitle}</strong> at ${currency} ${amount}.</p><p>Please complete your payment. Order reference: <strong>${orderId}</strong>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Congratulations — you won the auction for <strong>${escapeHtml(itemTitle)}</strong> at ${escapeHtml(currency)} ${amount}.</p><p>Please complete your payment. Order reference: <strong>${escapeHtml(orderId)}</strong>.</p>`;
     await this.sendEmail(toEmail, `You won: ${itemTitle}`, html);
   }
 
@@ -116,7 +126,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${toName},</p><p>Your auction for <strong>${itemTitle}</strong> has sold for ${currency} ${amount}.</p><p>Order reference: <strong>${orderId}</strong>. Funds are held in escrow until delivery is confirmed.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your auction for <strong>${escapeHtml(itemTitle)}</strong> has sold for ${escapeHtml(currency)} ${amount}.</p><p>Order reference: <strong>${escapeHtml(orderId)}</strong>. Funds are held in escrow until delivery is confirmed.</p>`;
     await this.sendEmail(toEmail, `Auction sold: ${itemTitle}`, html);
   }
 
@@ -128,7 +138,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${sellerName},</p><p>The escrow for order <strong>${orderId}</strong> has been released. ${currency} ${amount} will be transferred to your account shortly.</p>`;
+    const html = `<p>Hi ${escapeHtml(sellerName)},</p><p>The escrow for order <strong>${escapeHtml(orderId)}</strong> has been released. ${escapeHtml(currency)} ${amount} will be transferred to your account shortly.</p>`;
     await this.sendEmail(sellerEmail, `Payment released — Order ${orderId}`, html);
   }
 
@@ -140,7 +150,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${buyerName},</p><p>The escrow for order <strong>${orderId}</strong> has been refunded. ${currency} ${amount} will be returned to your original payment method shortly.</p>`;
+    const html = `<p>Hi ${escapeHtml(buyerName)},</p><p>The escrow for order <strong>${escapeHtml(orderId)}</strong> has been refunded. ${escapeHtml(currency)} ${amount} will be returned to your original payment method shortly.</p>`;
     await this.sendEmail(buyerEmail, `Refund processed — Order ${orderId}`, html);
   }
 
@@ -153,17 +163,17 @@ export class NotificationsService {
     const duration = suspendedUntil
       ? `until ${suspendedUntil.toUTCString()}`
       : 'indefinitely';
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been suspended ${duration}.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please <a href="https://forumo.app/appeal">submit an appeal</a>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account has been suspended ${duration}.</p><p>Reason: <em>${escapeHtml(reason)}</em></p><p>If you believe this is an error, please <a href="https://forumo.app/appeal">submit an appeal</a>.</p>`;
     await this.sendEmail(toEmail, 'Your account has been suspended', html);
   }
 
   async notifyAccountUnsuspended(toEmail: string, toName: string): Promise<void> {
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account suspension has been lifted. You can now log in and resume activity.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account suspension has been lifted. You can now log in and resume activity.</p>`;
     await this.sendEmail(toEmail, 'Your account suspension has been lifted', html);
   }
 
   async notifyAccountBanned(toEmail: string, toName: string, reason: string): Promise<void> {
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been permanently banned.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please contact <a href="mailto:support@forumo.app">support@forumo.app</a>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account has been permanently banned.</p><p>Reason: <em>${escapeHtml(reason)}</em></p><p>If you believe this is an error, please contact <a href="mailto:support@forumo.app">support@forumo.app</a>.</p>`;
     await this.sendEmail(toEmail, 'Your account has been banned', html);
   }
 
@@ -175,7 +185,7 @@ export class NotificationsService {
       );
       return;
     }
-    const html = `<p>A new dispute has been opened and requires your review.</p><ul><li>Order: <strong>${orderId}</strong></li><li>Dispute ID: <strong>${disputeId}</strong></li><li>Reason: ${reason}</li></ul>`;
+    const html = `<p>A new dispute has been opened and requires your review.</p><ul><li>Order: <strong>${escapeHtml(orderId)}</strong></li><li>Dispute ID: <strong>${escapeHtml(disputeId)}</strong></li><li>Reason: ${escapeHtml(reason)}</li></ul>`;
     await this.sendEmail(adminEmail, `New dispute opened — Order ${orderId}`, html);
   }
 

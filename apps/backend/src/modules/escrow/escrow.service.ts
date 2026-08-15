@@ -157,23 +157,24 @@ export class EscrowService {
             throw new NotFoundException('Escrow not found');
         }
 
-        if (escrow.status !== 'HOLDING' && escrow.status !== 'DISPUTED') {
-            throw new BadRequestException(`Cannot refund escrow with status: ${escrow.status}`);
-        }
-
         const refundAmount = amountCents ?? escrow.amountCents;
 
         if (refundAmount > escrow.amountCents) {
             throw new BadRequestException('Refund amount exceeds escrow amount');
         }
 
-        // Update escrow status
-        const updated = await this.prisma.escrowHolding.update({
-            where: { orderId },
-            data: {
-                status: 'REFUNDED',
-            },
+        // Atomic conditional update — prevents duplicate refunds under concurrent requests
+        const result = await this.prisma.escrowHolding.updateMany({
+            where: { orderId, status: { in: ['HOLDING', 'DISPUTED'] } },
+            data: { status: 'REFUNDED' },
         });
+
+        if (result.count === 0) {
+            throw new BadRequestException(`Cannot refund escrow with status: ${escrow.status}`);
+        }
+
+        const updated = await this.prisma.escrowHolding.findUnique({ where: { orderId } });
+        if (!updated) throw new NotFoundException('Escrow not found after refund');
 
         // Create transaction record
         await this.prisma.escrowTransaction.create({
@@ -230,6 +231,14 @@ export class EscrowService {
 
         if (escrow.status !== 'HOLDING') {
             throw new BadRequestException('Can only dispute escrow that is holding funds');
+        }
+
+        // Prevent duplicate open disputes on the same escrow
+        const existingDispute = await this.prisma.escrowDispute.findFirst({
+            where: { escrowId: escrow.id, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+        });
+        if (existingDispute) {
+            throw new BadRequestException('An open dispute already exists for this order');
         }
 
         // Update escrow status
@@ -298,7 +307,38 @@ export class EscrowService {
 
         // Execute action
         if (action === 'RELEASE') {
-            await this.releaseEscrow(dispute.escrow.orderId, actorId, `Dispute resolved: ${resolution}`);
+            // Escrow is DISPUTED — atomically transition to RELEASED
+            const releaseResult = await this.prisma.escrowHolding.updateMany({
+                where: { orderId: dispute.escrow.orderId, status: 'DISPUTED' },
+                data: { status: 'RELEASED', releasedAt: new Date() },
+            });
+            if (releaseResult.count === 0) {
+                throw new BadRequestException('Cannot release escrow — unexpected status');
+            }
+            await this.prisma.escrowTransaction.create({
+                data: {
+                    escrowId: dispute.escrow.id,
+                    type: 'RELEASE',
+                    amountCents: dispute.escrow.amountCents,
+                    currency: dispute.escrow.currency,
+                    actorId,
+                    note: `Dispute resolved: ${resolution}`,
+                },
+            });
+            // Notify seller of escrow release
+            const releaseOrder = await this.prisma.order.findUnique({
+                where: { id: dispute.escrow.orderId },
+                select: { seller: { select: { email: true, name: true } } },
+            });
+            if (releaseOrder?.seller) {
+                await this.notifications.notifyEscrowReleased(
+                    releaseOrder.seller.email,
+                    releaseOrder.seller.name ?? 'Seller',
+                    dispute.escrow.orderId,
+                    dispute.escrow.amountCents,
+                    dispute.escrow.currency,
+                );
+            }
         } else if (action === 'REFUND') {
             await this.refundEscrow(dispute.escrow.orderId, actorId, undefined, `Dispute resolved: ${resolution}`);
         } else if (action === 'PARTIAL_REFUND' && refundAmountCents) {

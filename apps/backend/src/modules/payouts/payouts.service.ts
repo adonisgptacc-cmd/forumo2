@@ -106,11 +106,14 @@ export class PayoutsService {
   }> {
     const releasedEscrows = await this.prisma.escrowHolding.findMany({
       where: { status: 'RELEASED', order: { sellerId } },
-      select: { amountCents: true },
+      select: { amountCents: true, currency: true },
     });
 
     const grossEscrow = releasedEscrows.reduce((sum, e) => sum + e.amountCents, 0);
     const netEscrow = Math.floor(grossEscrow * (1 - PLATFORM_FEE_RATE));
+
+    // Derive currency from the seller's escrow holdings (most recent), fallback to ZAR
+    const currency = releasedEscrows[0]?.currency ?? 'zar';
 
     const [paidAgg, pendingAgg] = await Promise.all([
       this.prisma.payout.aggregate({
@@ -129,7 +132,7 @@ export class PayoutsService {
     return {
       available: Math.max(0, netEscrow - alreadyPaid - inFlight),
       pending: inFlight,
-      currency: 'zar',
+      currency,
     };
   }
 

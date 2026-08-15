@@ -8,6 +8,7 @@ import {
   PaymentProvider,
   PaymentStatus,
   Prisma,
+  ShipmentStatus,
 } from '@prisma/client';
 
 import type { CreateOrderDto as CreateOrderInput } from "./dto/create-order.dto";
@@ -869,6 +870,9 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Order not found');
     if (order.sellerId !== actorId) throw new ForbiddenException('Only the seller can add shipment info');
+    if (order.status !== OrderStatus.PAID && order.status !== OrderStatus.FULFILLED) {
+      throw new BadRequestException('Can only add shipment to paid or fulfilled orders');
+    }
 
     const existing = await this.prisma.orderShipment.findFirst({ where: { orderId } });
     if (existing) throw new BadRequestException('Shipment already exists. Use PATCH to update.');
@@ -892,7 +896,7 @@ export class OrdersService {
       carrier?: string;
       trackingNumber?: string;
       serviceLevel?: string;
-      status?: string;
+      status?: ShipmentStatus;
       estimatedDelivery?: string;
       deliveredAt?: string;
     },
@@ -910,7 +914,7 @@ export class OrdersService {
         ...(dto.carrier !== undefined && { carrier: dto.carrier }),
         ...(dto.trackingNumber !== undefined && { trackingNumber: dto.trackingNumber }),
         ...(dto.serviceLevel !== undefined && { serviceLevel: dto.serviceLevel }),
-        ...(dto.status !== undefined && { status: dto.status as any }),
+        ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.estimatedDelivery !== undefined && { estimatedDelivery: new Date(dto.estimatedDelivery) }),
         ...(dto.deliveredAt !== undefined && { deliveredAt: new Date(dto.deliveredAt) }),
       },

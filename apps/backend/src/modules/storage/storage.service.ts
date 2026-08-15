@@ -45,6 +45,14 @@ function validateMimeType(
   }
 }
 
+/** Strip path separators and non-printable characters from an uploaded filename. */
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^\.+/, '')
+    .slice(0, 128);
+}
+
 interface StoredObjectReference {
   bucket: string;
   key: string;
@@ -80,19 +88,19 @@ export class StorageService {
 
   async saveListingImage(listingId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, IMAGE_SIGNATURES, 'Listing image');
-    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    const key = `listings/${listingId}/${Date.now()}-${randomUUID()}-${sanitizeFilename(file.originalname)}`;
     return this.persistFile(key, file);
   }
 
   async saveMessageAttachment(threadId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, IMAGE_SIGNATURES, 'Message attachment');
-    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    const key = `messages/${threadId}/${Date.now()}-${randomUUID()}-${sanitizeFilename(file.originalname)}`;
     return this.persistFile(key, file);
   }
 
   async saveKycDocument(userId: string, file: Express.Multer.File): Promise<StoredObjectReference> {
     validateMimeType(file, KYC_SIGNATURES, 'KYC document');
-    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}-${file.originalname}`;
+    const key = `kyc/${userId}/${Date.now()}-${randomUUID()}-${sanitizeFilename(file.originalname)}`;
     return this.persistFile(key, file);
   }
 

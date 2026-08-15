@@ -5,6 +5,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { AuctionStatus, OrderStatus, ListingStatus } from "@prisma/client";
 import { NotificationsService } from "../../notifications/notifications.service";
 import { CacheService } from "../../../common/services/cache.service";
+import { FeeService } from "../../fees/fee.service";
 
 @Injectable()
 export class AuctionEndProcessor {
@@ -14,6 +15,7 @@ export class AuctionEndProcessor {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly cache: CacheService,
+    private readonly feeService: FeeService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -90,6 +92,10 @@ export class AuctionEndProcessor {
             data: { status: AuctionStatus.COMPLETED },
           });
 
+          // Calculate platform fee from the fee schedule
+          const { feeAmountCents: feeCents, feePercent } =
+            await this.feeService.calculateFee(winningBid.amountCents, auction.listingId);
+
           // Create Pending Order
           const orderNumber = `ORD-${randomUUID().split("-")[0].toUpperCase()}`;
 
@@ -100,6 +106,8 @@ export class AuctionEndProcessor {
               sellerId: auction.sellerId,
               status: OrderStatus.PENDING,
               totalItemCents: winningBid.amountCents,
+              feeCents,
+              feePercent,
               currency: auction.currency,
               items: {
                 create: {

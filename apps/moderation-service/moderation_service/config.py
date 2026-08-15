@@ -17,6 +17,7 @@ class Settings:
   flagged_mime_prefixes: List[str] = field(default_factory=lambda: ["image/svg", "image/x-icon"])
   max_image_size_mb: int = 20
   service_name: str = "Forumo Moderation Service"
+  api_key: str = ""
 
 
 def _parse_csv(value: str | None) -> List[str]:
@@ -44,17 +45,18 @@ def get_settings() -> Settings:
 
   mime_prefixes = _parse_csv(os.getenv('MODERATION_FLAGGED_MIME_PREFIXES'))
   if not mime_prefixes:
-    mime_prefixes = Settings.flagged_mime_prefixes
+    mime_prefixes = ["image/svg", "image/x-icon"]
 
   max_image_size = os.getenv('MODERATION_MAX_IMAGE_SIZE_MB')
   try:
-    max_image_size_mb = int(max_image_size) if max_image_size else Settings.max_image_size_mb
+    max_image_size_mb = int(max_image_size) if max_image_size else 20
   except ValueError:
-    max_image_size_mb = Settings.max_image_size_mb
+    max_image_size_mb = 20
 
   return Settings(
     banned_keywords=banned,
     flagged_keywords=flagged,
     flagged_mime_prefixes=mime_prefixes,
     max_image_size_mb=max_image_size_mb,
+    api_key=os.getenv('MODERATION_API_KEY', ''),
   )

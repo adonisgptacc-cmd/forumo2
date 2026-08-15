@@ -30,7 +30,11 @@ export class ReviewsService {
       this.prisma.review.findMany({
         where: { listingId, status: ReviewStatus.PUBLISHED },
         orderBy: { createdAt: 'desc' },
-        include: { reviewer: true, flags: true, votes: true },
+        include: {
+          reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } },
+          flags: true,
+          votes: true,
+        },
       }),
       this.prisma.sellerReviewRollup.findUnique({ where: { sellerId: listing.sellerId } }),
     ]);
@@ -55,10 +59,10 @@ export class ReviewsService {
     return { helpfulCount, userVoted: true };
   }
 
-  async flagReview(reviewId: string, reason: string): Promise<void> {
+  async flagReview(reviewId: string, reason: string, userId?: string): Promise<void> {
     const review = await this.prisma.review.findFirst({ where: { id: reviewId } });
     if (!review) throw new NotFoundException('Review not found');
-    await this.prisma.reviewFlag.create({ data: { reviewId, reason } });
+    await this.prisma.reviewFlag.create({ data: { reviewId, reason, flaggedById: userId } });
   }
 
   async getRollup(sellerId: string): Promise<ReviewRollup> {
@@ -69,7 +73,11 @@ export class ReviewsService {
   async findById(id: string): Promise<SafeReview> {
     const review = await this.prisma.review.findFirst({
       where: { id },
-      include: { reviewer: true, flags: true, votes: true },
+      include: {
+        reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } },
+        flags: true,
+        votes: true,
+      },
     });
 
     if (!review) {
@@ -99,7 +107,7 @@ export class ReviewsService {
           metadata: this.buildMetadata(dto.metadata),
           verifiedPurchase: true,
         },
-        include: { reviewer: true },
+        include: { reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } } },
       });
 
       if (moderation.flags.length > 0) {
@@ -119,7 +127,11 @@ export class ReviewsService {
 
     const createdWithFlags = await this.prisma.review.findUnique({
       where: { id: review.id },
-      include: { reviewer: true, flags: true, votes: true },
+      include: {
+        reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } },
+        flags: true,
+        votes: true,
+      },
     });
 
     return serializeReview(createdWithFlags!);
@@ -152,7 +164,7 @@ export class ReviewsService {
           moderationNotes: moderation.notes ?? existing.moderationNotes,
           metadata: (this.buildMetadata(dto.metadata) ?? existing.metadata) as Prisma.InputJsonValue,
         },
-        include: { reviewer: true },
+        include: { reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } } },
       });
 
       if (moderation.flags.length > 0) {
@@ -172,7 +184,11 @@ export class ReviewsService {
 
     const reloaded = await this.prisma.review.findUnique({
       where: { id: updated.id },
-      include: { reviewer: true, flags: true, votes: true },
+      include: {
+        reviewer: { select: { id: true, name: true, avatarUrl: true, trustScore: true, createdAt: true } },
+        flags: true,
+        votes: true,
+      },
     });
 
     return serializeReview(reloaded!);
@@ -209,7 +225,7 @@ export class ReviewsService {
   private async checkPurchaseEligibility(reviewerId: string, listingId: string, orderId: string): Promise<void> {
     const existing = await this.prisma.review.findFirst({ where: { reviewerId, listingId } });
     if (existing) {
-      throw new ForbiddenException({ code: 'PURCHASE_REQUIRED', message: 'You can only review items you have purchased' });
+      throw new ForbiddenException({ code: 'ALREADY_REVIEWED', message: 'You have already reviewed this listing' });
     }
 
     const cutoff = new Date();

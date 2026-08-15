@@ -9,6 +9,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { AuctionEndProcessor } from "./processors/auction-end.processor";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { CacheModule } from "../../common/services/cache.module";
+import { FeesModule } from "../fees/fees.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CacheModule } from "../../common/services/cache.module";
     ScheduleModule.forRoot(),
     NotificationsModule,
     CacheModule,
+    FeesModule,
   ],
   controllers: [AuctionsController],
   providers: [AuctionsService, AuctionsGateway, AuctionEndProcessor],

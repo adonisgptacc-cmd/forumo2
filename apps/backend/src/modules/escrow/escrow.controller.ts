@@ -13,6 +13,12 @@ import { EscrowService } from './escrow.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AuthRequest } from '../../common/types/auth-request';
+import { EscrowNoteDto } from './dto/escrow-note.dto';
+import { RefundEscrowDto } from './dto/refund-escrow.dto';
+import { OpenDisputeDto } from './dto/open-dispute.dto';
+import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
+import { AddDisputeMessageDto } from './dto/add-dispute-message.dto';
 
 @ApiTags('escrow')
 @Controller('escrow')
@@ -31,8 +37,8 @@ export class EscrowController {
     @Roles('ADMIN', 'MODERATOR')
     async releaseEscrow(
         @Param('orderId') orderId: string,
-        @Request() req: any,
-        @Body() body: { note?: string },
+        @Request() req: AuthRequest,
+        @Body() body: EscrowNoteDto,
     ) {
         return this.escrowService.releaseEscrow(orderId, req.user.id, body.note);
     }
@@ -42,8 +48,8 @@ export class EscrowController {
     @Roles('ADMIN', 'MODERATOR')
     async refundEscrow(
         @Param('orderId') orderId: string,
-        @Request() req: any,
-        @Body() body: { amountCents?: number; note?: string },
+        @Request() req: AuthRequest,
+        @Body() body: RefundEscrowDto,
     ) {
         return this.escrowService.refundEscrow(orderId, req.user.id, body.amountCents, body.note);
     }
@@ -51,8 +57,8 @@ export class EscrowController {
     @Post('order/:orderId/dispute')
     async openDispute(
         @Param('orderId') orderId: string,
-        @Request() req: any,
-        @Body() body: { reason: string },
+        @Request() req: AuthRequest,
+        @Body() body: OpenDisputeDto,
     ) {
         return this.escrowService.openDispute(orderId, req.user.id, body.reason);
     }
@@ -62,13 +68,8 @@ export class EscrowController {
     @Roles('ADMIN', 'MODERATOR')
     async resolveDispute(
         @Param('disputeId') disputeId: string,
-        @Request() req: any,
-        @Body()
-        body: {
-            resolution: string;
-            action: 'RELEASE' | 'REFUND' | 'PARTIAL_REFUND';
-            refundAmountCents?: number;
-        },
+        @Request() req: AuthRequest,
+        @Body() body: ResolveDisputeDto,
     ) {
         return this.escrowService.resolveDispute(
             disputeId,
@@ -82,14 +83,15 @@ export class EscrowController {
     @Post('disputes/:disputeId/messages')
     async addDisputeMessage(
         @Param('disputeId') disputeId: string,
-        @Request() req: any,
-        @Body() body: { body: string; attachments?: any },
+        @Request() req: AuthRequest,
+        @Body() body: AddDisputeMessageDto,
     ) {
         return this.escrowService.addDisputeMessage(
             disputeId,
             req.user.id,
             body.body,
             body.attachments,
+            req.user.role,
         );
     }
 

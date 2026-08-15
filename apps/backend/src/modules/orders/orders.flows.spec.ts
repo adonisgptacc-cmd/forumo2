@@ -18,6 +18,7 @@ import request from 'supertest';
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersModule } from "./orders.module";
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaymentsService } from "./payments.service";
 
 const BUYER_ID = 'buyer-1';
 const SELLER_ID = 'seller-1';
@@ -57,6 +58,43 @@ describe('OrdersModule flows', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(PaymentsService)
+      .useValue({
+        validateStripeEvent: (payload: unknown) => payload,
+        recordWebhookEvent: async () => ({ id: 'mock-webhook-event' }),
+        markWebhookProcessed: async () => {},
+        markWebhookFailed: async () => {},
+        updateProviderStatus: async (orderId: string, providerStatus?: string) => {
+          if (!providerStatus) return;
+          await prismaMock.paymentTransaction.updateMany({
+            where: { orderId },
+            data: { providerStatus },
+          });
+        },
+        mintPaymentIntent: async () => ({ id: 'pi_mock', client_secret: 'cs_mock', status: 'succeeded' }),
+        ensurePaymentTransaction: async () => {},
+        markPaymentCaptured: async (_tx: any, order: any, providerStatus?: string) => {
+          await prismaMock.paymentTransaction.updateMany({
+            where: { orderId: order.id },
+            data: {
+              status: PaymentStatus.CAPTURED,
+              providerStatus: providerStatus ?? 'succeeded',
+              processedAt: new Date(),
+            },
+          });
+        },
+        markPaymentRefunded: async (_tx: any, order: any, providerStatus?: string) => {
+          await prismaMock.paymentTransaction.updateMany({
+            where: { orderId: order.id },
+            data: {
+              status: PaymentStatus.REFUNDED,
+              providerStatus: providerStatus ?? 'canceled',
+              processedAt: new Date(),
+            },
+          });
+        },
+        issueStripeRefund: async () => {},
+      })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockGuard)
       .compile();

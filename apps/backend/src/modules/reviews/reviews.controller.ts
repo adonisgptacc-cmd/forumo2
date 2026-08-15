@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AuthRequest } from "../../common/types/auth-request";
 import { CreateReviewDto, FlagReviewDto, UpdateReviewDto } from "./dto/create-review.dto";
 import { ListingReviewResponse, ReviewRollup, SafeReview } from "./review.serializer";
 import { ReviewsService } from "./reviews.service";
@@ -29,7 +30,7 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   voteReview(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<{ helpfulCount: number; userVoted: boolean }> {
     return this.reviewsService.voteReview(id, req.user.id);
   }
@@ -39,8 +40,9 @@ export class ReviewsController {
   flagReview(
     @Param('id') id: string,
     @Body() dto: FlagReviewDto,
+    @Request() req: AuthRequest,
   ): Promise<void> {
-    return this.reviewsService.flagReview(id, dto.reason);
+    return this.reviewsService.flagReview(id, dto.reason, req.user.id);
   }
 
   @Get('/seller/:sellerId/rollup')
@@ -60,7 +62,7 @@ export class ReviewsController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateReviewDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<SafeReview> {
     return this.reviewsService.update(id, dto, { id: req.user.id, role: req.user.role });
   }

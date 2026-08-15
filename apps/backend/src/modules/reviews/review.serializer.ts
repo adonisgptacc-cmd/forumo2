@@ -1,11 +1,17 @@
 import { ReviewStatus, SellerReviewRollup } from '@prisma/client';
 
-import { SafeUser, sanitizeUser } from "../users/user.serializer";
-
 export interface SafeReviewFlag {
   id: string;
   reason: string;
   notes?: string | null;
+  createdAt: Date;
+}
+
+export interface PublicReviewer {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  trustScore: number;
   createdAt: Date;
 }
 
@@ -22,7 +28,7 @@ export interface SafeReview {
   verifiedPurchase: boolean;
   createdAt: Date;
   updatedAt: Date;
-  reviewer?: SafeUser | null;
+  reviewer?: PublicReviewer | null;
   flags: SafeReviewFlag[];
   helpfulCount: number;
   userVoted: boolean;
@@ -61,7 +67,7 @@ type ReviewWithRelations = {
   verifiedPurchase: boolean;
   createdAt: Date;
   updatedAt: Date;
-  reviewer?: SafeUser | null;
+  reviewer?: { id: string; name: string; avatarUrl: string | null; trustScore: number; createdAt: Date } | null;
   flags?: Array<{ id: string; reason: string; notes: string | null; createdAt: Date }>;
   votes?: Array<{ userId: string; isHelpful: boolean }>;
 };
@@ -79,7 +85,15 @@ export const serializeReview = (review: ReviewWithRelations, viewerId?: string):
   verifiedPurchase: review.verifiedPurchase,
   createdAt: review.createdAt,
   updatedAt: review.updatedAt,
-  reviewer: sanitizeUser(review.reviewer ?? null),
+  reviewer: review.reviewer
+    ? {
+        id: review.reviewer.id,
+        name: review.reviewer.name,
+        avatarUrl: review.reviewer.avatarUrl,
+        trustScore: review.reviewer.trustScore,
+        createdAt: review.reviewer.createdAt,
+      }
+    : null,
   flags:
     review.flags?.map((flag) => ({ id: flag.id, reason: flag.reason, notes: flag.notes, createdAt: flag.createdAt })) ?? [],
   helpfulCount: review.votes?.filter((v) => v.isHelpful).length ?? 0,

@@ -8,7 +8,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateAuctionDto } from "./dto/create-auction.dto";
 import { PlaceBidDto } from "./dto/place-bid.dto";
-import { AuctionStatus, ListingStatus, ListingType } from "@prisma/client";
+import { AuctionStatus, BidStatus, ListingStatus, ListingType } from "@prisma/client";
 import { AuctionsGateway } from "./auctions.gateway";
 import { CacheService } from "../../common/services/cache.service";
 
@@ -236,7 +236,12 @@ export class AuctionsService {
       }
 
       if (newMaxBid > currentMaxBid) {
-        // New bidder takes the lead
+        // New bidder takes the lead — mark previous highest bid as OUTBID
+        await tx.bid.updateMany({
+          where: { auctionId, bidderId: { not: userId }, status: BidStatus.PLACED },
+          data: { status: BidStatus.OUTBID },
+        });
+
         // The new price is the old max + increment, but not exceeding the new max.
         const newPrice = Math.min(newMaxBid, currentMaxBid + minIncrement);
 

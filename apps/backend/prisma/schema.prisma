@@ -913,11 +913,12 @@ model ReviewVote {
 }
 
 model ReviewFlag {
-  id        String   @id @default(uuid())
-  reviewId  String
-  reason    String
-  notes     String?
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  reviewId    String
+  reason      String
+  notes       String?
+  flaggedById String?
+  createdAt   DateTime @default(now())
 
   review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 

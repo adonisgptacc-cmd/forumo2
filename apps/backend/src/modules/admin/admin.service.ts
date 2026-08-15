@@ -529,7 +529,14 @@ export class AdminService {
         time: this.formatRelativeTime(new Date(item.time)),
       }));
 
-    return { salesTrend, userGrowth, recentActivity };
+    // Determine the most common currency across recent orders
+    const currencyCounts: Record<string, number> = {};
+    for (const order of recentOrders) {
+      currencyCounts[order.currency] = (currencyCounts[order.currency] ?? 0) + 1;
+    }
+    const currency = Object.entries(currencyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'USD';
+
+    return { salesTrend, userGrowth, recentActivity, currency };
   }
 
   private formatRelativeTime(date: Date): string {

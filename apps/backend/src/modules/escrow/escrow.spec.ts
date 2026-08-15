@@ -147,7 +147,11 @@ class InMemoryPrismaService {
       },
       updateMany: async ({ where, data }: any) => {
         const h = self.escrowHoldings.get(where.orderId);
-        if (!h || (where.status && h.status !== where.status)) {
+        if (!h) return { count: 0 };
+        // Handle status: { in: [...] } operator
+        if (where.status && typeof where.status === 'object' && where.status.in) {
+          if (!where.status.in.includes(h.status)) return { count: 0 };
+        } else if (where.status && h.status !== where.status) {
           return { count: 0 };
         }
         const updated = { ...h, ...data };
@@ -172,6 +176,14 @@ class InMemoryPrismaService {
   get escrowDispute() {
     const self = this;
     return {
+      findFirst: async ({ where }: any) => {
+        return Array.from(self.escrowDisputes.values()).find((d) => {
+          if (where?.escrowId && d.escrowId !== where.escrowId) return false;
+          if (where?.status?.in) return where.status.in.includes(d.status);
+          if (where?.status && d.status !== where.status) return false;
+          return true;
+        }) ?? null;
+      },
       findUnique: async ({ where, include }: any) => {
         const d = self.escrowDisputes.get(where.id);
         if (!d) return null;
