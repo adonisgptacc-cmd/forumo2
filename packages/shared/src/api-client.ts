@@ -22,6 +22,7 @@ import {
   AdminDisputeSummary,
   AdminKycSubmission,
   AdminListingModeration,
+  AdminAnalytics,
   CreateReviewDto,
   SafeListing,
   SafeMessageThread,
@@ -58,6 +59,7 @@ import {
   adminKycSubmissionSchema,
   adminListingModerationSchema,
   adminUserDetailSchema,
+  adminAnalyticsSchema,
   messageThreadSchema,
   safeOrderSchema,
   reviewSchema,
@@ -709,12 +711,9 @@ export class ForumoApiClient {
         body: { reason },
       });
     },
-    getAnalytics: async (): Promise<{
-      salesTrend: Array<{ label: string; value: number }>;
-      userGrowth: Array<{ label: string; value: number }>;
-      recentActivity: Array<{ title: string; meta: string; time: string; tone: string }>;
-    }> => {
-      return this.request('/admin/dashboard/analytics', { method: 'GET', auth: true });
+    getAnalytics: async (): Promise<AdminAnalytics> => {
+      const result = await this.request<AdminAnalytics>('/admin/dashboard/analytics', { method: 'GET', auth: true });
+      return adminAnalyticsSchema.parse(result);
     },
   };
 

@@ -23,6 +23,15 @@ export const safeUserSchema = z.object({
 });
 export type SafeUser = z.infer<typeof safeUserSchema>;
 
+export const publicReviewerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().nullable().optional(),
+  trustScore: z.number().int(),
+  createdAt: z.string().datetime(),
+});
+export type PublicReviewer = z.infer<typeof publicReviewerSchema>;
+
 export const listingStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'PAUSED', 'SUSPENDED']);
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
 export const listingModerationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FLAGGED']);
@@ -243,6 +252,33 @@ export const escrowHoldingSchema = z.object({
 });
 export type EscrowHolding = z.infer<typeof escrowHoldingSchema>;
 
+export const escrowDetailsSchema = z.object({
+  id: z.string().uuid(),
+  orderId: z.string().uuid(),
+  amountCents: z.number().int(),
+  currency: z.string(),
+  status: escrowStatusSchema,
+  releaseAfter: z.string().datetime().nullable().optional(),
+  releasedAt: z.string().datetime().nullable().optional(),
+  disputes: z.array(z.object({
+    id: z.string().uuid(),
+    reason: z.string(),
+    status: z.string(),
+    openedAt: z.string().datetime(),
+    resolution: z.string().nullable().optional(),
+    resolvedAt: z.string().datetime().nullable().optional(),
+  })).optional(),
+  transactions: z.array(z.object({
+    id: z.string().uuid(),
+    type: z.string(),
+    amountCents: z.number().int(),
+    currency: z.string(),
+    note: z.string().nullable().optional(),
+    createdAt: z.string().datetime(),
+  })).optional(),
+});
+export type EscrowDetails = z.infer<typeof escrowDetailsSchema>;
+
 export const reviewStatusSchema = z.enum(['PENDING', 'PUBLISHED', 'REJECTED']);
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 
@@ -267,7 +303,7 @@ export const reviewSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   verifiedPurchase: z.boolean().default(false),
-  reviewer: safeUserSchema.nullable().optional(),
+  reviewer: publicReviewerSchema.nullable().optional(),
   flags: z.array(reviewFlagSchema).default([]),
   helpfulCount: z.number().int().min(0).default(0),
   userVoted: z.boolean().default(false),
@@ -604,6 +640,14 @@ export const adminListingModerationSchema = z.object({
   seller: adminUserSummarySchema.optional(),
 });
 export type AdminListingModeration = z.infer<typeof adminListingModerationSchema>;
+
+export const adminAnalyticsSchema = z.object({
+  salesTrend: z.array(z.object({ label: z.string(), value: z.number() })),
+  userGrowth: z.array(z.object({ label: z.string(), value: z.number() })),
+  recentActivity: z.array(z.object({ title: z.string(), meta: z.string(), time: z.string(), tone: z.string() })),
+  currency: z.string().optional(),
+});
+export type AdminAnalytics = z.infer<typeof adminAnalyticsSchema>;
 
 export const adminDisputeSchema = z.object({
   id: z.string().uuid(),
