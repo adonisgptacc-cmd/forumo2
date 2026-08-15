@@ -1,0 +1,177 @@
+# Render Blueprint — mirrors what Railway was hosting (backend API,
+# moderation-service, Postgres, Redis). apps/web and apps/admin stay on
+# Vercel — they are NOT defined here.
+#
+# To use: Render dashboard → New → Blueprint → point at this repo.
+# Render reads this file and creates every resource below in one go.
+# Any envVar marked `sync: false` needs its real value pasted in by hand
+# in the Render dashboard after the blueprint is created — these are
+# secrets and are intentionally not stored in the repo.
+#
+# Object storage (MinIO in docker-compose) has no direct Render equivalent —
+# see the note above the MINIO_* vars below before you deploy.
+
+databases:
+  - name: forumo-postgres
+    databaseName: forumo
+    user: forumo
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # --- Moderation microservice (FastAPI) ---
+  # Private service: only forumo-backend needs to reach this, so it gets no
+  # public URL. Render exposes it to sibling services via internal DNS at
+  # forumo-moderation:5005.
+  - type: pserv
+    name: forumo-moderation
+    runtime: docker
+    dockerfilePath: ./apps/moderation-service/Dockerfile
+    dockerContext: ./apps/moderation-service
+    plan: starter
+    region: oregon
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: "5005"
+
+  # --- Redis (session cache, OTP rate limiting, throttle counters) ---
+  - type: redis
+    name: forumo-redis
+    plan: starter
+    region: oregon
+    ipAllowList: [] # no public access — only Render services in this project can connect
+
+  # --- Backend API (NestJS) ---
+  - type: web
+    name: forumo-backend
+    runtime: docker
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: . # backend Dockerfile builds from the monorepo root (pnpm workspace)
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/health/live
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+
+      # --- Wired to the resources above ---
+      - key: DATABASE_URL
+        fromDatabase:
+          name: forumo-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forumo-redis
+          property: connectionString
+      - key: MODERATION_SERVICE_URL
+        fromService:
+          type: pserv
+          name: forumo-moderation
+          property: hostport
+          # Render gives "host:port" — the app expects a full URL, so set this
+          # to http://<value> once the blueprint has created the service and
+          # you can see the actual hostname (Render doesn't support string
+          # concatenation in fromService refs yet).
+
+      # --- Auto-generated secrets (Render creates random values) ---
+      - key: JWT_SECRET
+        generateValue: true
+      - key: METRICS_API_KEY
+        generateValue: true
+
+      # --- Token lifetimes (safe defaults, not secret) ---
+      - key: JWT_TTL
+        value: "900"
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 30d
+      - key: LOG_LEVEL
+        value: info
+
+      # --- URLs — fill in once you know your Vercel domain / Render domain ---
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # --- Object storage ---
+      # docker-compose runs MinIO locally, but Render has no managed
+      # S3-compatible storage service and self-hosting MinIO on Render means
+      # a paid instance with a persistent disk attached (no free-tier disks).
+      # Recommended: swap to Cloudflare R2 (free tier, S3-compatible, and the
+      # app already talks to it through these same MINIO_* vars — no code
+      # changes needed) or AWS S3. Point these at whichever you pick:
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_PORT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_USE_SSL
+        sync: false
+      - key: UPLOADS_BUCKET
+        sync: false
+
+      # --- Payments ---
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_WEBHOOK_SECRET
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+
+      # --- Email / SMS ---
+      - key: MAILGUN_API_KEY
+        sync: false
+      - key: MAILGUN_DOMAIN
+        sync: false
+      - key: MAILGUN_EMAIL_FROM
+        sync: false
+      - key: MAILGUN_API_BASE
+        sync: false
+      - key: SNS_REGION
+        sync: false
+      - key: SNS_ACCESS_KEY_ID
+        sync: false
+      - key: SNS_SECRET_ACCESS_KEY
+        sync: false
+      - key: SNS_SMS_SENDER_ID
+        sync: false
+      - key: ADMIN_NOTIFICATION_EMAIL
+        sync: false
+
+      # --- OAuth ---
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+
+      # --- Shipping ---
+      - key: SHIPPO_API_KEY
+        sync: false
+      - key: SHIPPO_WEBHOOK_SECRET
+        sync: false
+
+      # --- Misc ---
+      - key: TOS_VERSION
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: ESCROW_AUTO_RELEASE_DAYS
+        value: "5"

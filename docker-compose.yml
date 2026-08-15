@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: forumo-postgres
+    restart: unless-stopped
     environment:
       - POSTGRES_USER=forumo
       - POSTGRES_PASSWORD=forumo
@@ -21,12 +22,14 @@ services:
   redis:
     image: redis:7-alpine
     container_name: forumo-redis
+    restart: unless-stopped
+    command: redis-server --requirepass forumo-redis-pass
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "forumo-redis-pass", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,6 +37,7 @@ services:
   minio:
     image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
     container_name: forumo-minio
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -72,6 +76,7 @@ services:
       context: ./apps/moderation-service
       dockerfile: Dockerfile
     container_name: forumo-moderation
+    restart: unless-stopped
     ports:
       - "5005:5005"
 
@@ -80,9 +85,10 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     container_name: forumo-backend
+    restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://forumo:forumo@postgres:5432/forumo?schema=public
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:forumo-redis-pass@redis:6379
       - JWT_SECRET=dev-super-secret-key-change-in-prod
       - MODERATION_SERVICE_URL=http://moderation:5005
       - MINIO_ENDPOINT=minio
@@ -108,8 +114,9 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     container_name: forumo-web
+    restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:4000/api/v1
     ports:
       - "3000:3000"
     depends_on:
