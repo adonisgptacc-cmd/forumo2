@@ -129,7 +129,7 @@ export default function KycPage() {
               {(selected.documents ?? []).map((doc: any) => (
                 <a
                   key={doc.id}
-                  href={doc.fileUrl}
+                  href={doc.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm text-blue-600 hover:bg-gray-50"

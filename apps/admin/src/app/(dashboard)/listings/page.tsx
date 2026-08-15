@@ -16,6 +16,8 @@ export default function ListingsPage() {
   const qc = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   const {
     data: listings,
@@ -23,7 +25,7 @@ export default function ListingsPage() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["admin-listings"],
+    queryKey: ["admin-listings", statusFilter, page],
     queryFn: () => createApiClient(token).admin.listListingsForReview(),
     enabled: !!token,
   });
@@ -49,6 +51,8 @@ export default function ListingsPage() {
     listings?.filter((l) =>
       statusFilter ? l.moderationStatus === statusFilter : true,
     ) ?? [];
+
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const columns: Column<AdminListingModeration>[] = [
     { header: "Title", accessor: "title" },
@@ -109,7 +113,10 @@ export default function ListingsPage() {
       <div className="mb-4">
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500"
         >
           <option value="">All moderation statuses</option>
@@ -128,10 +135,16 @@ export default function ListingsPage() {
       ) : (
         <DataTable
           columns={columns}
-          rows={filtered}
+          rows={paginated}
           keyExtractor={(l) => l.id}
           loading={isLoading}
           emptyMessage="No listings match the current filter."
+          pagination={{
+            page,
+            pageSize,
+            totalCount: filtered.length,
+            onPageChange: setPage,
+          }}
         />
       )}
     </div>

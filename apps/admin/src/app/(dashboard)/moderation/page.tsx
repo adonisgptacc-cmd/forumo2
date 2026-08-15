@@ -54,22 +54,7 @@ export default function ModerationPage() {
     { header: "Seller", accessor: (i) => i.seller?.name ?? "—" },
     {
       header: "Mod Status",
-      accessor: (i) => <Badge value={i.moderationStatus} />,
-    },
-    {
-      header: "Score",
-      accessor: (i) => {
-        const score = (i as any).moderationScore;
-        return score != null ? (score as number).toFixed(2) : "—";
-      },
-    },
-    {
-      header: "Labels",
-      accessor: (i) => {
-        const labels: string[] = (i as any).moderationLabels ?? [];
-        return labels.length > 0 ? labels.slice(0, 3).join(", ") : "—";
-      },
-    },
+      accessor: (i) => <Badge value={i.moderationStatus} />},
     {
       header: "Actions",
       accessor: (i) => (

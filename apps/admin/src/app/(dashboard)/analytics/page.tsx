@@ -123,9 +123,9 @@ export default function AnalyticsPage() {
             <div className="mt-1 h-8 w-24 animate-pulse rounded bg-gray-100" />
           ) : (
             <p className="mt-1 text-2xl font-bold text-gray-900">
-              {totalRevenue.toLocaleString("en-ZA", {
+              {totalRevenue.toLocaleString("en-US", {
                 style: "currency",
-                currency: "ZAR",
+                currency: data?.currency ?? "USD",
                 maximumFractionDigits: 0,
               })}
             </p>

@@ -110,7 +110,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="Users"
-        subtitle={`${users?.length ?? 0} user${users?.length === 1 ? "" : "s"} loaded`}
+        subtitle="Manage user accounts, suspensions, and bans"
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -157,34 +157,19 @@ export default function UsersPage() {
       {isError ? (
         <ErrorState message="Failed to load users." onRetry={() => refetch()} />
       ) : (
-        <>
-          <DataTable
-            columns={columns}
-            rows={users ?? []}
-            keyExtractor={(u) => u.id}
-            loading={isLoading}
-            emptyMessage="No users match the current filters."
-          />
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded px-3 py-1.5 text-sm border border-gray-300 disabled:opacity-40 hover:bg-gray-100"
-            >
-              Previous
-            </button>
-            <span className="flex items-center px-2 text-sm text-gray-500">
-              Page {page}
-            </span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={(users?.length ?? 0) < 50}
-              className="rounded px-3 py-1.5 text-sm border border-gray-300 disabled:opacity-40 hover:bg-gray-100"
-            >
-              Next
-            </button>
-          </div>
-        </>
+        <DataTable
+          columns={columns}
+          rows={users ?? []}
+          keyExtractor={(u) => u.id}
+          loading={isLoading}
+          emptyMessage="No users match the current filters."
+          pagination={{
+            page,
+            pageSize: 50,
+            totalCount: users?.length ?? 0,
+            onPageChange: setPage,
+          }}
+        />
       )}
     </div>
   );

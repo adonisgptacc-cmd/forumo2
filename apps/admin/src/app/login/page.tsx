@@ -4,6 +4,8 @@ import { useState, FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+import { createApiClient } from "../../lib/api-client";
+
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -14,16 +16,37 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     const form = new FormData(e.currentTarget);
-    const result = await signIn("credentials", {
-      email: form.get("email") as string,
-      password: form.get("password") as string,
-      redirect: false,
-    });
-    setLoading(false);
-    if (result?.ok) {
+    const email = form.get("email") as string;
+    const password = form.get("password") as string;
+
+    try {
+      const api = createApiClient();
+      const result = await api.auth.login({ email, password });
+
+      if ("twoFactorToken" in result) {
+        try {
+          sessionStorage.setItem("forumo-admin.2faToken", result.twoFactorToken);
+        } catch {
+          /* ignore */
+        }
+        const mode = "twoFactorSetupRequired" in result ? "setup" : "verify";
+        router.push(`/login/2fa?mode=${mode}`);
+        return;
+      }
+
+      const signInResult = await signIn("token-auth", {
+        token: result.accessToken,
+        redirect: false,
+      });
+      if (!signInResult?.ok) {
+        setError("Invalid credentials or insufficient role.");
+        return;
+      }
       router.push("/users");
-    } else {
+    } catch {
       setError("Invalid credentials or insufficient role.");
+    } finally {
+      setLoading(false);
     }
   }
 

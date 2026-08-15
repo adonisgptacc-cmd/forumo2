@@ -14,6 +14,10 @@ function createApiClient(token?: string) {
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
+    // Used directly by the login page for email/password. 2FA-mandatory accounts
+    // get a twoFactorToken challenge back from api.auth.login() before this can
+    // succeed, so the login page handles that case itself (see /login/2fa) and
+    // only calls signIn("credentials", ...) when a full AuthResponse comes back.
     CredentialsProvider({
       name: "Admin Credentials",
       credentials: {
@@ -40,6 +44,35 @@ export const authOptions: NextAuthOptions = {
             name: auth.user.name,
             role: auth.user.role,
             accessToken: auth.accessToken,
+          } as any;
+        } catch {
+          return null;
+        }
+      },
+    }),
+    // Used to finish a login after the /login/2fa flow has already produced a
+    // verified access token. Re-checks the role server-side so a non-admin
+    // account can never establish a session here even with a valid token.
+    CredentialsProvider({
+      id: "token-auth",
+      name: "Token",
+      credentials: {
+        token: { label: "Token", type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.token) return null;
+        const api = createApiClient(credentials.token);
+        try {
+          const auth = await api.auth.me();
+          if (auth.user.role !== "ADMIN" && auth.user.role !== "MODERATOR") {
+            return null;
+          }
+          return {
+            id: auth.user.id,
+            email: auth.user.email,
+            name: auth.user.name,
+            role: auth.user.role,
+            accessToken: credentials.token,
           } as any;
         } catch {
           return null;
