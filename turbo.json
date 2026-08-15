@@ -4,8 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "build/**"],
-      "cache": false
+      "outputs": ["dist/**", ".next/**", "build/**"]
     },
     "dev": {
       "cache": false,
@@ -39,10 +38,12 @@
       "cache": false
     },
     "lint": {
-      "outputs": []
+      "outputs": [],
+      "cache": true
     },
     "typecheck": {
-      "cache": false
+      "outputs": [],
+      "cache": true
     },
     "migrate": {
       "cache": false
