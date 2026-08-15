@@ -15,19 +15,11 @@ import type { SafeListing } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents, LISTING_STATUS_COLORS } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'MyListings'>;
 
-const STATUS_COLORS: Record<string, string> = {
-  PUBLISHED: '#22c55e',
-  DRAFT: '#f59e0b',
-  ARCHIVED: '#9ca3af',
-  SUSPENDED: '#ef4444',
-};
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
 
 export const MyListingsScreen: React.FC<Props> = ({ navigation }) => {
   const { apiClient, user } = useAuth();
@@ -123,7 +115,7 @@ export const MyListingsScreen: React.FC<Props> = ({ navigation }) => {
       renderItem={({ item }) => {
         const image = item.images?.[0];
         const isDeleting = deletingId === item.id;
-        const statusColor = STATUS_COLORS[item.status] ?? '#9ca3af';
+        const statusColor = LISTING_STATUS_COLORS[item.status] ?? '#9ca3af';
 
         return (
           <View style={styles.card} testID={`my-listing-${item.id}`}>

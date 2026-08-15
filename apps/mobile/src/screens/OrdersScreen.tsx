@@ -14,6 +14,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents, formatDate, ORDER_STATUS_COLORS } from '../utils/format';
 
 const DEMO_ORDERS: SafeOrder[] = [
   {
@@ -54,25 +55,7 @@ const DEMO_ORDERS: SafeOrder[] = [
   },
 ];
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  PENDING: { bg: '#fef9c3', text: '#854d0e' },
-  CONFIRMED: { bg: '#dbeafe', text: '#1d4ed8' },
-  PAID: { bg: '#dcfce7', text: '#15803d' },
-  FULFILLED: { bg: '#e0f2fe', text: '#0369a1' },
-  DELIVERED: { bg: '#d1fae5', text: '#065f46' },
-  COMPLETED: { bg: '#f0fdf4', text: '#16a34a' },
-  CANCELLED: { bg: '#fee2e2', text: '#dc2626' },
-  REFUNDED: { bg: '#f3e8ff', text: '#7c3aed' },
-  DISPUTED: { bg: '#fff7ed', text: '#c2410c' },
-};
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 interface OrderCardProps {
   order: SafeOrder;
@@ -80,7 +63,7 @@ interface OrderCardProps {
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
-  const colors = STATUS_COLORS[order.status] ?? { bg: '#f3f4f6', text: '#374151' };
+  const colors = ORDER_STATUS_COLORS[order.status] ?? { bg: '#f3f4f6', text: '#374151' };
   const firstItem = order.items[0];
 
   return (

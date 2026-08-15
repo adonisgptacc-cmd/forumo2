@@ -14,6 +14,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents } from '../utils/format';
 
 const DEMO_AUCTIONS: Auction[] = [
   {
@@ -78,9 +79,7 @@ const DEMO_AUCTIONS: Auction[] = [
   },
 ];
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
+
 
 function useCountdownShort(endAt: string) {
   const [remaining, setRemaining] = useState('');

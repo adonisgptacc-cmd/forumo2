@@ -15,12 +15,11 @@ import type { SavedListing } from "@forumo/shared";
 import { brandColors, spacing } from "@forumo/config";
 import { useAuth } from "../providers/AuthProvider";
 import type { MainStackParamList } from "../navigation/types";
+import { formatCents } from "../utils/format";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Wishlist">;
 
-function formatCents(cents: number, currency = "USD") {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
+
 
 export const WishlistScreen: React.FC<Props> = ({ navigation }) => {
   const { apiClient, user } = useAuth();

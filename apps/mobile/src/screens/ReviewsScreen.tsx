@@ -142,15 +142,18 @@ export const ReviewsScreen: React.FC<Props> = ({ route }) => {
             <Text style={styles.reviewCount}>{rollup.publishedCount} review{rollup.publishedCount !== 1 ? 's' : ''}</Text>
           </View>
           <View style={styles.rollupBars}>
-            {[5, 4, 3, 2, 1].map((star) => (
-              <View key={star} style={styles.barRow}>
-                <Text style={styles.barLabel}>{star}★</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${pct(rollup.reviewCount)}%` as any }]} />
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = rollup[`star${star}` as keyof ReviewRollup] as number | undefined;
+              return (
+                <View key={star} style={styles.barRow}>
+                  <Text style={styles.barLabel}>{star}★</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${pct(count ?? 0)}%` as any }]} />
+                  </View>
+                  <Text style={styles.barPct}>{pct(count ?? 0)}%</Text>
                 </View>
-                <Text style={styles.barPct}>{pct(rollup.reviewCount)}%</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
       )}

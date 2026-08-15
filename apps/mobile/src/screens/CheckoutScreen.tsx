@@ -13,13 +13,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents } from '../utils/format';
 import { cartStore } from './CartScreen';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Checkout'>;
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
+
 
 export const CheckoutScreen: React.FC<Props> = ({ route, navigation }) => {
   const { sellerId } = route.params;

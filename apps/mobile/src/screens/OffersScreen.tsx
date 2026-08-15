@@ -14,6 +14,7 @@ import type { SafeOffer } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents, formatDate, OFFER_STATUS_COLORS } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Offers'>;
 
@@ -49,21 +50,7 @@ const DEMO_OFFERS: SafeOffer[] = [
   },
 ];
 
-const OFFER_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  PENDING: { bg: '#fef9c3', text: '#854d0e' },
-  ACCEPTED: { bg: '#dcfce7', text: '#15803d' },
-  DECLINED: { bg: '#fee2e2', text: '#dc2626' },
-  EXPIRED: { bg: '#f3f4f6', text: '#6b7280' },
-  CANCELLED: { bg: '#f3f4f6', text: '#6b7280' },
-};
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
 
 interface OfferCardProps {
   offer: SafeOffer;

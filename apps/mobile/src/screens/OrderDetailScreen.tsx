@@ -14,12 +14,9 @@ import type { SafeOrder } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents, ORDER_STATUS_COLORS } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'OrderDetail'>;
-
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -27,18 +24,6 @@ function formatDate(iso: string | null | undefined) {
     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  PENDING: { bg: '#fef9c3', text: '#854d0e' },
-  CONFIRMED: { bg: '#dbeafe', text: '#1d4ed8' },
-  PAID: { bg: '#dcfce7', text: '#15803d' },
-  FULFILLED: { bg: '#e0f2fe', text: '#0369a1' },
-  DELIVERED: { bg: '#d1fae5', text: '#065f46' },
-  COMPLETED: { bg: '#f0fdf4', text: '#16a34a' },
-  CANCELLED: { bg: '#fee2e2', text: '#dc2626' },
-  REFUNDED: { bg: '#f3e8ff', text: '#7c3aed' },
-  DISPUTED: { bg: '#fff7ed', text: '#c2410c' },
-};
 
 const TIMELINE_ICONS: Record<string, string> = {
   PENDING: '🕐',
@@ -164,7 +149,7 @@ export const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const isBuyer = user?.id === order.buyerId;
   const isSeller = user?.id === order.sellerId;
-  const colors = STATUS_COLORS[order.status] ?? { bg: '#f3f4f6', text: '#374151' };
+  const colors = ORDER_STATUS_COLORS[order.status] ?? { bg: '#f3f4f6', text: '#374151' };
   const totalCents = order.totalItemCents + order.shippingCents + order.feeCents;
 
   return (

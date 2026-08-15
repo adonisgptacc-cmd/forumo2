@@ -16,15 +16,12 @@ import type { Storefront, SafeListing } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Storefront'>;
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - spacing.md * 2 - spacing.sm) / 2;
-
-function formatCents(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
-}
 
 function ListingCard({ listing, onPress }: { listing: SafeListing; onPress: () => void }) {
   return (

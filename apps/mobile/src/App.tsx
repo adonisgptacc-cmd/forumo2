@@ -6,6 +6,7 @@ import { NavigationShell } from './navigation/AppNavigator';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAuth } from './providers/AuthProvider';
 import { cartStore } from './screens/CartScreen';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 // Rendered only after auth hydration completes so the hook runs with a
 // resolved session and doesn't fire during the async restore on startup.
@@ -33,7 +34,9 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <AppContent />
+        <AppErrorBoundary>
+          <AppContent />
+        </AppErrorBoundary>
       </AuthProvider>
     </SafeAreaProvider>
   );

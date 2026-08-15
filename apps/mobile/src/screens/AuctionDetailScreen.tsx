@@ -15,6 +15,7 @@ import type { Auction } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AuctionDetail'>;
 
@@ -33,9 +34,7 @@ const DEMO_BIDS: BidEntry[] = [
   { id: '3', bidderName: 'user_gamma', amountCents: 10000, currency: 'USD', createdAt: new Date(Date.now() - 360000).toISOString() },
 ];
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
+
 
 function useCountdown(endAt: string | undefined) {
   const [remaining, setRemaining] = useState('');

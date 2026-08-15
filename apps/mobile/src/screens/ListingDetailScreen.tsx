@@ -16,13 +16,12 @@ import type { SafeListing, ListingVariant } from '@forumo/shared';
 import { brandColors, spacing } from '@forumo/config';
 import { useAuth } from '../providers/AuthProvider';
 import type { MainStackParamList } from '../navigation/types';
+import { formatCents } from '../utils/format';
 import { cartStore } from './CartScreen';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ListingDetail'>;
 
-function formatCents(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
+
 
 export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { listingId, listing: initialListing } = route.params;
