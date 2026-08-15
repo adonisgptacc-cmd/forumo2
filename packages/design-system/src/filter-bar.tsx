@@ -25,10 +25,11 @@ export function FilterBar({ title, actions, chips, children }: FilterBarProps) {
               <button
                 key={chip.key}
                 onClick={chip.onClick}
+                type="button"
+                aria-pressed={chip.active ?? false}
                 className={`rounded-full border px-3 py-1 text-xs ${
                   chip.active ? 'border-amber-400 bg-amber-400/10 text-amber-100' : 'border-slate-700 text-slate-300'
                 }`}
-                type="button"
               >
                 {chip.label}
               </button>

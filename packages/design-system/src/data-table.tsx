@@ -11,9 +11,10 @@ export interface DataTableProps<T> {
   columns: TableColumn<T>[];
   data: T[];
   emptyState?: ReactNode;
+  keyExtractor?: (item: T, index: number) => string | number;
 }
 
-export function DataTable<T>({ columns, data, emptyState }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, emptyState, keyExtractor }: DataTableProps<T>) {
   if (!data.length) {
     return <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-6 text-slate-400">{emptyState ?? 'No records'}</div>;
   }
@@ -32,7 +33,7 @@ export function DataTable<T>({ columns, data, emptyState }: DataTableProps<T>) {
         </thead>
         <tbody className="divide-y divide-slate-900/80 text-slate-200">
           {data.map((item, index) => (
-            <tr key={index} className="hover:bg-slate-900/40">
+            <tr key={keyExtractor ? keyExtractor(item, index) : index} className="hover:bg-slate-900/40">
               {columns.map((column) => (
                 <td key={String(column.key)} className={`px-4 py-3 align-top ${column.className ?? ''}`}>
                   {column.render ? column.render(item) : (item as any)[column.key]}
