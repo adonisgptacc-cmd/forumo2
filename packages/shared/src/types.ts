@@ -1,12 +1,22 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export const userRoleSchema = z.enum(['BUYER', 'SELLER', 'ADMIN', 'MODERATOR']);
+export const userRoleSchema = z.enum(["BUYER", "SELLER", "ADMIN", "MODERATOR"]);
 export type UserRole = z.infer<typeof userRoleSchema>;
 
-export const kycStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_REQUIRED']);
+export const kycStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "NOT_REQUIRED",
+]);
 export type KycStatus = z.infer<typeof kycStatusSchema>;
 
-export const disputeStatusSchema = z.enum(['OPEN', 'UNDER_REVIEW', 'RESOLVED', 'ESCALATED']);
+export const disputeStatusSchema = z.enum([
+  "OPEN",
+  "UNDER_REVIEW",
+  "RESOLVED",
+  "ESCALATED",
+]);
 export type DisputeStatus = z.infer<typeof disputeStatusSchema>;
 
 export const safeUserSchema = z.object({
@@ -23,10 +33,22 @@ export const safeUserSchema = z.object({
 });
 export type SafeUser = z.infer<typeof safeUserSchema>;
 
-export const listingStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'PAUSED', 'SUSPENDED']);
+export const listingStatusSchema = z.enum([
+  "DRAFT",
+  "PUBLISHED",
+  "PAUSED",
+  "SUSPENDED",
+]);
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
-export const listingModerationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FLAGGED']);
-export type ListingModerationStatus = z.infer<typeof listingModerationStatusSchema>;
+export const listingModerationStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "FLAGGED",
+]);
+export type ListingModerationStatus = z.infer<
+  typeof listingModerationStatusSchema
+>;
 
 export const listingVariantSchema = z.object({
   id: z.string().uuid().optional(),
@@ -49,7 +71,9 @@ export const createListingVariantSchema = listingVariantSchema.pick({
   inventoryCount: true,
   metadata: true,
 });
-export type CreateListingVariantDto = z.infer<typeof createListingVariantSchema>;
+export type CreateListingVariantDto = z.infer<
+  typeof createListingVariantSchema
+>;
 
 export const createListingSchema = z.object({
   sellerId: z.string().optional(),
@@ -71,7 +95,7 @@ export const listingImageSchema = z.object({
   id: z.string().uuid(),
   bucket: z.string().optional(),
   storageKey: z.string().optional(),
-  url: z.string().optional().default(''),
+  url: z.string().optional().default(""),
   mimeType: z.string().nullable().optional(),
   fileSize: z.number().int().nullable().optional(),
   width: z.number().int().nullable().optional(),
@@ -117,33 +141,49 @@ export interface PaginatedResponse<T> {
 }
 
 export const orderStatusSchema = z.enum([
-  'PENDING',
-  'CONFIRMED',
-  'PAID',
-  'FULFILLED',
-  'DELIVERED',
-  'COMPLETED',
-  'CANCELLED',
-  'REFUNDED',
-  'DISPUTED',
+  "PENDING",
+  "CONFIRMED",
+  "PAID",
+  "FULFILLED",
+  "DELIVERED",
+  "COMPLETED",
+  "CANCELLED",
+  "REFUNDED",
+  "REFUND_PENDING",
+  "REFUND_FAILED",
+  "DISPUTED",
 ]);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 
-export const paymentStatusSchema = z.enum(['PENDING', 'AUTHORIZED', 'CAPTURED', 'SETTLED', 'FAILED', 'REFUNDED']);
+export const paymentStatusSchema = z.enum([
+  "PENDING",
+  "AUTHORIZED",
+  "CAPTURED",
+  "SETTLED",
+  "FAILED",
+  "REFUNDED",
+  "REFUND_PENDING",
+  "REFUND_FAILED",
+]);
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 
 export const shipmentStatusSchema = z.enum([
-  'PENDING',
-  'LABEL_CREATED',
-  'IN_TRANSIT',
-  'OUT_FOR_DELIVERY',
-  'DELIVERED',
-  'RETURNED',
-  'CANCELLED',
+  "PENDING",
+  "LABEL_CREATED",
+  "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "RETURNED",
+  "CANCELLED",
 ]);
 export type ShipmentStatus = z.infer<typeof shipmentStatusSchema>;
 
-export const escrowStatusSchema = z.enum(['HOLDING', 'RELEASED', 'REFUNDED', 'DISPUTED']);
+export const escrowStatusSchema = z.enum([
+  "HOLDING",
+  "RELEASED",
+  "REFUNDED",
+  "DISPUTED",
+]);
 export type EscrowStatus = z.infer<typeof escrowStatusSchema>;
 
 export const orderItemSchema = z.object({
@@ -243,7 +283,7 @@ export const escrowHoldingSchema = z.object({
 });
 export type EscrowHolding = z.infer<typeof escrowHoldingSchema>;
 
-export const reviewStatusSchema = z.enum(['PENDING', 'PUBLISHED', 'REJECTED']);
+export const reviewStatusSchema = z.enum(["PENDING", "PUBLISHED", "REJECTED"]);
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 
 export const reviewFlagSchema = z.object({
@@ -318,7 +358,10 @@ export const feeScheduleSchema = z.object({
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   createdBy: z.string().uuid(),
-  category: z.object({ id: z.string(), name: z.string(), slug: z.string() }).nullable().optional(),
+  category: z
+    .object({ id: z.string(), name: z.string(), slug: z.string() })
+    .nullable()
+    .optional(),
 });
 export type FeeSchedule = z.infer<typeof feeScheduleSchema>;
 
@@ -332,15 +375,20 @@ export const createFeeScheduleSchema = z.object({
 });
 export type CreateFeeScheduleDto = z.infer<typeof createFeeScheduleSchema>;
 
-export const updateFeeScheduleSchema = createFeeScheduleSchema.partial().extend({
-  isActive: z.boolean().optional(),
-});
+export const updateFeeScheduleSchema = createFeeScheduleSchema
+  .partial()
+  .extend({
+    isActive: z.boolean().optional(),
+  });
 export type UpdateFeeScheduleDto = z.infer<typeof updateFeeScheduleSchema>;
 
 export const feePreviewSchema = z.object({
   feeAmountCents: z.number().int(),
   feePercent: z.number(),
-  breakdown: z.object({ percentPart: z.number().int(), fixedPart: z.number().int() }),
+  breakdown: z.object({
+    percentPart: z.number().int(),
+    fixedPart: z.number().int(),
+  }),
 });
 export type FeePreview = z.infer<typeof feePreviewSchema>;
 
@@ -389,8 +437,10 @@ export const messageSchema = z.object({
   threadId: z.string().uuid(),
   authorId: z.string().uuid(),
   body: z.string(),
-  status: z.enum(['SENT', 'DELIVERED', 'READ', 'DELETED']).default('SENT'),
-  moderationStatus: z.enum(['PENDING', 'APPROVED', 'FLAGGED', 'REJECTED']).default('PENDING'),
+  status: z.enum(["SENT", "DELIVERED", "READ", "DELETED"]).default("SENT"),
+  moderationStatus: z
+    .enum(["PENDING", "APPROVED", "FLAGGED", "REJECTED"])
+    .default("PENDING"),
   moderationNotes: z.string().nullable().optional(),
   metadata: z.record(z.any()).nullable().optional(),
   createdAt: z.string().datetime(),
@@ -403,12 +453,15 @@ export const participantSchema = z.object({
   id: z.string().uuid(),
   threadId: z.string().uuid(),
   userId: z.string().uuid(),
-  role: z.enum(['BUYER', 'SELLER', 'ADMIN', 'SYSTEM']).default('BUYER'),
-  user: z.object({
-    id: z.string().uuid(),
-    name: z.string().nullable().optional(),
-    avatarUrl: z.string().nullable().optional(),
-  }).nullable().optional(),
+  role: z.enum(["BUYER", "SELLER", "ADMIN", "SYSTEM"]).default("BUYER"),
+  user: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string().nullable().optional(),
+      avatarUrl: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 export type ThreadParticipant = z.infer<typeof participantSchema>;
 
@@ -452,7 +505,9 @@ export const twoFactorSetupRequiredSchema = z.object({
   twoFactorSetupRequired: z.literal(true),
   twoFactorToken: z.string(),
 });
-export type TwoFactorSetupRequired = z.infer<typeof twoFactorSetupRequiredSchema>;
+export type TwoFactorSetupRequired = z.infer<
+  typeof twoFactorSetupRequiredSchema
+>;
 
 export const authResponseSchema = z.object({
   accessToken: z.string(),
@@ -483,7 +538,7 @@ export const createOrderSchema = z.object({
   billingAddressId: z.string().uuid().nullable().optional(),
   shippingCents: z.number().int().nonnegative().nullable().optional(),
   feeCents: z.number().int().nonnegative().nullable().optional(),
-  currency: z.string().length(3).default('USD'),
+  currency: z.string().length(3).default("USD"),
   metadata: z.record(z.any()).nullable().optional(),
 });
 export type CreateOrderDto = z.infer<typeof createOrderSchema>;
@@ -511,7 +566,7 @@ export const createThreadSchema = z.object({
     .array(
       z.object({
         userId: z.string().uuid(),
-        role: z.enum(['BUYER', 'SELLER', 'ADMIN', 'SYSTEM']).default('BUYER'),
+        role: z.enum(["BUYER", "SELLER", "ADMIN", "SYSTEM"]).default("BUYER"),
       }),
     )
     .min(2),
@@ -520,11 +575,11 @@ export const createThreadSchema = z.object({
 export type CreateThreadDto = z.infer<typeof createThreadSchema>;
 
 export const notificationTemplateSchema = z.enum([
-  'ORDER_STATUS',
-  'NEW_MESSAGE',
-  'AUCTION_OUTBID',
-  'ESCROW_UPDATE',
-  'REVIEW_RECEIVED',
+  "ORDER_STATUS",
+  "NEW_MESSAGE",
+  "AUCTION_OUTBID",
+  "ESCROW_UPDATE",
+  "REVIEW_RECEIVED",
 ]);
 export type NotificationTemplate = z.infer<typeof notificationTemplateSchema>;
 
@@ -550,7 +605,16 @@ export const listingSearchParamsSchema = z.object({
   minPriceCents: z.coerce.number().int().nonnegative().optional(),
   maxPriceCents: z.coerce.number().int().nonnegative().optional(),
   tags: z.array(z.string()).optional(),
-  sort: z.enum(['relevance', 'price_asc', 'price_desc', 'date_new', 'date_old', 'title']).optional(),
+  sort: z
+    .enum([
+      "relevance",
+      "price_asc",
+      "price_desc",
+      "date_new",
+      "date_old",
+      "title",
+    ])
+    .optional(),
   categories: z.array(z.string()).optional(),
 });
 export type ListingSearchParams = z.infer<typeof listingSearchParamsSchema>;
@@ -603,7 +667,9 @@ export const adminListingModerationSchema = z.object({
   updatedAt: z.string().datetime(),
   seller: adminUserSummarySchema.optional(),
 });
-export type AdminListingModeration = z.infer<typeof adminListingModerationSchema>;
+export type AdminListingModeration = z.infer<
+  typeof adminListingModerationSchema
+>;
 
 export const adminDisputeSchema = z.object({
   id: z.string().uuid(),
@@ -622,7 +688,13 @@ export const adminDisputeSchema = z.object({
 });
 export type AdminDisputeSummary = z.infer<typeof adminDisputeSchema>;
 
-export const accountStatusSchema = z.enum(['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING_VERIFICATION', 'DELETED']);
+export const accountStatusSchema = z.enum([
+  "ACTIVE",
+  "SUSPENDED",
+  "BANNED",
+  "PENDING_VERIFICATION",
+  "DELETED",
+]);
 export type AccountStatus = z.infer<typeof accountStatusSchema>;
 
 export const adminUserDetailSchema = z.object({
@@ -682,7 +754,12 @@ export type CreateStorefrontDto = z.infer<typeof createStorefrontSchema>;
 
 // --- Auctions ---
 
-export const auctionStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED']);
+export const auctionStatusSchema = z.enum([
+  "DRAFT",
+  "ACTIVE",
+  "COMPLETED",
+  "CANCELLED",
+]);
 export type AuctionStatus = z.infer<typeof auctionStatusSchema>;
 
 export const auctionSchema = z.object({
@@ -719,7 +796,13 @@ export const placeBidSchema = z.object({
 });
 export type PlaceBidDto = z.infer<typeof placeBidSchema>;
 
-export const offerStatusSchema = z.enum(['PENDING', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CANCELLED']);
+export const offerStatusSchema = z.enum([
+  "PENDING",
+  "ACCEPTED",
+  "DECLINED",
+  "EXPIRED",
+  "CANCELLED",
+]);
 export type OfferStatus = z.infer<typeof offerStatusSchema>;
 
 export const safeOfferSchema = z.object({
@@ -733,13 +816,19 @@ export const safeOfferSchema = z.object({
   status: offerStatusSchema,
   expiresAt: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime(),
-  listing: z.object({
-    id: z.string().uuid(),
-    title: z.string(),
-    images: z.array(z.object({ url: z.string() })).optional(),
-  }).optional(),
-  buyer: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
-  seller: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+  listing: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string(),
+      images: z.array(z.object({ url: z.string() })).optional(),
+    })
+    .optional(),
+  buyer: z
+    .object({ id: z.string(), name: z.string().nullable().optional() })
+    .optional(),
+  seller: z
+    .object({ id: z.string(), name: z.string().nullable().optional() })
+    .optional(),
 });
 export type SafeOffer = z.infer<typeof safeOfferSchema>;
 
@@ -758,7 +847,9 @@ export const listingCategorySchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
   position: z.number().int(),
   createdAt: z.string().datetime(),
-  children: z.array(z.lazy((): z.ZodTypeAny => listingCategorySchema)).optional(),
+  children: z
+    .array(z.lazy((): z.ZodTypeAny => listingCategorySchema))
+    .optional(),
 });
 export type ListingCategory = z.infer<typeof listingCategorySchema>;
 
@@ -775,37 +866,39 @@ export const savedListingSchema = z.object({
   userId: z.string().uuid(),
   listingId: z.string().uuid(),
   createdAt: z.string().datetime(),
-  listing: z.object({
-    id: z.string().uuid(),
-    title: z.string(),
-    priceCents: z.number().int(),
-    currency: z.string(),
-    status: z.string(),
-    location: z.string().nullable().optional(),
-    images: z.array(z.object({ url: z.string() })).optional(),
-  }).optional(),
+  listing: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string(),
+      priceCents: z.number().int(),
+      currency: z.string(),
+      status: z.string(),
+      location: z.string().nullable().optional(),
+      images: z.array(z.object({ url: z.string() })).optional(),
+    })
+    .optional(),
 });
 export type SavedListing = z.infer<typeof savedListingSchema>;
 
 // --- Returns ---
 
 export const returnReasonSchema = z.enum([
-  'not_as_described',
-  'damaged',
-  'not_received',
-  'changed_mind',
-  'other',
+  "not_as_described",
+  "damaged",
+  "not_received",
+  "changed_mind",
+  "other",
 ]);
 export type ReturnReason = z.infer<typeof returnReasonSchema>;
 
 export const returnStatusSchema = z.enum([
-  'requested',
-  'awaiting_seller',
-  'approved',
-  'rejected',
-  'shipped',
-  'received',
-  'refunded',
+  "requested",
+  "awaiting_seller",
+  "approved",
+  "rejected",
+  "shipped",
+  "received",
+  "refunded",
 ]);
 export type ReturnStatus = z.infer<typeof returnStatusSchema>;
 
@@ -816,7 +909,10 @@ export const safeReturnSchema = z.object({
   sellerId: z.string().uuid(),
   reason: returnReasonSchema,
   conditionNotes: z.string().nullable().optional(),
-  items: z.array(z.object({ orderItemId: z.string(), quantity: z.number() })).nullable().optional(),
+  items: z
+    .array(z.object({ orderItemId: z.string(), quantity: z.number() }))
+    .nullable()
+    .optional(),
   status: returnStatusSchema,
   trackingNumber: z.string().nullable().optional(),
   refundAmount: z.number().int(),
@@ -825,22 +921,35 @@ export const safeReturnSchema = z.object({
   resolvedAt: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  order: z.object({
-    id: z.string(),
-    orderNumber: z.string(),
-    deliveredAt: z.string().nullable().optional(),
-    totalItemCents: z.number().int(),
-    currency: z.string(),
-  }).optional(),
-  buyer: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
-  seller: z.object({ id: z.string(), name: z.string().nullable().optional() }).optional(),
+  order: z
+    .object({
+      id: z.string(),
+      orderNumber: z.string(),
+      deliveredAt: z.string().nullable().optional(),
+      totalItemCents: z.number().int(),
+      currency: z.string(),
+    })
+    .optional(),
+  buyer: z
+    .object({ id: z.string(), name: z.string().nullable().optional() })
+    .optional(),
+  seller: z
+    .object({ id: z.string(), name: z.string().nullable().optional() })
+    .optional(),
 });
 export type SafeReturn = z.infer<typeof safeReturnSchema>;
 
 export const initiateReturnSchema = z.object({
   reason: returnReasonSchema,
   conditionNotes: z.string().max(1000).optional(),
-  items: z.array(z.object({ orderItemId: z.string(), quantity: z.number().int().positive() })).optional(),
+  items: z
+    .array(
+      z.object({
+        orderItemId: z.string(),
+        quantity: z.number().int().positive(),
+      }),
+    )
+    .optional(),
   photos: z.array(z.string()).max(5).optional(),
 });
 export type InitiateReturnDto = z.infer<typeof initiateReturnSchema>;

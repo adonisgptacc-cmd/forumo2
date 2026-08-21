@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { DataTable, type TableColumn } from './data-table';
+import type { Meta, StoryObj } from "@storybook/react";
+import { DataTable, type TableColumn } from "./data-table";
 
 interface Product {
   id: number;
@@ -9,17 +9,17 @@ interface Product {
 }
 
 const columns: TableColumn<Product>[] = [
-  { key: 'name', header: 'Product' },
-  { key: 'price', header: 'Price' },
+  { key: "name", header: "Product" },
+  { key: "price", header: "Price" },
   {
-    key: 'status',
-    header: 'Status',
+    key: "status",
+    header: "Status",
     render: (item) => (
       <span
         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-          item.status === 'Active'
-            ? 'bg-green-500/20 text-green-400'
-            : 'bg-slate-700 text-slate-300'
+          item.status === "Active"
+            ? "bg-green-500/20 text-green-400"
+            : "bg-slate-700 text-slate-300"
         }`}
       >
         {item.status}
@@ -29,18 +29,18 @@ const columns: TableColumn<Product>[] = [
 ];
 
 const sampleData: Product[] = [
-  { id: 1, name: 'Vintage Camera', price: 'R 1 200', status: 'Active' },
-  { id: 2, name: 'Leather Jacket', price: 'R 850', status: 'Sold' },
-  { id: 3, name: 'Mechanical Keyboard', price: 'R 2 400', status: 'Active' },
-  { id: 4, name: 'Vinyl Record Player', price: 'R 3 100', status: 'Sold' },
+  { id: 1, name: "Vintage Camera", price: "R 1 200", status: "Active" },
+  { id: 2, name: "Leather Jacket", price: "R 850", status: "Sold" },
+  { id: 3, name: "Mechanical Keyboard", price: "R 2 400", status: "Active" },
+  { id: 4, name: "Vinyl Record Player", price: "R 3 100", status: "Sold" },
 ];
 
 const meta: Meta = {
-  title: 'Components/DataTable',
+  title: "Components/DataTable",
   component: DataTable,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   parameters: {
-    backgrounds: { default: 'dark' },
+    backgrounds: { default: "dark" },
   },
 };
 export default meta;
@@ -64,7 +64,9 @@ export const CustomEmptyState: Story = {
         <div className="flex flex-col items-center gap-2 py-4 text-center">
           <span className="text-3xl">📦</span>
           <p className="text-sm text-slate-300">No listings yet</p>
-          <p className="text-xs text-slate-500">Add a listing to get started.</p>
+          <p className="text-xs text-slate-500">
+            Add a listing to get started.
+          </p>
         </div>
       }
     />

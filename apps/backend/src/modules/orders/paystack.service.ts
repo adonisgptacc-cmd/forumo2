@@ -24,6 +24,10 @@ interface PaystackApiResponse<T> {
   data: T;
 }
 
+interface PaystackRefundData {
+  status?: string;
+}
+
 @Injectable()
 export class PaystackService {
   private readonly logger = new Logger(PaystackService.name);
@@ -102,27 +106,29 @@ export class PaystackService {
   async refundTransaction(
     reference: string,
     amountKobo?: number,
-  ): Promise<void> {
+    idempotencyKey?: string,
+  ): Promise<"confirmed" | "pending"> {
     if (!this.secretKey) {
-      this.logger.warn(
-        `[Paystack] Not configured — skipping refund for ${reference}`,
-      );
-      return;
+      if (process.env.NODE_ENV === "test") return "confirmed";
+      throw new Error("Paystack refunds are not configured");
     }
 
     try {
-      await firstValueFrom(
-        this.http.post<PaystackApiResponse<unknown>>(
+      const { data } = await firstValueFrom(
+        this.http.post<PaystackApiResponse<PaystackRefundData>>(
           `${this.baseUrl}/refund`,
           {
             transaction: reference,
             ...(amountKobo !== undefined && { amount: amountKobo }),
+            ...(idempotencyKey && { reference: idempotencyKey }),
           },
           { headers: this.authHeaders },
         ),
       );
+      return data.data?.status === "processed" ? "confirmed" : "pending";
     } catch (err) {
       this.logger.error(`[Paystack] Refund failed for ${reference}:`, err);
+      throw err;
     }
   }
 

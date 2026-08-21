@@ -1,7 +1,15 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsEnum, IsOptional, IsPhoneNumber, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { PartialType } from "@nestjs/mapped-types";
+import {
+  IsEnum,
+  IsOptional,
+  IsPhoneNumber,
+  IsString,
+  IsUrl,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
-import { KycStatus, UserRole } from '@prisma/client';
+import { KycStatus, UserRole } from "@prisma/client";
 
 class BaseUserDto {
   @IsString()
@@ -10,7 +18,9 @@ class BaseUserDto {
   name!: string;
 
   @IsOptional()
-  @IsPhoneNumber('ZA', { message: 'phone must be a valid international number' })
+  @IsPhoneNumber("ZA", {
+    message: "phone must be a valid international number",
+  })
   phone?: string;
 
   @IsOptional()

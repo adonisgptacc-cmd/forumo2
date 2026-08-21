@@ -1,15 +1,19 @@
-'use client';
+"use client";
 
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { SessionProvider, useSession } from 'next-auth/react';
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { io, type Socket } from 'socket.io-client';
-import { CartProvider } from '../lib/cart-context';
-import { getGatewayBaseUrl } from '../lib/messaging-layer';
-import { queryKeys } from '../lib/react-query/query-keys';
-import type { SafeNotification } from '@forumo/shared';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { SessionProvider, useSession } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { io, type Socket } from "socket.io-client";
+import { CartProvider } from "../lib/cart-context";
+import { getGatewayBaseUrl } from "../lib/messaging-layer";
+import { queryKeys } from "../lib/react-query/query-keys";
+import type { SafeNotification } from "@forumo/shared";
 
 // ── Notification WebSocket sync ────────────────────────────────────────────────
 // Connects to the NestJS notifications gateway and pushes incoming events into
@@ -45,20 +49,24 @@ function NotificationsSocketSync() {
       }
     }, CONNECT_TIMEOUT_MS);
 
-    socket.on('connect', () => {
+    socket.on("connect", () => {
       if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
-      socket.emit('subscribe', { userId });
+      socket.emit("subscribe", { userId });
     });
 
-    socket.on('notification', (notification: SafeNotification) => {
+    socket.on("notification", (notification: SafeNotification) => {
       // Prepend to notifications list
-      client.setQueryData<SafeNotification[]>(queryKeys.notifications, (prev) =>
-        prev ? [notification, ...prev] : [notification],
+      client.setQueryData<SafeNotification[]>(
+        queryKeys.notifications,
+        (prev) => (prev ? [notification, ...prev] : [notification]),
       );
       // Increment unread count
-      client.setQueryData<{ count: number }>(queryKeys.notificationUnreadCount, (prev) => ({
-        count: (prev?.count ?? 0) + 1,
-      }));
+      client.setQueryData<{ count: number }>(
+        queryKeys.notificationUnreadCount,
+        (prev) => ({
+          count: (prev?.count ?? 0) + 1,
+        }),
+      );
     });
 
     return () => {
@@ -77,15 +85,19 @@ function AccountSuspensionGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type === 'updated' && event.query.state.status === 'error') {
+      if (event.type === "updated" && event.query.state.status === "error") {
         const err = event.query.state.error as any;
         const code = err?.code ?? err?.response?.data?.code ?? err?.body?.code;
-        if (code === 'ACCOUNT_SUSPENDED') {
-          const reason = err?.message ?? err?.response?.data?.message ?? '';
-          router.push((`/account-suspended?code=ACCOUNT_SUSPENDED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`) as any);
-        } else if (code === 'ACCOUNT_BANNED') {
-          const reason = err?.message ?? err?.response?.data?.message ?? '';
-          router.push((`/account-suspended?code=ACCOUNT_BANNED${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`) as any);
+        if (code === "ACCOUNT_SUSPENDED") {
+          const reason = err?.message ?? err?.response?.data?.message ?? "";
+          router.push(
+            `/account-suspended?code=ACCOUNT_SUSPENDED${reason ? `&reason=${encodeURIComponent(reason)}` : ""}` as any,
+          );
+        } else if (code === "ACCOUNT_BANNED") {
+          const reason = err?.message ?? err?.response?.data?.message ?? "";
+          router.push(
+            `/account-suspended?code=ACCOUNT_BANNED${reason ? `&reason=${encodeURIComponent(reason)}` : ""}` as any,
+          );
         }
       }
     });

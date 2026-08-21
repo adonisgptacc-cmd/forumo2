@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
 
 export type MessageWithRelations = Prisma.MessageGetPayload<{
   include: {
@@ -15,7 +15,7 @@ export type MessageThreadWithRelations = Prisma.MessageThreadGetPayload<{
       };
     };
     messages: {
-      orderBy: { createdAt: 'asc' };
+      orderBy: { createdAt: "asc" };
       include: { attachments: true; receipts: true };
     };
   };
@@ -23,4 +23,6 @@ export type MessageThreadWithRelations = Prisma.MessageThreadGetPayload<{
 
 export type SafeMessageThread = MessageThreadWithRelations;
 
-export const serializeThread = (thread: MessageThreadWithRelations): SafeMessageThread => thread;
+export const serializeThread = (
+  thread: MessageThreadWithRelations,
+): SafeMessageThread => thread;

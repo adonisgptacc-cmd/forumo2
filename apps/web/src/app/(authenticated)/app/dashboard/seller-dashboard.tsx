@@ -1,52 +1,81 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useOrders, useListings, useOffers, useCurrentUser, useSellerAnalytics } from '../../../../lib/react-query/hooks';
+import Link from "next/link";
+import {
+  useOrders,
+  useListings,
+  useOffers,
+  useCurrentUser,
+  useSellerAnalytics,
+} from "../../../../lib/react-query/hooks";
 
-function formatCurrency(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
+function formatCurrency(cents: number, currency = "USD") {
+  return new Intl.NumberFormat("en", { style: "currency", currency }).format(
+    cents / 100,
+  );
 }
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
   return `${days}d ago`;
 }
 
 export function SellerDashboard() {
   const { user } = useCurrentUser();
   const { data: orders = [], isLoading: ordersLoading } = useOrders();
-  const { data: listings, isLoading: listingsLoading } = useListings({ page: 1, pageSize: 50 });
+  const { data: listings, isLoading: listingsLoading } = useListings({
+    page: 1,
+    pageSize: 50,
+  });
   const { data: offers = [], isLoading: offersLoading } = useOffers();
   const { data: analytics, isLoading: analyticsLoading } = useSellerAnalytics();
 
-  const isLoading = ordersLoading || listingsLoading || offersLoading || analyticsLoading;
+  const isLoading =
+    ordersLoading || listingsLoading || offersLoading || analyticsLoading;
 
   // Revenue: sum of completed orders where I'm the seller
   const myOrders = orders.filter((o) => o.sellerId === user?.id);
-  const completedOrders = myOrders.filter((o) => o.status === 'COMPLETED');
-  const pendingOrders = myOrders.filter((o) => o.status === 'PENDING' || o.status === 'CONFIRMED' || o.status === 'PAID');
-  const shippedOrders = myOrders.filter((o) => o.status === 'FULFILLED');
+  const completedOrders = myOrders.filter((o) => o.status === "COMPLETED");
+  const pendingOrders = myOrders.filter(
+    (o) =>
+      o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PAID",
+  );
+  const shippedOrders = myOrders.filter((o) => o.status === "FULFILLED");
 
   // Prefer server-side analytics for accuracy, fall back to client-computed
-  const totalRevenueCents = analytics?.totalRevenueCents ?? completedOrders.reduce((sum, o) => sum + o.totalItemCents, 0);
-  const pendingRevenueCents = pendingOrders.reduce((sum, o) => sum + o.totalItemCents, 0);
-  const currency = completedOrders[0]?.currency ?? pendingOrders[0]?.currency ?? 'USD';
+  const totalRevenueCents =
+    analytics?.totalRevenueCents ??
+    completedOrders.reduce((sum, o) => sum + o.totalItemCents, 0);
+  const pendingRevenueCents = pendingOrders.reduce(
+    (sum, o) => sum + o.totalItemCents,
+    0,
+  );
+  const currency =
+    completedOrders[0]?.currency ?? pendingOrders[0]?.currency ?? "USD";
 
   // Offers
   const receivedOffers = offers.filter((o) => o.sellerId === user?.id);
-  const pendingOffers = receivedOffers.filter((o) => o.status === 'PENDING');
+  const pendingOffers = receivedOffers.filter((o) => o.status === "PENDING");
 
   // Top listings by total order value
-  const listingRevenue: Record<string, { title: string; revenue: number; count: number }> = {};
+  const listingRevenue: Record<
+    string,
+    { title: string; revenue: number; count: number }
+  > = {};
   completedOrders.forEach((order) => {
     order.items.forEach((item) => {
       if (!listingRevenue[item.listingId]) {
-        listingRevenue[item.listingId] = { title: item.listingTitle, revenue: 0, count: 0 };
+        listingRevenue[item.listingId] = {
+          title: item.listingTitle,
+          revenue: 0,
+          count: 0,
+        };
       }
-      listingRevenue[item.listingId].revenue += item.unitPriceCents * item.quantity;
+      listingRevenue[item.listingId].revenue +=
+        item.unitPriceCents * item.quantity;
       listingRevenue[item.listingId].count += item.quantity;
     });
   });
@@ -110,7 +139,10 @@ export function SellerDashboard() {
         <section className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="h3">Recent orders</h3>
-            <Link href={"/app/orders" as any} className="text-xs text-[color:var(--accent)] hover:underline">
+            <Link
+              href={"/app/orders" as any}
+              className="text-xs text-[color:var(--accent)] hover:underline"
+            >
               All orders →
             </Link>
           </div>
@@ -127,7 +159,8 @@ export function SellerDashboard() {
                     <div>
                       <p className="text-sm font-medium">{order.orderNumber}</p>
                       <p className="text-xs muted">
-                        {order.status} · {order.placedAt ? timeAgo(order.placedAt) : ''}
+                        {order.status} ·{" "}
+                        {order.placedAt ? timeAgo(order.placedAt) : ""}
                       </p>
                     </div>
                     <span className="text-sm subtle">
@@ -144,7 +177,10 @@ export function SellerDashboard() {
         <section className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="h3">Return requests</h3>
-            <Link href={"/app/dashboard/returns" as any} className="text-xs text-[color:var(--accent)] hover:underline">
+            <Link
+              href={"/app/dashboard/returns" as any}
+              className="text-xs text-[color:var(--accent)] hover:underline"
+            >
               Manage returns →
             </Link>
           </div>
@@ -157,7 +193,10 @@ export function SellerDashboard() {
         <section className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="h3">Offers to review</h3>
-            <Link href={"/app/offers" as any} className="text-xs text-[color:var(--accent)] hover:underline">
+            <Link
+              href={"/app/offers" as any}
+              className="text-xs text-[color:var(--accent)] hover:underline"
+            >
               All offers →
             </Link>
           </div>
@@ -169,13 +208,19 @@ export function SellerDashboard() {
                 <li
                   key={offer.id}
                   className="rounded-lg px-3 py-2"
-                  style={{ background: 'var(--accent-bg)', border: '1px solid transparent' }}
+                  style={{
+                    background: "var(--accent-bg)",
+                    border: "1px solid transparent",
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{offer.listing?.title ?? 'Listing'}</p>
+                      <p className="text-sm font-medium">
+                        {offer.listing?.title ?? "Listing"}
+                      </p>
                       <p className="text-xs muted">
-                        From {offer.buyer?.name ?? 'Buyer'} · {timeAgo(offer.createdAt)}
+                        From {offer.buyer?.name ?? "Buyer"} ·{" "}
+                        {timeAgo(offer.createdAt)}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-[color:var(--accent-2)]">
@@ -189,35 +234,47 @@ export function SellerDashboard() {
         </section>
 
         {/* Revenue by month */}
-        {analytics && analytics.revenueByMonth.some((m) => m.revenueCents > 0) && (
-          <section className="card card-pad space-y-3 lg:col-span-2">
-            <h3 className="h3">Revenue — last 12 months</h3>
-            <div className="flex items-end gap-1 h-24">
-              {(() => {
-                const max = Math.max(...analytics.revenueByMonth.map((m) => m.revenueCents), 1);
-                return analytics.revenueByMonth.map((m) => (
-                  <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+        {analytics &&
+          analytics.revenueByMonth.some((m) => m.revenueCents > 0) && (
+            <section className="card card-pad space-y-3 lg:col-span-2">
+              <h3 className="h3">Revenue — last 12 months</h3>
+              <div className="flex items-end gap-1 h-24">
+                {(() => {
+                  const max = Math.max(
+                    ...analytics.revenueByMonth.map((m) => m.revenueCents),
+                    1,
+                  );
+                  return analytics.revenueByMonth.map((m) => (
                     <div
-                      className="w-full rounded-sm transition-[height,opacity] hover:opacity-100"
-                      style={{
-                        height: `${Math.max(4, (m.revenueCents / max) * 100)}%`,
-                        background: 'var(--accent)',
-                        opacity: 0.8,
-                      }}
-                      title={`${m.month}: ${formatCurrency(m.revenueCents, currency)} (${m.orderCount} orders)`}
-                    />
-                    <span className="text-[9px] muted rotate-45 origin-left">{m.month}</span>
-                  </div>
-                ));
-              })()}
-            </div>
-            {analytics.avgOrderValueCents > 0 && (
-              <p className="text-xs muted">
-                Avg order value: <span className="subtle font-medium">{formatCurrency(analytics.avgOrderValueCents, currency)}</span>
-              </p>
-            )}
-          </section>
-        )}
+                      key={m.month}
+                      className="flex-1 flex flex-col items-center gap-1"
+                    >
+                      <div
+                        className="w-full rounded-sm transition-[height,opacity] hover:opacity-100"
+                        style={{
+                          height: `${Math.max(4, (m.revenueCents / max) * 100)}%`,
+                          background: "var(--accent)",
+                          opacity: 0.8,
+                        }}
+                        title={`${m.month}: ${formatCurrency(m.revenueCents, currency)} (${m.orderCount} orders)`}
+                      />
+                      <span className="text-[9px] muted rotate-45 origin-left">
+                        {m.month}
+                      </span>
+                    </div>
+                  ));
+                })()}
+              </div>
+              {analytics.avgOrderValueCents > 0 && (
+                <p className="text-xs muted">
+                  Avg order value:{" "}
+                  <span className="subtle font-medium">
+                    {formatCurrency(analytics.avgOrderValueCents, currency)}
+                  </span>
+                </p>
+              )}
+            </section>
+          )}
 
         {/* Top listings by revenue */}
         <section className="card card-pad space-y-3">
@@ -227,10 +284,16 @@ export function SellerDashboard() {
           ) : (
             <ul className="space-y-2">
               {topListings.map(([id, data]) => (
-                <li key={id} className="flex items-center justify-between text-sm">
-                  <span className="subtle truncate max-w-[60%]">{data.title}</span>
+                <li
+                  key={id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="subtle truncate max-w-[60%]">
+                    {data.title}
+                  </span>
                   <span className="text-[color:var(--escrow)] font-medium">
-                    {formatCurrency(data.revenue, currency)} <span className="muted text-xs">({data.count} sold)</span>
+                    {formatCurrency(data.revenue, currency)}{" "}
+                    <span className="muted text-xs">({data.count} sold)</span>
                   </span>
                 </li>
               ))}
@@ -242,7 +305,10 @@ export function SellerDashboard() {
         <section className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="h3">My listings</h3>
-            <Link href={"/listings" as any} className="text-xs text-[color:var(--accent)] hover:underline">
+            <Link
+              href={"/listings" as any}
+              className="text-xs text-[color:var(--accent)] hover:underline"
+            >
               Manage →
             </Link>
           </div>
@@ -251,13 +317,21 @@ export function SellerDashboard() {
           ) : (
             <ul className="space-y-2">
               {listings.data.slice(0, 6).map((listing) => (
-                <li key={listing.id} className="flex items-center justify-between text-sm">
+                <li
+                  key={listing.id}
+                  className="flex items-center justify-between text-sm"
+                >
                   <div>
-                    <p className="subtle truncate max-w-[60%]">{listing.title}</p>
+                    <p className="subtle truncate max-w-[60%]">
+                      {listing.title}
+                    </p>
                     <p className="text-xs muted">{listing.status}</p>
                   </div>
                   <span className="subtle">
-                    {formatCurrency(listing.priceCents, listing.currency ?? 'USD')}
+                    {formatCurrency(
+                      listing.priceCents,
+                      listing.currency ?? "USD",
+                    )}
                   </span>
                 </li>
               ))}
@@ -273,7 +347,7 @@ function StatCard({
   label,
   value,
   sub,
-  color = 'var(--ink)',
+  color = "var(--ink)",
 }: {
   label: string;
   value: string;
@@ -283,7 +357,9 @@ function StatCard({
   return (
     <div className="card card-pad space-y-1">
       <p className="eyebrow">{label}</p>
-      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+      <p className="text-2xl font-bold" style={{ color }}>
+        {value}
+      </p>
       {sub && <p className="text-xs muted">{sub}</p>}
     </div>
   );

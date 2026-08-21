@@ -42,3 +42,9 @@ jest.mock("expo-image-picker", () => ({
     .fn()
     .mockResolvedValue({ status: "granted" }),
 }));
+
+jest.mock("expo-secure-store", () => ({
+  deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
+}));

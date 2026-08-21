@@ -283,10 +283,10 @@ describe("AuctionsModule", () => {
       expect(res.body.listingId).toBe(LISTING_ID);
       expect(res.body.status).toBe(AuctionStatus.ACTIVE);
       expect(res.body.startingBidCents).toBe(5000);
-      // Listing should be updated to AUCTION type and PUBLISHED
+      // Listing should be updated to AUCTION type and PAUSED pending moderation
       const listing = prismaMock.listings.get(LISTING_ID)!;
       expect(listing.type).toBe(ListingType.AUCTION);
-      expect(listing.status).toBe(ListingStatus.PUBLISHED);
+      expect(listing.status).toBe(ListingStatus.PAUSED);
     });
 
     it("rejects creation if listing does not exist", async () => {

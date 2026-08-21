@@ -1,9 +1,22 @@
-import { BadRequestException, Body, Controller, Headers, HttpCode, HttpStatus, Logger, Post, Req, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { OrderStatus } from '@prisma/client';
-import type { Request } from 'express';
-import Stripe from 'stripe';
-import { Throttle } from '@nestjs/throttler';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { ConfigService } from "@nestjs/config";
+import { OrderStatus } from "@prisma/client";
+import type { Request } from "express";
+import Stripe from "stripe";
+import { Throttle } from "@nestjs/throttler";
 
 import { OrdersService } from "./orders.service";
 import { PaymentsService } from "./payments.service";
@@ -34,7 +47,7 @@ interface PaystackWebhookPayload {
   };
 }
 
-@Controller('orders/payments')
+@Controller("orders/payments")
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
@@ -47,44 +60,81 @@ export class PaymentsController {
     private readonly payoutsService: PayoutsService,
   ) {}
 
-  @Post('stripe/webhook')
+  @Post("stripe/webhook")
   @HttpCode(HttpStatus.OK)
   @Throttle({ payments: {} })
   async handleStripeWebhook(
     @Req() req: Request,
     @Body() payload: StripeWebhookPayload,
-    @Headers('stripe-signature') signature?: string,
+    @Headers("stripe-signature") signature?: string,
   ): Promise<{ received: boolean }> {
     // rawBody is a Buffer attached by NestJS when `rawBody: true` is set in NestFactory.create()
-    const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
-    const eventRecord = await this.paymentsService.recordWebhookEvent(payload?.type ?? 'stripe', payload);
-    const event = this.paymentsService.validateStripeEvent(payload, signature, rawBody);
-    const intent = event?.data?.object as Stripe.PaymentIntent | undefined;
-    const orderId = intent?.metadata?.orderId ?? payload?.data?.object?.metadata?.orderId;
+    const rawBody: Buffer | string =
+      (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
+    const event = this.paymentsService.validateStripeEvent(
+      payload,
+      signature,
+      rawBody,
+    ) as Stripe.Event & { id?: string; created?: number };
+    const providerEventId = (event as any)?.id ?? (payload as any)?.id;
+    const eventRecord = await this.paymentsService.recordWebhookEvent(
+      event.type ?? payload?.type ?? "stripe",
+      event,
+      undefined,
+      providerEventId,
+    );
+    if (eventRecord.status === "SUCCESS") {
+      return { received: true };
+    }
+    const providerObject = event?.data?.object as
+      Stripe.PaymentIntent | Stripe.Charge | Stripe.Refund | undefined;
+    let orderId =
+      providerObject?.metadata?.orderId ??
+      payload?.data?.object?.metadata?.orderId;
 
     try {
       // ── Stripe Connect events (transfer / account) — no orderId needed ──
-      if ((event.type as string) === 'transfer.paid') {
+      if ((event.type as string) === "transfer.paid") {
         const transfer = (event as any).data.object as Stripe.Transfer;
         await this.payoutsService.handleTransferPaid(transfer.id);
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
         return { received: true };
       }
 
-      if ((event.type as string) === 'transfer.failed') {
+      if ((event.type as string) === "transfer.failed") {
         const transfer = (event as any).data.object as Stripe.Transfer;
-        const reason = (transfer as unknown as { failure_message?: string }).failure_message
-          ?? 'Transfer failed';
+        const reason =
+          (transfer as unknown as { failure_message?: string })
+            .failure_message ?? "Transfer failed";
         await this.payoutsService.handleTransferFailed(transfer.id, reason);
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
         return { received: true };
       }
 
-      if (event.type === 'account.updated') {
+      if (event.type === "account.updated") {
         const account = event.data.object as Stripe.Account;
         await this.payoutsService.handleAccountUpdated(account);
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
         return { received: true };
+      }
+
+      if (!orderId) {
+        const paymentIntent = (
+          providerObject as Stripe.Charge | Stripe.Refund | undefined
+        )?.payment_intent;
+        const providerRef =
+          typeof paymentIntent === "string"
+            ? paymentIntent
+            : (paymentIntent?.id ??
+              (event.type?.startsWith("payment_intent.")
+                ? providerObject?.id
+                : undefined));
+        if (providerRef) {
+          orderId =
+            (await this.paymentsService.findOrderIdByProviderReference(
+              providerRef,
+            )) ?? undefined;
+        }
       }
 
       // ── Payment-intent events — require orderId ──
@@ -93,44 +143,85 @@ export class PaymentsController {
         return { received: true };
       }
 
-      const providerStatus = intent?.status ?? event.type ?? 'unknown';
+      const providerStatus =
+        (providerObject as { status?: string } | undefined)?.status ??
+        event.type ??
+        "unknown";
+      const eventTime = (event as any)?.created
+        ? new Date((event as any).created * 1000)
+        : undefined;
 
       await this.auditLog.record({
-        action: 'payments.webhook.received',
+        action: "payments.webhook.received",
         actorId: null,
-        entityType: 'order',
+        entityType: "order",
         entityId: orderId,
         payload: { providerStatus, event: event.type },
         ipAddress: req.ip ?? null,
-        userAgent: req.headers?.['user-agent'] ?? null,
+        userAgent: req.headers?.["user-agent"] ?? null,
       });
 
-      if (event.type === 'payment_intent.succeeded') {
-        await this.ordersService.updateStatusFromProvider(orderId, {
-          status: OrderStatus.PAID,
-          note: 'Stripe webhook capture',
+      if (event.type === "payment_intent.succeeded") {
+        await this.ordersService.updateStatusFromProvider(
+          orderId,
+          {
+            status: OrderStatus.PAID,
+            note: "Stripe webhook capture",
+            providerStatus,
+          },
+          eventTime,
+        );
+      } else if (event.type === "payment_intent.canceled") {
+        await this.ordersService.updateStatusFromProvider(
+          orderId,
+          {
+            status: OrderStatus.CANCELLED,
+            note: "Stripe webhook cancellation",
+            providerStatus,
+          },
+          eventTime,
+        );
+      } else if (event.type === "payment_intent.payment_failed") {
+        // A failed charge is not a refund — keep the order retryable and
+        // mark the payment transaction as FAILED instead of REFUNDED.
+        await this.paymentsService.markPaymentFailed(orderId, providerStatus);
+      } else if (
+        event.type === "charge.refunded" ||
+        (event.type === "refund.updated" && providerStatus === "succeeded")
+      ) {
+        await this.ordersService.confirmProviderRefund(
+          orderId,
           providerStatus,
-        });
-      } else if (event.type === 'payment_intent.canceled') {
-        await this.ordersService.updateStatusFromProvider(orderId, {
-          status: OrderStatus.CANCELLED,
-          note: 'Stripe webhook cancellation',
-          providerStatus,
-        });
-      } else if (event.type === 'payment_intent.payment_failed' || event.type === 'charge.refunded') {
-        await this.ordersService.updateStatusFromProvider(orderId, {
-          status: OrderStatus.REFUNDED,
-          note: 'Stripe webhook failure',
-          providerStatus,
-        });
-      } else if (event.type === 'charge.succeeded') {
-        await this.ordersService.updateStatusFromProvider(orderId, {
-          status: OrderStatus.PAID,
-          note: 'Stripe charge succeeded',
-          providerStatus,
-        });
+          { note: "Stripe refund confirmed by webhook" },
+        );
+      } else if (
+        event.type === "refund.updated" &&
+        ["failed", "canceled"].includes(providerStatus)
+      ) {
+        await this.ordersService.updateStatusFromProvider(
+          orderId,
+          {
+            status: OrderStatus.REFUND_FAILED,
+            note: "Stripe refund failed — retry is required",
+            providerStatus,
+          },
+          eventTime,
+        );
+      } else if (event.type === "charge.succeeded") {
+        await this.ordersService.updateStatusFromProvider(
+          orderId,
+          {
+            status: OrderStatus.PAID,
+            note: "Stripe charge succeeded",
+            providerStatus,
+          },
+          eventTime,
+        );
       } else {
-        await this.paymentsService.updateProviderStatus(orderId, providerStatus);
+        await this.paymentsService.updateProviderStatus(
+          orderId,
+          providerStatus,
+        );
       }
 
       await this.paymentsService.markWebhookProcessed(eventRecord?.id);
@@ -141,65 +232,105 @@ export class PaymentsController {
     }
   }
 
-  @Post('paystack/verify')
+  @Post("paystack/verify")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
   @Throttle({ payments: {} })
   async verifyPaystackPayment(
     @Body() body: { reference: string },
-    @Req() req: Request,
-  ): Promise<{ verified: boolean; orderId: string; amount: number; reference: string; currency: string }> {
-    if (!body.reference) throw new BadRequestException('reference is required');
-    return this.ordersService.verifyPaystackPayment(body.reference);
+    @Req() req: any,
+  ): Promise<{
+    verified: boolean;
+    orderId: string;
+    amount: number;
+    reference: string;
+    currency: string;
+  }> {
+    if (!body.reference) throw new BadRequestException("reference is required");
+    return this.ordersService.verifyPaystackPayment(
+      body.reference,
+      req.user.id,
+    );
   }
 
-  @Post('paystack/webhook')
+  @Post("paystack/webhook")
   @HttpCode(HttpStatus.OK)
   @Throttle({ payments: {} })
   async handlePaystackWebhook(
     @Req() req: Request,
     @Body() payload: PaystackWebhookPayload,
-    @Headers('x-paystack-signature') signature?: string,
+    @Headers("x-paystack-signature") signature?: string,
   ): Promise<{ received: boolean }> {
-    const rawBody: Buffer | string = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
-    const ip = req.ip ?? 'unknown';
+    const rawBody: Buffer | string =
+      (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
+    const ip = req.ip ?? "unknown";
     const ts = new Date().toISOString();
 
     // Always require the signature header — return 401 so the caller knows this is
     // an auth failure, not a malformed request.
     if (!signature) {
-      this.logger.warn(`[Paystack] Missing x-paystack-signature header — IP: ${ip}, time: ${ts}`);
-      throw new UnauthorizedException('Missing x-paystack-signature header');
+      this.logger.warn(
+        `[Paystack] Missing x-paystack-signature header — IP: ${ip}, time: ${ts}`,
+      );
+      throw new UnauthorizedException("Missing x-paystack-signature header");
     }
     if (!this.paystackService.validateWebhookSignature(rawBody, signature)) {
-      this.logger.warn(`[Paystack] Invalid webhook signature — IP: ${ip}, time: ${ts}`);
-      throw new UnauthorizedException('Invalid Paystack webhook signature');
+      this.logger.warn(
+        `[Paystack] Invalid webhook signature — IP: ${ip}, time: ${ts}`,
+      );
+      throw new UnauthorizedException("Invalid Paystack webhook signature");
     }
 
-    const eventRecord = await this.paymentsService.recordWebhookEvent(payload?.event ?? 'paystack', payload);
+    const eventRecord = await this.paymentsService.recordWebhookEvent(
+      payload?.event ?? "paystack",
+      payload,
+    );
 
     try {
-      const event = payload.event ?? '';
+      const event = payload.event ?? "";
       const data = payload.data ?? {};
 
       await this.auditLog.record({
-        action: 'payments.paystack.webhook.received',
+        action: "payments.paystack.webhook.received",
         actorId: null,
-        entityType: 'paystack_event',
-        entityId: data.reference ?? String(data.id ?? ''),
+        entityType: "paystack_event",
+        entityId: data.reference ?? String(data.id ?? ""),
         payload: { event, reference: data.reference },
         ipAddress: req.ip ?? null,
-        userAgent: req.headers?.['user-agent'] ?? null,
+        userAgent: req.headers?.["user-agent"] ?? null,
       });
 
-      if (event === 'charge.success' && data.reference) {
-        await this.ordersService.verifyPaystackPayment(data.reference);
-      } else if (event === 'transfer.success' && data.transfer_code) {
-        await this.payoutsService.handlePaystackTransferSuccess(data.transfer_code);
-      } else if (event === 'transfer.failed' && data.transfer_code) {
-        const reason = data.reason ?? 'Transfer failed';
-        await this.payoutsService.handlePaystackTransferFailed(data.transfer_code, reason);
-      } else if (event === 'refund.processed' && data.reference) {
-        await this.paymentsService.updateProviderStatus(data.reference, 'refund.processed');
+      if (event === "charge.success" && data.reference) {
+        await this.ordersService.verifyPaystackPaymentFromWebhook(
+          data.reference,
+        );
+      } else if (event === "transfer.success" && data.transfer_code) {
+        await this.payoutsService.handlePaystackTransferSuccess(
+          data.transfer_code,
+        );
+      } else if (event === "transfer.failed" && data.transfer_code) {
+        const reason = data.reason ?? "Transfer failed";
+        await this.payoutsService.handlePaystackTransferFailed(
+          data.transfer_code,
+          reason,
+        );
+      } else if (event === "refund.processed") {
+        const refundRef =
+          (data as any).transaction?.reference ??
+          (data as any).reference ??
+          (data as any).data?.reference;
+        if (refundRef) {
+          const orderIdForRefund =
+            await this.paymentsService.findOrderIdByProviderReference(
+              refundRef,
+            );
+          if (orderIdForRefund) {
+            await this.ordersService.confirmProviderRefund(
+              orderIdForRefund,
+              "refund.processed",
+            );
+          }
+        }
       }
 
       await this.paymentsService.markWebhookProcessed(eventRecord?.id);
@@ -209,5 +340,4 @@ export class PaymentsController {
       throw error;
     }
   }
-
 }

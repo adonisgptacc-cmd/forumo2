@@ -4,14 +4,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { OrderStatus, Return, ReturnStatus } from '@prisma/client';
+} from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { OrderStatus, Return, ReturnStatus } from "@prisma/client";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { InitiateReturnDto } from './dto/initiate-return.dto';
-import { RejectReturnDto } from './dto/reject-return.dto';
+import { PrismaService } from "../../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { OrdersService } from "../orders/orders.service";
+import { InitiateReturnDto } from "./dto/initiate-return.dto";
+import { RejectReturnDto } from "./dto/reject-return.dto";
 
 const RETURN_WINDOW_DAYS = 30;
 
@@ -35,6 +36,7 @@ export class ReturnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   async initiateReturn(
@@ -47,16 +49,20 @@ export class ReturnsService {
       include: { escrow: true },
     });
 
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
     if (order.status !== OrderStatus.DELIVERED) {
-      throw new BadRequestException('Order must be in DELIVERED status to request a return');
+      throw new BadRequestException(
+        "Order must be in DELIVERED status to request a return",
+      );
     }
 
     const deliveredAt = order.deliveredAt ?? order.updatedAt;
     const windowEnd = new Date(deliveredAt);
     windowEnd.setDate(windowEnd.getDate() + RETURN_WINDOW_DAYS);
     if (new Date() > windowEnd) {
-      throw new BadRequestException('Return window has expired (30 days from delivery)');
+      throw new BadRequestException(
+        "Return window has expired (30 days from delivery)",
+      );
     }
 
     const existing = await this.prisma.return.findFirst({
@@ -66,7 +72,9 @@ export class ReturnsService {
       },
     });
     if (existing) {
-      throw new BadRequestException('A return request already exists for this order');
+      throw new BadRequestException(
+        "A return request already exists for this order",
+      );
     }
 
     const deadline = new Date();
@@ -88,17 +96,25 @@ export class ReturnsService {
     })) as ReturnWithRelations;
 
     this.sendReturnInitiatedNotifications(returnRecord).catch((err) =>
-      this.logger.error('Return initiation notification failed', err),
+      this.logger.error("Return initiation notification failed", err),
     );
 
     return returnRecord;
   }
 
-  async approveReturn(sellerId: string, returnId: string): Promise<ReturnWithRelations> {
+  async approveReturn(
+    sellerId: string,
+    returnId: string,
+  ): Promise<ReturnWithRelations> {
     const ret = await this.findReturnForSeller(sellerId, returnId);
 
-    if (ret.status !== ReturnStatus.awaiting_seller && ret.status !== ReturnStatus.requested) {
-      throw new BadRequestException('Return is not in a state that can be approved');
+    if (
+      ret.status !== ReturnStatus.awaiting_seller &&
+      ret.status !== ReturnStatus.requested
+    ) {
+      throw new BadRequestException(
+        "Return is not in a state that can be approved",
+      );
     }
 
     const updated = (await this.prisma.return.update({
@@ -116,7 +132,7 @@ export class ReturnsService {
       .catch(() => {});
 
     this.notifications
-      .createInApp(updated.buyerId, 'RETURN_APPROVED', {
+      .createInApp(updated.buyerId, "RETURN_APPROVED", {
         returnId: updated.id,
         orderId: updated.orderId,
         orderNumber: updated.order.orderNumber,
@@ -133,8 +149,13 @@ export class ReturnsService {
   ): Promise<ReturnWithRelations> {
     const ret = await this.findReturnForSeller(sellerId, returnId);
 
-    if (ret.status !== ReturnStatus.awaiting_seller && ret.status !== ReturnStatus.requested) {
-      throw new BadRequestException('Return is not in a state that can be rejected');
+    if (
+      ret.status !== ReturnStatus.awaiting_seller &&
+      ret.status !== ReturnStatus.requested
+    ) {
+      throw new BadRequestException(
+        "Return is not in a state that can be rejected",
+      );
     }
 
     const updated = (await this.prisma.return.update({
@@ -156,7 +177,7 @@ export class ReturnsService {
       .catch(() => {});
 
     this.notifications
-      .createInApp(updated.buyerId, 'RETURN_REJECTED', {
+      .createInApp(updated.buyerId, "RETURN_REJECTED", {
         returnId: updated.id,
         orderId: updated.orderId,
         orderNumber: updated.order.orderNumber,
@@ -167,11 +188,14 @@ export class ReturnsService {
     return updated;
   }
 
-  async confirmReceived(sellerId: string, returnId: string): Promise<ReturnWithRelations> {
+  async confirmReceived(
+    sellerId: string,
+    returnId: string,
+  ): Promise<ReturnWithRelations> {
     const ret = await this.findReturnForSeller(sellerId, returnId);
 
     if (ret.status !== ReturnStatus.shipped) {
-      throw new BadRequestException('Return has not been shipped yet');
+      throw new BadRequestException("Return has not been shipped yet");
     }
 
     const updated = (await this.prisma.return.update({
@@ -193,10 +217,10 @@ export class ReturnsService {
       where: { id: returnId },
       include: this.defaultInclude,
     })) as ReturnWithRelations | null;
-    if (!ret) throw new NotFoundException('Return not found');
+    if (!ret) throw new NotFoundException("Return not found");
 
     if (ret.status === ReturnStatus.refunded) {
-      throw new BadRequestException('Already refunded');
+      throw new BadRequestException("Already refunded");
     }
 
     await this.processRefund(ret);
@@ -207,30 +231,37 @@ export class ReturnsService {
     })) as ReturnWithRelations;
   }
 
-  async findAll(userId: string, role: 'buyer' | 'seller' | 'admin'): Promise<ReturnWithRelations[]> {
+  async findAll(
+    userId: string,
+    role: "buyer" | "seller" | "admin",
+  ): Promise<ReturnWithRelations[]> {
     const where =
-      role === 'admin'
+      role === "admin"
         ? {}
-        : role === 'buyer'
-        ? { buyerId: userId }
-        : { sellerId: userId };
+        : role === "buyer"
+          ? { buyerId: userId }
+          : { sellerId: userId };
 
     return this.prisma.return.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: this.defaultInclude,
     }) as Promise<ReturnWithRelations[]>;
   }
 
-  async findById(returnId: string, userId: string, isAdmin = false): Promise<ReturnWithRelations> {
+  async findById(
+    returnId: string,
+    userId: string,
+    isAdmin = false,
+  ): Promise<ReturnWithRelations> {
     const ret = (await this.prisma.return.findUnique({
       where: { id: returnId },
       include: this.defaultInclude,
     })) as ReturnWithRelations | null;
 
-    if (!ret) throw new NotFoundException('Return not found');
+    if (!ret) throw new NotFoundException("Return not found");
     if (!isAdmin && ret.buyerId !== userId && ret.sellerId !== userId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
     return ret;
   }
@@ -261,7 +292,7 @@ export class ReturnsService {
           .catch(() => {});
 
         this.notifications
-          .createInApp(ret.buyerId, 'RETURN_AUTO_APPROVED', {
+          .createInApp(ret.buyerId, "RETURN_AUTO_APPROVED", {
             returnId: ret.id,
             orderId: ret.orderId,
             orderNumber: ret.order.orderNumber,
@@ -278,65 +309,27 @@ export class ReturnsService {
   }
 
   private async processRefund(ret: ReturnWithRelations): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.return.update({
-        where: { id: ret.id },
-        data: {
-          status: ReturnStatus.refunded,
-          resolvedAt: new Date(),
-        },
-      });
-
-      if (ret.order.escrow) {
-        await tx.escrowHolding.update({
-          where: { orderId: ret.orderId },
-          data: { status: 'REFUNDED', releasedAt: new Date() },
-        });
-        await tx.escrowTransaction.create({
-          data: {
-            escrowId: ret.order.escrow.id,
-            type: 'REFUND',
-            amountCents: ret.refundAmount,
-            currency: ret.order.currency,
-            note: `Return refund — return ${ret.id}`,
-          },
-        });
-      }
-
-      await tx.order.update({
-        where: { id: ret.orderId },
-        data: { status: OrderStatus.REFUNDED },
-      });
-
-      await tx.paymentTransaction.updateMany({
-        where: { orderId: ret.orderId },
-        data: { status: 'REFUNDED', processedAt: new Date() },
-      });
+    const existing = await this.prisma.return.findUnique({
+      where: { id: ret.id },
+      select: { status: true },
     });
+    if (existing?.status === ReturnStatus.refunded) return;
 
-    // Issue Stripe refund outside transaction (best-effort)
-    try {
-      const captured = await this.prisma.paymentTransaction.findFirst({
-        where: {
-          orderId: ret.orderId,
-          status: { in: ['CAPTURED', 'SETTLED'] },
-          provider: 'STRIPE',
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      const stripeKey = process.env.STRIPE_SECRET_KEY;
-      if (stripeKey && captured?.providerRef) {
-        const Stripe = (await import('stripe')).default;
-        const stripe = new Stripe(stripeKey);
-        await stripe.refunds.create({
-          payment_intent: captured.providerRef,
-          reason: 'requested_by_customer',
-        });
-      }
-    } catch (err) {
-      this.logger.error(`Stripe refund failed for return ${ret.id}`, err);
+    const order = await this.ordersService.requestRefund(ret.orderId, {
+      status: OrderStatus.REFUNDED,
+      note: `Return refund — return ${ret.id}`,
+    });
+    if (order.status !== OrderStatus.REFUNDED) {
+      this.logger.warn(
+        `Return ${ret.id} remains ${existing?.status ?? ret.status}; provider refund is ${order.status}`,
+      );
+      return;
     }
+
+    await this.prisma.return.update({
+      where: { id: ret.id },
+      data: { status: ReturnStatus.refunded, resolvedAt: new Date() },
+    });
 
     this.notifications
       .sendEmail(
@@ -347,7 +340,7 @@ export class ReturnsService {
       .catch(() => {});
 
     this.notifications
-      .createInApp(ret.buyerId, 'RETURN_REFUNDED', {
+      .createInApp(ret.buyerId, "RETURN_REFUNDED", {
         returnId: ret.id,
         orderId: ret.orderId,
         orderNumber: ret.order.orderNumber,
@@ -357,14 +350,16 @@ export class ReturnsService {
       .catch(() => {});
   }
 
-  private async sendReturnInitiatedNotifications(ret: ReturnWithRelations): Promise<void> {
+  private async sendReturnInitiatedNotifications(
+    ret: ReturnWithRelations,
+  ): Promise<void> {
     await Promise.all([
       this.notifications.sendEmail(
         ret.seller.email,
         `New return request — Order ${ret.order.orderNumber}`,
-        `<p>Hi ${ret.seller.name},</p><p>A return has been requested for order <strong>${ret.order.orderNumber}</strong>.</p><p>Reason: <em>${ret.reason.replace(/_/g, ' ')}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
+        `<p>Hi ${ret.seller.name},</p><p>A return has been requested for order <strong>${ret.order.orderNumber}</strong>.</p><p>Reason: <em>${ret.reason.replace(/_/g, " ")}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
       ),
-      this.notifications.createInApp(ret.sellerId, 'RETURN_REQUESTED', {
+      this.notifications.createInApp(ret.sellerId, "RETURN_REQUESTED", {
         returnId: ret.id,
         orderId: ret.orderId,
         orderNumber: ret.order.orderNumber,
@@ -382,8 +377,9 @@ export class ReturnsService {
       include: this.defaultInclude,
     })) as ReturnWithRelations | null;
 
-    if (!ret) throw new NotFoundException('Return not found');
-    if (ret.sellerId !== sellerId) throw new ForbiddenException('Access denied');
+    if (!ret) throw new NotFoundException("Return not found");
+    if (ret.sellerId !== sellerId)
+      throw new ForbiddenException("Access denied");
     return ret;
   }
 

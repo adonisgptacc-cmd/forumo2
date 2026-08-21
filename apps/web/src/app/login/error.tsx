@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect } from "react";
+import Link from "next/link";
 
 export default function LoginError({
   error,
@@ -24,9 +24,15 @@ export default function LoginError({
         stroke="currentColor"
         strokeWidth={1.5}
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+        />
       </svg>
-      <h1 className="text-xl font-semibold text-[color:var(--ink)]">Sign-in encountered a problem</h1>
+      <h1 className="text-xl font-semibold text-[color:var(--ink)]">
+        Sign-in encountered a problem
+      </h1>
       <p className="text-sm text-[color:var(--ink-3)] max-w-sm">
         Something went wrong during the sign-in process. Please try again.
       </p>

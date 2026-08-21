@@ -1,26 +1,27 @@
 module.exports = {
-  preset: 'ts-jest/presets/default-esm',
-  testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
-  rootDir: '.',
-  modulePaths: ['<rootDir>/src'],
+  preset: "ts-jest/presets/default-esm",
+  testEnvironment: "node",
+  extensionsToTreatAsEsm: [".ts"],
+  moduleFileExtensions: ["ts", "js", "json"],
+  rootDir: ".",
+  modulePaths: ["<rootDir>/src"],
   moduleNameMapper: {
-    '^ipaddr\\.js$': 'ipaddr.js',
-    '^(.*)\\.js$': '$1',
+    "^nanoid/non-secure$": "<rootDir>/src/test-support/nanoid-non-secure.cjs",
+    "^ipaddr\\.js$": "ipaddr.js",
+    "^(.*)\\.js$": "$1",
   },
   transform: {
-    '^.+\\.(t|j)s$': [
-      'ts-jest',
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
       {
-        tsconfig: '<rootDir>/tsconfig.json',
+        tsconfig: "<rootDir>/tsconfig.json",
         useESM: true,
       },
     ],
   },
-  testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/src/**/*.test.ts'],
-  collectCoverageFrom: ['<rootDir>/src/**/*.ts', '!<rootDir>/src/main.ts'],
-  coverageReporters: ['text', 'lcov'],
+  testMatch: ["<rootDir>/src/**/*.spec.ts", "<rootDir>/src/**/*.test.ts"],
+  collectCoverageFrom: ["<rootDir>/src/**/*.ts", "!<rootDir>/src/main.ts"],
+  coverageReporters: ["text", "lcov"],
   coverageThreshold: {
     global: {
       branches: 23,

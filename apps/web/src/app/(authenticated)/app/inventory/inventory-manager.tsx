@@ -1,74 +1,115 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useMyListings, useVariantInventory, useInventoryMutations } from '../../../../lib/react-query/hooks';
-import type { SafeListing, ListingVariant } from '@forumo/shared';
+import { useState } from "react";
+import {
+  useMyListings,
+  useVariantInventory,
+  useInventoryMutations,
+} from "../../../../lib/react-query/hooks";
+import type { SafeListing, ListingVariant } from "@forumo/shared";
 
 // ---- Variant row with inline inventory controls ----
-function VariantInventoryRow({ variant, listingId }: { variant: ListingVariant; listingId: string }) {
+function VariantInventoryRow({
+  variant,
+  listingId,
+}: {
+  variant: ListingVariant;
+  listingId: string;
+}) {
   const { data, isLoading } = useVariantInventory(variant.id ?? null);
-  const { addStock, adjustStock } = useInventoryMutations(variant.id ?? '');
+  const { addStock, adjustStock } = useInventoryMutations(variant.id ?? "");
 
-  const [mode, setMode] = useState<null | 'add' | 'adjust'>(null);
-  const [qty, setQty] = useState('');
-  const [reason, setReason] = useState('');
-  const [location, setLocation] = useState('');
+  const [mode, setMode] = useState<null | "add" | "adjust">(null);
+  const [qty, setQty] = useState("");
+  const [reason, setReason] = useState("");
+  const [location, setLocation] = useState("");
 
   const summary = data?.summary;
 
   function handleSubmit() {
     const num = parseInt(qty, 10);
     if (isNaN(num) || num === 0) return;
-    if (mode === 'add') {
-      addStock.mutate({ quantity: num, location: location || undefined }, {
-        onSuccess: () => { setMode(null); setQty(''); setLocation(''); },
-      });
-    } else if (mode === 'adjust') {
+    if (mode === "add") {
+      addStock.mutate(
+        { quantity: num, location: location || undefined },
+        {
+          onSuccess: () => {
+            setMode(null);
+            setQty("");
+            setLocation("");
+          },
+        },
+      );
+    } else if (mode === "adjust") {
       if (!reason.trim()) return;
-      adjustStock.mutate({ adjustment: num, reason }, {
-        onSuccess: () => { setMode(null); setQty(''); setReason(''); },
-      });
+      adjustStock.mutate(
+        { adjustment: num, reason },
+        {
+          onSuccess: () => {
+            setMode(null);
+            setQty("");
+            setReason("");
+          },
+        },
+      );
     }
   }
 
-  const stockColor =
-    !summary ? 'text-[color:var(--ink-3)]' :
-    summary.availableQuantity === 0 ? 'text-red-600' :
-    summary.availableQuantity <= 5 ? 'text-amber-700' : 'text-[color:var(--escrow)]';
+  const stockColor = !summary
+    ? "text-[color:var(--ink-3)]"
+    : summary.availableQuantity === 0
+      ? "text-red-600"
+      : summary.availableQuantity <= 5
+        ? "text-amber-700"
+        : "text-[color:var(--escrow)]";
 
   return (
     <div className="rounded-xl border border-[color:var(--line)] bg-[color:var(--surface)]/50 p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="font-medium text-sm">{variant.label || 'Default'}</span>
-          {variant.sku && <span className="ml-2 text-xs text-[color:var(--ink-3)]">SKU: {variant.sku}</span>}
+          <span className="font-medium text-sm">
+            {variant.label || "Default"}
+          </span>
+          {variant.sku && (
+            <span className="ml-2 text-xs text-[color:var(--ink-3)]">
+              SKU: {variant.sku}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4 text-sm">
           {isLoading ? (
             <span className="text-[color:var(--ink-3)] text-xs">Loading…</span>
           ) : summary ? (
             <>
-              <span className={`font-semibold ${stockColor}`}>{summary.availableQuantity} available</span>
+              <span className={`font-semibold ${stockColor}`}>
+                {summary.availableQuantity} available
+              </span>
               {summary.reservedQuantity > 0 && (
-                <span className="text-blue-700">{summary.reservedQuantity} reserved</span>
+                <span className="text-blue-700">
+                  {summary.reservedQuantity} reserved
+                </span>
               )}
               {summary.damagedQuantity > 0 && (
-                <span className="text-red-600">{summary.damagedQuantity} damaged</span>
+                <span className="text-red-600">
+                  {summary.damagedQuantity} damaged
+                </span>
               )}
             </>
           ) : (
-            <span className="text-[color:var(--ink-3)] text-xs">No inventory data</span>
+            <span className="text-[color:var(--ink-3)] text-xs">
+              No inventory data
+            </span>
           )}
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setMode(mode === 'add' ? null : 'add')}
+            onClick={() => setMode(mode === "add" ? null : "add")}
             className="rounded-lg border border-[color:var(--line-2)] px-3 py-1 text-xs hover:bg-[color:var(--surface-2)] transition-colors"
           >
             + Add Stock
           </button>
           <button
-            onClick={() => setMode(mode === 'adjust' ? null : 'adjust')}
+            onClick={() => setMode(mode === "adjust" ? null : "adjust")}
             className="rounded-lg border border-[color:var(--line-2)] px-3 py-1 text-xs hover:bg-[color:var(--surface-2)] transition-colors"
           >
             Adjust
@@ -79,18 +120,22 @@ function VariantInventoryRow({ variant, listingId }: { variant: ListingVariant; 
       {mode && (
         <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-[color:var(--line)]">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-[color:var(--ink-3)]">{mode === 'adjust' ? 'Adjustment (±)' : 'Quantity'}</label>
+            <label className="text-xs text-[color:var(--ink-3)]">
+              {mode === "adjust" ? "Adjustment (±)" : "Quantity"}
+            </label>
             <input
               type="number"
               value={qty}
               onChange={(e) => setQty(e.target.value)}
               className="w-24 rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-              placeholder={mode === 'adjust' ? '±10' : '100'}
+              placeholder={mode === "adjust" ? "±10" : "100"}
             />
           </div>
-          {mode === 'add' && (
+          {mode === "add" && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-[color:var(--ink-3)]">Location (optional)</label>
+              <label className="text-xs text-[color:var(--ink-3)]">
+                Location (optional)
+              </label>
               <input
                 type="text"
                 value={location}
@@ -100,9 +145,11 @@ function VariantInventoryRow({ variant, listingId }: { variant: ListingVariant; 
               />
             </div>
           )}
-          {mode === 'adjust' && (
+          {mode === "adjust" && (
             <div className="flex flex-col gap-1 flex-1 min-w-40">
-              <label className="text-xs text-[color:var(--ink-3)]">Reason <span className="text-red-600">*</span></label>
+              <label className="text-xs text-[color:var(--ink-3)]">
+                Reason <span className="text-red-600">*</span>
+              </label>
               <input
                 type="text"
                 value={reason}
@@ -118,17 +165,24 @@ function VariantInventoryRow({ variant, listingId }: { variant: ListingVariant; 
               disabled={addStock.isPending || adjustStock.isPending}
               className="rounded-lg bg-[color:var(--accent)] text-white hover:bg-[color:var(--accent-2)] disabled:opacity-50 px-4 py-1.5 text-sm font-medium transition-colors"
             >
-              {addStock.isPending || adjustStock.isPending ? 'Saving…' : 'Save'}
+              {addStock.isPending || adjustStock.isPending ? "Saving…" : "Save"}
             </button>
             <button
-              onClick={() => { setMode(null); setQty(''); setReason(''); setLocation(''); }}
+              onClick={() => {
+                setMode(null);
+                setQty("");
+                setReason("");
+                setLocation("");
+              }}
               className="rounded-lg border border-[color:var(--line-2)] hover:bg-[color:var(--surface-2)] px-3 py-1.5 text-sm transition-colors"
             >
               Cancel
             </button>
           </div>
           {(addStock.isError || adjustStock.isError) && (
-            <p className="text-red-600 text-xs w-full">Failed to update inventory. Please try again.</p>
+            <p className="text-red-600 text-xs w-full">
+              Failed to update inventory. Please try again.
+            </p>
           )}
         </div>
       )}
@@ -141,10 +195,16 @@ function ListingInventoryCard({ listing }: { listing: SafeListing }) {
   const [expanded, setExpanded] = useState(false);
   const variants = listing.variants ?? [];
 
-  const totalAvailable = variants.reduce((s, v) => s + (v.inventoryCount ?? 0), 0);
+  const totalAvailable = variants.reduce(
+    (s, v) => s + (v.inventoryCount ?? 0),
+    0,
+  );
   const stockColor =
-    totalAvailable === 0 ? 'text-red-600' :
-    totalAvailable <= 5 ? 'text-amber-700' : 'text-[color:var(--escrow)]';
+    totalAvailable === 0
+      ? "text-red-600"
+      : totalAvailable <= 5
+        ? "text-amber-700"
+        : "text-[color:var(--escrow)]";
 
   return (
     <div className="rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] overflow-hidden">
@@ -165,21 +225,33 @@ function ListingInventoryCard({ listing }: { listing: SafeListing }) {
         )}
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{listing.title}</p>
-          <p className="text-xs text-[color:var(--ink-3)]">{variants.length} variant{variants.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-[color:var(--ink-3)]">
+            {variants.length} variant{variants.length !== 1 ? "s" : ""}
+          </p>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
-          <span className={`text-sm font-semibold ${stockColor}`}>{totalAvailable} in stock</span>
-          <span className="text-[color:var(--ink-3)] text-sm">{expanded ? '▲' : '▼'}</span>
+          <span className={`text-sm font-semibold ${stockColor}`}>
+            {totalAvailable} in stock
+          </span>
+          <span className="text-[color:var(--ink-3)] text-sm">
+            {expanded ? "▲" : "▼"}
+          </span>
         </div>
       </button>
 
       {expanded && (
         <div className="px-4 pb-4 space-y-2 border-t border-[color:var(--line)] pt-4">
           {variants.length === 0 ? (
-            <p className="text-sm text-[color:var(--ink-3)]">No variants. Add variants to your listing to track inventory.</p>
+            <p className="text-sm text-[color:var(--ink-3)]">
+              No variants. Add variants to your listing to track inventory.
+            </p>
           ) : (
             variants.map((v) => (
-              <VariantInventoryRow key={v.id} variant={v} listingId={listing.id} />
+              <VariantInventoryRow
+                key={v.id}
+                variant={v}
+                listingId={listing.id}
+              />
             ))
           )}
         </div>
@@ -191,10 +263,10 @@ function ListingInventoryCard({ listing }: { listing: SafeListing }) {
 // ---- Main page component ----
 export function InventoryManager() {
   const { data, isLoading, isError } = useMyListings();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
 
-  const listings = (data?.data ?? [] as SafeListing[]).filter((l: SafeListing) =>
-    l.title.toLowerCase().includes(search.toLowerCase())
+  const listings = (data?.data ?? ([] as SafeListing[])).filter(
+    (l: SafeListing) => l.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   if (isLoading) {
@@ -225,12 +297,16 @@ export function InventoryManager() {
           placeholder="Search listings…"
           className="flex-1 rounded-xl border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
         />
-        <span className="text-sm text-[color:var(--ink-3)]">{listings.length} listing{listings.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-[color:var(--ink-3)]">
+          {listings.length} listing{listings.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {listings.length === 0 ? (
         <div className="rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] p-10 text-center text-[color:var(--ink-3)]">
-          {search ? 'No listings match your search.' : 'You have no listings yet.'}
+          {search
+            ? "No listings match your search."
+            : "You have no listings yet."}
         </div>
       ) : (
         listings.map((listing) => (

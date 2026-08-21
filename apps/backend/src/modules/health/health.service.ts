@@ -1,7 +1,7 @@
-import { performance } from 'node:perf_hooks';
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import IORedis from 'ioredis';
+import { performance } from "node:perf_hooks";
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import IORedis from "ioredis";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ModerationQueueService } from "../listings/moderation-queue.service";
 
@@ -24,7 +24,12 @@ export class HealthService {
     ]);
 
     return {
-      status: database.status === 'up' && redis.status === 'up' && minio.status === 'up' ? 'ok' : 'degraded',
+      status:
+        database.status === "up" &&
+        redis.status === "up" &&
+        minio.status === "up"
+          ? "ok"
+          : "degraded",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       checks: {
@@ -41,49 +46,74 @@ export class HealthService {
     const started = performance.now();
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'up', responseTime: Math.round(performance.now() - started) };
+      return {
+        status: "up",
+        responseTime: Math.round(performance.now() - started),
+      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown database error';
+      const message =
+        error instanceof Error ? error.message : "Unknown database error";
       this.logger.error(`Health database check failed: ${message}`);
-      return { status: 'down', responseTime: Math.round(performance.now() - started), error: message };
+      return {
+        status: "down",
+        responseTime: Math.round(performance.now() - started),
+        error: message,
+      };
     }
   }
 
   private async checkRedis() {
-    const redisUrl = this.configService.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
+    const redisUrl =
+      this.configService.get<string>("REDIS_URL") ?? "redis://localhost:6379";
     const started = performance.now();
     const client = new IORedis(redisUrl, { lazyConnect: true });
     try {
       await client.connect();
       await client.ping();
-      return { status: 'up', responseTime: Math.round(performance.now() - started) };
+      return {
+        status: "up",
+        responseTime: Math.round(performance.now() - started),
+      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Redis unavailable';
+      const message =
+        error instanceof Error ? error.message : "Redis unavailable";
       this.logger.error(`Redis health failed: ${message}`);
-      return { status: 'down', responseTime: Math.round(performance.now() - started), error: message };
+      return {
+        status: "down",
+        responseTime: Math.round(performance.now() - started),
+        error: message,
+      };
     } finally {
       await client.quit().catch(() => undefined);
     }
   }
 
   private async checkMinio() {
-    const endpoint = this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
-    const port = this.configService.get<number>('MINIO_PORT') ?? 9000;
-    const useSsl = this.configService.get<boolean>('MINIO_USE_SSL') ?? false;
-    const scheme = useSsl ? 'https' : 'http';
+    const endpoint =
+      this.configService.get<string>("MINIO_ENDPOINT") ?? "localhost";
+    const port = this.configService.get<number>("MINIO_PORT") ?? 9000;
+    const useSsl = this.configService.get<boolean>("MINIO_USE_SSL") ?? false;
+    const scheme = useSsl ? "https" : "http";
     const started = performance.now();
 
     try {
-      const response = await fetch(`${scheme}://${endpoint}:${port}/minio/health/live`);
+      const response = await fetch(
+        `${scheme}://${endpoint}:${port}/minio/health/live`,
+      );
       const healthy = response.ok;
       return {
-        status: healthy ? 'up' : 'down',
+        status: healthy ? "up" : "down",
         responseTime: Math.round(performance.now() - started),
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'MinIO unavailable';
+      const message =
+        error instanceof Error ? error.message : "MinIO unavailable";
       this.logger.error(`MinIO health failed: ${message}`);
-      return { status: 'down', responseTime: Math.round(performance.now() - started), error: message };
+      return {
+        status: "down",
+        responseTime: Math.round(performance.now() - started),
+        error: message,
+      };
     }
   }
 

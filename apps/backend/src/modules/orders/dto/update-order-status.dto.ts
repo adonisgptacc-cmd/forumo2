@@ -1,6 +1,12 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from "class-validator";
 
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus } from "@prisma/client";
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)

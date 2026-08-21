@@ -1,5 +1,11 @@
-import { IsEnum, IsOptional, IsString, IsArray, MaxLength } from 'class-validator';
-import { ReturnReason } from '@prisma/client';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  MaxLength,
+} from "class-validator";
+import { ReturnReason } from "@prisma/client";
 
 export class InitiateReturnDto {
   @IsEnum(ReturnReason)

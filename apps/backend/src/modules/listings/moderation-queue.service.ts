@@ -57,6 +57,7 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly tracer = trace.getTracer("listings.moderation");
   private readonly serviceUrl: string;
   private readonly requestTimeoutMs: number;
+  private readonly internalToken: string;
   private readonly queueName = "listing-moderation";
   private readonly dlqName = "listing-moderation-dlq";
   private readonly maxAttempts: number;
@@ -79,6 +80,8 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
     this.serviceUrl =
       this.configService?.get<string>("MODERATION_SERVICE_URL") ??
       "http://localhost:5005";
+    this.internalToken =
+      this.configService?.get<string>("MODERATION_INTERNAL_TOKEN") ?? "";
     const timeoutValue = Number(
       this.configService?.get<string>("MODERATION_SERVICE_TIMEOUT_MS") ?? 5000,
     );
@@ -256,7 +259,10 @@ export class ModerationQueueService implements OnModuleInit, OnModuleDestroy {
         this.httpService.post<ModerationDecisionResponse>(
           `${this.serviceUrl}/moderations/listings`,
           requestPayload,
-          { timeout: this.requestTimeoutMs },
+          {
+            timeout: this.requestTimeoutMs,
+            headers: { "X-Internal-Token": this.internalToken },
+          },
         ),
       );
       await this.applyDecision(

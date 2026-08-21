@@ -1,34 +1,44 @@
-import Link from 'next/link';
-import { ReactNode } from 'react';
-import { getServerSession } from 'next-auth';
-import { redirect } from 'next/navigation';
+import Link from "next/link";
+import { ReactNode } from "react";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
-import { SignOutButton } from '../../../components/signout-button';
-import { ErrorBoundary } from '../../../components/ErrorBoundary';
-import { authOptions } from '../../../lib/auth';
+import { SignOutButton } from "../../../components/signout-button";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
+import { authOptions } from "../../../lib/auth";
 
 const navItems = [
-  { href: '/admin/users', label: 'Users', roles: ['ADMIN'] },
-  { href: '/admin/kyc', label: 'KYC Queue', roles: ['ADMIN'] },
-  { href: '/admin/moderations', label: 'Listing Moderation', roles: ['ADMIN', 'MODERATOR'] },
-  { href: '/admin/disputes', label: 'Disputes', roles: ['ADMIN', 'MODERATOR'] },
-  { href: '/admin/categories', label: 'Categories & Tags', roles: ['ADMIN'] },
-  { href: '/admin/fees', label: 'Fee Schedules', roles: ['ADMIN'] },
+  { href: "/admin/users", label: "Users", roles: ["ADMIN"] },
+  { href: "/admin/kyc", label: "KYC Queue", roles: ["ADMIN"] },
+  {
+    href: "/admin/moderations",
+    label: "Listing Moderation",
+    roles: ["ADMIN", "MODERATOR"],
+  },
+  { href: "/admin/disputes", label: "Disputes", roles: ["ADMIN", "MODERATOR"] },
+  { href: "/admin/categories", label: "Categories & Tags", roles: ["ADMIN"] },
+  { href: "/admin/fees", label: "Fee Schedules", roles: ["ADMIN"] },
 ];
 
-const allowedRoles = ['ADMIN', 'MODERATOR'];
+const allowedRoles = ["ADMIN", "MODERATOR"];
 
-export default async function AdminLayout({ children }: { children: ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
-    redirect('/login?callbackUrl=/admin');
+    redirect("/login?callbackUrl=/admin");
   }
 
   if (!allowedRoles.includes((session.user as any).role)) {
-    redirect('/unauthorized');
+    redirect("/unauthorized");
   }
 
-  const filteredNav = navItems.filter((item) => item.roles.includes((session.user as any).role));
+  const filteredNav = navItems.filter((item) =>
+    item.roles.includes((session.user as any).role),
+  );
 
   return (
     <div className="min-h-screen bg-[color:var(--bg)]">
@@ -37,7 +47,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <div className="space-y-2">
             <p className="eyebrow">Admin console</p>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-lg font-semibold">{session.user?.name ?? 'Admin user'}</span>
+              <span className="text-lg font-semibold">
+                {session.user?.name ?? "Admin user"}
+              </span>
               <span className="rounded-full border border-[color:var(--accent)] bg-[color:var(--accent-bg)] px-2 py-0.5 text-[10px] text-[color:var(--accent-2)]">
                 {(session.user as any).role}
               </span>
@@ -52,13 +64,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 href={item.href as any}
               >
                 <span>{item.label}</span>
-                <span aria-hidden className="text-xs muted">→</span>
+                <span aria-hidden className="text-xs muted">
+                  →
+                </span>
               </Link>
             ))}
           </div>
           <div className="rounded-lg border border-[color:var(--line)] bg-[color:var(--surface-2)] p-3 text-xs muted">
             <p className="font-semibold subtle">Security posture</p>
-            <p className="mt-1">JWT session validated for privileged roles. Actions are recorded via the admin API.</p>
+            <p className="mt-1">
+              JWT session validated for privileged roles. Actions are recorded
+              via the admin API.
+            </p>
           </div>
           <SignOutButton />
         </aside>
@@ -69,7 +86,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 <p className="eyebrow">Control plane</p>
                 <h1 className="h2">Staff operations</h1>
                 <p className="text-sm muted mt-1">
-                  Use the KYC queue, listing moderation, and dispute desks to keep the marketplace secure.
+                  Use the KYC queue, listing moderation, and dispute desks to
+                  keep the marketplace secure.
                 </p>
               </div>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">

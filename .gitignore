@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store/
 pnpm-debug.log*
 package-lock.json
 
@@ -19,6 +20,10 @@ apps/**/build
 apps/**/out
 out
 artifacts
+**/.pytest_cache/
+**/__pycache__/
+**/*.pyc
+**/*.tsbuildinfo
 
 # Logs
 *.log
@@ -34,6 +39,15 @@ web_build.log
 
 # Turbo cache & daemon
 .turbo/
+
+# Project-local developer tools and cxpak generated indexes
+.tools/
+.cxpak/
+.integration-sources/
+
+# Personal AI-assistant overrides (must not weaken shared policy)
+AGENTS.local.md
+.assistant/settings.local.json
 
 # OS files
 .DS_Store

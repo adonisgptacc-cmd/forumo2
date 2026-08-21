@@ -9,10 +9,12 @@ import React, {
 } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { AuthResponse, ForumoApiClient } from "@forumo/shared";
 import { createApiClient } from "../api/client";
 
 const STORAGE_KEY = "forumo_session";
+const REFRESH_KEY = "forumo_refresh_token";
 
 // Decode the exp claim (ms) from a JWT without a library dependency
 function parseTokenExpiry(token: string): number | null {
@@ -74,22 +76,34 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
+        const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
+        if (!raw && !refreshToken) return;
 
-        const stored = JSON.parse(raw) as AuthResponse;
+        const stored = raw
+          ? (JSON.parse(raw) as AuthResponse)
+          : ({} as AuthResponse);
+        if (refreshToken) stored.refreshToken = refreshToken;
 
-        if (!isExpired(stored.accessToken)) {
+        if (stored.accessToken && !isExpired(stored.accessToken)) {
           setAuth(stored);
           return;
         }
 
         // Access token is expired — try a silent refresh
-        if (stored.refreshToken) {
+        if (refreshToken) {
           try {
-            const tokens = await apiClient.auth.refresh(stored.refreshToken);
+            const tokens = await apiClient.auth.refresh(refreshToken);
             const refreshed: AuthResponse = { ...stored, ...tokens };
             setAuth(refreshed);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
+            if (refreshed.accessToken) {
+              await AsyncStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({ ...refreshed, refreshToken: undefined }),
+              );
+            }
+            if (tokens.refreshToken) {
+              await SecureStore.setItemAsync(REFRESH_KEY, tokens.refreshToken);
+            }
             return;
           } catch {
             // Refresh failed — fall through to clear storage
@@ -97,6 +111,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         }
 
         await AsyncStorage.removeItem(STORAGE_KEY);
+        await SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => {});
       } catch {
         // Storage unavailable on this device — start unauthenticated
       } finally {
@@ -108,9 +123,18 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   const persistAuth = useCallback((value: AuthResponse | undefined) => {
     setAuth(value);
     if (value) {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(value)).catch(() => {});
+      const { refreshToken, ...rest } = value as AuthResponse & {
+        refreshToken?: string;
+      };
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(rest)).catch(() => {});
+      if (refreshToken) {
+        SecureStore.setItemAsync(REFRESH_KEY, refreshToken).catch(() => {});
+      } else {
+        SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => {});
+      }
     } else {
       AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+      SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => {});
     }
   }, []);
 
@@ -137,15 +161,20 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   const logout = useCallback(() => persistAuth(undefined), [persistAuth]);
 
   const enterDemo = useCallback(() => {
+    if (!__DEV__) {
+      throw new Error("Demo login is only available in development builds");
+    }
+    const demoId = `demo-${Math.random().toString(36).slice(2, 10)}`;
     persistAuth({
-      accessToken: "demo-access-token",
+      accessToken: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      refreshToken: `demo-refresh-${Date.now()}`,
       user: {
-        id: "00000000-0000-0000-0000-000000000000",
+        id: demoId,
         email: "demo@forumo.test",
         name: "Demo User",
         role: "BUYER",
       },
-    });
+    } as AuthResponse);
   }, [persistAuth]);
 
   const value = useMemo(

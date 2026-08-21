@@ -1,9 +1,9 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { IsInt, IsUUID, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { IsInt, IsUUID, Min } from "class-validator";
+import { Type } from "class-transformer";
 
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { FeeService } from './fee.service';
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { FeeService } from "./fee.service";
 
 class FeePreviewQuery {
   @IsUUID()
@@ -15,12 +15,12 @@ class FeePreviewQuery {
   subtotalCents!: number;
 }
 
-@Controller('fees')
+@Controller("fees")
 @UseGuards(JwtAuthGuard)
 export class FeePreviewController {
   constructor(private readonly feeService: FeeService) {}
 
-  @Get('preview')
+  @Get("preview")
   preview(@Query() query: FeePreviewQuery) {
     return this.feeService.calculateFee(query.subtotalCents, query.listingId);
   }

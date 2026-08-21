@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,35 +10,42 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { SafeMessageThread } from '@forumo/shared';
-import { demoThreads } from '@forumo/config';
-import { MainStackParamList } from '../navigation/types';
-import { useAuth } from '../providers/AuthProvider';
+} from "react-native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { SafeMessageThread } from "@forumo/shared";
+import { demoThreads } from "@forumo/config";
+import { MainStackParamList } from "../navigation/types";
+import { useAuth } from "../providers/AuthProvider";
 
-const MessageBubble: React.FC<{ message: SafeMessageThread['messages'][number]; isOwn: boolean }> = ({
-  message,
-  isOwn,
-}) => (
-  <View style={[styles.message, isOwn ? styles.messageOwn : styles.messageOther]} testID={`message-${message.id}`}>
-    <Text style={styles.messageAuthor}>{isOwn ? 'You' : 'Partner'}</Text>
+const MessageBubble: React.FC<{
+  message: SafeMessageThread["messages"][number];
+  isOwn: boolean;
+}> = ({ message, isOwn }) => (
+  <View
+    style={[styles.message, isOwn ? styles.messageOwn : styles.messageOther]}
+    testID={`message-${message.id}`}
+  >
+    <Text style={styles.messageAuthor}>{isOwn ? "You" : "Partner"}</Text>
     <Text style={styles.messageBody}>{message.body}</Text>
-    <Text style={styles.messageMeta}>{new Date(message.createdAt).toLocaleString()}</Text>
+    <Text style={styles.messageMeta}>
+      {new Date(message.createdAt).toLocaleString()}
+    </Text>
   </View>
 );
 
 export const MessageThreadScreen: React.FC = () => {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<MainStackParamList, 'Thread'>>();
+  const route = useRoute<RouteProp<MainStackParamList, "Thread">>();
   const { apiClient, user } = useAuth();
-  const [thread, setThread] = useState<SafeMessageThread | undefined>(route.params.thread);
+  const [thread, setThread] = useState<SafeMessageThread | undefined>(
+    route.params.thread,
+  );
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [error, setError] = useState<string | undefined>();
 
-  const authorId = user?.id ?? 'guest-user-id';
+  const authorId = user?.id ?? "guest-user-id";
 
   const loadThread = useCallback(async () => {
     if (!route.params.threadId) return;
@@ -46,14 +53,18 @@ export const MessageThreadScreen: React.FC = () => {
     setError(undefined);
     try {
       if (user) {
-        const result = await apiClient.messaging.getThread(route.params.threadId);
+        const result = await apiClient.messaging.getThread(
+          route.params.threadId,
+        );
         setThread(result);
       } else {
-        const fallback = demoThreads.find((t) => t.id === route.params.threadId);
+        const fallback = demoThreads.find(
+          (t) => t.id === route.params.threadId,
+        );
         setThread(fallback);
       }
     } catch (err) {
-      setError('Unable to load thread right now. Showing demo content.');
+      setError("Unable to load thread right now. Showing demo content.");
       const fallback = demoThreads.find((t) => t.id === route.params.threadId);
       setThread(fallback);
     } finally {
@@ -66,7 +77,7 @@ export const MessageThreadScreen: React.FC = () => {
   }, [loadThread]);
 
   useEffect(() => {
-    navigation.setOptions({ title: thread?.subject || 'Conversation' });
+    navigation.setOptions({ title: thread?.subject || "Conversation" });
   }, [navigation, thread?.subject]);
 
   const handleSend = async () => {
@@ -77,7 +88,10 @@ export const MessageThreadScreen: React.FC = () => {
 
     try {
       if (user) {
-        const updated = await apiClient.messaging.sendMessage(thread.id, { authorId, body });
+        const updated = await apiClient.messaging.sendMessage(thread.id, {
+          authorId,
+          body,
+        });
         setThread(updated);
       } else {
         const nextMessage = {
@@ -85,8 +99,8 @@ export const MessageThreadScreen: React.FC = () => {
           threadId: thread.id,
           authorId,
           body,
-          status: 'SENT' as const,
-          moderationStatus: 'APPROVED' as const,
+          status: "SENT" as const,
+          moderationStatus: "APPROVED" as const,
           moderationNotes: null,
           metadata: null,
           createdAt: new Date().toISOString(),
@@ -95,17 +109,20 @@ export const MessageThreadScreen: React.FC = () => {
         };
         setThread({ ...thread, messages: [...thread.messages, nextMessage] });
       }
-      setInput('');
+      setInput("");
     } catch (err) {
       setError((err as Error).message);
-      Alert.alert('Message failed', 'Your reply was saved locally. Try again when online.');
+      Alert.alert(
+        "Message failed",
+        "Your reply was saved locally. Try again when online.",
+      );
       const nextMessage = {
         id: `${Date.now()}`,
         threadId: thread.id,
         authorId,
         body,
-        status: 'SENT' as const,
-        moderationStatus: 'APPROVED' as const,
+        status: "SENT" as const,
+        moderationStatus: "APPROVED" as const,
         moderationNotes: null,
         metadata: null,
         createdAt: new Date().toISOString(),
@@ -138,15 +155,20 @@ export const MessageThreadScreen: React.FC = () => {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.container}
       keyboardVerticalOffset={80}
-      testID="thread-screen">
+      testID="thread-screen"
+    >
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
-        renderItem={({ item }) => <MessageBubble message={item} isOwn={item.authorId === authorId} />}
+        renderItem={({ item }) => (
+          <MessageBubble message={item} isOwn={item.authorId === authorId} />
+        )}
       />
       <View style={styles.composer}>
         <TextInput
@@ -158,7 +180,7 @@ export const MessageThreadScreen: React.FC = () => {
           testID="message-input"
         />
         <Button
-          title={sending ? 'Sending...' : 'Send'}
+          title={sending ? "Sending..." : "Send"}
           onPress={handleSend}
           disabled={sending || !input.trim()}
           testID="send-message-button"
@@ -171,12 +193,12 @@ export const MessageThreadScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: "#f8fafc",
   },
   center: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   messageList: {
     padding: 16,
@@ -185,23 +207,23 @@ const styles = StyleSheet.create({
   message: {
     padding: 12,
     borderRadius: 12,
-    maxWidth: '85%',
-    shadowColor: '#000',
+    maxWidth: "85%",
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 1,
   },
   messageOwn: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#dbeafe',
+    alignSelf: "flex-end",
+    backgroundColor: "#dbeafe",
   },
   messageOther: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fff',
+    alignSelf: "flex-start",
+    backgroundColor: "#fff",
   },
   messageAuthor: {
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 4,
   },
   messageBody: {
@@ -210,29 +232,29 @@ const styles = StyleSheet.create({
   },
   messageMeta: {
     fontSize: 12,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     padding: 12,
     borderTopWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   error: {
-    color: '#ef4444',
+    color: "#ef4444",
     padding: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

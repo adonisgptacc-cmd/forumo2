@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from "@nestjs/common";
 import { Observable, tap } from "rxjs";
 
 import { metrics } from "../../telemetry/metrics";
@@ -8,8 +13,8 @@ export class HttpMetricsInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const startedAt = Date.now();
     const request = context.switchToHttp().getRequest();
-    const method = request?.method ?? 'UNKNOWN';
-    const route = request?.route?.path ?? request?.url ?? 'unknown';
+    const method = request?.method ?? "UNKNOWN";
+    const route = request?.route?.path ?? request?.url ?? "unknown";
 
     return next.handle().pipe(
       tap({
@@ -22,9 +27,16 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     );
   }
 
-  private recordMetrics(method: string, route: string, startedAt: number, status: number) {
+  private recordMetrics(
+    method: string,
+    route: string,
+    startedAt: number,
+    status: number,
+  ) {
     const duration = Date.now() - startedAt;
     metrics.httpRequestsTotal.labels(method, route, String(status)).inc();
-    metrics.httpRequestDurationMs.labels(method, route, String(status)).observe(duration);
+    metrics.httpRequestDurationMs
+      .labels(method, route, String(status))
+      .observe(duration);
   }
 }

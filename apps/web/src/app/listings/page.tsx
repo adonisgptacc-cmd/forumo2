@@ -1,9 +1,11 @@
-import type { ListingSearchParams } from '@forumo/shared';
+import type { ListingSearchParams } from "@forumo/shared";
 
-import { ListingExplorer } from './listing-explorer';
+import { ListingExplorer } from "./listing-explorer";
 
 type ListingsPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined> | undefined>;
+  searchParams: Promise<
+    Record<string, string | string[] | undefined> | undefined
+  >;
 };
 
 function normalizeSearchParams(
@@ -19,17 +21,17 @@ function normalizeSearchParams(
     const single = vals[0];
     if (!single) continue;
 
-    if (key === 'condition') {
+    if (key === "condition") {
       const all = Array.isArray(value) ? value : [value];
       conditions.push(...all.filter(Boolean).map(String));
-    } else if (key === 'page' || key === 'pageSize') {
-      normalized[key as 'page' | 'pageSize'] = Number(single);
-    } else if (key === 'minPriceCents' || key === 'maxPriceCents') {
-      normalized[key as 'minPriceCents' | 'maxPriceCents'] = Number(single);
-    } else if (key === 'tags' || key === 'categories') {
+    } else if (key === "page" || key === "pageSize") {
+      normalized[key as "page" | "pageSize"] = Number(single);
+    } else if (key === "minPriceCents" || key === "maxPriceCents") {
+      normalized[key as "minPriceCents" | "maxPriceCents"] = Number(single);
+    } else if (key === "tags" || key === "categories") {
       const all = Array.isArray(value) ? value : [value];
-      normalized[key as 'tags' | 'categories'] = all
-        .flatMap((v) => String(v).split(','))
+      normalized[key as "tags" | "categories"] = all
+        .flatMap((v) => String(v).split(","))
         .map((v) => v.trim())
         .filter(Boolean);
     } else {
@@ -40,7 +42,9 @@ function normalizeSearchParams(
   return { ...normalized, conditions };
 }
 
-export default async function ListingsIndex({ searchParams }: ListingsPageProps) {
+export default async function ListingsIndex({
+  searchParams,
+}: ListingsPageProps) {
   const resolvedParams = await searchParams;
   const initialParams = normalizeSearchParams(resolvedParams);
   return (

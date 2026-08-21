@@ -1,32 +1,55 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import type { ReturnStatus } from '@forumo/shared';
-import { useReturn, useCurrentUser } from '../../../../../lib/react-query/hooks';
+import { useState } from "react";
+import Link from "next/link";
+import type { ReturnStatus } from "@forumo/shared";
+import {
+  useReturn,
+  useCurrentUser,
+} from "../../../../../lib/react-query/hooks";
 
 type TimelineStep = {
-  key: ReturnStatus | 'initiated';
+  key: ReturnStatus | "initiated";
   label: string;
   description: string;
 };
 
 const TIMELINE_STEPS: TimelineStep[] = [
-  { key: 'initiated', label: 'Requested', description: 'Return request submitted' },
-  { key: 'awaiting_seller', label: 'Awaiting seller', description: 'Seller reviewing request' },
-  { key: 'approved', label: 'Approved', description: 'Return approved by seller' },
-  { key: 'shipped', label: 'Shipped back', description: 'Item shipped back to seller' },
-  { key: 'received', label: 'Received', description: 'Seller confirmed receipt' },
-  { key: 'refunded', label: 'Refunded', description: 'Refund issued to buyer' },
+  {
+    key: "initiated",
+    label: "Requested",
+    description: "Return request submitted",
+  },
+  {
+    key: "awaiting_seller",
+    label: "Awaiting seller",
+    description: "Seller reviewing request",
+  },
+  {
+    key: "approved",
+    label: "Approved",
+    description: "Return approved by seller",
+  },
+  {
+    key: "shipped",
+    label: "Shipped back",
+    description: "Item shipped back to seller",
+  },
+  {
+    key: "received",
+    label: "Received",
+    description: "Seller confirmed receipt",
+  },
+  { key: "refunded", label: "Refunded", description: "Refund issued to buyer" },
 ];
 
-const STATUS_ORDER: Array<ReturnStatus | 'initiated'> = [
-  'initiated',
-  'awaiting_seller',
-  'approved',
-  'shipped',
-  'received',
-  'refunded',
+const STATUS_ORDER: Array<ReturnStatus | "initiated"> = [
+  "initiated",
+  "awaiting_seller",
+  "approved",
+  "shipped",
+  "received",
+  "refunded",
 ];
 
 function getStepIndex(status: ReturnStatus): number {
@@ -55,16 +78,22 @@ export function ReturnDetail({ id }: { id: string }) {
     );
   }
 
-  if (!ret) return <p className="text-[color:var(--ink-3)]">Return not found.</p>;
+  if (!ret)
+    return <p className="text-[color:var(--ink-3)]">Return not found.</p>;
 
-  const isRejected = ret.status === 'rejected';
+  const isRejected = ret.status === "rejected";
   const isBuyer = user?.id === ret.buyerId;
-  const currentStepIndex = isRejected ? 2 : getStepIndex(ret.status as ReturnStatus);
+  const currentStepIndex = isRejected
+    ? 2
+    : getStepIndex(ret.status as ReturnStatus);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <Link href="/app/returns" className="text-sm text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)]">
+        <Link
+          href="/app/returns"
+          className="text-sm text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)]"
+        >
           ← All returns
         </Link>
         <h2 className="mt-2 text-xl font-semibold">Return request</h2>
@@ -79,26 +108,33 @@ export function ReturnDetail({ id }: { id: string }) {
           <div>
             <p className="text-sm text-[color:var(--ink-3)]">Reason</p>
             <p className="mt-0.5 text-sm font-medium capitalize text-[color:var(--ink)]">
-              {ret.reason.replace(/_/g, ' ')}
+              {ret.reason.replace(/_/g, " ")}
             </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-[color:var(--ink-3)]">Refund amount</p>
             <p className="mt-0.5 text-sm font-medium text-[color:var(--ink)]">
-              {ret.order?.currency?.toUpperCase()} {(ret.refundAmount / 100).toFixed(2)}
+              {ret.order?.currency?.toUpperCase()}{" "}
+              {(ret.refundAmount / 100).toFixed(2)}
             </p>
           </div>
         </div>
         {ret.conditionNotes && (
           <div>
             <p className="text-sm text-[color:var(--ink-3)]">Condition notes</p>
-            <p className="mt-0.5 text-sm text-[color:var(--ink-2)]">{ret.conditionNotes}</p>
+            <p className="mt-0.5 text-sm text-[color:var(--ink-2)]">
+              {ret.conditionNotes}
+            </p>
           </div>
         )}
         {ret.trackingNumber && (
           <div>
-            <p className="text-sm text-[color:var(--ink-3)]">Return tracking #</p>
-            <p className="mt-0.5 text-sm font-mono text-[color:var(--ink-2)]">{ret.trackingNumber}</p>
+            <p className="text-sm text-[color:var(--ink-3)]">
+              Return tracking #
+            </p>
+            <p className="mt-0.5 text-sm font-mono text-[color:var(--ink-2)]">
+              {ret.trackingNumber}
+            </p>
           </div>
         )}
       </div>
@@ -124,7 +160,8 @@ export function ReturnDetail({ id }: { id: string }) {
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-[color:var(--ink-3)]">
-                    This will open a dispute with Forumo support, who will mediate the case.
+                    This will open a dispute with Forumo support, who will
+                    mediate the case.
                   </p>
                   <div className="flex gap-2">
                     <Link
@@ -149,17 +186,21 @@ export function ReturnDetail({ id }: { id: string }) {
 
       {/* Vertical timeline */}
       <div>
-        <h3 className="mb-4 text-sm font-medium text-[color:var(--ink-2)]">Timeline</h3>
+        <h3 className="mb-4 text-sm font-medium text-[color:var(--ink-2)]">
+          Timeline
+        </h3>
         <ol className="relative border-l border-[color:var(--line)] space-y-6 pl-6">
           {TIMELINE_STEPS.map((step, i) => {
-            if (isRejected && step.key === 'shipped') {
+            if (isRejected && step.key === "shipped") {
               return (
                 <li key="rejected" className="relative">
                   <span className="absolute -left-[calc(1.5rem+1px)] flex h-5 w-5 items-center justify-center rounded-full border border-red-300 bg-red-100">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                   </span>
                   <p className="text-sm font-medium text-red-700">Rejected</p>
-                  <p className="text-xs text-[color:var(--ink-3)]">Seller declined the return request</p>
+                  <p className="text-xs text-[color:var(--ink-3)]">
+                    Seller declined the return request
+                  </p>
                 </li>
               );
             }
@@ -173,22 +214,28 @@ export function ReturnDetail({ id }: { id: string }) {
                 <span
                   className={`absolute -left-[calc(1.5rem+1px)] flex h-5 w-5 items-center justify-center rounded-full border ${
                     done
-                      ? 'border-[color:var(--accent)] bg-[color:var(--accent-bg)]'
-                      : 'border-[color:var(--line)] bg-[color:var(--surface-2)]'
+                      ? "border-[color:var(--accent)] bg-[color:var(--accent-bg)]"
+                      : "border-[color:var(--line)] bg-[color:var(--surface-2)]"
                   }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${done ? 'bg-[color:var(--accent)]' : 'bg-[color:var(--line-2)]'}`}
+                    className={`h-1.5 w-1.5 rounded-full ${done ? "bg-[color:var(--accent)]" : "bg-[color:var(--line-2)]"}`}
                   />
                 </span>
                 <p
                   className={`text-sm font-medium ${
-                    active ? 'text-[color:var(--accent-2)]' : done ? 'text-[color:var(--ink)]' : 'text-[color:var(--ink-3)]'
+                    active
+                      ? "text-[color:var(--accent-2)]"
+                      : done
+                        ? "text-[color:var(--ink)]"
+                        : "text-[color:var(--ink-3)]"
                   }`}
                 >
                   {step.label}
                 </p>
-                <p className={`text-xs ${done ? 'text-[color:var(--ink-3)]' : 'text-[color:var(--ink-3)]'}`}>
+                <p
+                  className={`text-xs ${done ? "text-[color:var(--ink-3)]" : "text-[color:var(--ink-3)]"}`}
+                >
                   {step.description}
                 </p>
               </li>

@@ -1,13 +1,13 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { fn } from '@storybook/test';
-import { Button } from './button';
+import type { Meta, StoryObj } from "@storybook/react";
+import { fn } from "@storybook/test";
+import { Button } from "./button";
 
 const meta: Meta<typeof Button> = {
-  title: 'Components/Button',
+  title: "Components/Button",
   component: Button,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   args: {
-    children: 'Click me',
+    children: "Click me",
     onClick: fn(),
   },
 };
@@ -18,31 +18,31 @@ type Story = StoryObj<typeof Button>;
 export const Default: Story = {};
 
 export const Primary: Story = {
-  args: { variant: 'primary' },
+  args: { variant: "primary" },
 };
 
 export const Secondary: Story = {
-  args: { variant: 'secondary' },
+  args: { variant: "secondary" },
 };
 
 export const Outline: Story = {
-  args: { variant: 'outline' },
+  args: { variant: "outline" },
 };
 
 export const Ghost: Story = {
-  args: { variant: 'ghost' },
+  args: { variant: "ghost" },
 };
 
 export const Small: Story = {
-  args: { size: 'sm' },
+  args: { size: "sm" },
 };
 
 export const Medium: Story = {
-  args: { size: 'md' },
+  args: { size: "md" },
 };
 
 export const Large: Story = {
-  args: { size: 'lg' },
+  args: { size: "lg" },
 };
 
 export const Disabled: Story = {
@@ -50,7 +50,7 @@ export const Disabled: Story = {
 };
 
 export const Loading: Story = {
-  args: { isLoading: true, children: 'Saving…' },
+  args: { isLoading: true, children: "Saving…" },
 };
 
 export const AllVariants: Story = {

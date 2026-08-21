@@ -1,10 +1,14 @@
-import type { Metadata } from 'next';
-import { createApiClient } from '../../../lib/api-client';
-import { StorefrontView } from './shop-view';
+import type { Metadata } from "next";
+import { createApiClient } from "../../../lib/api-client";
+import { StorefrontView } from "./shop-view";
 
 type ShopRouteParams = Promise<{ slug: string }>;
 
-export async function generateMetadata({ params }: { params: ShopRouteParams }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: ShopRouteParams;
+}): Promise<Metadata> {
   const { slug } = await params;
   try {
     const api = createApiClient();
@@ -21,18 +25,24 @@ export async function generateMetadata({ params }: { params: ShopRouteParams }):
       openGraph: {
         title,
         description,
-        type: 'website',
-        ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: storefront.name }] } : {}),
+        type: "website",
+        ...(image
+          ? {
+              images: [
+                { url: image, width: 1200, height: 630, alt: storefront.name },
+              ],
+            }
+          : {}),
       },
       twitter: {
-        card: image ? 'summary_large_image' : 'summary',
+        card: image ? "summary_large_image" : "summary",
         title,
         description,
         ...(image ? { images: [image] } : {}),
       },
     };
   } catch {
-    return { title: 'Shop — Forumo' };
+    return { title: "Shop — Forumo" };
   }
 }
 

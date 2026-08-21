@@ -57,6 +57,7 @@ describe("configSchema production secrets", () => {
         NODE_ENV: "production",
         JWT_SECRET: "j".repeat(32),
         METRICS_API_KEY: "m".repeat(32),
+        SHIPPO_WEBHOOK_SECRET: "shippo-webhook-test-secret",
       }).success,
     ).toBe(true);
   });

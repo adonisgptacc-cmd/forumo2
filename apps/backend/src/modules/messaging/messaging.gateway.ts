@@ -1,6 +1,6 @@
-import { Logger, Inject, forwardRef } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { Logger, Inject, forwardRef } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
 import {
   ConnectedSocket,
   MessageBody,
@@ -9,8 +9,8 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-} from '@nestjs/websockets';
-import type { Server, Socket } from 'socket.io';
+} from "@nestjs/websockets";
+import type { Server, Socket } from "socket.io";
 
 import { SafeMessageThread } from "./message.serializer";
 import { MessagingService } from "./messaging.service";
@@ -19,8 +19,8 @@ interface MessageAckPayload {
   messageId: string;
 }
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000')
-  .split(',')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000")
+  .split(",")
   .map((o) => o.trim());
 
 // Rate limit: max messages per user per window
@@ -28,29 +28,36 @@ const WS_MESSAGE_LIMIT = 20;
 const WS_MESSAGE_WINDOW_MS = 10_000;
 
 @WebSocketGateway({
-  namespace: '/messages',
+  namespace: "/messages",
   cors: { origin: allowedOrigins, credentials: true },
 })
-export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagingGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server?: Server;
 
   private readonly logger = new Logger(MessagingGateway.name);
   private readonly clientUserIds = new Map<string, string>();
   /** userId → { count, windowStart } for outbound message rate limiting */
-  private readonly messageCounts = new Map<string, { count: number; windowStart: number }>();
+  private readonly messageCounts = new Map<
+    string,
+    { count: number; windowStart: number }
+  >();
 
   constructor(
     @Inject(forwardRef(() => MessagingService))
     private readonly messagingService: MessagingService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   handleConnection(client: Socket): void {
     const userId = this.verifyAndExtractUserId(client);
     if (!userId) {
-      this.logger.warn(`Socket connection rejected — invalid or missing JWT (id=${client.id})`);
+      this.logger.warn(
+        `Socket connection rejected — invalid or missing JWT (id=${client.id})`,
+      );
       client.disconnect(true);
       return;
     }
@@ -67,7 +74,10 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     }
   }
 
-  async emitNewMessage(thread: SafeMessageThread, messageId?: string): Promise<void> {
+  async emitNewMessage(
+    thread: SafeMessageThread,
+    messageId?: string,
+  ): Promise<void> {
     if (!this.server) {
       return;
     }
@@ -78,34 +88,40 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       return;
     }
     thread.participants.forEach((participant) => {
-      this.server?.to(participant.userId).emit('messages:new', {
+      this.server?.to(participant.userId).emit("messages:new", {
         threadId: thread.id,
         message: latestMessage,
       });
     });
   }
 
-  @SubscribeMessage('messages:delivered')
-  async handleDelivered(@ConnectedSocket() client: Socket, @MessageBody() payload: MessageAckPayload): Promise<void> {
+  @SubscribeMessage("messages:delivered")
+  async handleDelivered(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: MessageAckPayload,
+  ): Promise<void> {
     const userId = this.clientUserIds.get(client.id);
     if (!userId || !payload?.messageId) {
       return;
     }
     if (!this.isWithinMessageRateLimit(userId)) {
-      client.emit('error', { message: 'Rate limit exceeded. Slow down.' });
+      client.emit("error", { message: "Rate limit exceeded. Slow down." });
       return;
     }
     await this.messagingService.markDelivered(payload.messageId, userId);
   }
 
-  @SubscribeMessage('messages:read')
-  async handleRead(@ConnectedSocket() client: Socket, @MessageBody() payload: MessageAckPayload): Promise<void> {
+  @SubscribeMessage("messages:read")
+  async handleRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: MessageAckPayload,
+  ): Promise<void> {
     const userId = this.clientUserIds.get(client.id);
     if (!userId || !payload?.messageId) {
       return;
     }
     if (!this.isWithinMessageRateLimit(userId)) {
-      client.emit('error', { message: 'Rate limit exceeded. Slow down.' });
+      client.emit("error", { message: "Rate limit exceeded. Slow down." });
       return;
     }
     await this.messagingService.markRead(payload.messageId, userId);
@@ -116,8 +132,11 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     const token = this.extractToken(client);
     if (!token) return null;
     try {
-      const secret = this.configService.getOrThrow<string>('JWT_SECRET');
-      const payload = this.jwtService.verify<{ sub: string; tokenVersion: number }>(token, { secret });
+      const secret = this.configService.getOrThrow<string>("JWT_SECRET");
+      const payload = this.jwtService.verify<{
+        sub: string;
+        tokenVersion: number;
+      }>(token, { secret });
       if (!payload?.sub) return null;
       return payload.sub;
     } catch {
@@ -128,11 +147,11 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   /** Extracts the raw Bearer token from Authorization header or socket auth object. */
   private extractToken(client: Socket): string | null {
     const authHeader = client.handshake.headers?.authorization;
-    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
       return authHeader.slice(7);
     }
     const authToken = client.handshake.auth?.token;
-    if (typeof authToken === 'string' && authToken.length > 0) return authToken;
+    if (typeof authToken === "string" && authToken.length > 0) return authToken;
     return null;
   }
 

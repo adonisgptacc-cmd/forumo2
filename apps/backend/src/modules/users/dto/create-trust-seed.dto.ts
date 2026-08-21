@@ -1,4 +1,11 @@
-import { IsInt, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 export class CreateTrustSeedDto {
   @IsString()

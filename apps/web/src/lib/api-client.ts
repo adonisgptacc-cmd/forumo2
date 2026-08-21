@@ -28,7 +28,9 @@ import { ForumoApiClient } from "@forumo/shared";
 
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
-const useMocks = process.env.NEXT_PUBLIC_USE_API_MOCKS === "true";
+const useMocks =
+  process.env.NEXT_PUBLIC_USE_API_MOCKS === "true" &&
+  process.env.NODE_ENV !== "production";
 
 export function createApiClient(accessToken?: string | null): ForumoApiClient {
   if (useMocks) {

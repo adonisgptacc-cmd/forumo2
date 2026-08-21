@@ -1,12 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useVerifyPaystackPayment, useOrder } from '../../../../../lib/react-query/hooks';
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  useVerifyPaystackPayment,
+  useOrder,
+} from "../../../../../lib/react-query/hooks";
 
 function formatPrice(cents: number, currency: string) {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
+  return new Intl.NumberFormat("en", { style: "currency", currency }).format(
+    cents / 100,
+  );
 }
 
 export function SuccessContent() {
@@ -15,11 +20,13 @@ export function SuccessContent() {
   const verifyPaystack = useVerifyPaystackPayment();
   const verifyAttempted = useRef(false);
 
-  const [orderId, setOrderId] = useState<string | null>(searchParams?.get('orderId') ?? null);
+  const [orderId, setOrderId] = useState<string | null>(
+    searchParams?.get("orderId") ?? null,
+  );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
 
-  const reference = searchParams?.get('reference');
+  const reference = searchParams?.get("reference");
 
   // Verify Paystack payment when the reference param is present (Paystack redirect).
   useEffect(() => {
@@ -32,11 +39,13 @@ export function SuccessContent() {
         setVerifying(false);
       },
       onError: (err) => {
-        setVerifyError(err instanceof Error ? err.message : 'Payment verification failed.');
+        setVerifyError(
+          err instanceof Error ? err.message : "Payment verification failed.",
+        );
         setVerifying(false);
       },
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { data: order, isLoading: orderLoading } = useOrder(orderId);
@@ -54,11 +63,16 @@ export function SuccessContent() {
     return (
       <div className="space-y-4 max-w-lg mx-auto">
         <div className="card-forumo border border-red-200 bg-red-50 space-y-2">
-          <p className="text-sm font-semibold text-red-700">Payment verification failed</p>
+          <p className="text-sm font-semibold text-red-700">
+            Payment verification failed
+          </p>
           <p className="text-sm text-red-600">{verifyError}</p>
         </div>
         <div className="flex gap-3">
-          <Link href={'/app/cart' as any} className="btn-forumo px-6 py-2 text-sm">
+          <Link
+            href={"/app/cart" as any}
+            className="btn-forumo px-6 py-2 text-sm"
+          >
             Return to cart
           </Link>
           <Link
@@ -74,7 +88,7 @@ export function SuccessContent() {
 
   // If no orderId and no reference, nothing to show — send to orders list
   if (!orderId && !reference) {
-    router.replace('/app/orders' as any);
+    router.replace("/app/orders" as any);
     return null;
   }
 
@@ -94,7 +108,9 @@ export function SuccessContent() {
       {/* Confirmation banner */}
       <div className="card-forumo text-center py-8 space-y-3">
         <div className="text-5xl">✓</div>
-        <h2 className="text-2xl font-bold text-green-600">Payment confirmed!</h2>
+        <h2 className="text-2xl font-bold text-green-600">
+          Payment confirmed!
+        </h2>
         <p className="text-slate-600">
           Thank you for your purchase. Your order is being processed.
         </p>
@@ -114,7 +130,7 @@ export function SuccessContent() {
         <hr className="border-slate-100" />
         <div className="flex justify-between text-sm">
           <span className="text-slate-600">
-            {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+            {order.items.length} item{order.items.length !== 1 ? "s" : ""}
           </span>
           <span className="font-medium">
             {formatPrice(order.totalItemCents, order.currency)}
@@ -141,7 +157,7 @@ export function SuccessContent() {
       {/* Actions */}
       <div className="flex gap-3">
         <Link
-          href={(`/app/orders/${order.id}`) as any}
+          href={`/app/orders/${order.id}` as any}
           className="btn-forumo flex-1 text-center py-2.5 font-semibold"
         >
           Track your order

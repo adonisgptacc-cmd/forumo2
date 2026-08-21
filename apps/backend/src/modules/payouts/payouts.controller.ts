@@ -10,56 +10,72 @@ import {
   Redirect,
   Req,
   UseGuards,
-} from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { PayoutStatus } from '@prisma/client';
+} from "@nestjs/common";
+import { ApiOperation, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { PayoutStatus } from "@prisma/client";
 
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { PayoutsService } from './payouts.service';
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { PayoutsService } from "./payouts.service";
 
 interface AuthRequest {
   user: { id: string };
 }
 
-@ApiTags('payouts')
-@Controller('payouts')
+@ApiTags("payouts")
+@Controller("payouts")
 export class PayoutsController {
   constructor(private readonly payoutsService: PayoutsService) {}
 
   // ─── Seller: Start Connect onboarding ────────────────────────────────────
 
-  @Post('onboard')
+  @Post("onboard")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate Stripe Connect onboarding link for the authenticated seller' })
+  @ApiOperation({
+    summary:
+      "Generate Stripe Connect onboarding link for the authenticated seller",
+  })
   async startOnboarding(@Req() req: AuthRequest): Promise<{ url: string }> {
     return this.payoutsService.createConnectedAccount(req.user.id);
   }
 
   // ─── Stripe Connect redirect callback ─────────────────────────────────────
-  // No auth guard — Stripe (or user's browser) redirects here after onboarding.
+  // GET is called by Stripe redirect (browser) — do not mutate, just inform frontend.
+  // Actual onboarding status update is done via POST with auth.
 
-  @Get('onboard/callback')
-  @ApiOperation({ summary: 'Handle Stripe Connect onboarding redirect' })
-  async handleOnboardCallback(
-    @Query('accountId') accountId: string,
-    @Query('refresh') refresh: string,
+  @Get("onboard/callback")
+  @ApiOperation({ summary: "Stripe Connect onboarding redirect (browser)" })
+  async handleOnboardCallbackGet(
+    @Query("accountId") accountId: string,
+    @Query("refresh") refresh: string,
   ): Promise<{ status: string }> {
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-
     if (!accountId) {
-      // Stripe sent back without an accountId — redirect to frontend with error
-      return { status: 'missing_account_id' };
+      return { status: "missing_account_id" };
     }
-
-    // On refresh the user needs a new onboarding link; re-create via the same endpoint
-    if (refresh === 'true') {
-      return { status: 'refresh_required' };
+    if (refresh === "true") {
+      return { status: "refresh_required" };
     }
+    return { status: "pending_verification" };
+  }
 
-    const onboardStatus = await this.payoutsService.refreshConnectAccountStatus(accountId);
+  @Post("onboard/callback")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Refresh Stripe Connect onboarding status (authenticated)",
+  })
+  async handleOnboardCallbackPost(
+    @Req() req: AuthRequest,
+    @Body() body: { accountId: string },
+  ): Promise<{ status: string }> {
+    const accountId = body.accountId;
+    if (!accountId) {
+      return { status: "missing_account_id" };
+    }
+    const onboardStatus =
+      await this.payoutsService.refreshConnectAccountStatus(accountId);
     return { status: onboardStatus };
   }
 
@@ -71,9 +87,9 @@ export class PayoutsController {
   @ApiOperation({ summary: "Get the authenticated seller's payout history" })
   getPayoutHistory(
     @Req() req: AuthRequest,
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
-    @Query('status') status?: PayoutStatus,
+    @Query("page") page = "1",
+    @Query("limit") limit = "20",
+    @Query("status") status?: PayoutStatus,
   ) {
     return this.payoutsService.getPayoutHistory(req.user.id, {
       page: Math.max(1, parseInt(page, 10) || 1),
@@ -84,35 +100,44 @@ export class PayoutsController {
 
   // ─── Seller: Available balance ─────────────────────────────────────────────
 
-  @Get('balance')
+  @Get("balance")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get the authenticated seller's available payout balance" })
+  @ApiOperation({
+    summary: "Get the authenticated seller's available payout balance",
+  })
   getBalance(@Req() req: AuthRequest) {
     return this.payoutsService.getAvailableBalance(req.user.id);
   }
 
   // ─── Admin: Manually trigger payout processing ────────────────────────────
 
-  @Post('admin/process')
+  @Post("admin/process")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles("ADMIN")
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '(Admin) Manually trigger processing of a specific payout' })
-  async adminProcessPayout(@Body() body: { payoutId: string }): Promise<{ success: boolean }> {
+  @ApiOperation({
+    summary: "(Admin) Manually trigger processing of a specific payout",
+  })
+  async adminProcessPayout(
+    @Body() body: { payoutId: string },
+  ): Promise<{ success: boolean }> {
     await this.payoutsService.processPayout(body.payoutId);
     return { success: true };
   }
 
   // ─── Admin: Manually trigger the batch scheduler ──────────────────────────
 
-  @Post('admin/schedule')
+  @Post("admin/schedule")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles("ADMIN")
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '(Admin) Manually run the payout scheduler to create pending payouts' })
+  @ApiOperation({
+    summary:
+      "(Admin) Manually run the payout scheduler to create pending payouts",
+  })
   async adminSchedulePayouts(): Promise<{ success: boolean }> {
     await this.payoutsService.schedulePayouts();
     return { success: true };
@@ -120,11 +145,14 @@ export class PayoutsController {
 
   // ─── Paystack: List supported banks ───────────────────────────────────────
 
-  @Get('paystack/banks')
+  @Get("paystack/banks")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'List Paystack-supported banks for a given currency (for seller onboarding)' })
-  listPaystackBanks(@Query('currency') currency = 'ZAR'): Promise<unknown[]> {
+  @ApiOperation({
+    summary:
+      "List Paystack-supported banks for a given currency (for seller onboarding)",
+  })
+  listPaystackBanks(@Query("currency") currency = "ZAR"): Promise<unknown[]> {
     return this.payoutsService.listPaystackBanks(currency);
   }
 }

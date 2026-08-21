@@ -3,8 +3,5 @@
   "compilerOptions": {
     "incremental": true
   },
-  "exclude": [
-    "src/**/__tests__",
-    "src/**/*.spec.ts"
-  ]
+  "exclude": ["src/**/__tests__", "src/**/*.spec.ts"]
 }

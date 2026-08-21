@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
@@ -9,9 +9,9 @@ import {
   IsUUID,
   MaxLength,
   ValidateNested,
-} from 'class-validator';
+} from "class-validator";
 
-import { MessageParticipantRole } from '@prisma/client';
+import { MessageParticipantRole } from "@prisma/client";
 
 import { SendMessageDto } from "./send-message.dto";
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,45 +8,47 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SafeNotification } from '@forumo/shared';
-import { brandColors, spacing } from '@forumo/config';
-import { useAuth } from '../providers/AuthProvider';
-import type { MainStackParamList } from '../navigation/types';
+} from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { SafeNotification } from "@forumo/shared";
+import { brandColors, spacing } from "@forumo/config";
+import { useAuth } from "../providers/AuthProvider";
+import type { MainStackParamList } from "../navigation/types";
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Notifications'>;
+type Props = NativeStackScreenProps<MainStackParamList, "Notifications">;
 
 const DEMO_NOTIFICATIONS: SafeNotification[] = [
   {
-    id: 'notif-1',
-    userId: 'demo',
-    channel: 'IN_APP',
-    template: 'AUCTION_OUTBID',
-    payload: { message: 'You have been outbid on Vintage Camera. Current bid: $95.00' },
-    status: 'SENT',
+    id: "notif-1",
+    userId: "demo",
+    channel: "IN_APP",
+    template: "AUCTION_OUTBID",
+    payload: {
+      message: "You have been outbid on Vintage Camera. Current bid: $95.00",
+    },
+    status: "SENT",
     sentAt: new Date(Date.now() - 600000).toISOString(),
     readAt: null,
     createdAt: new Date(Date.now() - 600000).toISOString(),
   },
   {
-    id: 'notif-2',
-    userId: 'demo',
-    channel: 'IN_APP',
-    template: 'ORDER_STATUS',
-    payload: { message: 'Your order #ORD-001 has been shipped.' },
-    status: 'SENT',
+    id: "notif-2",
+    userId: "demo",
+    channel: "IN_APP",
+    template: "ORDER_STATUS",
+    payload: { message: "Your order #ORD-001 has been shipped." },
+    status: "SENT",
     sentAt: new Date(Date.now() - 3600000).toISOString(),
     readAt: new Date(Date.now() - 1800000).toISOString(),
     createdAt: new Date(Date.now() - 3600000).toISOString(),
   },
   {
-    id: 'notif-3',
-    userId: 'demo',
-    channel: 'IN_APP',
-    template: 'NEW_MESSAGE',
-    payload: { message: 'Alice sent you a message about your listing.' },
-    status: 'SENT',
+    id: "notif-3",
+    userId: "demo",
+    channel: "IN_APP",
+    template: "NEW_MESSAGE",
+    payload: { message: "Alice sent you a message about your listing." },
+    status: "SENT",
     sentAt: new Date(Date.now() - 7200000).toISOString(),
     readAt: null,
     createdAt: new Date(Date.now() - 7200000).toISOString(),
@@ -54,17 +56,17 @@ const DEMO_NOTIFICATIONS: SafeNotification[] = [
 ];
 
 const TEMPLATE_ICONS: Record<string, string> = {
-  ORDER_STATUS: '📦',
-  NEW_MESSAGE: '💬',
-  AUCTION_OUTBID: '⚡',
-  ESCROW_UPDATE: '🔒',
-  REVIEW_RECEIVED: '⭐',
+  ORDER_STATUS: "📦",
+  NEW_MESSAGE: "💬",
+  AUCTION_OUTBID: "⚡",
+  ESCROW_UPDATE: "🔒",
+  REVIEW_RECEIVED: "⭐",
 };
 
 function formatTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
+  if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
@@ -79,16 +81,18 @@ interface NotifCardProps {
 
 const NotifCard: React.FC<NotifCardProps> = ({ notif, onRead }) => {
   const isUnread = !notif.readAt;
-  const icon = TEMPLATE_ICONS[notif.template] ?? '🔔';
+  const icon = TEMPLATE_ICONS[notif.template] ?? "🔔";
   const message =
-    typeof notif.payload?.message === 'string'
+    typeof notif.payload?.message === "string"
       ? notif.payload.message
       : notif.template;
 
   return (
     <TouchableOpacity
       style={[styles.card, isUnread && styles.cardUnread]}
-      onPress={() => { if (isUnread) onRead(notif.id); }}
+      onPress={() => {
+        if (isUnread) onRead(notif.id);
+      }}
       testID={`notif-card-${notif.id}`}
       activeOpacity={isUnread ? 0.7 : 1}
     >
@@ -97,11 +101,16 @@ const NotifCard: React.FC<NotifCardProps> = ({ notif, onRead }) => {
         {isUnread && <View style={styles.unreadDot} />}
       </View>
       <View style={styles.content}>
-        <Text style={[styles.message, isUnread && styles.messageUnread]} numberOfLines={3}>
+        <Text
+          style={[styles.message, isUnread && styles.messageUnread]}
+          numberOfLines={3}
+        >
           {message}
         </Text>
         <Text style={styles.time}>
-          {notif.sentAt ? formatTime(notif.sentAt) : formatTime(notif.createdAt)}
+          {notif.sentAt
+            ? formatTime(notif.sentAt)
+            : formatTime(notif.createdAt)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -134,12 +143,17 @@ export const NotificationsScreen: React.FC<Props> = () => {
   useEffect(() => {
     try {
       const baseUrl = (apiClient as any).baseUrl as string;
-      const wsUrl = baseUrl.replace(/^http/, 'ws').replace(/^https/, 'wss');
-      const token = accessToken;
-      const query = token ? `token=${token}` : '';
+      const wsUrl = baseUrl.replace(/^http/, "ws").replace(/^https/, "wss");
       const ws = new WebSocket(
-        `${wsUrl}/socket.io/?EIO=4&transport=websocket&${query}&namespace=/notifications`
+        `${wsUrl}/socket.io/?EIO=4&transport=websocket&namespace=/notifications`,
       );
+      if (accessToken) {
+        ws.addEventListener("open", () => {
+          try {
+            ws.send(JSON.stringify({ type: "auth", token: accessToken }));
+          } catch {}
+        });
+      }
       socketRef.current = ws;
 
       ws.onmessage = (event) => {
@@ -150,7 +164,7 @@ export const NotificationsScreen: React.FC<Props> = () => {
           const payload = JSON.parse(raw.slice(jsonStart));
           if (!Array.isArray(payload)) return;
           const [eventName, data] = payload;
-          if (eventName === 'notification' && data) {
+          if (eventName === "notification" && data) {
             setNotifications((prev) => [data as SafeNotification, ...prev]);
           }
         } catch {
@@ -177,7 +191,9 @@ export const NotificationsScreen: React.FC<Props> = () => {
     try {
       await apiClient.notifications.markAsRead(id);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
+        prev.map((n) =>
+          n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
+        ),
       );
     } catch {
       // optimistic update already applied
@@ -189,9 +205,11 @@ export const NotificationsScreen: React.FC<Props> = () => {
     try {
       await apiClient.notifications.markAllAsRead();
       const now = new Date().toISOString();
-      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, readAt: n.readAt ?? now })),
+      );
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Could not mark all as read.');
+      Alert.alert("Error", err.message ?? "Could not mark all as read.");
     } finally {
       setMarkingAll(false);
     }
@@ -236,7 +254,9 @@ export const NotificationsScreen: React.FC<Props> = () => {
             <NotifCard notif={item} onRead={handleRead} />
           )}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Text style={styles.emptyIcon}>🔔</Text>
@@ -251,31 +271,31 @@ export const NotificationsScreen: React.FC<Props> = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: brandColors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     padding: spacing.md,
     paddingBottom: 8,
   },
-  heading: { fontSize: 22, fontWeight: '700' },
+  heading: { fontSize: 22, fontWeight: "700" },
   unreadCount: { fontSize: 13, color: brandColors.primary, marginTop: 2 },
-  markAllText: { color: brandColors.primary, fontWeight: '600', fontSize: 14 },
+  markAllText: { color: brandColors.primary, fontWeight: "600", fontSize: 14 },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: 8 },
   card: {
     backgroundColor: brandColors.card,
     borderRadius: 12,
     padding: spacing.md,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   cardUnread: { borderLeftWidth: 3, borderLeftColor: brandColors.primary },
-  iconBox: { position: 'relative' },
+  iconBox: { position: "relative" },
   icon: { fontSize: 24 },
   unreadDot: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: -2,
     width: 8,
@@ -284,10 +304,10 @@ const styles = StyleSheet.create({
     backgroundColor: brandColors.primary,
   },
   content: { flex: 1, gap: 4 },
-  message: { fontSize: 14, color: '#374151', lineHeight: 20 },
-  messageUnread: { fontWeight: '600', color: '#111827' },
+  message: { fontSize: 14, color: "#374151", lineHeight: 20 },
+  messageUnread: { fontWeight: "600", color: "#111827" },
   time: { fontSize: 12, color: brandColors.muted },
-  emptyBox: { alignItems: 'center', marginTop: 60 },
+  emptyBox: { alignItems: "center", marginTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { color: brandColors.muted, fontSize: 16 },
 });

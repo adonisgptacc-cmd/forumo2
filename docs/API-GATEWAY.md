@@ -4,20 +4,20 @@ All backend services are exposed behind a single NestJS API gateway running at `
 
 ## REST routes
 
-| Module        | Route prefix        | Highlights |
-|---------------|---------------------|------------|
-| Auth          | `/auth`             | register, login, refresh token, OTP verify, forgot/reset password |
-| Users         | `/users`            | profile fetch/update, trust score, seller reviews |
-| KYC           | `/kyc`              | submit docs, check status, admin approval queue |
-| Listings      | `/listings`         | CRUD, upload images, variants, search filters |
-| Auctions      | `/auctions`         | create auctions, place bids, cancel, admin overrides |
-| Orders        | `/orders`           | create, status transitions, delivery confirmations |
-| Escrow        | `/escrow`           | create holdings, release, refund, dispute cases |
-| Messaging     | `/messages`         | threads, send message, report conversation |
-| Reviews       | `/reviews`          | create review by order, fetch seller reviews |
-| Inventory     | `/inventory`        | reserve/release stock, adjustments, damage logging |
-| Notifications | `/notifications`    | list notifications, mark read |
-| Admin         | `/admin`            | user/listing moderation, disputes, audit logs |
+| Module        | Route prefix     | Highlights                                                        |
+| ------------- | ---------------- | ----------------------------------------------------------------- |
+| Auth          | `/auth`          | register, login, refresh token, OTP verify, forgot/reset password |
+| Users         | `/users`         | profile fetch/update, trust score, seller reviews                 |
+| KYC           | `/kyc`           | submit docs, check status, admin approval queue                   |
+| Listings      | `/listings`      | CRUD, upload images, variants, search filters                     |
+| Auctions      | `/auctions`      | create auctions, place bids, cancel, admin overrides              |
+| Orders        | `/orders`        | create, status transitions, delivery confirmations                |
+| Escrow        | `/escrow`        | create holdings, release, refund, dispute cases                   |
+| Messaging     | `/messages`      | threads, send message, report conversation                        |
+| Reviews       | `/reviews`       | create review by order, fetch seller reviews                      |
+| Inventory     | `/inventory`     | reserve/release stock, adjustments, damage logging                |
+| Notifications | `/notifications` | list notifications, mark read                                     |
+| Admin         | `/admin`         | user/listing moderation, disputes, audit logs                     |
 
 ### Admin endpoints
 

@@ -1,8 +1,12 @@
-import { Logger } from '@nestjs/common';
-import { OnGatewayConnection, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Logger } from "@nestjs/common";
+import {
+  OnGatewayConnection,
+  WebSocketGateway,
+  WebSocketServer,
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
 
-@WebSocketGateway({ namespace: '/notifications', cors: { origin: '*' } })
+@WebSocketGateway({ namespace: "/notifications", cors: { origin: "*" } })
 export class NotificationsGateway implements OnGatewayConnection {
   private readonly logger = new Logger(NotificationsGateway.name);
 
@@ -13,7 +17,9 @@ export class NotificationsGateway implements OnGatewayConnection {
     const userId = client.handshake.auth?.userId as string | undefined;
     if (userId) {
       client.join(`user:${userId}`);
-      this.logger.log(`Notifications: client ${client.id} joined room user:${userId}`);
+      this.logger.log(
+        `Notifications: client ${client.id} joined room user:${userId}`,
+      );
     }
   }
 
@@ -22,6 +28,6 @@ export class NotificationsGateway implements OnGatewayConnection {
   }
 
   emitNewNotification(userId: string, notification: unknown) {
-    this.emitToUser(userId, 'notifications:new', notification);
+    this.emitToUser(userId, "notifications:new", notification);
   }
 }

@@ -1,20 +1,20 @@
-import { CanActivate, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import { CanActivate, INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { UsersModule } from './users.module';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { PrismaService } from "../../prisma/prisma.service";
+import { UsersModule } from "./users.module";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../../common/guards/roles.guard";
 
-const USER_ID = '00000000-0000-0000-0000-000000000001';
-const OTHER_USER_ID = '00000000-0000-0000-0000-000000000002';
+const USER_ID = "00000000-0000-0000-0000-000000000001";
+const OTHER_USER_ID = "00000000-0000-0000-0000-000000000002";
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
-  static role = 'ADMIN';
+  static role = "ADMIN";
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -23,7 +23,9 @@ class MockGuard implements CanActivate {
 }
 
 class AllowAllGuard implements CanActivate {
-  canActivate() { return true; }
+  canActivate() {
+    return true;
+  }
 }
 
 // ─── In-Memory Prisma ────────────────────────────────────────────────────────
@@ -36,10 +38,10 @@ class InMemoryPrismaService {
   constructor() {
     this.users.set(USER_ID, {
       id: USER_ID,
-      email: 'user@test.com',
-      name: 'Test User',
-      role: 'BUYER',
-      avatarUrl: 'https://example.com/avatar.png',
+      email: "user@test.com",
+      name: "Test User",
+      role: "BUYER",
+      avatarUrl: "https://example.com/avatar.png",
       phone: null,
       trustScore: 0,
       deletedAt: null,
@@ -48,9 +50,9 @@ class InMemoryPrismaService {
     });
     this.users.set(OTHER_USER_ID, {
       id: OTHER_USER_ID,
-      email: 'other@test.com',
-      name: 'Other User',
-      role: 'BUYER',
+      email: "other@test.com",
+      name: "Other User",
+      role: "BUYER",
       avatarUrl: null,
       phone: null,
       trustScore: 0,
@@ -60,9 +62,9 @@ class InMemoryPrismaService {
     });
     this.profiles.set(USER_ID, {
       userId: USER_ID,
-      bio: 'Hello world',
+      bio: "Hello world",
       website: null,
-      location: 'Nairobi',
+      location: "Nairobi",
       socialLinks: null,
     });
   }
@@ -93,7 +95,8 @@ class InMemoryPrismaService {
   get userProfile() {
     const self = this;
     return {
-      findUnique: async ({ where }: any) => self.profiles.get(where.userId) ?? null,
+      findUnique: async ({ where }: any) =>
+        self.profiles.get(where.userId) ?? null,
       upsert: async ({ where, create, update }: any) => {
         const existing = self.profiles.get(where.userId);
         const result = existing ? { ...existing, ...update } : { ...create };
@@ -106,8 +109,12 @@ class InMemoryPrismaService {
   get trustScoreSeed() {
     const self = this;
     return {
-      findMany: async ({ where }: any) => self.trustSeeds.filter((s) => s.userId === where.userId),
-      findFirst: async ({ where }: any) => self.trustSeeds.find((s) => s.id === where.id && s.userId === where.userId) ?? null,
+      findMany: async ({ where }: any) =>
+        self.trustSeeds.filter((s) => s.userId === where.userId),
+      findFirst: async ({ where }: any) =>
+        self.trustSeeds.find(
+          (s) => s.id === where.id && s.userId === where.userId,
+        ) ?? null,
       create: async ({ data }: any) => {
         const seed = { id: randomUUID(), ...data, createdAt: new Date() };
         self.trustSeeds.push(seed);
@@ -132,11 +139,11 @@ class InMemoryPrismaService {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('UsersModule', () => {
+describe("UsersModule", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
 
-  const buildApp = async (userId = USER_ID, role = 'ADMIN') => {
+  const buildApp = async (userId = USER_ID, role = "ADMIN") => {
     MockGuard.userId = userId;
     MockGuard.role = role;
     prismaMock = new InMemoryPrismaService();
@@ -159,61 +166,80 @@ describe('UsersModule', () => {
 
   // ── GET /users/me/profile ──
 
-  describe('GET /users/me/profile', () => {
-    it('returns full profile for authenticated user', async () => {
+  describe("GET /users/me/profile", () => {
+    it("returns full profile for authenticated user", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/users/me/profile')
+        .get("/users/me/profile")
         .expect(200);
 
       expect(res.body.user.id).toBe(USER_ID);
-      expect(res.body.user.email).toBe('user@test.com');
-      expect(res.body.profile.bio).toBe('Hello world');
+      expect(res.body.user.email).toBe("user@test.com");
+      expect(res.body.profile.bio).toBe("Hello world");
       expect(res.body.trustSeeds).toBeDefined();
     });
 
-    it('does not expose password hash', async () => {
+    it("does not expose password hash", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/users/me/profile')
+        .get("/users/me/profile")
         .expect(200);
 
       // sanitizeUser strips passwordHash but retains other fields
       expect(res.body.user.passwordHash).toBeUndefined();
     });
+
+    it("does not expose 2FA secrets or backup codes", async () => {
+      await buildApp();
+      prismaMock.users.set(USER_ID, {
+        ...prismaMock.users.get(USER_ID)!,
+        twoFactorSecret: "live-totp-secret",
+        twoFactorBackupCodes: ["code1", "code2"],
+        stripeConnectAccountId: "acct_123",
+        paystackRecipientCode: "RCP_123",
+      });
+      const res = await request(app.getHttpServer())
+        .get("/users/me/profile")
+        .expect(200);
+
+      expect(res.body.user.twoFactorSecret).toBeUndefined();
+      expect(res.body.user.twoFactorBackupCodes).toBeUndefined();
+      expect(res.body.user.passwordHash).toBeUndefined();
+      expect(res.body.user.emailVerificationToken).toBeUndefined();
+    });
   });
 
   // ── PATCH /users/me/profile ──
 
-  describe('PATCH /users/me/profile', () => {
-    it('updates name and phone', async () => {
+  describe("PATCH /users/me/profile", () => {
+    it("updates name and phone", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .patch('/users/me/profile')
-        .send({ name: 'Updated Name', phone: '+233201234567' })
+        .patch("/users/me/profile")
+        .send({ name: "Updated Name", phone: "+233201234567" })
         .expect(200);
 
-      expect(res.body.name).toBe('Updated Name');
-      expect(res.body.phone).toBe('+233201234567');
-      expect(prismaMock.users.get(USER_ID)!.name).toBe('Updated Name');
+      expect(res.body.name).toBe("Updated Name");
+      expect(res.body.phone).toBe("+233201234567");
+      expect(prismaMock.users.get(USER_ID)!.name).toBe("Updated Name");
     });
 
-    it('returns 404 if user not found', async () => {
-      await buildApp('ghost-user');
+    it("returns 404 if user not found", async () => {
+      await buildApp("ghost-user");
       await request(app.getHttpServer())
-        .patch('/users/me/profile')
-        .send({ name: 'Ghost' })
+        .patch("/users/me/profile")
+        .send({ name: "Ghost" })
         .expect(404);
     });
   });
 
   // ── DELETE /users/me/avatar ──
 
-  describe('DELETE /users/me/avatar', () => {
-    it('removes avatar URL', async () => {
+  describe("DELETE /users/me/avatar", () => {
+    it("removes avatar URL", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .delete('/users/me/avatar')
+        .delete("/users/me/avatar")
         .expect(200);
 
       expect(res.body.avatarUrl).toBeNull();
@@ -223,10 +249,10 @@ describe('UsersModule', () => {
 
   // ── GET /users ──
 
-  describe('GET /users', () => {
-    it('returns all non-deleted users', async () => {
+  describe("GET /users", () => {
+    it("returns all non-deleted users", async () => {
       await buildApp();
-      const res = await request(app.getHttpServer()).get('/users').expect(200);
+      const res = await request(app.getHttpServer()).get("/users").expect(200);
       expect(res.body).toHaveLength(2);
       expect(res.body.every((u: any) => !u.deletedAt)).toBe(true);
     });
@@ -234,15 +260,15 @@ describe('UsersModule', () => {
 
   // ── Trust score seeds ──
 
-  describe('POST /users/:id/trust-seeds', () => {
-    it('adds a trust seed and recalculates score', async () => {
+  describe("POST /users/:id/trust-seeds", () => {
+    it("adds a trust seed and recalculates score", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
         .post(`/users/${USER_ID}/trust-seeds`)
-        .send({ label: 'Verified ID', value: 30 })
+        .send({ label: "Verified ID", value: 30 })
         .expect(201);
 
-      expect(res.body.label).toBe('Verified ID');
+      expect(res.body.label).toBe("Verified ID");
       expect(res.body.value).toBe(30);
       // Trust score should be updated on the user
       expect(prismaMock.users.get(USER_ID)!.trustScore).toBe(30);

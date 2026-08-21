@@ -1,4 +1,4 @@
-import type { Auction, SafeOffer, SafeOrder } from '@forumo/shared';
+import type { Auction, SafeOffer, SafeOrder } from "@forumo/shared";
 
 export type AuthStackParamList = {
   Onboarding: undefined;
@@ -18,10 +18,16 @@ export type MainTabParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  Thread: { threadId: string; thread?: import('@forumo/shared').SafeMessageThread };
+  Thread: {
+    threadId: string;
+    thread?: import("@forumo/shared").SafeMessageThread;
+  };
   AuctionDetail: { auctionId: string; auction?: Auction };
   OrderDetail: { orderId: string; order?: SafeOrder };
-  ListingDetail: { listingId: string; listing?: import('@forumo/shared').SafeListing };
+  ListingDetail: {
+    listingId: string;
+    listing?: import("@forumo/shared").SafeListing;
+  };
   Cart: undefined;
   Checkout: { sellerId: string; sellerName?: string };
   Offers: undefined;
@@ -29,7 +35,10 @@ export type MainStackParamList = {
   Wishlist: undefined;
   CreateListing: undefined;
   MyListings: undefined;
-  EditListing: { listingId: string; listing?: import('@forumo/shared').SafeListing };
+  EditListing: {
+    listingId: string;
+    listing?: import("@forumo/shared").SafeListing;
+  };
   Reviews: { sellerId: string; listingId?: string };
   SellerDashboard: undefined;
   KYC: undefined;

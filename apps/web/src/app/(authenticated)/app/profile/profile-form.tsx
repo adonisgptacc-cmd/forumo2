@@ -1,8 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { useProfile, useUpdateProfile, useDeleteAvatar, useChangePassword, useAcceptTerms, useExportMyData, useBecomeSeller } from '../../../../lib/react-query/hooks';
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import {
+  useProfile,
+  useUpdateProfile,
+  useDeleteAvatar,
+  useChangePassword,
+  useAcceptTerms,
+  useExportMyData,
+  useBecomeSeller,
+} from "../../../../lib/react-query/hooks";
 
 export function ProfileForm() {
   const { data, isLoading } = useProfile();
@@ -17,39 +25,41 @@ export function ProfileForm() {
   async function handleExport() {
     const result = await exportData.refetch();
     if (result.data) {
-      const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+        type: "application/json",
+      });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'forumo-my-data.json';
+      a.download = "forumo-my-data.json";
       a.click();
       URL.revokeObjectURL(url);
     }
   }
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [bio, setBio] = useState('');
-  const [location, setLocation] = useState('');
-  const [website, setWebsite] = useState('');
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
+  const [website, setWebsite] = useState("");
   const [saved, setSaved] = useState(false);
 
   const changePassword = useChangePassword();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaved, setPasswordSaved] = useState(false);
 
   useEffect(() => {
     if (data?.user) {
-      setName(data.user.name ?? '');
-      setPhone((data.user as any).phone ?? '');
+      setName(data.user.name ?? "");
+      setPhone((data.user as any).phone ?? "");
     }
     if (data?.profile) {
-      setBio(data.profile.bio ?? '');
-      setLocation(data.profile.location ?? '');
-      setWebsite(data.profile.website ?? '');
+      setBio(data.profile.bio ?? "");
+      setLocation(data.profile.location ?? "");
+      setWebsite(data.profile.website ?? "");
     }
   }, [data]);
 
@@ -59,9 +69,11 @@ export function ProfileForm() {
     if (name.trim()) payload.name = name.trim();
     if (phone.trim()) payload.phone = phone.trim();
     if (avatarUrl.trim()) payload.avatarUrl = avatarUrl.trim();
-    if (bio.trim() !== (data?.profile?.bio ?? '')) payload.bio = bio.trim();
-    if (location.trim() !== (data?.profile?.location ?? '')) payload.location = location.trim();
-    if (website.trim() !== (data?.profile?.website ?? '')) payload.website = website.trim();
+    if (bio.trim() !== (data?.profile?.bio ?? "")) payload.bio = bio.trim();
+    if (location.trim() !== (data?.profile?.location ?? ""))
+      payload.location = location.trim();
+    if (website.trim() !== (data?.profile?.website ?? ""))
+      payload.website = website.trim();
 
     await updateProfile.mutateAsync(payload as any);
     setSaved(true);
@@ -79,7 +91,9 @@ export function ProfileForm() {
   }
 
   const user = data?.user;
-  const trustScore = user ? (data?.trustSeeds ?? []).reduce((sum, s) => sum + s.value, 0) : 0;
+  const trustScore = user
+    ? (data?.trustSeeds ?? []).reduce((sum, s) => sum + s.value, 0)
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -89,25 +103,27 @@ export function ProfileForm() {
           {user?.avatarUrl ? (
             <Image
               src={user.avatarUrl}
-              alt={user.name ?? 'Avatar'}
+              alt={user.name ?? "Avatar"}
               fill
               className="rounded-full object-cover"
             />
           ) : (
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[color:var(--accent-bg)] text-3xl font-bold text-[color:var(--accent-2)]">
-              {(user?.name ?? user?.email ?? '?')[0].toUpperCase()}
+              {(user?.name ?? user?.email ?? "?")[0].toUpperCase()}
             </div>
           )}
         </div>
         <div>
-          <p className="text-sm font-medium">{user?.name ?? 'No name set'}</p>
+          <p className="text-sm font-medium">{user?.name ?? "No name set"}</p>
           <p className="text-xs muted">{user?.email}</p>
           <p className="mt-1 text-xs muted">
-            Role: <span className="text-[color:var(--accent)]">{user?.role}</span>
+            Role:{" "}
+            <span className="text-[color:var(--accent)]">{user?.role}</span>
           </p>
           {trustScore > 0 && (
             <p className="text-xs muted">
-              Trust score: <span className="text-[color:var(--escrow)]">{trustScore}</span>
+              Trust score:{" "}
+              <span className="text-[color:var(--escrow)]">{trustScore}</span>
             </p>
           )}
           {user?.avatarUrl && (
@@ -117,7 +133,7 @@ export function ProfileForm() {
               disabled={deleteAvatar.isPending}
               className="mt-2 text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
             >
-              {deleteAvatar.isPending ? 'Removing…' : 'Remove avatar'}
+              {deleteAvatar.isPending ? "Removing…" : "Remove avatar"}
             </button>
           )}
         </div>
@@ -134,7 +150,7 @@ export function ProfileForm() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={user?.name ?? 'Your name'}
+              placeholder={user?.name ?? "Your name"}
               className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
           </div>
@@ -150,7 +166,9 @@ export function ProfileForm() {
               placeholder="+233 XX XXX XXXX"
               className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
             />
-            <p className="mt-1 text-xs muted">International format, e.g. +233241234567</p>
+            <p className="mt-1 text-xs muted">
+              International format, e.g. +233241234567
+            </p>
           </div>
         </div>
 
@@ -162,14 +180,18 @@ export function ProfileForm() {
             type="url"
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder={user?.avatarUrl ?? 'https://example.com/avatar.jpg'}
+            placeholder={user?.avatarUrl ?? "https://example.com/avatar.jpg"}
             className="w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
           />
-          <p className="mt-1 text-xs muted">Leave blank to keep current avatar</p>
+          <p className="mt-1 text-xs muted">
+            Leave blank to keep current avatar
+          </p>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Bio</label>
+          <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
+            Bio
+          </label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
@@ -183,7 +205,9 @@ export function ProfileForm() {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Location</label>
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
+              Location
+            </label>
             <input
               type="text"
               value={location}
@@ -194,7 +218,9 @@ export function ProfileForm() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">Website</label>
+            <label className="mb-1 block text-sm font-medium text-[color:var(--ink-2)]">
+              Website
+            </label>
             <input
               type="url"
               value={website}
@@ -207,7 +233,8 @@ export function ProfileForm() {
 
         {updateProfile.isError && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-            {(updateProfile.error as Error)?.message ?? 'Failed to save changes'}
+            {(updateProfile.error as Error)?.message ??
+              "Failed to save changes"}
           </p>
         )}
 
@@ -217,10 +244,12 @@ export function ProfileForm() {
             disabled={updateProfile.isPending}
             className="btn btn-primary"
           >
-            {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+            {updateProfile.isPending ? "Saving…" : "Save changes"}
           </button>
           {saved && (
-            <span className="text-sm text-[color:var(--escrow)]">Saved successfully</span>
+            <span className="text-sm text-[color:var(--escrow)]">
+              Saved successfully
+            </span>
           )}
         </div>
       </form>
@@ -228,13 +257,25 @@ export function ProfileForm() {
       {/* Trust seeds */}
       {(data?.trustSeeds ?? []).length > 0 && (
         <div className="card card-pad">
-          <h3 className="mb-3 text-sm font-medium subtle">Trust score breakdown</h3>
+          <h3 className="mb-3 text-sm font-medium subtle">
+            Trust score breakdown
+          </h3>
           <ul className="space-y-2">
             {data!.trustSeeds.map((seed) => (
-              <li key={seed.id} className="flex items-center justify-between text-sm">
+              <li
+                key={seed.id}
+                className="flex items-center justify-between text-sm"
+              >
                 <span className="muted">{seed.label}</span>
-                <span className={seed.value >= 0 ? 'text-[color:var(--escrow)]' : 'text-red-600'}>
-                  {seed.value > 0 ? '+' : ''}{seed.value}
+                <span
+                  className={
+                    seed.value >= 0
+                      ? "text-[color:var(--escrow)]"
+                      : "text-red-600"
+                  }
+                >
+                  {seed.value > 0 ? "+" : ""}
+                  {seed.value}
                 </span>
               </li>
             ))}
@@ -243,13 +284,16 @@ export function ProfileForm() {
       )}
 
       {/* Become a Seller */}
-      {data?.user?.role === 'BUYER' && (
+      {data?.user?.role === "BUYER" && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-amber-800">Become a Seller</h3>
+              <h3 className="text-sm font-semibold text-amber-800">
+                Become a Seller
+              </h3>
               <p className="text-xs muted mt-1">
-                Unlock seller tools — create listings, manage orders, set up your storefront, and start earning.
+                Unlock seller tools — create listings, manage orders, set up
+                your storefront, and start earning.
               </p>
             </div>
             <span className="flex-shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
@@ -258,7 +302,8 @@ export function ProfileForm() {
           </div>
           {sellerDone ? (
             <p className="text-sm text-[color:var(--escrow)]">
-              ✅ You&apos;re now a seller! Refresh the page to access seller tools.
+              ✅ You&apos;re now a seller! Refresh the page to access seller
+              tools.
             </p>
           ) : (
             <button
@@ -270,12 +315,15 @@ export function ProfileForm() {
               disabled={becomeSeller.isPending}
               className="btn btn-primary btn-sm"
             >
-              {becomeSeller.isPending ? 'Upgrading account…' : 'Unlock Seller Account'}
+              {becomeSeller.isPending
+                ? "Upgrading account…"
+                : "Unlock Seller Account"}
             </button>
           )}
           {becomeSeller.isError && (
             <p className="text-xs text-red-600">
-              {(becomeSeller.error as Error)?.message ?? 'Failed to upgrade account. Please try again.'}
+              {(becomeSeller.error as Error)?.message ??
+                "Failed to upgrade account. Please try again."}
             </p>
           )}
         </div>
@@ -285,8 +333,9 @@ export function ProfileForm() {
       <div className="card card-pad space-y-4">
         <h3 className="text-sm font-medium subtle">Data &amp; Privacy</h3>
         <p className="text-xs muted">
-          Under GDPR and CCPA you have the right to export a copy of your personal data. You can also
-          re-confirm your acceptance of our current Terms of Service and Privacy Policy.
+          Under GDPR and CCPA you have the right to export a copy of your
+          personal data. You can also re-confirm your acceptance of our current
+          Terms of Service and Privacy Policy.
         </p>
         <div className="flex flex-wrap gap-3">
           <button
@@ -295,7 +344,7 @@ export function ProfileForm() {
             disabled={exportData.isFetching}
             className="btn btn-ghost btn-sm"
           >
-            {exportData.isFetching ? 'Preparing…' : 'Download my data'}
+            {exportData.isFetching ? "Preparing…" : "Download my data"}
           </button>
           <button
             type="button"
@@ -307,7 +356,11 @@ export function ProfileForm() {
             disabled={acceptTerms.isPending || termsDone}
             className="btn btn-ghost btn-sm"
           >
-            {termsDone ? 'Confirmed' : acceptTerms.isPending ? 'Saving…' : 'Re-accept Terms & Privacy'}
+            {termsDone
+              ? "Confirmed"
+              : acceptTerms.isPending
+                ? "Saving…"
+                : "Re-accept Terms & Privacy"}
           </button>
         </div>
       </div>
@@ -320,9 +373,9 @@ export function ProfileForm() {
             e.preventDefault();
             if (newPassword !== confirmPassword) return;
             await changePassword.mutateAsync({ currentPassword, newPassword });
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
             setPasswordSaved(true);
             setTimeout(() => setPasswordSaved(false), 3000);
           }}
@@ -357,17 +410,28 @@ export function ProfileForm() {
             <p className="text-xs text-red-600">Passwords do not match</p>
           )}
           {changePassword.isError && (
-            <p className="text-xs text-red-600">{(changePassword.error as Error)?.message ?? 'Failed to change password'}</p>
+            <p className="text-xs text-red-600">
+              {(changePassword.error as Error)?.message ??
+                "Failed to change password"}
+            </p>
           )}
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={changePassword.isPending || newPassword !== confirmPassword || !currentPassword}
+              disabled={
+                changePassword.isPending ||
+                newPassword !== confirmPassword ||
+                !currentPassword
+              }
               className="btn btn-ink btn-sm"
             >
-              {changePassword.isPending ? 'Updating…' : 'Update password'}
+              {changePassword.isPending ? "Updating…" : "Update password"}
             </button>
-            {passwordSaved && <span className="text-sm text-[color:var(--escrow)]">Password updated</span>}
+            {passwordSaved && (
+              <span className="text-sm text-[color:var(--escrow)]">
+                Password updated
+              </span>
+            )}
           </div>
         </form>
       </div>

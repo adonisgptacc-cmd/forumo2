@@ -1,5 +1,5 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Global, Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 import { MetricsController } from "./metrics.controller";
 import { MetricsService } from "./metrics.service";
 import { AuditLogService } from "./audit-log.service";

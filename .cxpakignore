@@ -1,0 +1,16 @@
+.git/
+node_modules/
+.turbo/
+.cxpak/
+.integration-sources/
+.tools/
+dist/
+coverage/
+apps/**/.next/
+apps/**/dist/
+apps/**/.expo/
+apps/**/build/
+apps/**/out/
+docker/postgres-data/
+docker/redis-data/
+docker/minio-data/

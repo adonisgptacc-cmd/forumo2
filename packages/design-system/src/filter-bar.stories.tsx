@@ -1,14 +1,14 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'react';
-import { FilterBar, type FilterChip } from './filter-bar';
-import { Button } from './button';
+import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
+import { FilterBar, type FilterChip } from "./filter-bar";
+import { Button } from "./button";
 
 const meta: Meta<typeof FilterBar> = {
-  title: 'Components/FilterBar',
+  title: "Components/FilterBar",
   component: FilterBar,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   parameters: {
-    backgrounds: { default: 'dark' },
+    backgrounds: { default: "dark" },
   },
 };
 export default meta;
@@ -16,37 +16,41 @@ export default meta;
 type Story = StoryObj<typeof FilterBar>;
 
 const staticChips: FilterChip[] = [
-  { key: 'all', label: 'All', active: true },
-  { key: 'active', label: 'Active' },
-  { key: 'sold', label: 'Sold' },
-  { key: 'draft', label: 'Draft' },
+  { key: "all", label: "All", active: true },
+  { key: "active", label: "Active" },
+  { key: "sold", label: "Sold" },
+  { key: "draft", label: "Draft" },
 ];
 
 export const Default: Story = {};
 
 export const WithTitle: Story = {
-  args: { title: 'My Listings' },
+  args: { title: "My Listings" },
 };
 
 export const WithChips: Story = {
   args: {
-    title: 'Filter by status',
+    title: "Filter by status",
     chips: staticChips,
   },
 };
 
 export const WithActions: Story = {
   args: {
-    title: 'Orders',
+    title: "Orders",
     chips: staticChips,
-    actions: <Button size="sm" variant="primary">+ New Listing</Button>,
+    actions: (
+      <Button size="sm" variant="primary">
+        + New Listing
+      </Button>
+    ),
   },
 };
 
 export const Interactive: Story = {
   render: () => {
-    const keys = ['all', 'active', 'sold', 'draft'] as const;
-    const [active, setActive] = useState<string>('all');
+    const keys = ["all", "active", "sold", "draft"] as const;
+    const [active, setActive] = useState<string>("all");
     const chips: FilterChip[] = keys.map((key) => ({
       key,
       label: key.charAt(0).toUpperCase() + key.slice(1),
@@ -57,7 +61,11 @@ export const Interactive: Story = {
       <FilterBar
         title="Listings"
         chips={chips}
-        actions={<Button size="sm" variant="outline">Export CSV</Button>}
+        actions={
+          <Button size="sm" variant="outline">
+            Export CSV
+          </Button>
+        }
       />
     );
   },
@@ -77,21 +85,27 @@ export const WithChildren: Story = {
 
 export const Full: Story = {
   render: () => {
-    const [active, setActive] = useState<string>('all');
-    const chips: FilterChip[] = ['all', 'active', 'sold', 'draft'].map((key) => ({
-      key,
-      label: key.charAt(0).toUpperCase() + key.slice(1),
-      active: active === key,
-      onClick: () => setActive(key),
-    }));
+    const [active, setActive] = useState<string>("all");
+    const chips: FilterChip[] = ["all", "active", "sold", "draft"].map(
+      (key) => ({
+        key,
+        label: key.charAt(0).toUpperCase() + key.slice(1),
+        active: active === key,
+        onClick: () => setActive(key),
+      }),
+    );
     return (
       <FilterBar
         title="Listings"
         chips={chips}
         actions={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline">Export</Button>
-            <Button size="sm" variant="primary">+ Add</Button>
+            <Button size="sm" variant="outline">
+              Export
+            </Button>
+            <Button size="sm" variant="primary">
+              + Add
+            </Button>
           </div>
         }
       >

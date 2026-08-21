@@ -214,31 +214,47 @@ export class PayoutsService {
     }
 
     const orderIds = eligible.map((e) => e.orderId);
+    const sellerIds = Array.from(
+      new Set(eligible.map((e) => e.order.sellerId)),
+    );
     const existingPayouts = await this.prisma.payout.findMany({
       where: {
-        status: {
-          in: [
-            PayoutStatus.PENDING,
-            PayoutStatus.PROCESSING,
-            PayoutStatus.PAID,
-          ],
-        },
-        seller: { ordersAsSeller: { some: { id: { in: orderIds } } } },
+        OR: [
+          { orderId: { in: orderIds } },
+          { orderId: null, sellerId: { in: sellerIds } },
+        ],
       },
-      select: { sellerId: true, amount: true, createdAt: true },
+      select: { orderId: true, sellerId: true, amount: true, currency: true },
     });
 
-    const paidSellerSet = new Set(existingPayouts.map((p) => p.sellerId));
+    const existingOrderIds = new Set(
+      existingPayouts.map((p) => p.orderId).filter(Boolean) as string[],
+    );
+    const legacyPayoutKeys = new Set(
+      existingPayouts
+        .filter((p) => !p.orderId)
+        .map((p) => this.legacyPayoutKey(p.sellerId, p.amount, p.currency)),
+    );
 
     const newPayouts: Prisma.PayoutCreateManyInput[] = [];
 
     for (const escrow of eligible) {
       const { sellerId, currency } = escrow.order;
-      if (paidSellerSet.has(sellerId)) continue;
+      if (existingOrderIds.has(escrow.orderId)) continue;
 
       const netAmount = Math.floor(
         escrow.amountCents * (1 - PLATFORM_FEE_RATE),
       );
+      if (
+        legacyPayoutKeys.has(
+          this.legacyPayoutKey(sellerId, netAmount, currency),
+        )
+      ) {
+        this.logger.warn(
+          `schedulePayouts: withholding order ${escrow.orderId}; a matching legacy payout requires reconciliation`,
+        );
+        continue;
+      }
       if (netAmount < MINIMUM_PAYOUT_CENTS) {
         this.logger.warn(
           `schedulePayouts: skipping seller ${sellerId} — net amount ${netAmount} below minimum`,
@@ -248,6 +264,7 @@ export class PayoutsService {
 
       newPayouts.push({
         sellerId,
+        orderId: escrow.orderId,
         amount: netAmount,
         currency: currency.toLowerCase(),
         status: PayoutStatus.PENDING,
@@ -256,14 +273,79 @@ export class PayoutsService {
     }
 
     if (newPayouts.length) {
-      await this.prisma.payout.createMany({
-        data: newPayouts,
-        skipDuplicates: false,
-      });
-      this.logger.log(
-        `schedulePayouts: created ${newPayouts.length} payout record(s)`,
-      );
+      try {
+        await this.prisma.payout.createMany({
+          data: newPayouts,
+          skipDuplicates: true,
+        });
+        this.logger.log(
+          `schedulePayouts: created ${newPayouts.length} payout record(s)`,
+        );
+      } catch (e: any) {
+        if (e?.code === "P2002") {
+          this.logger.warn(
+            `schedulePayouts: duplicate payout skipped (concurrent run)`,
+          );
+        } else {
+          throw e;
+        }
+      }
     }
+  }
+
+  @Cron("0 6 * * *")
+  async reconcileStuckPayouts(): Promise<void> {
+    const stuck = await this.prisma.payout.findMany({
+      where: {
+        status: PayoutStatus.PROCESSING,
+        updatedAt: { lte: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+      select: {
+        id: true,
+        stripeTransferId: true,
+        paystackTransferCode: true,
+        updatedAt: true,
+      },
+    });
+    if (!stuck.length) return;
+    this.logger.warn(
+      `reconcileStuckPayouts: found ${stuck.length} stuck PROCESSING payout(s)`,
+    );
+    for (const p of stuck) {
+      // Check provider for final status if possible, otherwise reset to PENDING for retry
+      try {
+        if (p.stripeTransferId && this.stripe) {
+          const tr = await this.stripe.transfers.retrieve(p.stripeTransferId);
+          if (tr.reversed) {
+            await this.handleTransferFailed(
+              p.stripeTransferId,
+              "Transfer reversed by provider",
+            );
+          }
+        } else if (p.paystackTransferCode) {
+          // Paystack transfer status check could be added here
+        }
+      } catch {}
+      // If still PROCESSING after check, reset to PENDING for manual review after 24h
+      const ageHours = (Date.now() - p.updatedAt.getTime()) / (1000 * 60 * 60);
+      if (ageHours > 24) {
+        await this.prisma.payout.update({
+          where: { id: p.id },
+          data: {
+            status: PayoutStatus.PENDING,
+            failureReason: "Reconciled: stuck PROCESSING >24h",
+          },
+        });
+      }
+    }
+  }
+
+  private legacyPayoutKey(
+    sellerId: string,
+    amount: number,
+    currency: string,
+  ): string {
+    return `${sellerId}:${amount}:${currency.toLowerCase()}`;
   }
 
   // ─── Processing ───────────────────────────────────────────────────────────

@@ -1,35 +1,35 @@
-import { createHash } from 'crypto';
-import type { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import { createHash } from "crypto";
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 
-import { createApiClient } from './api-client';
+import { createApiClient } from "./api-client";
 
 // Mock auth is only allowed in local development — never in production builds
 const allowMockAuth =
-  process.env.NODE_ENV === 'development' &&
-  process.env.NEXT_PUBLIC_USE_API_MOCKS === 'true';
+  process.env.NODE_ENV === "development" &&
+  process.env.NEXT_PUBLIC_USE_API_MOCKS === "true";
 
 // 15-minute access token; refresh 60 s before expiry
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 const REFRESH_BEFORE_MS = 60 * 1000;
 
 function deviceFingerprint(userAgent: string | undefined): string {
-  return createHash('sha256')
-    .update(userAgent ?? 'nextauth-server')
-    .digest('hex')
+  return createHash("sha256")
+    .update(userAgent ?? "nextauth-server")
+    .digest("hex")
     .slice(0, 32);
 }
 
 export const authOptions: NextAuthOptions = {
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
   },
   providers: [
     CredentialsProvider({
-      id: 'token-auth',
-      name: 'Token',
+      id: "token-auth",
+      name: "Token",
       credentials: {
-        token: { label: 'Token', type: 'text' },
+        token: { label: "Token", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.token) return null;
@@ -50,17 +50,17 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials.password) {
           return null;
         }
         const fingerprint = deviceFingerprint(
-          (req?.headers as Record<string, string> | undefined)?.['user-agent'],
+          (req?.headers as Record<string, string> | undefined)?.["user-agent"],
         );
         const api = createApiClient();
         try {
@@ -71,7 +71,7 @@ export const authOptions: NextAuthOptions = {
           });
           // 2FA responses are handled by the signin form directly; Credentials
           // provider only completes login for full AuthResponse.
-          if ('twoFactorRequired' in auth || 'twoFactorSetupRequired' in auth) {
+          if ("twoFactorRequired" in auth || "twoFactorSetupRequired" in auth) {
             return null;
           }
           return {
@@ -85,11 +85,11 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           if (allowMockAuth) {
             return {
-              id: 'mock-user',
+              id: "mock-user",
               email: credentials.email,
-              name: 'Mock Seller',
-              role: 'SELLER',
-              accessToken: 'mock-token',
+              name: "Mock Seller",
+              role: "SELLER",
+              accessToken: "mock-token",
               refreshToken: undefined,
             } as any;
           }
@@ -122,11 +122,11 @@ export const authOptions: NextAuthOptions = {
       // Silently exchange the refresh token for a new access token
       try {
         const baseUrl =
-          process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+          process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
         const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${refreshToken}`,
           },
         });
@@ -157,7 +157,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/login',
+    signIn: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -1,8 +1,14 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
-import { Observable } from 'rxjs';
-import { SKIP_TOS_CHECK } from '../decorators/skip-tos-check.decorator';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  ForbiddenException,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
+import { Observable } from "rxjs";
+import { SKIP_TOS_CHECK } from "../decorators/skip-tos-check.decorator";
 
 @Injectable()
 export class TosInterceptor implements NestInterceptor {
@@ -18,13 +24,19 @@ export class TosInterceptor implements NestInterceptor {
     ]);
     if (skip) return next.handle();
 
-    const req = context.switchToHttp().getRequest<{ user?: { termsAcceptedAt?: Date | null; tosVersion?: string | null } }>();
+    const req = context.switchToHttp().getRequest<{
+      user?: { termsAcceptedAt?: Date | null; tosVersion?: string | null };
+    }>();
     const user = req.user;
     if (!user) return next.handle();
 
-    const currentVersion = this.config.get<string>('TOS_VERSION') ?? '2024-01-01';
+    const currentVersion =
+      this.config.get<string>("TOS_VERSION") ?? "2024-01-01";
     if (!user.termsAcceptedAt || user.tosVersion !== currentVersion) {
-      throw new ForbiddenException({ code: 'TOS_REQUIRED', message: 'You must accept the Terms of Service to continue' });
+      throw new ForbiddenException({
+        code: "TOS_REQUIRED",
+        message: "You must accept the Terms of Service to continue",
+      });
     }
 
     return next.handle();

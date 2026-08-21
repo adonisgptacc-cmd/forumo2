@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
-import { ApiError, type AuthResponse } from "@forumo/shared";
+import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../lib/api-client";
 import { GoogleSignInButton } from "../../components/google-signin-button";
+import { set2FaToken } from "../../lib/2fa-store";
 
 export function LoginForm() {
   const router = useRouter();
@@ -21,15 +22,6 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const resetSuccess = searchParams?.get("reset") === "success";
 
-  const persistAuth = useCallback((auth: AuthResponse) => {
-    try {
-      localStorage.setItem("forumo.accessToken", auth.accessToken);
-      localStorage.setItem("forumo.user", JSON.stringify(auth.user));
-    } catch {
-      // ignore write errors (e.g., Safari private mode)
-    }
-  }, []);
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -39,12 +31,7 @@ export function LoginForm() {
 
       // ── 2FA gate ────────────────────────────────────────────────────────
       if ("twoFactorToken" in result) {
-        try {
-          sessionStorage.setItem("forumo.2faToken", result.twoFactorToken);
-          sessionStorage.setItem("forumo.callbackUrl", callbackUrl);
-        } catch {
-          /* ignore */
-        }
+        set2FaToken(result.twoFactorToken, callbackUrl);
 
         if ("twoFactorSetupRequired" in result) {
           router.push("/login/2fa?mode=setup" as any);
@@ -55,7 +42,6 @@ export function LoginForm() {
       }
 
       // ── Full auth response (should not happen if 2FA is mandatory) ──────
-      persistAuth(result);
       const nextAuthResult = await signIn("token-auth", {
         token: result.accessToken,
         redirect: false,
@@ -65,12 +51,6 @@ export function LoginForm() {
       router.push((nextAuthResult?.url ?? callbackUrl) as any);
       router.refresh();
     } catch (err) {
-      try {
-        localStorage.removeItem("forumo.accessToken");
-        localStorage.removeItem("forumo.user");
-      } catch {
-        /* ignore */
-      }
       const apiErrorMessage = err instanceof ApiError ? err.message : null;
       const genericMessage = err instanceof Error ? err.message : null;
       setError(

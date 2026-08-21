@@ -1,6 +1,6 @@
-import { HttpModule } from '@nestjs/axios';
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { HttpModule } from "@nestjs/axios";
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 import { OrdersController } from "./orders.controller";
@@ -17,9 +17,22 @@ import { ShippingModule } from "../shipping/shipping.module";
 import { ShippoWebhookController } from "./shippo-webhook.controller";
 
 @Module({
-  imports: [HttpModule, PrismaModule, ObservabilityModule, NotificationsModule, PayoutsModule, FeesModule, ShippingModule],
+  imports: [
+    HttpModule,
+    PrismaModule,
+    ObservabilityModule,
+    NotificationsModule,
+    PayoutsModule,
+    FeesModule,
+    ShippingModule,
+  ],
   controllers: [OrdersController, PaymentsController, ShippoWebhookController],
-  providers: [OrdersService, PaymentsService, PaymentProviderFactory, TaxService],
+  providers: [
+    OrdersService,
+    PaymentsService,
+    PaymentProviderFactory,
+    TaxService,
+  ],
   exports: [OrdersService, PaymentsService, TaxService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

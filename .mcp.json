@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cxpak": {
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/cxpak-mcp.ps1"
+      ]
+    }
+  }
+}

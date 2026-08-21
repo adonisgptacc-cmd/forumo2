@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useListing } from '../../../../../../lib/react-query/hooks';
-import { ListingForm } from '../../../../../../components/listings/ListingForm';
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useListing } from "../../../../../../lib/react-query/hooks";
+import { ListingForm } from "../../../../../../components/listings/ListingForm";
 
 export default function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +22,10 @@ export default function EditListingPage() {
     return (
       <div className="mx-auto max-w-2xl text-center py-16">
         <p className="muted">Listing not found.</p>
-        <Link href={'/app/listings' as any} className="mt-4 inline-block text-sm text-[color:var(--accent)] hover:underline">
+        <Link
+          href={"/app/listings" as any}
+          className="mt-4 inline-block text-sm text-[color:var(--accent)] hover:underline"
+        >
           ← Back to My Listings
         </Link>
       </div>
@@ -33,7 +36,7 @@ export default function EditListingPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <Link
-          href={'/app/listings' as any}
+          href={"/app/listings" as any}
           className="text-xs muted hover:text-[color:var(--accent)]"
         >
           ← My Listings

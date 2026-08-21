@@ -1,20 +1,20 @@
-import type { MetadataRoute } from 'next';
+import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://forumo.africa';
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://forumo.africa";
   return {
     rules: [
       {
-        userAgent: '*',
-        allow: '/',
+        userAgent: "*",
+        allow: "/",
         disallow: [
-          '/admin/',
-          '/app/',
-          '/api/',
-          '/auth/',
-          '/login',
-          '/signup',
-          '/unauthorized',
+          "/admin/",
+          "/app/",
+          "/api/",
+          "/auth/",
+          "/login",
+          "/signup",
+          "/unauthorized",
         ],
       },
     ],

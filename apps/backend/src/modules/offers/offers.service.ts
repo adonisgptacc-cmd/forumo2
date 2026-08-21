@@ -86,10 +86,13 @@ export class OffersService {
       if (offer.expiresAt && offer.expiresAt < new Date())
         throw new BadRequestException("Offer has expired");
 
-      const updated = await tx.offer.update({
-        where: { id: offerId },
+      const accepted = await tx.offer.updateMany({
+        where: { id: offerId, status: "PENDING" },
         data: { status: "ACCEPTED" },
       });
+      if (accepted.count === 0) {
+        throw new BadRequestException("Offer not pending");
+      }
 
       await tx.offer.updateMany({
         where: {
@@ -129,7 +132,7 @@ export class OffersService {
         where: { id: offer.listingId },
         data: { status: ListingStatus.PAUSED },
       });
-      return updated;
+      return tx.offer.findUnique({ where: { id: offerId } });
     });
     await this.cache.deleteByPrefix("listings:search:");
     return updatedOffer;

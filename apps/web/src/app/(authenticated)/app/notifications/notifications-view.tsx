@@ -1,44 +1,49 @@
-'use client';
+"use client";
 
-import { useNotifications, useMarkNotificationRead, useMarkAllRead, useUnreadCount } from '../../../../lib/react-query/hooks';
-import type { SafeNotification } from '@forumo/shared';
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllRead,
+  useUnreadCount,
+} from "../../../../lib/react-query/hooks";
+import type { SafeNotification } from "@forumo/shared";
 
 const TEMPLATE_LABELS: Record<string, string> = {
-  ORDER_PLACED: 'Order Placed',
-  ORDER_STATUS_CHANGED: 'Order Update',
-  PAYMENT_RECEIVED: 'Payment Received',
-  OFFER_RECEIVED: 'New Offer',
-  OFFER_ACCEPTED: 'Offer Accepted',
-  OFFER_DECLINED: 'Offer Declined',
-  MESSAGE_RECEIVED: 'New Message',
-  KYC_STATUS_CHANGED: 'Verification Update',
-  LISTING_PUBLISHED: 'Listing Published',
-  LISTING_MODERATED: 'Listing Moderated',
-  AUCTION_OUTBID: 'You Were Outbid',
-  ESCROW_UPDATE: 'Escrow Update',
-  REVIEW_RECEIVED: 'New Review',
+  ORDER_PLACED: "Order Placed",
+  ORDER_STATUS_CHANGED: "Order Update",
+  PAYMENT_RECEIVED: "Payment Received",
+  OFFER_RECEIVED: "New Offer",
+  OFFER_ACCEPTED: "Offer Accepted",
+  OFFER_DECLINED: "Offer Declined",
+  MESSAGE_RECEIVED: "New Message",
+  KYC_STATUS_CHANGED: "Verification Update",
+  LISTING_PUBLISHED: "Listing Published",
+  LISTING_MODERATED: "Listing Moderated",
+  AUCTION_OUTBID: "You Were Outbid",
+  ESCROW_UPDATE: "Escrow Update",
+  REVIEW_RECEIVED: "New Review",
 };
 
 const TEMPLATE_ICONS: Record<string, string> = {
-  ORDER_PLACED: '📦',
-  ORDER_STATUS_CHANGED: '🔄',
-  PAYMENT_RECEIVED: '💰',
-  OFFER_RECEIVED: '🤝',
-  OFFER_ACCEPTED: '✅',
-  OFFER_DECLINED: '❌',
-  MESSAGE_RECEIVED: '💬',
-  KYC_STATUS_CHANGED: '🪪',
-  LISTING_PUBLISHED: '🏷️',
-  LISTING_MODERATED: '🚩',
-  AUCTION_OUTBID: '🔔',
-  ESCROW_UPDATE: '🔒',
-  REVIEW_RECEIVED: '⭐',
+  ORDER_PLACED: "📦",
+  ORDER_STATUS_CHANGED: "🔄",
+  PAYMENT_RECEIVED: "💰",
+  OFFER_RECEIVED: "🤝",
+  OFFER_ACCEPTED: "✅",
+  OFFER_DECLINED: "❌",
+  MESSAGE_RECEIVED: "💬",
+  KYC_STATUS_CHANGED: "🪪",
+  LISTING_PUBLISHED: "🏷️",
+  LISTING_MODERATED: "🚩",
+  AUCTION_OUTBID: "🔔",
+  ESCROW_UPDATE: "🔒",
+  REVIEW_RECEIVED: "⭐",
 };
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -46,35 +51,47 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`;
 }
 
-function NotificationItem({ notification, onRead }: { notification: SafeNotification; onRead: (id: string) => void }) {
+function NotificationItem({
+  notification,
+  onRead,
+}: {
+  notification: SafeNotification;
+  onRead: (id: string) => void;
+}) {
   const isUnread = !notification.readAt;
   const label = TEMPLATE_LABELS[notification.template] ?? notification.template;
-  const icon = TEMPLATE_ICONS[notification.template] ?? '🔔';
+  const icon = TEMPLATE_ICONS[notification.template] ?? "🔔";
   const payload = notification.payload as Record<string, unknown>;
 
   // Build a human-readable body from the payload
   const body = payload.message
     ? String(payload.message)
     : payload.orderId
-    ? `Order #${String(payload.orderId).slice(0, 8)}`
-    : payload.listingTitle
-    ? String(payload.listingTitle)
-    : null;
+      ? `Order #${String(payload.orderId).slice(0, 8)}`
+      : payload.listingTitle
+        ? String(payload.listingTitle)
+        : null;
 
   return (
     <li
       className={`flex items-start gap-4 p-4 rounded-xl border transition-colors cursor-pointer ${
         isUnread
-          ? 'border-[color:var(--accent)]/40 bg-[color:var(--accent-bg)] hover:brightness-[0.98]'
-          : 'border-[color:var(--line)] bg-[color:var(--surface)] hover:bg-[color:var(--surface-2)]'
+          ? "border-[color:var(--accent)]/40 bg-[color:var(--accent-bg)] hover:brightness-[0.98]"
+          : "border-[color:var(--line)] bg-[color:var(--surface)] hover:bg-[color:var(--surface-2)]"
       }`}
       onClick={() => isUnread && onRead(notification.id)}
     >
       <span className="text-2xl flex-shrink-0 mt-0.5">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className={`text-sm font-medium ${isUnread ? 'text-[color:var(--ink)]' : 'subtle'}`}>{label}</p>
-          <span className="text-xs muted flex-shrink-0">{timeAgo(notification.createdAt)}</span>
+          <p
+            className={`text-sm font-medium ${isUnread ? "text-[color:var(--ink)]" : "subtle"}`}
+          >
+            {label}
+          </p>
+          <span className="text-xs muted flex-shrink-0">
+            {timeAgo(notification.createdAt)}
+          </span>
         </div>
         {body && <p className="text-xs muted mt-0.5 truncate">{body}</p>}
         {isUnread && (
@@ -108,7 +125,9 @@ export function NotificationsView() {
       <div className="py-20 text-center border border-dashed border-[color:var(--line-2)] rounded-2xl">
         <p className="text-4xl mb-3">🔔</p>
         <p className="subtle font-medium">No notifications yet</p>
-        <p className="text-sm muted mt-1">We&apos;ll notify you about orders, offers, messages and more.</p>
+        <p className="text-sm muted mt-1">
+          We&apos;ll notify you about orders, offers, messages and more.
+        </p>
       </div>
     );
   }
@@ -119,11 +138,13 @@ export function NotificationsView() {
       <div className="flex items-center justify-between">
         <p className="text-sm muted">
           {unreadCount > 0 ? (
-            <span className="font-medium text-[color:var(--accent)]">{unreadCount} unread</span>
+            <span className="font-medium text-[color:var(--accent)]">
+              {unreadCount} unread
+            </span>
           ) : (
-            'All caught up'
-          )}
-          {' '}· {notifications.length} total
+            "All caught up"
+          )}{" "}
+          · {notifications.length} total
         </p>
         {unreadCount > 0 && (
           <button
@@ -131,7 +152,7 @@ export function NotificationsView() {
             disabled={markAllRead.isPending}
             className="text-xs text-[color:var(--accent)] hover:text-[color:var(--accent-2)] disabled:opacity-50 transition-colors"
           >
-            {markAllRead.isPending ? 'Marking…' : 'Mark all as read'}
+            {markAllRead.isPending ? "Marking…" : "Mark all as read"}
           </button>
         )}
       </div>

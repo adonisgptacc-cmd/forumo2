@@ -72,8 +72,8 @@ services:
       context: ./apps/moderation-service
       dockerfile: Dockerfile
     container_name: forumo-moderation
-    ports:
-      - "5005:5005"
+    environment:
+      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
 
   backend:
     build:
@@ -85,6 +85,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=dev-super-secret-key-change-in-prod
       - MODERATION_SERVICE_URL=http://moderation:5005
+      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioadmin

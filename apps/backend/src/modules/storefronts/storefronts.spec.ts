@@ -1,21 +1,21 @@
-import { CanActivate, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
-import request from 'supertest';
+import { CanActivate, INestApplication } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { StorefrontsModule } from './storefronts.module';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from "../../prisma/prisma.service";
+import { StorefrontsModule } from "./storefronts.module";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
-const USER_ID = 'seller-1';
-const OTHER_USER_ID = 'seller-2';
+const USER_ID = "seller-1";
+const OTHER_USER_ID = "seller-2";
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
-    req.user = { id: MockGuard.userId, role: 'SELLER' };
+    req.user = { id: MockGuard.userId, role: "SELLER" };
     return true;
   }
 }
@@ -51,16 +51,20 @@ class InMemoryPrismaService {
         return {
           ...sf,
           collections: include?.collections
-            ? Array.from(self.collections.values()).filter((c) => c.storefrontId === sf.id)
+            ? Array.from(self.collections.values()).filter(
+                (c) => c.storefrontId === sf.id,
+              )
             : undefined,
-          user: include?.user ? { id: sf.userId, name: 'Test Seller', avatarUrl: null } : undefined,
+          user: include?.user
+            ? { id: sf.userId, name: "Test Seller", avatarUrl: null }
+            : undefined,
         };
       },
       create: async ({ data }: any) => {
         const sf = {
           id: randomUUID(),
           ...data,
-          status: 'ACTIVE',
+          status: "ACTIVE",
           createdAt: new Date(),
           updatedAt: new Date(),
           collections: [],
@@ -92,18 +96,23 @@ class InMemoryPrismaService {
     return {
       findMany: async ({ where }: any) => {
         return Array.from(self.collections.values()).filter(
-          (c) => c.storefrontId === where.storefrontId
+          (c) => c.storefrontId === where.storefrontId,
         );
       },
       findFirst: async ({ where }: any) => {
         return (
           Array.from(self.collections.values()).find(
-            (c) => c.id === where.id && c.storefrontId === where.storefrontId
+            (c) => c.id === where.id && c.storefrontId === where.storefrontId,
           ) ?? null
         );
       },
       create: async ({ data }: any) => {
-        const c = { id: randomUUID(), ...data, createdAt: new Date(), updatedAt: new Date() };
+        const c = {
+          id: randomUUID(),
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
         self.collections.set(c.id, c);
         return c;
       },
@@ -123,7 +132,7 @@ class InMemoryPrismaService {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('StorefrontsModule', () => {
+describe("StorefrontsModule", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
 
@@ -147,66 +156,66 @@ describe('StorefrontsModule', () => {
 
   // ── Create ──
 
-  describe('POST /storefronts', () => {
-    it('creates a storefront for the authenticated seller', async () => {
+  describe("POST /storefronts", () => {
+    it("creates a storefront for the authenticated seller", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop', description: 'Cool stuff' })
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop", description: "Cool stuff" })
         .expect(201);
 
       expect(res.body.userId).toBe(USER_ID);
-      expect(res.body.slug).toBe('my-shop');
-      expect(res.body.name).toBe('My Shop');
+      expect(res.body.slug).toBe("my-shop");
+      expect(res.body.name).toBe("My Shop");
     });
 
-    it('rejects duplicate storefront for same user', async () => {
+    it("rejects duplicate storefront for same user", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop' });
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop" });
 
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'Second Shop', slug: 'second-shop' })
+        .post("/storefronts")
+        .send({ name: "Second Shop", slug: "second-shop" })
         .expect(409);
     });
 
-    it('rejects duplicate slug', async () => {
+    it("rejects duplicate slug", async () => {
       await buildApp(USER_ID);
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'Shop A', slug: 'taken-slug' });
+        .post("/storefronts")
+        .send({ name: "Shop A", slug: "taken-slug" });
 
       MockGuard.userId = OTHER_USER_ID;
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'Shop B', slug: 'taken-slug' })
+        .post("/storefronts")
+        .send({ name: "Shop B", slug: "taken-slug" })
         .expect(409);
     });
   });
 
   // ── Get mine ──
 
-  describe('GET /storefronts/me', () => {
-    it('returns my storefront with collections', async () => {
+  describe("GET /storefronts/me", () => {
+    it("returns my storefront with collections", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop' });
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop" });
 
       const res = await request(app.getHttpServer())
-        .get('/storefronts/me')
+        .get("/storefronts/me")
         .expect(200);
 
       expect(res.body.userId).toBe(USER_ID);
       expect(res.body.collections).toBeDefined();
     });
 
-    it('returns empty/null when user has no storefront', async () => {
+    it("returns empty/null when user has no storefront", async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .get('/storefronts/me')
+        .get("/storefronts/me")
         .expect(200);
 
       // NestJS doesn't serialize null as JSON null — body will be empty or falsy
@@ -216,119 +225,115 @@ describe('StorefrontsModule', () => {
 
   // ── Update ──
 
-  describe('PATCH /storefronts/me', () => {
-    it('updates storefront fields', async () => {
+  describe("PATCH /storefronts/me", () => {
+    it("updates storefront fields", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop' });
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop" });
 
       const res = await request(app.getHttpServer())
-        .patch('/storefronts/me')
-        .send({ name: 'Updated Shop', description: 'Now with more stuff' })
+        .patch("/storefronts/me")
+        .send({ name: "Updated Shop", description: "Now with more stuff" })
         .expect(200);
 
-      expect(res.body.name).toBe('Updated Shop');
-      expect(res.body.description).toBe('Now with more stuff');
+      expect(res.body.name).toBe("Updated Shop");
+      expect(res.body.description).toBe("Now with more stuff");
     });
 
-    it('returns 404 when no storefront exists', async () => {
+    it("returns 404 when no storefront exists", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .patch('/storefronts/me')
-        .send({ name: 'Ghost Update' })
+        .patch("/storefronts/me")
+        .send({ name: "Ghost Update" })
         .expect(404);
     });
   });
 
   // ── Delete ──
 
-  describe('DELETE /storefronts/me', () => {
-    it('deletes the storefront', async () => {
+  describe("DELETE /storefronts/me", () => {
+    it("deletes the storefront", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop' });
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop" });
 
-      await request(app.getHttpServer())
-        .delete('/storefronts/me')
-        .expect(204);
+      await request(app.getHttpServer()).delete("/storefronts/me").expect(204);
 
       expect(prismaMock.storefronts.get(USER_ID)).toBeUndefined();
     });
 
-    it('returns 404 when nothing to delete', async () => {
+    it("returns 404 when nothing to delete", async () => {
       await buildApp();
-      await request(app.getHttpServer())
-        .delete('/storefronts/me')
-        .expect(404);
+      await request(app.getHttpServer()).delete("/storefronts/me").expect(404);
     });
   });
 
   // ── Get by slug (public) ──
 
-  describe('GET /storefronts/:slug', () => {
-    it('returns storefront by slug without auth', async () => {
+  describe("GET /storefronts/:slug", () => {
+    it("returns storefront by slug without auth", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'Public Shop', slug: 'public-shop' });
+        .post("/storefronts")
+        .send({ name: "Public Shop", slug: "public-shop" });
 
       const res = await request(app.getHttpServer())
-        .get('/storefronts/public-shop')
+        .get("/storefronts/public-shop")
         .expect(200);
 
-      expect(res.body.slug).toBe('public-shop');
+      expect(res.body.slug).toBe("public-shop");
     });
 
-    it('returns 404 for unknown slug', async () => {
+    it("returns 404 for unknown slug", async () => {
       await buildApp();
       await request(app.getHttpServer())
-        .get('/storefronts/no-such-shop')
+        .get("/storefronts/no-such-shop")
         .expect(404);
     });
   });
 
   // ── Collections ──
 
-  describe('Collections', () => {
+  describe("Collections", () => {
     let storefrontId: string;
 
     beforeEach(async () => {
       await buildApp();
       const res = await request(app.getHttpServer())
-        .post('/storefronts')
-        .send({ name: 'My Shop', slug: 'my-shop' });
+        .post("/storefronts")
+        .send({ name: "My Shop", slug: "my-shop" });
       storefrontId = res.body.id;
     });
 
-    it('creates a collection', async () => {
+    it("creates a collection", async () => {
       const res = await request(app.getHttpServer())
-        .post('/storefronts/me/collections')
-        .send({ name: 'Summer Collection', slug: 'summer' })
+        .post("/storefronts/me/collections")
+        .send({ name: "Summer Collection", slug: "summer" })
         .expect(201);
 
-      expect(res.body.name).toBe('Summer Collection');
+      expect(res.body.name).toBe("Summer Collection");
       expect(res.body.storefrontId).toBe(storefrontId);
     });
 
-    it('lists collections for storefront', async () => {
+    it("lists collections for storefront", async () => {
       await request(app.getHttpServer())
-        .post('/storefronts/me/collections')
-        .send({ name: 'Col A', slug: 'col-a' });
+        .post("/storefronts/me/collections")
+        .send({ name: "Col A", slug: "col-a" });
 
       const res = await request(app.getHttpServer())
-        .get('/storefronts/me/collections')
+        .get("/storefronts/me/collections")
         .expect(200);
 
       expect(res.body).toHaveLength(1);
-      expect(res.body[0].name).toBe('Col A');
+      expect(res.body[0].name).toBe("Col A");
     });
 
-    it('deletes a collection', async () => {
+    it("deletes a collection", async () => {
       const createRes = await request(app.getHttpServer())
-        .post('/storefronts/me/collections')
-        .send({ name: 'Temp Col', slug: 'temp' });
+        .post("/storefronts/me/collections")
+        .send({ name: "Temp Col", slug: "temp" });
       const colId = createRes.body.id;
 
       await request(app.getHttpServer())

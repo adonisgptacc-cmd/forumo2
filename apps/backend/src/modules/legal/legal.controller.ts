@@ -1,13 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SkipTosCheck } from '../../common/decorators/skip-tos-check.decorator';
-import { LegalService } from './legal.service';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
+import { LegalService } from "./legal.service";
 
-@Controller('legal')
+@Controller("legal")
 export class LegalController {
   constructor(private readonly legalService: LegalService) {}
 
-  @Post('accept-tos')
+  @Post("accept-tos")
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
   @SkipTosCheck()
@@ -16,24 +25,24 @@ export class LegalController {
       req.user.id,
       body.version,
       req.ip ?? null,
-      req.headers?.['user-agent'] ?? null,
+      req.headers?.["user-agent"] ?? null,
     );
   }
 
-  @Post('delete-account')
+  @Post("delete-account")
   @UseGuards(JwtAuthGuard)
   initiateAccountDeletion(@Req() req: any) {
     return this.legalService.initiateAccountDeletion(req.user.id);
   }
 
-  @Post('cancel-deletion')
+  @Post("cancel-deletion")
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
   cancelDeletion(@Req() req: any) {
     return this.legalService.cancelDeletion(req.user.id);
   }
 
-  @Get('data-export')
+  @Get("data-export")
   @UseGuards(JwtAuthGuard)
   @SkipTosCheck()
   exportData(@Req() req: any) {

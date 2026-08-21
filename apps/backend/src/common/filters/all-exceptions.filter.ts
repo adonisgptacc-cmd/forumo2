@@ -1,15 +1,22 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from "@nestjs/common";
+import type { Request, Response } from "express";
 
 // Sentry is optional — only imported when DSN is configured
-let Sentry: typeof import('@sentry/node') | null = null;
+let Sentry: typeof import("@sentry/node") | null = null;
 if (process.env.SENTRY_DSN) {
-  import('@sentry/node').then((mod) => {
+  import("@sentry/node").then((mod) => {
     Sentry = mod;
     mod.init({
       dsn: process.env.SENTRY_DSN,
-      environment: process.env.NODE_ENV ?? 'development',
-      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
+      environment: process.env.NODE_ENV ?? "development",
+      tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0,
     });
   });
 }
@@ -31,7 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const message =
       exception instanceof HttpException
         ? exception.message
-        : 'Internal server error';
+        : "Internal server error";
 
     // Report unexpected 5xx errors to Sentry
     if (status >= 500 && Sentry) {

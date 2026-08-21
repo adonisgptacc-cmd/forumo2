@@ -1,6 +1,9 @@
-'use client';
+"use client";
 
-import { useCurrentUser, useSellerReviewRollup } from '../../../../lib/react-query/hooks';
+import {
+  useCurrentUser,
+  useSellerReviewRollup,
+} from "../../../../lib/react-query/hooks";
 
 export function SellerReviewsView() {
   const { user } = useCurrentUser();
@@ -43,26 +46,41 @@ export function SellerReviewsView() {
       <section className="card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-6">
           <div className="text-center sm:text-left shrink-0">
-            <p className="text-6xl font-bold text-[color:var(--accent)]">{avg.toFixed(1)}</p>
+            <p className="text-6xl font-bold text-[color:var(--accent)]">
+              {avg.toFixed(1)}
+            </p>
             <div className="flex justify-center sm:justify-start gap-0.5 mt-2 text-xl">
               {[1, 2, 3, 4, 5].map((s) => (
-                <span key={s} className={avg >= s ? 'text-[color:var(--accent)]' : 'text-[color:var(--line-2)]'}>★</span>
+                <span
+                  key={s}
+                  className={
+                    avg >= s
+                      ? "text-[color:var(--accent)]"
+                      : "text-[color:var(--line-2)]"
+                  }
+                >
+                  ★
+                </span>
               ))}
             </div>
             <p className="text-sm muted mt-2">
-              {rollup.publishedCount} published review{rollup.publishedCount !== 1 ? 's' : ''}
+              {rollup.publishedCount} published review
+              {rollup.publishedCount !== 1 ? "s" : ""}
             </p>
           </div>
 
           <div className="flex-1 space-y-2">
             {stars.map((s) => {
               const count = starCounts[s] ?? 0;
-              const pct = rollup.publishedCount > 0
-                ? Math.round((count / rollup.publishedCount) * 100)
-                : 0;
+              const pct =
+                rollup.publishedCount > 0
+                  ? Math.round((count / rollup.publishedCount) * 100)
+                  : 0;
               return (
                 <div key={s} className="flex items-center gap-3 text-xs">
-                  <span className="text-[color:var(--accent)] w-5 text-right shrink-0">{s}★</span>
+                  <span className="text-[color:var(--accent)] w-5 text-right shrink-0">
+                    {s}★
+                  </span>
                   <div className="flex-1 h-2 rounded-full bg-[color:var(--surface-2)] overflow-hidden">
                     <div
                       className="h-full rounded-full bg-[color:var(--accent)]"
@@ -79,25 +97,48 @@ export function SellerReviewsView() {
 
       {/* Status breakdown */}
       <section className="card p-5 space-y-3">
-        <h3 className="text-sm font-semibold subtle">Review Status Breakdown</h3>
+        <h3 className="text-sm font-semibold subtle">
+          Review Status Breakdown
+        </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MiniStat label="Total" value={rollup.reviewCount} />
-          <MiniStat label="Published" value={rollup.publishedCount} color="text-[color:var(--escrow)]" />
-          <MiniStat label="Pending" value={rollup.pendingCount} color="text-amber-700" />
-          <MiniStat label="Flagged" value={rollup.flaggedCount} color="text-red-600" />
+          <MiniStat
+            label="Published"
+            value={rollup.publishedCount}
+            color="text-[color:var(--escrow)]"
+          />
+          <MiniStat
+            label="Pending"
+            value={rollup.pendingCount}
+            color="text-amber-700"
+          />
+          <MiniStat
+            label="Flagged"
+            value={rollup.flaggedCount}
+            color="text-red-600"
+          />
         </div>
       </section>
 
       {rollup.lastReviewAt && (
         <p className="text-xs muted text-right">
-          Last review received: {new Date(rollup.lastReviewAt).toLocaleDateString()}
+          Last review received:{" "}
+          {new Date(rollup.lastReviewAt).toLocaleDateString()}
         </p>
       )}
     </div>
   );
 }
 
-function MiniStat({ label, value, color = 'text-[color:var(--ink)]' }: { label: string; value: number; color?: string }) {
+function MiniStat({
+  label,
+  value,
+  color = "text-[color:var(--ink)]",
+}: {
+  label: string;
+  value: number;
+  color?: string;
+}) {
   return (
     <div className="rounded-lg border border-[color:var(--line)] p-3 space-y-1">
       <p className="text-xs muted">{label}</p>

@@ -1,14 +1,17 @@
-'use client';
+"use client";
 
-import type { ListingSearchParams } from '@forumo/shared';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ListingSearchParams } from "@forumo/shared";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { ListingCard } from '../../components/listings/ListingCard';
-import { ListingFilters, type FiltersState } from '../../components/listings/ListingFilters';
-import { useListings } from '../../lib/react-query/hooks';
+import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { ListingCard } from "../../components/listings/ListingCard";
+import {
+  ListingFilters,
+  type FiltersState,
+} from "../../components/listings/ListingFilters";
+import { useListings } from "../../lib/react-query/hooks";
 
 const PAGE_SIZE = 24;
 
@@ -28,17 +31,19 @@ const DEFAULTS: FiltersState = {
 
 function buildUrl(filters: FiltersState): string {
   const p = new URLSearchParams();
-  if (filters.keyword) p.set('keyword', filters.keyword);
-  if (filters.sort) p.set('sort', filters.sort);
-  if (filters.status) p.set('status', filters.status);
-  if (filters.minPriceCents) p.set('minPriceCents', String(filters.minPriceCents));
-  if (filters.maxPriceCents) p.set('maxPriceCents', String(filters.maxPriceCents));
-  if (filters.page && filters.page > 1) p.set('page', String(filters.page));
-  (filters.categories ?? []).forEach((c) => p.append('categories', c));
-  (filters.tags ?? []).forEach((t) => p.append('tags', t));
-  (filters.conditions ?? []).forEach((c) => p.append('condition', c));
+  if (filters.keyword) p.set("keyword", filters.keyword);
+  if (filters.sort) p.set("sort", filters.sort);
+  if (filters.status) p.set("status", filters.status);
+  if (filters.minPriceCents)
+    p.set("minPriceCents", String(filters.minPriceCents));
+  if (filters.maxPriceCents)
+    p.set("maxPriceCents", String(filters.maxPriceCents));
+  if (filters.page && filters.page > 1) p.set("page", String(filters.page));
+  (filters.categories ?? []).forEach((c) => p.append("categories", c));
+  (filters.tags ?? []).forEach((t) => p.append("tags", t));
+  (filters.conditions ?? []).forEach((c) => p.append("condition", c));
   const qs = p.toString();
-  return qs ? `/listings?${qs}` : '/listings';
+  return qs ? `/listings?${qs}` : "/listings";
 }
 
 function toApiFilters(filters: FiltersState): Partial<ListingSearchParams> {
@@ -61,17 +66,19 @@ export function ListingExplorer({
     conditions: initialParams.conditions ?? [],
   });
 
-  const [searchInput, setSearchInput] = useState(initialParams.keyword ?? '');
+  const [searchInput, setSearchInput] = useState(initialParams.keyword ?? "");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiFilters = useMemo(() => toApiFilters(filters), [filters]);
-  const { data, isLoading, isError, error, isFetching } = useListings(apiFilters);
+  const { data, isLoading, isError, error, isFetching } =
+    useListings(apiFilters);
 
   const { showingFrom, showingTo } = useMemo(() => {
-    if (!data || data.data.length === 0) return { showingFrom: 0, showingTo: 0 };
+    if (!data || data.data.length === 0)
+      return { showingFrom: 0, showingTo: 0 };
     const start = (data.page - 1) * data.pageSize + 1;
     return { showingFrom: start, showingTo: start + data.data.length - 1 };
   }, [data]);
@@ -87,13 +94,13 @@ export function ListingExplorer({
   }
 
   function handleReset() {
-    setSearchInput('');
+    setSearchInput("");
     applyFilters({ ...DEFAULTS });
   }
 
   function goToPage(page: number) {
     applyFilters({ ...filters, page });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   useEffect(() => {
@@ -118,10 +125,15 @@ export function ListingExplorer({
         <div>
           <h1 className="text-2xl font-bold">Marketplace</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {filters.keyword ? `Results for "${filters.keyword}"` : 'Browse all listings on Forumo'}
+            {filters.keyword
+              ? `Results for "${filters.keyword}"`
+              : "Browse all listings on Forumo"}
           </p>
         </div>
-        <Link className="btn-forumo text-sm whitespace-nowrap shrink-0" href="/listings/new">
+        <Link
+          className="btn-forumo text-sm whitespace-nowrap shrink-0"
+          href="/listings/new"
+        >
           + New listing
         </Link>
       </div>
@@ -137,7 +149,12 @@ export function ListingExplorer({
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+              />
             </svg>
             <input
               type="text"
@@ -152,8 +169,19 @@ export function ListingExplorer({
             onClick={() => setSidebarOpen((o) => !o)}
             className="md:hidden flex items-center gap-2 px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 8h10M11 12h4" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4h18M7 8h10M11 12h4"
+              />
             </svg>
             Filters
             {activeFilterCount > 0 && (
@@ -165,13 +193,30 @@ export function ListingExplorer({
         </div>
 
         {/* Active filter chips */}
-        <ActiveFilterChips filters={filters} onRemove={(key) => handleFilterChange({ [key]: key === 'conditions' || key === 'categories' || key === 'tags' ? [] : undefined, page: 1 })} />
+        <ActiveFilterChips
+          filters={filters}
+          onRemove={(key) =>
+            handleFilterChange({
+              [key]:
+                key === "conditions" || key === "categories" || key === "tags"
+                  ? []
+                  : undefined,
+              page: 1,
+            })
+          }
+        />
       </div>
 
       <div className="flex gap-6 items-start">
         {/* Sidebar filters — desktop always visible, mobile drawer */}
-        <div className={`w-56 shrink-0 card-forumo ${sidebarOpen ? 'block' : 'hidden'} md:block`}>
-          <ListingFilters filters={filters} onChange={handleFilterChange} onReset={handleReset} />
+        <div
+          className={`w-56 shrink-0 card-forumo ${sidebarOpen ? "block" : "hidden"} md:block`}
+        >
+          <ListingFilters
+            filters={filters}
+            onChange={handleFilterChange}
+            onReset={handleReset}
+          />
         </div>
 
         {/* Results */}
@@ -180,7 +225,8 @@ export function ListingExplorer({
           {!isLoading && data && data.data.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-y-2 text-sm text-slate-500">
               <p>
-                Showing {showingFrom}–{showingTo} of {data.total} result{data.total !== 1 ? 's' : ''}
+                Showing {showingFrom}–{showingTo} of {data.total} result
+                {data.total !== 1 ? "s" : ""}
               </p>
               <PaginationControls
                 page={data.page}
@@ -195,9 +241,11 @@ export function ListingExplorer({
             <SkeletonGrid />
           ) : isError ? (
             <div className="card-forumo text-center py-12">
-              <p className="text-red-600 font-medium">Could not load listings</p>
+              <p className="text-red-600 font-medium">
+                Could not load listings
+              </p>
               <p className="text-sm text-slate-500 mt-1">
-                {(error as Error | undefined)?.message ?? 'Please try again.'}
+                {(error as Error | undefined)?.message ?? "Please try again."}
               </p>
             </div>
           ) : data && data.data.length > 0 ? (
@@ -232,9 +280,16 @@ export function ListingExplorer({
             </>
           ) : (
             <div className="card-forumo text-center py-16 space-y-3">
-              <p className="text-slate-500 font-medium">No listings matched your search</p>
-              <p className="text-sm text-slate-400">Try different keywords, adjust filters, or</p>
-              <Link className="btn-forumo inline-block mt-2 text-sm" href="/listings/new">
+              <p className="text-slate-500 font-medium">
+                No listings matched your search
+              </p>
+              <p className="text-sm text-slate-400">
+                Try different keywords, adjust filters, or
+              </p>
+              <Link
+                className="btn-forumo inline-block mt-2 text-sm"
+                href="/listings/new"
+              >
                 Create a listing
               </Link>
             </div>
@@ -323,16 +378,34 @@ function ActiveFilterChips({
   onRemove: (key: keyof FiltersState) => void;
 }) {
   const chips: { label: string; key: keyof FiltersState }[] = [];
-  if (filters.status) chips.push({ label: `Status: ${filters.status}`, key: 'status' });
-  if (filters.sort) chips.push({ label: `Sort: ${filters.sort}`, key: 'sort' });
-  if (filters.minPriceCents) chips.push({ label: `Min: ${(filters.minPriceCents / 100).toFixed(0)}`, key: 'minPriceCents' });
-  if (filters.maxPriceCents) chips.push({ label: `Max: ${(filters.maxPriceCents / 100).toFixed(0)}`, key: 'maxPriceCents' });
+  if (filters.status)
+    chips.push({ label: `Status: ${filters.status}`, key: "status" });
+  if (filters.sort) chips.push({ label: `Sort: ${filters.sort}`, key: "sort" });
+  if (filters.minPriceCents)
+    chips.push({
+      label: `Min: ${(filters.minPriceCents / 100).toFixed(0)}`,
+      key: "minPriceCents",
+    });
+  if (filters.maxPriceCents)
+    chips.push({
+      label: `Max: ${(filters.maxPriceCents / 100).toFixed(0)}`,
+      key: "maxPriceCents",
+    });
   if ((filters.conditions?.length ?? 0) > 0)
-    chips.push({ label: `Condition: ${(filters.conditions ?? []).join(', ')}`, key: 'conditions' });
+    chips.push({
+      label: `Condition: ${(filters.conditions ?? []).join(", ")}`,
+      key: "conditions",
+    });
   if ((filters.categories?.length ?? 0) > 0)
-    chips.push({ label: `Categories: ${(filters.categories ?? []).join(', ')}`, key: 'categories' });
+    chips.push({
+      label: `Categories: ${(filters.categories ?? []).join(", ")}`,
+      key: "categories",
+    });
   if ((filters.tags?.length ?? 0) > 0)
-    chips.push({ label: `Tags: ${(filters.tags ?? []).join(', ')}`, key: 'tags' });
+    chips.push({
+      label: `Tags: ${(filters.tags ?? []).join(", ")}`,
+      key: "tags",
+    });
 
   if (chips.length === 0) return null;
 

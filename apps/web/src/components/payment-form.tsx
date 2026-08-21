@@ -1,7 +1,11 @@
-'use client';
+"use client";
 
-import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { useState } from 'react';
+import {
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
+import { useState } from "react";
 
 interface PaymentFormProps {
   onSuccess: () => void;
@@ -22,17 +26,19 @@ export function PaymentForm({ onSuccess, onError, orderId }: PaymentFormProps) {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const returnPath = orderId ? `/app/checkout/success?orderId=${orderId}` : '/app/checkout/success';
+    const returnPath = orderId
+      ? `/app/checkout/success?orderId=${orderId}`
+      : "/app/checkout/success";
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}${returnPath}`,
       },
-      redirect: 'if_required',
+      redirect: "if_required",
     });
 
     if (error) {
-      const msg = error.message ?? 'Payment failed. Please try again.';
+      const msg = error.message ?? "Payment failed. Please try again.";
       setErrorMessage(msg);
       onError?.(msg);
     } else {
@@ -51,7 +57,7 @@ export function PaymentForm({ onSuccess, onError, orderId }: PaymentFormProps) {
         className="btn-forumo w-full py-3 font-bold"
         disabled={isLoading || !stripe || !elements}
       >
-        {isLoading ? 'Processing payment…' : 'Pay now'}
+        {isLoading ? "Processing payment…" : "Pay now"}
       </button>
     </form>
   );

@@ -1,4 +1,4 @@
-import { ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorage } from "@nestjs/throttler";
 
 interface ThrottlerStorageRecord {
   totalHits: number;
@@ -6,8 +6,12 @@ interface ThrottlerStorageRecord {
   isBlocked: boolean;
   timeToBlockExpire: number;
 }
-import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
-import type { Redis } from 'ioredis';
+import {
+  RateLimiterMemory,
+  RateLimiterRedis,
+  RateLimiterRes,
+} from "rate-limiter-flexible";
+import type { Redis } from "ioredis";
 
 /**
  * Redis-backed ThrottlerStorage using rate-limiter-flexible.
@@ -63,9 +67,10 @@ export class ThrottlerStorageRedis implements ThrottlerStorage {
       };
     } catch (err) {
       if (err instanceof RateLimiterRes) {
-        const blockSecs = err.msBeforeNext > 0
-          ? Math.ceil(err.msBeforeNext / 1000)
-          : Math.ceil(err.msBeforeNext / 1000);
+        const blockSecs =
+          err.msBeforeNext > 0
+            ? Math.ceil(err.msBeforeNext / 1000)
+            : Math.ceil(err.msBeforeNext / 1000);
         return {
           totalHits: (err.consumedPoints ?? limit) + 1,
           timeToExpire: Math.ceil(err.msBeforeNext / 1000),

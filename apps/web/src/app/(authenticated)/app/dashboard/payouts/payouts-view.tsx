@@ -1,39 +1,45 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import {
   usePayoutBalance,
   usePayouts,
   usePayoutOnboard,
   useRequestPayout,
   useCurrentUser,
-} from '../../../../../lib/react-query/hooks';
-import { createApiClient } from '../../../../../lib/api-client';
+} from "../../../../../lib/react-query/hooks";
+import { createApiClient } from "../../../../../lib/api-client";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function fmt(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+function fmt(cents: number, currency = "USD") {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    cents / 100,
+  );
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 // ─── StripeConnectBanner ─────────────────────────────────────────────────────
 
 function StripeConnectBanner() {
   const searchParams = useSearchParams();
-  const stripeReturn = searchParams?.get('stripe');
+  const stripeReturn = searchParams?.get("stripe");
   const { accessToken } = useCurrentUser();
   const { data, isLoading, refetch } = usePayoutOnboard();
 
   const initOnboard = useMutation<{ url: string }, Error, void>({
     mutationFn: async () => {
       const api = createApiClient(accessToken);
-      return api.post('/payments/stripe/connect/onboard', {}, { auth: true });
+      return api.post("/payments/stripe/connect/onboard", {}, { auth: true });
     },
     onSuccess: (result) => {
       if (result?.url) {
@@ -43,7 +49,7 @@ function StripeConnectBanner() {
   });
 
   // When Stripe redirects back with ?stripe=success, refresh the status
-  if (stripeReturn === 'success') {
+  if (stripeReturn === "success") {
     refetch();
   }
 
@@ -51,33 +57,40 @@ function StripeConnectBanner() {
     return <div className="skeleton h-12 rounded-xl" />;
   }
 
-  if (stripeReturn === 'success' && (!data || data.status !== 'connected')) {
+  if (stripeReturn === "success" && (!data || data.status !== "connected")) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-        <span className="text-sm text-blue-700">Verifying your bank connection…</span>
+        <span className="text-sm text-blue-700">
+          Verifying your bank connection…
+        </span>
       </div>
     );
   }
 
   if (!data) return null;
 
-  if (data.status === 'connected') {
+  if (data.status === "connected") {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
         <span className="text-[color:var(--escrow)] text-lg">✓</span>
-        <span className="text-sm text-emerald-700 font-medium">Bank account connected</span>
+        <span className="text-sm text-emerald-700 font-medium">
+          Bank account connected
+        </span>
       </div>
     );
   }
 
-  if (data.status === 'pending') {
+  if (data.status === "pending") {
     return (
       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <p className="text-sm font-medium text-blue-700">Account under review</p>
+          <p className="text-sm font-medium text-blue-700">
+            Account under review
+          </p>
           <p className="text-xs text-blue-600 mt-1">
-            Stripe is reviewing your account. You&apos;ll be notified once approved — this usually takes 1–2 business days.
+            Stripe is reviewing your account. You&apos;ll be notified once
+            approved — this usually takes 1–2 business days.
           </p>
         </div>
         {data.onboardingUrl && (
@@ -96,7 +109,9 @@ function StripeConnectBanner() {
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1">
-        <p className="text-sm font-semibold text-amber-800">Connect your bank account to receive payments</p>
+        <p className="text-sm font-semibold text-amber-800">
+          Connect your bank account to receive payments
+        </p>
         <p className="text-xs text-[color:var(--accent)]/80 mt-1">
           Link a bank account via Stripe to withdraw your available balance.
         </p>
@@ -106,10 +121,12 @@ function StripeConnectBanner() {
         disabled={initOnboard.isPending}
         className="shrink-0 rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {initOnboard.isPending ? 'Connecting…' : 'Connect your bank account'}
+        {initOnboard.isPending ? "Connecting…" : "Connect your bank account"}
       </button>
       {initOnboard.isError && (
-        <p className="text-xs text-red-600 sm:col-span-2">{(initOnboard.error as Error).message}</p>
+        <p className="text-xs text-red-600 sm:col-span-2">
+          {(initOnboard.error as Error).message}
+        </p>
       )}
     </div>
   );
@@ -121,10 +138,13 @@ function NewSellerHoldNotice({ completedCount }: { completedCount: number }) {
   if (completedCount >= 3) return null;
   return (
     <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 space-y-1">
-      <p className="text-sm font-semibold text-blue-700">14-day hold on new payouts</p>
+      <p className="text-sm font-semibold text-blue-700">
+        14-day hold on new payouts
+      </p>
       <p className="text-xs text-[color:var(--ink-3)]">
-        As a new seller, your first payouts are held for 14 days to protect buyers. This hold is lifted after
-        you complete 3 payouts — you have {completedCount} so far.
+        As a new seller, your first payouts are held for 14 days to protect
+        buyers. This hold is lifted after you complete 3 payouts — you have{" "}
+        {completedCount} so far.
       </p>
     </div>
   );
@@ -143,10 +163,10 @@ function RequestPayoutModal({
   currency: string;
   onClose: () => void;
 }) {
-  const [amountStr, setAmountStr] = useState('');
+  const [amountStr, setAmountStr] = useState("");
   const { mutate, isPending, isSuccess, error } = useRequestPayout();
 
-  const amountCents = Math.round(parseFloat(amountStr || '0') * 100);
+  const amountCents = Math.round(parseFloat(amountStr || "0") * 100);
   const tooLow = amountCents > 0 && amountCents < minimumCents;
   const tooHigh = amountCents > availableCents;
   const invalid = !amountStr || tooLow || tooHigh || amountCents <= 0;
@@ -164,22 +184,37 @@ function RequestPayoutModal({
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface)] p-6 space-y-5 fade-up">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Request payout</h2>
-          <button onClick={onClose} className="text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)] text-xl leading-none">×</button>
+          <button
+            onClick={onClose}
+            className="text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)] text-xl leading-none"
+          >
+            ×
+          </button>
         </div>
 
         {isSuccess ? (
           <div className="space-y-4">
-            <p className="text-sm text-[color:var(--escrow)]">Payout request submitted! Funds will arrive within 2–3 business days.</p>
-            <button onClick={onClose} className="w-full rounded-lg bg-[color:var(--ink)] text-white px-4 py-2 text-sm font-medium hover:bg-[oklch(0.30_0.012_50)] transition-colors">
+            <p className="text-sm text-[color:var(--escrow)]">
+              Payout request submitted! Funds will arrive within 2–3 business
+              days.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full rounded-lg bg-[color:var(--ink)] text-white px-4 py-2 text-sm font-medium hover:bg-[oklch(0.30_0.012_50)] transition-colors"
+            >
               Close
             </button>
           </div>
         ) : (
           <>
             <div className="space-y-1">
-              <label className="text-xs text-[color:var(--ink-3)] uppercase tracking-wider">Amount (USD)</label>
+              <label className="text-xs text-[color:var(--ink-3)] uppercase tracking-wider">
+                Amount (USD)
+              </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)]">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ink-3)]">
+                  $
+                </span>
                 <input
                   type="number"
                   min={minimumCents / 100}
@@ -192,10 +227,19 @@ function RequestPayoutModal({
                 />
               </div>
               <p className="text-xs text-[color:var(--ink-3)]">
-                Available: {fmt(availableCents, currency)} · Minimum: {fmt(minimumCents, currency)}
+                Available: {fmt(availableCents, currency)} · Minimum:{" "}
+                {fmt(minimumCents, currency)}
               </p>
-              {tooLow && <p className="text-xs text-red-600">Amount is below the minimum payout.</p>}
-              {tooHigh && <p className="text-xs text-red-600">Amount exceeds your available balance.</p>}
+              {tooLow && (
+                <p className="text-xs text-red-600">
+                  Amount is below the minimum payout.
+                </p>
+              )}
+              {tooHigh && (
+                <p className="text-xs text-red-600">
+                  Amount exceeds your available balance.
+                </p>
+              )}
             </div>
 
             {error && (
@@ -203,7 +247,10 @@ function RequestPayoutModal({
             )}
 
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 rounded-lg border border-[color:var(--line-2)] px-4 py-2 text-sm text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] transition-colors">
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-[color:var(--line-2)] px-4 py-2 text-sm text-[color:var(--ink-2)] hover:bg-[color:var(--surface-2)] transition-colors"
+              >
                 Cancel
               </button>
               <button
@@ -211,7 +258,7 @@ function RequestPayoutModal({
                 disabled={invalid || isPending}
                 className="flex-1 rounded-lg bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isPending ? 'Requesting…' : 'Request payout'}
+                {isPending ? "Requesting…" : "Request payout"}
               </button>
             </div>
           </>
@@ -244,7 +291,12 @@ function PayoutBalanceCard() {
     return (
       <div className="rounded-xl card p-6 space-y-2">
         <p className="text-sm text-red-600">Failed to load balance.</p>
-        <button onClick={() => refetch()} className="text-xs text-[color:var(--accent)] hover:underline">Retry</button>
+        <button
+          onClick={() => refetch()}
+          className="text-xs text-[color:var(--accent)] hover:underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -256,14 +308,22 @@ function PayoutBalanceCard() {
       <div className="rounded-xl card p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wider text-[color:var(--ink-3)]">Available Balance</p>
-            <p className="text-4xl font-bold text-[color:var(--escrow)]">{fmt(data.availableCents, data.currency)}</p>
+            <p className="text-xs uppercase tracking-wider text-[color:var(--ink-3)]">
+              Available Balance
+            </p>
+            <p className="text-4xl font-bold text-[color:var(--escrow)]">
+              {fmt(data.availableCents, data.currency)}
+            </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             disabled={!canRequest}
             className="self-start rounded-lg bg-[color:var(--accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[color:var(--accent-2)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title={!canRequest ? `Minimum payout is ${fmt(data.minimumPayoutCents, data.currency)}` : undefined}
+            title={
+              !canRequest
+                ? `Minimum payout is ${fmt(data.minimumPayoutCents, data.currency)}`
+                : undefined
+            }
           >
             Request Payout
           </button>
@@ -271,13 +331,19 @@ function PayoutBalanceCard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[color:var(--line)]">
           <div className="space-y-0.5">
-            <p className="text-xs text-[color:var(--ink-3)]">Total paid to date</p>
-            <p className="text-base font-semibold text-[color:var(--ink-2)]">{fmt(data.totalPaidCents, data.currency)}</p>
+            <p className="text-xs text-[color:var(--ink-3)]">
+              Total paid to date
+            </p>
+            <p className="text-base font-semibold text-[color:var(--ink-2)]">
+              {fmt(data.totalPaidCents, data.currency)}
+            </p>
           </div>
           <div className="space-y-0.5">
-            <p className="text-xs text-[color:var(--ink-3)]">Next scheduled payout</p>
+            <p className="text-xs text-[color:var(--ink-3)]">
+              Next scheduled payout
+            </p>
             <p className="text-base font-semibold text-[color:var(--ink-2)]">
-              {data.nextPayoutDate ? fmtDate(data.nextPayoutDate) : '—'}
+              {data.nextPayoutDate ? fmtDate(data.nextPayoutDate) : "—"}
             </p>
           </div>
         </div>
@@ -298,15 +364,17 @@ function PayoutBalanceCard() {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 const statusStyles: Record<string, string> = {
-  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
-  processing: 'bg-blue-50 text-blue-700 border border-blue-200',
-  paid: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  failed: 'bg-red-50 text-red-700 border border-red-200',
+  pending: "bg-amber-50 text-amber-700 border border-amber-200",
+  processing: "bg-blue-50 text-blue-700 border border-blue-200",
+  paid: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  failed: "bg-red-50 text-red-700 border border-red-200",
 };
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[status] ?? statusStyles.pending}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[status] ?? statusStyles.pending}`}
+    >
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
@@ -328,7 +396,7 @@ function CopyButton({ text }: { text: string }) {
       className="ml-1 text-[color:var(--ink-3)] hover:text-[color:var(--ink-2)] transition-colors text-xs"
       title="Copy transfer ID"
     >
-      {copied ? '✓' : '⎘'}
+      {copied ? "✓" : "⎘"}
     </button>
   );
 }
@@ -354,7 +422,12 @@ function PayoutHistoryTable() {
     return (
       <div className="rounded-xl card p-5 space-y-2">
         <p className="text-sm text-red-600">Failed to load payout history.</p>
-        <button onClick={() => refetch()} className="text-xs text-[color:var(--accent)] hover:underline">Retry</button>
+        <button
+          onClick={() => refetch()}
+          className="text-xs text-[color:var(--accent)] hover:underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -384,18 +457,27 @@ function PayoutHistoryTable() {
                   <th className="px-5 py-3 text-left font-medium">Date</th>
                   <th className="px-5 py-3 text-left font-medium">Amount</th>
                   <th className="px-5 py-3 text-left font-medium">Status</th>
-                  <th className="px-5 py-3 text-left font-medium">Transfer ID</th>
+                  <th className="px-5 py-3 text-left font-medium">
+                    Transfer ID
+                  </th>
                   <th className="px-5 py-3 text-left font-medium">Notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[color:var(--line)]">
                 {payouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-[color:var(--surface-2)] transition-colors">
-                    <td className="px-5 py-3 text-[color:var(--ink-2)] whitespace-nowrap">{fmtDate(p.createdAt)}</td>
+                  <tr
+                    key={p.id}
+                    className="hover:bg-[color:var(--surface-2)] transition-colors"
+                  >
+                    <td className="px-5 py-3 text-[color:var(--ink-2)] whitespace-nowrap">
+                      {fmtDate(p.createdAt)}
+                    </td>
                     <td className="px-5 py-3 font-medium text-[color:var(--ink-2)] whitespace-nowrap">
                       {fmt(p.amountCents, p.currency)}
                     </td>
-                    <td className="px-5 py-3"><StatusBadge status={p.status} /></td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={p.status} />
+                    </td>
                     <td className="px-5 py-3 text-[color:var(--ink-3)] font-mono text-xs whitespace-nowrap">
                       {p.transferId ? (
                         <>
@@ -407,7 +489,7 @@ function PayoutHistoryTable() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-[color:var(--ink-3)] text-xs max-w-[200px] truncate">
-                      {p.notes ?? '—'}
+                      {p.notes ?? "—"}
                     </td>
                   </tr>
                 ))}
@@ -420,17 +502,23 @@ function PayoutHistoryTable() {
             {payouts.map((p) => (
               <div key={p.id} className="px-4 py-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[color:var(--ink-2)]">{fmt(p.amountCents, p.currency)}</span>
+                  <span className="font-semibold text-[color:var(--ink-2)]">
+                    {fmt(p.amountCents, p.currency)}
+                  </span>
                   <StatusBadge status={p.status} />
                 </div>
-                <p className="text-xs text-[color:var(--ink-3)]">{fmtDate(p.createdAt)}</p>
+                <p className="text-xs text-[color:var(--ink-3)]">
+                  {fmtDate(p.createdAt)}
+                </p>
                 {p.transferId && (
                   <p className="text-xs text-[color:var(--ink-3)] font-mono">
                     {p.transferId.slice(0, 20)}…
                     <CopyButton text={p.transferId} />
                   </p>
                 )}
-                {p.notes && <p className="text-xs text-[color:var(--ink-3)]">{p.notes}</p>}
+                {p.notes && (
+                  <p className="text-xs text-[color:var(--ink-3)]">{p.notes}</p>
+                )}
               </div>
             ))}
           </div>
@@ -473,7 +561,9 @@ export function PayoutsView() {
   return (
     <div className="space-y-5">
       <StripeConnectBanner />
-      {balance && <NewSellerHoldNotice completedCount={balance.completedPayoutCount} />}
+      {balance && (
+        <NewSellerHoldNotice completedCount={balance.completedPayoutCount} />
+      )}
       <PayoutBalanceCard />
       <PayoutHistoryTable />
     </div>

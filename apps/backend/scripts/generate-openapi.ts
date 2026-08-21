@@ -1,26 +1,29 @@
-import 'reflect-metadata';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import "reflect-metadata";
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { ConfigService } from '@nestjs/config';
-import { Test } from '@nestjs/testing';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ParameterMetadataAccessor } from '@nestjs/swagger/dist/services/parameter-metadata-accessor.js';
-import { cleanupOpenApiDoc } from 'nestjs-zod';
+import { ConfigService } from "@nestjs/config";
+import { Test } from "@nestjs/testing";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { ParameterMetadataAccessor } from "@nestjs/swagger/dist/services/parameter-metadata-accessor.js";
+import { cleanupOpenApiDoc } from "nestjs-zod";
 
-import { AppModule } from '../src/modules/app.module.js';
+import { AppModule } from "../src/modules/app.module.js";
 import {
   ModerationQueueMetrics,
   ModerationQueueService,
-} from '../src/modules/listings/moderation-queue.service.js';
-import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy.js';
-import { OtpDeliveryService } from '../src/modules/auth/otp-delivery.service.js';
-import { MessageModerationService } from '../src/modules/messaging/moderation.service.js';
-import { MessageModerationStatus, NotificationChannel } from '@prisma/client';
-import { PrismaService } from '../src/prisma/prisma.service.js';
+} from "../src/modules/listings/moderation-queue.service.js";
+import { JwtStrategy } from "../src/modules/auth/strategies/jwt.strategy.js";
+import { OtpDeliveryService } from "../src/modules/auth/otp-delivery.service.js";
+import { MessageModerationService } from "../src/modules/messaging/moderation.service.js";
+import { MessageModerationStatus, NotificationChannel } from "@prisma/client";
+import { PrismaService } from "../src/prisma/prisma.service.js";
 
-const moderationQueueStub: Pick<ModerationQueueService, 'enqueueListingScan' | 'getMetrics'> & {
+const moderationQueueStub: Pick<
+  ModerationQueueService,
+  "enqueueListingScan" | "getMetrics"
+> & {
   getMetrics(): Promise<ModerationQueueMetrics>;
 } = {
   async enqueueListingScan() {
@@ -43,13 +46,13 @@ const moderationQueueStub: Pick<ModerationQueueService, 'enqueueListingScan' | '
 };
 
 const requiredEnv: Record<string, string> = {
-  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/forumo',
-  JWT_SECRET: 'swagger-secret',
-  MAILGUN_API_KEY: 'fake-mailgun-key',
-  MAILGUN_DOMAIN: 'forumo.test',
-  SNS_REGION: 'us-east-1',
-  SNS_ACCESS_KEY_ID: 'fake-access-key',
-  SNS_SECRET_ACCESS_KEY: 'fake-secret',
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/forumo",
+  JWT_SECRET: "swagger-secret",
+  MAILGUN_API_KEY: "fake-mailgun-key",
+  MAILGUN_DOMAIN: "forumo.test",
+  SNS_REGION: "us-east-1",
+  SNS_ACCESS_KEY_ID: "fake-access-key",
+  SNS_SECRET_ACCESS_KEY: "fake-secret",
 };
 
 for (const [key, value] of Object.entries(requiredEnv)) {
@@ -72,25 +75,28 @@ class StaticConfigService {
   }
 }
 
-const otpDeliveryStub: Pick<OtpDeliveryService, 'deliver'> = {
+const otpDeliveryStub: Pick<OtpDeliveryService, "deliver"> = {
   async deliver() {
     return {
       channel: NotificationChannel.EMAIL,
-      provider: 'stub',
-      referenceId: 'stub-ref',
+      provider: "stub",
+      referenceId: "stub-ref",
       metadata: null,
       deliveredAt: new Date(),
     };
   },
 };
 
-const messageModerationStub: Pick<MessageModerationService, 'scanMessage'> = {
+const messageModerationStub: Pick<MessageModerationService, "scanMessage"> = {
   async scanMessage() {
     return { status: MessageModerationStatus.APPROVED, notes: null };
   },
 };
 
-const prismaStub: Pick<PrismaService, '$connect' | '$disconnect' | 'enableShutdownHooks'> = {
+const prismaStub: Pick<
+  PrismaService,
+  "$connect" | "$disconnect" | "enableShutdownHooks"
+> = {
   async $connect() {
     return Promise.resolve();
   },
@@ -102,12 +108,15 @@ const prismaStub: Pick<PrismaService, '$connect' | '$disconnect' | 'enableShutdo
   },
 };
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const originalParameterExplorer = ParameterMetadataAccessor.prototype.explore;
 ParameterMetadataAccessor.prototype.explore = function patchedExplore(...args) {
   try {
-    return originalParameterExplorer.apply(this, args as Parameters<typeof originalParameterExplorer>);
+    return originalParameterExplorer.apply(
+      this,
+      args as Parameters<typeof originalParameterExplorer>,
+    );
   } catch (error) {
     if (error instanceof TypeError) {
       return [];
@@ -136,20 +145,22 @@ async function generateOpenApiSpec() {
 
   const app = testingModule.createNestApplication();
   try {
-    app.setGlobalPrefix('api/v1');
+    app.setGlobalPrefix("api/v1");
     await app.init();
 
     const config = new DocumentBuilder()
-      .setTitle('Forumo API')
-      .setDescription('MVP gateway for buyers, sellers, admins, and automations')
-      .setVersion('0.1.0')
+      .setTitle("Forumo API")
+      .setDescription(
+        "MVP gateway for buyers, sellers, admins, and automations",
+      )
+      .setVersion("0.1.0")
       .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
     const cleanedDocument = cleanupOpenApiDoc(document);
-    const outputDir = resolve(__dirname, '../../../docs');
-    const outputPath = resolve(outputDir, 'openapi.json');
+    const outputDir = resolve(__dirname, "../../../docs");
+    const outputPath = resolve(outputDir, "openapi.json");
 
     await mkdir(outputDir, { recursive: true });
     await writeFile(outputPath, JSON.stringify(cleanedDocument, null, 2));
@@ -159,6 +170,6 @@ async function generateOpenApiSpec() {
 }
 
 generateOpenApiSpec().catch((error) => {
-  console.error('Failed to generate OpenAPI spec:', error);
+  console.error("Failed to generate OpenAPI spec:", error);
   process.exitCode = 1;
 });

@@ -33,7 +33,7 @@ export type SafeListing = {
   description: string;
   priceCents: number;
   currency: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'SUSPENDED';
+  status: "DRAFT" | "PUBLISHED" | "PAUSED" | "SUSPENDED";
   moderationStatus?: string;
   location?: string | null;
   metadata?: unknown;
@@ -47,20 +47,22 @@ export type ListingWithRelations = SafeListing & {
   images?: ListingImage[] | null;
   variants?: ListingVariant[] | null;
 };
-export type SafeListingImage = Omit<ListingImage, 'listingId'>;
-export type SafeListingVariant = Omit<ListingVariant, 'listingId'>;
+export type SafeListingImage = Omit<ListingImage, "listingId">;
+export type SafeListingVariant = Omit<ListingVariant, "listingId">;
 
 // Helper to safely convert JsonValue to Record or null
 function toRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'object' && !Array.isArray(value)) {
+  if (typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
   return null;
 }
 
 // Helper to convert Date to ISO string
-function toISOString(date: Date | string | null | undefined): string | undefined {
+function toISOString(
+  date: Date | string | null | undefined,
+): string | undefined {
   if (!date) return undefined;
   if (date instanceof Date) return date.toISOString();
   return date;

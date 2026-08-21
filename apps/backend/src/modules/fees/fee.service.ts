@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
 
 export interface FeeBreakdown {
   feeAmountCents: number;
@@ -20,25 +20,36 @@ export class FeeService {
     if (assignment) {
       const categorySchedule = await this.prisma.feeSchedule.findFirst({
         where: { categoryId: assignment.categoryId, isActive: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
       if (categorySchedule) return categorySchedule;
     }
 
     return this.prisma.feeSchedule.findFirst({
       where: { categoryId: null, isActive: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
-  async calculateFee(subtotalCents: number, listingId: string): Promise<FeeBreakdown> {
+  async calculateFee(
+    subtotalCents: number,
+    listingId: string,
+  ): Promise<FeeBreakdown> {
     if (subtotalCents <= 0) {
-      return { feeAmountCents: 0, feePercent: 0, breakdown: { percentPart: 0, fixedPart: 0 } };
+      return {
+        feeAmountCents: 0,
+        feePercent: 0,
+        breakdown: { percentPart: 0, fixedPart: 0 },
+      };
     }
 
     const schedule = await this.getFeeScheduleForListing(listingId);
     if (!schedule) {
-      return { feeAmountCents: 0, feePercent: 0, breakdown: { percentPart: 0, fixedPart: 0 } };
+      return {
+        feeAmountCents: 0,
+        feePercent: 0,
+        breakdown: { percentPart: 0, fixedPart: 0 },
+      };
     }
 
     const feePercent = Number(schedule.feePercent);
@@ -61,12 +72,15 @@ export class FeeService {
       where: { id: orderId },
       include: { items: { take: 1, select: { listingId: true } } },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
 
     const primaryListingId = order.items[0]?.listingId;
     if (!primaryListingId) return;
 
-    const { feeAmountCents, feePercent } = await this.calculateFee(order.totalItemCents, primaryListingId);
+    const { feeAmountCents, feePercent } = await this.calculateFee(
+      order.totalItemCents,
+      primaryListingId,
+    );
     await this.prisma.order.update({
       where: { id: orderId },
       data: { feeCents: feeAmountCents, feePercent },
@@ -75,7 +89,7 @@ export class FeeService {
 
   async listSchedules() {
     return this.prisma.feeSchedule.findMany({
-      orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
       include: { category: { select: { id: true, name: true, slug: true } } },
     });
   }

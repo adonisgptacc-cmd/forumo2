@@ -299,6 +299,20 @@ describe("EscrowModule", () => {
         .get("/escrow/order/nonexistent-order")
         .expect(404);
     });
+
+    it("returns 403 when caller is not a party to the order", async () => {
+      await buildApp("intruder-user", "BUYER");
+      await request(app.getHttpServer())
+        .get(`/escrow/order/${ORDER_ID}`)
+        .expect(403);
+    });
+
+    it("allows admin to read escrow for any order", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      await request(app.getHttpServer())
+        .get(`/escrow/order/${ORDER_ID}`)
+        .expect(200);
+    });
   });
 
   // ── POST /escrow/order/:orderId/dispute ──

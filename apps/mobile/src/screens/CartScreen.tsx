@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,15 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SafeListing } from '@forumo/shared';
-import { brandColors, spacing } from '@forumo/config';
-import { useAuth } from '../providers/AuthProvider';
-import type { MainStackParamList } from '../navigation/types';
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { SafeListing } from "@forumo/shared";
+import { brandColors, spacing } from "@forumo/config";
+import { useAuth } from "../providers/AuthProvider";
+import type { MainStackParamList } from "../navigation/types";
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Cart'>;
+type Props = NativeStackScreenProps<MainStackParamList, "Cart">;
 
 export interface CartItem {
   listingId: string;
@@ -24,7 +24,7 @@ export interface CartItem {
   quantity: number;
 }
 
-const CART_STORAGE_KEY = '@forumo/cart';
+const CART_STORAGE_KEY = "@forumo/cart";
 
 // Persisted cart store singleton
 let globalCart: CartItem[] = [];
@@ -56,10 +56,15 @@ export const cartStore = {
     const existing = globalCart.find((i) => i.listingId === listing.id);
     if (existing) {
       globalCart = globalCart.map((i) =>
-        i.listingId === listing.id ? { ...i, quantity: i.quantity + quantity } : i
+        i.listingId === listing.id
+          ? { ...i, quantity: i.quantity + quantity }
+          : i,
       );
     } else {
-      globalCart = [...globalCart, { listingId: listing.id, listing, quantity }];
+      globalCart = [
+        ...globalCart,
+        { listingId: listing.id, listing, quantity },
+      ];
     }
     persist(globalCart);
     notify();
@@ -74,7 +79,9 @@ export const cartStore = {
       cartStore.removeItem(listingId);
       return;
     }
-    globalCart = globalCart.map((i) => (i.listingId === listingId ? { ...i, quantity } : i));
+    globalCart = globalCart.map((i) =>
+      i.listingId === listingId ? { ...i, quantity } : i,
+    );
     persist(globalCart);
     notify();
   },
@@ -100,7 +107,7 @@ function useCart() {
   return items;
 }
 
-function formatCents(cents: number, currency = 'USD') {
+function formatCents(cents: number, currency = "USD") {
   return `${currency} ${(cents / 100).toFixed(2)}`;
 }
 
@@ -121,13 +128,22 @@ interface CartItemRowProps {
   onQtyChange: (id: string, qty: number) => void;
 }
 
-const CartItemRow: React.FC<CartItemRowProps> = ({ item, onRemove, onQtyChange }) => {
+const CartItemRow: React.FC<CartItemRowProps> = ({
+  item,
+  onRemove,
+  onQtyChange,
+}) => {
   return (
     <View style={styles.itemRow} testID={`cart-item-${item.listingId}`}>
       <View style={styles.itemInfo}>
-        <Text style={styles.itemTitle} numberOfLines={2}>{item.listing.title}</Text>
+        <Text style={styles.itemTitle} numberOfLines={2}>
+          {item.listing.title}
+        </Text>
         <Text style={styles.itemPrice}>
-          {formatCents(item.listing.priceCents * item.quantity, item.listing.currency)}
+          {formatCents(
+            item.listing.priceCents * item.quantity,
+            item.listing.currency,
+          )}
         </Text>
         <Text style={styles.itemUnitPrice}>
           {formatCents(item.listing.priceCents, item.listing.currency)} each
@@ -169,23 +185,23 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
 
   const totalCents = items.reduce(
     (sum, item) => sum + item.listing.priceCents * item.quantity,
-    0
+    0,
   );
 
   const handleCheckout = (sellerId: string) => {
     if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to checkout.');
+      Alert.alert("Sign In Required", "Please sign in to checkout.");
       return;
     }
     const sellerItems = sellerGroups.get(sellerId) ?? [];
     const sellerName = sellerItems[0]?.listing.sellerId ?? sellerId;
-    navigation.push('Checkout', { sellerId, sellerName });
+    navigation.push("Checkout", { sellerId, sellerName });
   };
 
   const handleClearCart = () => {
-    Alert.alert('Clear Cart', 'Remove all items?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => cartStore.clear() },
+    Alert.alert("Clear Cart", "Remove all items?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Clear", style: "destructive", onPress: () => cartStore.clear() },
     ]);
   };
 
@@ -194,8 +210,13 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.emptyContainer} testID="cart-empty">
         <Text style={styles.emptyIcon}>🛒</Text>
         <Text style={styles.emptyTitle}>Your cart is empty</Text>
-        <Text style={styles.emptySubtitle}>Browse listings and add items to your cart.</Text>
-        <TouchableOpacity style={styles.browseBtn} onPress={() => navigation.navigate('Tabs')}>
+        <Text style={styles.emptySubtitle}>
+          Browse listings and add items to your cart.
+        </Text>
+        <TouchableOpacity
+          style={styles.browseBtn}
+          onPress={() => navigation.navigate("Tabs")}
+        >
           <Text style={styles.browseBtnText}>Browse Listings</Text>
         </TouchableOpacity>
       </View>
@@ -221,12 +242,14 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
         renderItem={({ item: [sellerId, sellerItems] }) => {
           const sellerTotal = sellerItems.reduce(
             (sum, i) => sum + i.listing.priceCents * i.quantity,
-            0
+            0,
           );
-          const currency = sellerItems[0]?.listing.currency ?? 'USD';
+          const currency = sellerItems[0]?.listing.currency ?? "USD";
           return (
             <View style={styles.sellerGroup}>
-              <Text style={styles.sellerLabel}>Seller: {sellerId.slice(0, 8)}…</Text>
+              <Text style={styles.sellerLabel}>
+                Seller: {sellerId.slice(0, 8)}…
+              </Text>
               {sellerItems.map((item) => (
                 <CartItemRow
                   key={item.listingId}
@@ -263,46 +286,101 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: brandColors.background },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
   emptyIcon: { fontSize: 64, marginBottom: spacing.md },
-  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  emptySubtitle: { color: brandColors.muted, textAlign: 'center', marginBottom: spacing.lg },
-  browseBtn: { backgroundColor: brandColors.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  browseBtnText: { color: '#fff', fontWeight: '700' },
+  emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
+  emptySubtitle: {
+    color: brandColors.muted,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  browseBtn: {
+    backgroundColor: brandColors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  browseBtnText: { color: "#fff", fontWeight: "700" },
   list: { padding: spacing.md, gap: spacing.md },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  heading: { fontSize: 22, fontWeight: '700' },
-  clearText: { color: '#ef4444', fontSize: 14 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  heading: { fontSize: 22, fontWeight: "700" },
+  clearText: { color: "#ef4444", fontSize: 14 },
   sellerGroup: {
     backgroundColor: brandColors.card,
     borderRadius: 12,
     padding: spacing.md,
     gap: 8,
   },
-  sellerLabel: { fontSize: 12, color: brandColors.muted, fontWeight: '600' },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  sellerLabel: { fontSize: 12, color: brandColors.muted, fontWeight: "600" },
+  itemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
   itemInfo: { flex: 1, marginRight: 12 },
-  itemTitle: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  itemPrice: { fontSize: 16, fontWeight: '700', color: brandColors.primary },
+  itemTitle: { fontSize: 14, fontWeight: "500", marginBottom: 4 },
+  itemPrice: { fontSize: 16, fontWeight: "700", color: brandColors.primary },
   itemUnitPrice: { fontSize: 11, color: brandColors.muted },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qtyBtn: { backgroundColor: '#f3f4f6', width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  qtyBtnText: { fontSize: 18, fontWeight: '600', color: '#374151' },
-  qtyValue: { fontSize: 16, fontWeight: '600', minWidth: 24, textAlign: 'center' },
-  removeBtn: { backgroundColor: '#fee2e2', width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  removeBtnText: { fontSize: 18, color: '#ef4444', fontWeight: '700' },
-  sellerFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  sellerTotal: { fontSize: 15, fontWeight: '600' },
-  checkoutBtn: { backgroundColor: brandColors.primary, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10 },
-  checkoutBtnText: { color: '#fff', fontWeight: '700' },
+  qtyControls: { flexDirection: "row", alignItems: "center", gap: 8 },
+  qtyBtn: {
+    backgroundColor: "#f3f4f6",
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyBtnText: { fontSize: 18, fontWeight: "600", color: "#374151" },
+  qtyValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  removeBtn: {
+    backgroundColor: "#fee2e2",
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeBtnText: { fontSize: 18, color: "#ef4444", fontWeight: "700" },
+  sellerFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  sellerTotal: { fontSize: 15, fontWeight: "600" },
+  checkoutBtn: {
+    backgroundColor: brandColors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  checkoutBtnText: { color: "#fff", fontWeight: "700" },
   totalBox: {
     backgroundColor: brandColors.card,
     borderRadius: 12,
     padding: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  totalLabel: { fontSize: 16, fontWeight: '600' },
-  totalValue: { fontSize: 20, fontWeight: '700', color: brandColors.primary },
+  totalLabel: { fontSize: 16, fontWeight: "600" },
+  totalValue: { fontSize: 20, fontWeight: "700", color: brandColors.primary },
 });

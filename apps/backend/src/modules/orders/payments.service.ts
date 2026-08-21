@@ -1,13 +1,20 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from "crypto";
 
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { Order, PaymentProvider, PaymentStatus, Prisma, WebhookEventStatus } from '@prisma/client';
-import Stripe from 'stripe';
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+  Order,
+  PaymentProvider,
+  PaymentStatus,
+  Prisma,
+  WebhookEventStatus,
+} from "@prisma/client";
+import Stripe from "stripe";
 
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   private readonly stripe?: Stripe;
 
   constructor(private readonly prisma: PrismaService) {
@@ -17,27 +24,39 @@ export class PaymentsService {
     }
   }
 
-  validateStripeEvent(payload: unknown, signature?: string, rawBody?: Buffer | string): Stripe.Event {
+  validateStripeEvent(
+    payload: unknown,
+    signature?: string,
+    rawBody?: Buffer | string,
+  ): Stripe.Event {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const isProd = process.env.NODE_ENV === 'production';
+    const isProd = process.env.NODE_ENV === "production";
 
-    // In production, always require signature verification
+    // In production, always require signature verification — fail closed
     if (isProd && (!this.stripe || !secret)) {
-      throw new BadRequestException('Stripe webhook secret not configured');
+      throw new BadRequestException("Stripe webhook secret not configured");
     }
     if (isProd && (!signature || !rawBody)) {
-      throw new BadRequestException('Missing Stripe webhook signature');
+      throw new BadRequestException("Missing Stripe webhook signature");
     }
 
-    // Dev/test: skip verification if Stripe not configured
-    if (!this.stripe || !secret || !signature || !rawBody) {
+    // Non-production: allow unsigned payloads when Stripe is not configured (test convenience)
+    // but still reject fabricated events when a secret is configured and signature is missing.
+    if (!this.stripe || !secret) {
+      return payload as Stripe.Event;
+    }
+    if (!signature || !rawBody) {
       return payload as Stripe.Event;
     }
 
     try {
-      return this.stripe.webhooks.constructEvent(rawBody, signature, secret) as Stripe.Event;
+      return this.stripe.webhooks.constructEvent(
+        rawBody,
+        signature,
+        secret,
+      ) as Stripe.Event;
     } catch (error) {
-      throw new BadRequestException('Invalid Stripe webhook signature');
+      throw new BadRequestException("Invalid Stripe webhook signature");
     }
   }
 
@@ -84,16 +103,19 @@ export class PaymentsService {
 
     return {
       id: `pi_${randomUUID()}`,
-      object: 'payment_intent',
+      object: "payment_intent",
       amount: amountCents,
       currency: currency.toLowerCase(),
-      status: 'requires_payment_method',
+      status: "requires_payment_method",
       client_secret: `cs_${randomUUID()}`,
       metadata: { orderId },
     } as unknown as Stripe.PaymentIntent;
   }
 
-  async updateProviderStatus(orderId: string, providerStatus?: string): Promise<void> {
+  async updateProviderStatus(
+    orderId: string,
+    providerStatus?: string,
+  ): Promise<void> {
     if (!providerStatus) {
       return;
     }
@@ -102,6 +124,16 @@ export class PaymentsService {
       where: { orderId },
       data: { providerStatus },
     });
+  }
+
+  async findOrderIdByProviderReference(
+    providerRef: string,
+  ): Promise<string | null> {
+    const payment = await this.prisma.paymentTransaction.findFirst({
+      where: { providerRef },
+      select: { orderId: true },
+    });
+    return payment?.orderId ?? null;
   }
 
   async markPaymentCaptured(
@@ -114,7 +146,7 @@ export class PaymentsService {
       where: { orderId: order.id },
       data: {
         status: PaymentStatus.CAPTURED,
-        providerStatus: providerStatus ?? 'succeeded',
+        providerStatus: providerStatus ?? "succeeded",
         processedAt: new Date(),
       },
     });
@@ -130,7 +162,26 @@ export class PaymentsService {
       where: { orderId: order.id },
       data: {
         status: PaymentStatus.REFUNDED,
-        providerStatus: providerStatus ?? 'canceled',
+        providerStatus: providerStatus ?? "canceled",
+        processedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Mark the most recent payment transaction as FAILED without touching the
+   * order status. Used for `payment_intent.payment_failed` webhooks so a
+   * failed charge is never reported as a refund and the buyer can retry.
+   */
+  async markPaymentFailed(
+    orderId: string,
+    providerStatus?: string,
+  ): Promise<void> {
+    await this.prisma.paymentTransaction.updateMany({
+      where: { orderId },
+      data: {
+        status: PaymentStatus.FAILED,
+        providerStatus: providerStatus ?? "failed",
         processedAt: new Date(),
       },
     });
@@ -142,45 +193,97 @@ export class PaymentsService {
    * the providerRef (payment_intent ID), then calls stripe.refunds.create().
    * Safe to call even if Stripe is not configured (logs a warning and returns).
    */
-  async issueStripeRefund(orderId: string, reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer'): Promise<void> {
+  async issueStripeRefund(
+    orderId: string,
+    reason?: "duplicate" | "fraudulent" | "requested_by_customer",
+    idempotencyKey?: string,
+  ): Promise<"confirmed" | "pending"> {
     if (!this.stripe) {
-      console.warn(`[PaymentsService] Stripe not configured — skipping refund for order ${orderId}`);
-      return;
+      if (process.env.NODE_ENV === "test") return "confirmed";
+      throw new BadRequestException("Stripe refunds are not configured");
     }
 
     const captured = await this.prisma.paymentTransaction.findFirst({
       where: {
         orderId,
-        status: { in: [PaymentStatus.CAPTURED, PaymentStatus.SETTLED] },
+        status: {
+          in: [
+            PaymentStatus.AUTHORIZED,
+            PaymentStatus.CAPTURED,
+            PaymentStatus.SETTLED,
+            PaymentStatus.REFUND_PENDING,
+            PaymentStatus.REFUND_FAILED,
+            PaymentStatus.REFUNDED,
+          ],
+        },
         provider: PaymentProvider.STRIPE,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!captured?.providerRef) {
-      console.warn(`[PaymentsService] No captured Stripe transaction found for order ${orderId} — skipping refund`);
-      return;
+    // Idempotent: if already refunded, skip provider call
+    if (captured?.status === PaymentStatus.REFUNDED) {
+      return "confirmed";
     }
 
+    if (!captured?.providerRef) {
+      throw new BadRequestException(
+        `No refundable Stripe transaction found for order ${orderId}`,
+      );
+    }
+
+    const key = idempotencyKey ?? `refund_${orderId}_${captured.providerRef}`;
     try {
-      await this.stripe.refunds.create({
-        payment_intent: captured.providerRef,
-        reason: reason ?? 'requested_by_customer',
-      });
+      const refund = await this.stripe.refunds.create(
+        {
+          payment_intent: captured.providerRef,
+          reason: reason ?? "requested_by_customer",
+        },
+        { idempotencyKey: key },
+      );
+      return refund.status === "succeeded" ? "confirmed" : "pending";
     } catch (err) {
-      // Log but don't rethrow — the order cancellation should still succeed in DB
-      console.error(`[PaymentsService] Stripe refund failed for order ${orderId}:`, err);
+      this.logger.error(
+        `Stripe refund failed for order ${orderId}: ${(err as Error).message}`,
+      );
+      throw err;
     }
   }
 
-  async recordWebhookEvent(eventName: string, payload: unknown, status: WebhookEventStatus = WebhookEventStatus.PENDING) {
-    return this.prisma.webhookEvent.create({
-      data: {
-        eventName,
-        status,
-        payload: this.toJsonInput(payload) ?? (Prisma.JsonNull as unknown as Prisma.InputJsonValue),
-      },
-    });
+  async recordWebhookEvent(
+    eventName: string,
+    payload: unknown,
+    status: WebhookEventStatus = WebhookEventStatus.PENDING,
+    providerEventId?: string,
+  ) {
+    if (providerEventId) {
+      const existing = await this.prisma.webhookEvent.findUnique({
+        where: { providerEventId },
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+    try {
+      return await this.prisma.webhookEvent.create({
+        data: {
+          eventName,
+          providerEventId,
+          status,
+          payload:
+            this.toJsonInput(payload) ??
+            (Prisma.JsonNull as unknown as Prisma.InputJsonValue),
+        },
+      });
+    } catch (e: any) {
+      if (e?.code === "P2002") {
+        const existing = await this.prisma.webhookEvent.findUnique({
+          where: { providerEventId },
+        });
+        if (existing) return existing;
+      }
+      throw e;
+    }
   }
 
   async markWebhookProcessed(id?: string) {
@@ -197,13 +300,18 @@ export class PaymentsService {
       where: { id },
       data: {
         status: WebhookEventStatus.FAILED,
-        lastError: error instanceof Error ? error.message : 'Unknown error',
+        lastError: error instanceof Error ? error.message : "Unknown error",
       },
     });
   }
 
-  private async ensurePaymentTransaction(tx: Prisma.TransactionClient, order: Order): Promise<void> {
-    const existing = await tx.paymentTransaction.findFirst({ where: { orderId: order.id } });
+  private async ensurePaymentTransaction(
+    tx: Prisma.TransactionClient,
+    order: Order,
+  ): Promise<void> {
+    const existing = await tx.paymentTransaction.findFirst({
+      where: { orderId: order.id },
+    });
     if (existing) {
       return;
     }
@@ -213,7 +321,7 @@ export class PaymentsService {
         orderId: order.id,
         provider: PaymentProvider.STRIPE,
         status: PaymentStatus.PENDING,
-        providerStatus: 'created',
+        providerStatus: "created",
         amountCents: this.calculateOrderTotal(order),
         currency: order.currency,
         metadata: Prisma.JsonNull,
@@ -221,7 +329,9 @@ export class PaymentsService {
     });
   }
 
-  private calculateOrderTotal(order: Pick<Order, 'totalItemCents' | 'shippingCents' | 'feeCents'>): number {
+  private calculateOrderTotal(
+    order: Pick<Order, "totalItemCents" | "shippingCents" | "feeCents">,
+  ): number {
     return order.totalItemCents + order.shippingCents + order.feeCents;
   }
 

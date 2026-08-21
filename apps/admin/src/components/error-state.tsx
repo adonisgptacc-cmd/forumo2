@@ -1,11 +1,14 @@
-'use client';
+"use client";
 
 interface Props {
   message?: string;
   onRetry?: () => void;
 }
 
-export function ErrorState({ message = 'Something went wrong.', onRetry }: Props) {
+export function ErrorState({
+  message = "Something went wrong.",
+  onRetry,
+}: Props) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <p className="text-sm text-red-600">{message}</p>

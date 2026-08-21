@@ -7,17 +7,20 @@ Thanks for your interest. Forumo is in active early development — contribution
 The highest-value areas to contribute to, in priority order:
 
 ### Backend
+
 - **Rate limiting on notifications** — `NotificationsController` has no rate limiting unlike auth endpoints
 - **Authenticated-only review submission** — review endpoints should verify the reviewer was a party to the relevant order
 - **Seller payout flow validation** — `PayoutsModule` exists; validate the ZAR/Stripe Connect payout path end-to-end
 
 ### Frontend
+
 - **Escrow dispute UI** — `/app/orders/[id]` should allow a buyer to open a dispute
 - **Admin stats dashboard** — `/admin` landing page wired to `GET /admin/dashboard/stats`
 - **Error boundaries** — add `error.tsx` to all route groups
 - **Cart variant integration** — variant selection should update the cart payload correctly
 
 ### Mobile (`apps/mobile` — pre-alpha)
+
 - Shopping cart + checkout screens
 - Orders history + detail screens
 - Auction detail with live bidding (Socket.IO)
@@ -26,6 +29,7 @@ The highest-value areas to contribute to, in priority order:
 - Notifications screen
 
 ### Tests (currently ~15% coverage)
+
 - Escrow service spec (dispute, release, refund)
 - Frontend E2E: cart → checkout flow (Playwright)
 - Frontend E2E: auth flow

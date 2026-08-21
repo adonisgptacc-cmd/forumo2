@@ -76,6 +76,8 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+  REFUND_PENDING
+  REFUND_FAILED
   DISPUTED
 }
 
@@ -86,6 +88,8 @@ enum PaymentStatus {
   SETTLED
   FAILED
   REFUNDED
+  REFUND_PENDING
+  REFUND_FAILED
 }
 
 enum PaymentProvider {
@@ -559,6 +563,7 @@ model Order {
   currency         String       @default("USD")
   shippingAddressId String?
   billingAddressId String?
+  auctionId        String?      @unique
   metadata         Json?
   placedAt         DateTime?    @default(now())
   paidAt           DateTime?
@@ -569,6 +574,7 @@ model Order {
   taxRate          Decimal?
   taxJurisdiction  String?
   taxBreakdown     Json?
+  lastProviderEventAt DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -576,6 +582,7 @@ model Order {
   seller  User        @relation("OrderSeller", fields: [sellerId], references: [id], onDelete: Restrict)
   items   OrderItem[]
   payments PaymentTransaction[]
+  payouts  Payout[]
   shipments OrderShipment[]
   timeline OrderTimelineEvent[]
   escrow   EscrowHolding?
@@ -591,6 +598,7 @@ model Order {
   @@index([buyerId])
   @@index([sellerId])
   @@index([status])
+  @@index([lastProviderEventAt])
 }
 
 model OrderItem {
@@ -1058,14 +1066,15 @@ model AuditLog {
 }
 
 model WebhookEvent {
-  id          String             @id @default(uuid())
-  eventName   String
-  payload     Json
-  status      WebhookEventStatus @default(PENDING)
-  retryCount  Int                @default(0)
-  lastError   String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id              String             @id @default(uuid())
+  eventName       String
+  providerEventId String?            @unique
+  payload         Json
+  status          WebhookEventStatus @default(PENDING)
+  retryCount      Int                @default(0)
+  lastError       String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 model OutboxEvent {
@@ -1125,6 +1134,7 @@ model SavedListing {
 model Payout {
   id                     String       @id @default(uuid())
   sellerId               String
+  orderId                String?      @unique
   amount                 Int
   currency               String       @default("zar")
   stripeTransferId       String?      @unique
@@ -1138,10 +1148,12 @@ model Payout {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
-  seller User @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  seller User  @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([sellerId, status])
   @@index([status, scheduledAt])
+  @@index([orderId])
 }
 
 model Cart {

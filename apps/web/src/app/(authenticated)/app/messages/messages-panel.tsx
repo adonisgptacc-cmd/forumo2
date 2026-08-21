@@ -1,31 +1,46 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect } from 'react';
-import { io } from 'socket.io-client';
+import Link from "next/link";
+import { useEffect } from "react";
+import { io } from "socket.io-client";
 
-import type { SafeMessageThread } from '@forumo/shared';
-import { useCurrentUser, useMessageThreads } from '../../../../lib/react-query/hooks';
-import { useQueryClient } from '@tanstack/react-query';
+import type { SafeMessageThread } from "@forumo/shared";
+import {
+  useCurrentUser,
+  useMessageThreads,
+} from "../../../../lib/react-query/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'Just now';
+  if (diffMin < 1) return "Just now";
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH}h ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function Avatar({ name, avatarUrl }: { name?: string | null; avatarUrl?: string | null }) {
+function Avatar({
+  name,
+  avatarUrl,
+}: {
+  name?: string | null;
+  avatarUrl?: string | null;
+}) {
   if (avatarUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={avatarUrl} alt={name ?? ''} className="h-10 w-10 rounded-full object-cover shrink-0" />;
+    return (
+      <img
+        src={avatarUrl}
+        alt={name ?? ""}
+        className="h-10 w-10 rounded-full object-cover shrink-0"
+      />
+    );
   }
-  const letter = name?.charAt(0)?.toUpperCase() ?? '?';
+  const letter = name?.charAt(0)?.toUpperCase() ?? "?";
   return (
     <div className="h-10 w-10 rounded-full bg-[color:var(--accent-bg)] flex items-center justify-center text-[color:var(--accent-2)] font-semibold text-sm shrink-0">
       {letter}
@@ -33,11 +48,19 @@ function Avatar({ name, avatarUrl }: { name?: string | null; avatarUrl?: string 
   );
 }
 
-function ThreadRow({ thread, userId }: { thread: SafeMessageThread; userId: string }) {
+function ThreadRow({
+  thread,
+  userId,
+}: {
+  thread: SafeMessageThread;
+  userId: string;
+}) {
   const counterparty = thread.participants.find((p) => p.userId !== userId);
   const lastMsg = thread.messages.at(-1);
   const unreadCount = thread.messages.filter(
-    (m) => m.authorId !== userId && !m.receipts.some((r) => r.userId === userId && r.readAt != null),
+    (m) =>
+      m.authorId !== userId &&
+      !m.receipts.some((r) => r.userId === userId && r.readAt != null),
   ).length;
 
   return (
@@ -46,12 +69,17 @@ function ThreadRow({ thread, userId }: { thread: SafeMessageThread; userId: stri
         href={`/app/messages/${thread.id}` as any}
         className="flex items-center gap-3 rounded-xl border border-[color:var(--line)] bg-[color:var(--surface)] px-4 py-3 hover:border-[color:var(--line-2)] hover:bg-[color:var(--surface-2)] transition-colors"
       >
-        <Avatar name={counterparty?.user?.name} avatarUrl={counterparty?.user?.avatarUrl} />
+        <Avatar
+          name={counterparty?.user?.name}
+          avatarUrl={counterparty?.user?.avatarUrl}
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-2">
-            <p className={`text-sm font-medium truncate ${unreadCount > 0 ? 'text-[color:var(--ink)]' : 'text-[color:var(--ink-2)]'}`}>
-              {counterparty?.user?.name ?? 'Unknown user'}
+            <p
+              className={`text-sm font-medium truncate ${unreadCount > 0 ? "text-[color:var(--ink)]" : "text-[color:var(--ink-2)]"}`}
+            >
+              {counterparty?.user?.name ?? "Unknown user"}
             </p>
             {lastMsg && (
               <time className="text-xs muted shrink-0">
@@ -62,16 +90,18 @@ function ThreadRow({ thread, userId }: { thread: SafeMessageThread; userId: stri
           {thread.subject && (
             <p className="text-xs muted truncate">{thread.subject}</p>
           )}
-          <p className={`text-sm truncate mt-0.5 ${unreadCount > 0 ? 'text-[color:var(--ink-2)]' : 'text-[color:var(--ink-3)]'}`}>
+          <p
+            className={`text-sm truncate mt-0.5 ${unreadCount > 0 ? "text-[color:var(--ink-2)]" : "text-[color:var(--ink-3)]"}`}
+          >
             {lastMsg
-              ? (lastMsg.authorId === userId ? 'You: ' : '') + lastMsg.body
-              : 'No messages yet.'}
+              ? (lastMsg.authorId === userId ? "You: " : "") + lastMsg.body
+              : "No messages yet."}
           </p>
         </div>
 
         {unreadCount > 0 && (
           <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[color:var(--accent)] px-1 text-[11px] font-bold text-white shrink-0">
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </Link>
@@ -86,23 +116,36 @@ export function MessagesPanel() {
 
   useEffect(() => {
     if (!accessToken) return;
-    const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1').replace(/\/api\/v1$/, '');
+    const base = (
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1"
+    ).replace(/\/api\/v1$/, "");
     const socket = io(`${base}/messages`, { auth: { token: accessToken } });
-    socket.on('messages:new', () => {
-      queryClient.invalidateQueries({ queryKey: ['threads'], exact: false });
+    socket.on("messages:new", () => {
+      queryClient.invalidateQueries({ queryKey: ["threads"], exact: false });
     });
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.disconnect();
+    };
   }, [accessToken, queryClient]);
 
   if (isLoading) {
-    return <p className="muted" role="status" aria-live="polite">Loading inbox…</p>;
+    return (
+      <p className="muted" role="status" aria-live="polite">
+        Loading inbox…
+      </p>
+    );
   }
 
   if (isError) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
+      <div
+        className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
+        role="alert"
+      >
         <p className="font-semibold">Unable to load inbox.</p>
-        <p className="text-sm opacity-80 mt-1">{(error as Error | undefined)?.message ?? 'Please try again.'}</p>
+        <p className="text-sm opacity-80 mt-1">
+          {(error as Error | undefined)?.message ?? "Please try again."}
+        </p>
       </div>
     );
   }
@@ -112,7 +155,9 @@ export function MessagesPanel() {
       <div className="card py-12 text-center">
         <p className="text-2xl mb-2">💬</p>
         <p className="muted">No conversations yet.</p>
-        <p className="text-sm muted mt-1">Message a seller from any listing page to get started.</p>
+        <p className="text-sm muted mt-1">
+          Message a seller from any listing page to get started.
+        </p>
       </div>
     );
   }
@@ -120,7 +165,7 @@ export function MessagesPanel() {
   return (
     <ul className="space-y-2">
       {data.data.map((thread) => (
-        <ThreadRow key={thread.id} thread={thread} userId={user?.id ?? ''} />
+        <ThreadRow key={thread.id} thread={thread} userId={user?.id ?? ""} />
       ))}
     </ul>
   );

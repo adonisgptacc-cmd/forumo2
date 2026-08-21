@@ -14,31 +14,31 @@ class ModerationStatus(str, Enum):
 
 
 class ListingImage(BaseModel):
-  id: str
-  url: HttpUrl | str
-  mime_type: Optional[str] = None
+  id: str = Field(max_length=64)
+  url: HttpUrl | str = Field(max_length=2048)
+  mime_type: Optional[str] = Field(default=None, max_length=100)
   file_size: Optional[int] = Field(default=None, ge=0)
 
 
 class ListingVariant(BaseModel):
-  id: Optional[str] = None
-  label: str
-  price_cents: Optional[int] = None
-  currency: Optional[str] = None
-  sku: Optional[str] = None
+  id: Optional[str] = Field(default=None, max_length=64)
+  label: str = Field(max_length=200)
+  price_cents: Optional[int] = Field(default=None, ge=0)
+  currency: Optional[str] = Field(default=None, max_length=8)
+  sku: Optional[str] = Field(default=None, max_length=64)
 
 
 class ListingModerationRequest(BaseModel):
-  listing_id: str = Field(alias='listingId')
-  seller_id: str = Field(alias='sellerId')
-  reason: str
-  title: str
-  description: Optional[str] = None
+  listing_id: str = Field(alias='listingId', max_length=64)
+  seller_id: str = Field(alias='sellerId', max_length=64)
+  reason: str = Field(max_length=32)
+  title: str = Field(max_length=200)
+  description: Optional[str] = Field(default=None, max_length=5000)
   price_cents: Optional[int] = Field(default=None, ge=0, alias='priceCents')
-  currency: Optional[str] = None
-  desired_status: Optional[str] = Field(default=None, alias='desiredStatus')
-  images: List[ListingImage] = Field(default_factory=list)
-  variants: List[ListingVariant] = Field(default_factory=list)
+  currency: Optional[str] = Field(default=None, max_length=8)
+  desired_status: Optional[str] = Field(default=None, alias='desiredStatus', max_length=32)
+  images: List[ListingImage] = Field(default_factory=list, max_length=25)
+  variants: List[ListingVariant] = Field(default_factory=list, max_length=100)
 
   class Config:
     populate_by_name = True

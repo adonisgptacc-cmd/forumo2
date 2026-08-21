@@ -1,8 +1,13 @@
-import { io, type Socket } from 'socket.io-client';
+import { io, type Socket } from "socket.io-client";
 
-import type { CreateThreadDto, PaginatedResponse, SafeMessageThread, SendMessageDto } from '@forumo/shared';
+import type {
+  CreateThreadDto,
+  PaginatedResponse,
+  SafeMessageThread,
+  SendMessageDto,
+} from "@forumo/shared";
 
-import { apiBaseUrl, createApiClient } from './api-client';
+import { apiBaseUrl, createApiClient } from "./api-client";
 
 export class MessagingLayer {
   private readonly apiClient: ReturnType<typeof createApiClient>;
@@ -17,7 +22,12 @@ export class MessagingLayer {
   }
 
   async listThreads(
-    params: { userId?: string; listingId?: string; page?: number; pageSize?: number } = {},
+    params: {
+      userId?: string;
+      listingId?: string;
+      page?: number;
+      pageSize?: number;
+    } = {},
   ): Promise<PaginatedResponse<SafeMessageThread>> {
     return this.apiClient.messaging.listThreads(params);
   }
@@ -39,15 +49,14 @@ export class MessagingLayer {
   }
 
   emitDelivered(socket: Socket | null, messageId: string) {
-    socket?.emit('messages:delivered', { messageId });
+    socket?.emit("messages:delivered", { messageId });
   }
 
   emitRead(socket: Socket | null, messageId: string) {
-    socket?.emit('messages:read', { messageId });
+    socket?.emit("messages:read", { messageId });
   }
 }
 
 export function getGatewayBaseUrl() {
-  return (apiBaseUrl ?? '').replace(/\/api\/v1$/, '');
+  return (apiBaseUrl ?? "").replace(/\/api\/v1$/, "");
 }
-

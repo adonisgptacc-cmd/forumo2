@@ -1,5 +1,5 @@
-import { ListingModerationStatus, ListingStatus } from '@prisma/client';
-import { Transform, Type } from 'class-transformer';
+import { ListingModerationStatus, ListingStatus } from "@prisma/client";
+import { Transform, Type } from "class-transformer";
 import {
   IsArray,
   IsDate,
@@ -10,7 +10,7 @@ import {
   IsString,
   Max,
   Min,
-} from 'class-validator';
+} from "class-validator";
 
 import { ListingSearchSort } from "../search.service";
 
@@ -61,7 +61,7 @@ export class ListingSearchQueryDto {
   @IsString({ each: true })
   @Transform(({ value }) => {
     if (value === undefined || value === null) return undefined;
-    const ids = Array.isArray(value) ? value : String(value).split(',');
+    const ids = Array.isArray(value) ? value : String(value).split(",");
     return ids.map((id) => String(id).trim()).filter(Boolean);
   })
   sellerIds?: string[];
@@ -71,7 +71,7 @@ export class ListingSearchQueryDto {
   @IsString({ each: true })
   @Transform(({ value }) => {
     if (value === undefined || value === null) return undefined;
-    const tags = Array.isArray(value) ? value : String(value).split(',');
+    const tags = Array.isArray(value) ? value : String(value).split(",");
     return tags
       .map((tag) => String(tag).trim())
       .filter(Boolean)
@@ -84,7 +84,7 @@ export class ListingSearchQueryDto {
   @IsString({ each: true })
   @Transform(({ value }) => {
     if (value === undefined || value === null) return undefined;
-    const categories = Array.isArray(value) ? value : String(value).split(',');
+    const categories = Array.isArray(value) ? value : String(value).split(",");
     return categories
       .map((category) => String(category).trim())
       .filter(Boolean)
@@ -103,6 +103,13 @@ export class ListingSearchQueryDto {
   createdBefore?: Date;
 
   @IsOptional()
-  @IsIn(['relevance', 'price_asc', 'price_desc', 'date_new', 'date_old', 'title'])
+  @IsIn([
+    "relevance",
+    "price_asc",
+    "price_desc",
+    "date_new",
+    "date_old",
+    "title",
+  ])
   sort?: ListingSearchSort;
 }

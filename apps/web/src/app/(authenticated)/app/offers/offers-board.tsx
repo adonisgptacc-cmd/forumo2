@@ -1,15 +1,22 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useOffers, useAcceptOffer, useDeclineOffer, useCurrentUser } from '../../../../lib/react-query/hooks';
-import type { SafeOffer } from '@forumo/shared';
+import Link from "next/link";
+import {
+  useOffers,
+  useAcceptOffer,
+  useDeclineOffer,
+  useCurrentUser,
+} from "../../../../lib/react-query/hooks";
+import type { SafeOffer } from "@forumo/shared";
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'text-amber-700 border-amber-200 bg-amber-50',
-  ACCEPTED: 'text-emerald-700 border-emerald-200 bg-emerald-50',
-  DECLINED: 'text-red-700 border-red-200 bg-red-50',
-  EXPIRED: 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]',
-  CANCELLED: 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]',
+  PENDING: "text-amber-700 border-amber-200 bg-amber-50",
+  ACCEPTED: "text-emerald-700 border-emerald-200 bg-emerald-50",
+  DECLINED: "text-red-700 border-red-200 bg-red-50",
+  EXPIRED:
+    "text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]",
+  CANCELLED:
+    "text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]",
 };
 
 export function OffersBoard() {
@@ -21,7 +28,9 @@ export function OffersBoard() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {[1, 2].map((i) => <div key={i} className="skeleton h-28 rounded-[14px]" />)}
+        {[1, 2].map((i) => (
+          <div key={i} className="skeleton h-28 rounded-[14px]" />
+        ))}
       </div>
     );
   }
@@ -32,9 +41,13 @@ export function OffersBoard() {
         <p className="text-4xl">🤝</p>
         <p className="font-medium text-[color:var(--ink)]">No offers yet</p>
         <p className="text-sm muted max-w-xs mx-auto">
-          Browse listings and click &quot;Make an offer&quot; to negotiate a price with sellers.
+          Browse listings and click &quot;Make an offer&quot; to negotiate a
+          price with sellers.
         </p>
-        <Link href={"/listings" as any} className="btn btn-primary btn-sm mt-2 inline-flex">
+        <Link
+          href={"/listings" as any}
+          className="btn btn-primary btn-sm mt-2 inline-flex"
+        >
           Browse listings
         </Link>
       </div>
@@ -95,13 +108,15 @@ function OfferCard({
   actionPending,
 }: {
   offer: SafeOffer;
-  role: 'buyer' | 'seller';
+  role: "buyer" | "seller";
   onAccept?: () => void;
   onDecline?: () => void;
   actionPending: boolean;
 }) {
-  const statusColor = STATUS_COLORS[offer.status] ?? 'text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]';
-  const canAct = role === 'seller' && offer.status === 'PENDING';
+  const statusColor =
+    STATUS_COLORS[offer.status] ??
+    "text-[color:var(--ink-3)] border-[color:var(--line)] bg-[color:var(--surface-2)]";
+  const canAct = role === "seller" && offer.status === "PENDING";
 
   return (
     <article className="card card-pad space-y-3">
@@ -111,13 +126,17 @@ function OfferCard({
             {offer.listing?.title ?? offer.listingId}
           </p>
           <p className="text-xs muted">
-            {role === 'buyer' ? `To: ${offer.seller?.name ?? 'Seller'}` : `From: ${offer.buyer?.name ?? 'Buyer'}`}
+            {role === "buyer"
+              ? `To: ${offer.seller?.name ?? "Seller"}`
+              : `From: ${offer.buyer?.name ?? "Buyer"}`}
           </p>
           <p className="text-xs muted">
             {new Date(offer.createdAt).toLocaleString()}
           </p>
         </div>
-        <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${statusColor}`}>
+        <span
+          className={`rounded-full border px-3 py-0.5 text-xs font-medium ${statusColor}`}
+        >
           {offer.status}
         </span>
       </div>
@@ -126,7 +145,7 @@ function OfferCard({
         <p className="text-lg font-semibold">
           {(offer.amountCents / 100).toFixed(2)} {offer.currency}
         </p>
-        {offer.expiresAt && offer.status === 'PENDING' && (
+        {offer.expiresAt && offer.status === "PENDING" && (
           <p className="text-xs muted">
             Expires {new Date(offer.expiresAt).toLocaleDateString()}
           </p>
@@ -146,19 +165,19 @@ function OfferCard({
             disabled={actionPending}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {actionPending ? '…' : 'Accept'}
+            {actionPending ? "…" : "Accept"}
           </button>
           <button
             onClick={onDecline}
             disabled={actionPending}
             className="btn btn-ghost btn-sm"
           >
-            {actionPending ? '…' : 'Decline'}
+            {actionPending ? "…" : "Decline"}
           </button>
         </div>
       )}
 
-      {offer.status === 'ACCEPTED' && role === 'buyer' && (
+      {offer.status === "ACCEPTED" && role === "buyer" && (
         <p className="text-sm text-[color:var(--escrow)]">
           Offer accepted — check your orders for the new order.
         </p>

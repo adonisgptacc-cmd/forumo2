@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect } from "react";
+import Link from "next/link";
 
 export default function ListingsError({
   error,
@@ -17,7 +17,9 @@ export default function ListingsError({
   return (
     <div className="px-4 py-16 text-center space-y-4">
       <p className="text-4xl font-bold text-red-600">!</p>
-      <h2 className="text-xl font-semibold text-[color:var(--ink)]">Failed to load listings</h2>
+      <h2 className="text-xl font-semibold text-[color:var(--ink)]">
+        Failed to load listings
+      </h2>
       <p className="text-sm text-[color:var(--ink-3)]">
         Something went wrong while fetching listings. Please try again.
       </p>

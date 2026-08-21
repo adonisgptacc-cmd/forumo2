@@ -1,5 +1,13 @@
-import { NotificationChannel, OtpPurpose } from '@prisma/client';
-import { IsEmail, IsEnum, IsIP, IsObject, IsOptional, IsString, Length } from 'class-validator';
+import { NotificationChannel, OtpPurpose } from "@prisma/client";
+import {
+  IsEmail,
+  IsEnum,
+  IsIP,
+  IsObject,
+  IsOptional,
+  IsString,
+  Length,
+} from "class-validator";
 
 export class RequestOtpDto {
   @IsEmail()
@@ -17,7 +25,9 @@ export class RequestOtpDto {
   userAgent?: string;
 
   @IsOptional()
-  @IsIP(undefined, { message: 'ipAddress must be a valid IPv4 or IPv6 address' })
+  @IsIP(undefined, {
+    message: "ipAddress must be a valid IPv4 or IPv6 address",
+  })
   ipAddress?: string;
 
   @IsOptional()

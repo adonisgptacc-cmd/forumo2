@@ -64,59 +64,64 @@ class InMemoryPrismaService {
     };
   }
 
-  get offer() {
-    const self = this;
-    return {
-      findFirst: async ({ where }: any) => {
-        for (const offer of self.offers.values()) {
-          let match = true;
-          if (where.listingId && offer.listingId !== where.listingId)
-            match = false;
-          if (where.buyerId && offer.buyerId !== where.buyerId) match = false;
-          if (where.status && offer.status !== where.status) match = false;
-          if (match) return offer;
-        }
-        return null;
-      },
-      findUnique: async ({ where }: any) => self.offers.get(where.id) ?? null,
-      findMany: async ({ where }: any) => {
-        return Array.from(self.offers.values()).filter((o) => {
-          if (!where?.OR) return true;
-          return where.OR.some((cond: any) => {
-            if (cond.buyerId) return o.buyerId === cond.buyerId;
-            if (cond.sellerId) return o.sellerId === cond.sellerId;
-            return false;
-          });
+  // Stable reference so tests can intercept individual methods.
+  offerImpl = {
+    findFirst: async ({ where }: any) => {
+      for (const offer of this.offers.values()) {
+        let match = true;
+        if (where.listingId && offer.listingId !== where.listingId)
+          match = false;
+        if (where.buyerId && offer.buyerId !== where.buyerId) match = false;
+        if (where.status && offer.status !== where.status) match = false;
+        if (match) return offer;
+      }
+      return null;
+    },
+    findUnique: async ({ where }: any) => this.offers.get(where.id) ?? null,
+    findMany: async ({ where }: any) => {
+      return Array.from(this.offers.values()).filter((o) => {
+        if (!where?.OR) return true;
+        return where.OR.some((cond: any) => {
+          if (cond.buyerId) return o.buyerId === cond.buyerId;
+          if (cond.sellerId) return o.sellerId === cond.sellerId;
+          return false;
         });
-      },
-      create: async ({ data }: any) => {
-        const id = randomUUID();
-        const offer = {
-          id,
-          ...data,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        self.offers.set(id, offer);
-        return offer;
-      },
-      update: async ({ where, data }: any) => {
-        const offer = self.offers.get(where.id);
-        if (!offer) return null;
-        const updated = { ...offer, ...data };
-        self.offers.set(where.id, updated);
-        return updated;
-      },
-      updateMany: async ({ where, data }: any) => {
-        for (const [id, offer] of self.offers.entries()) {
-          if (where.listingId && offer.listingId !== where.listingId) continue;
-          if (where.status && offer.status !== where.status) continue;
-          if (where.NOT?.id && offer.id === where.NOT.id) continue;
-          self.offers.set(id, { ...offer, ...data });
-        }
-        return { count: 0 };
-      },
-    };
+      });
+    },
+    create: async ({ data }: any) => {
+      const id = randomUUID();
+      const offer = {
+        id,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.offers.set(id, offer);
+      return offer;
+    },
+    update: async ({ where, data }: any) => {
+      const offer = this.offers.get(where.id);
+      if (!offer) return null;
+      const updated = { ...offer, ...data };
+      this.offers.set(where.id, updated);
+      return updated;
+    },
+    updateMany: async ({ where, data }: any) => {
+      let count = 0;
+      for (const [id, offer] of this.offers.entries()) {
+        if (where.id && offer.id !== where.id) continue;
+        if (where.listingId && offer.listingId !== where.listingId) continue;
+        if (where.status && offer.status !== where.status) continue;
+        if (where.NOT?.id && offer.id === where.NOT.id) continue;
+        this.offers.set(id, { ...offer, ...data });
+        count += 1;
+      }
+      return { count };
+    },
+  };
+
+  get offer() {
+    return this.offerImpl;
   }
 
   get order() {
@@ -278,6 +283,28 @@ describe("OffersModule", () => {
       await request(app.getHttpServer())
         .post(`/offers/${offerId}/accept`)
         .expect(400);
+    });
+
+    it("returns 400 when a concurrent accept wins the race", async () => {
+      // Simulate another transaction already flipping the offer to ACCEPTED
+      // between the read and the guarded write.
+      const originalUpdateMany = prismaMock.offerImpl.updateMany;
+      prismaMock.offerImpl.updateMany = (async ({ where }: any) => {
+        if (where.id === offerId && where.status === "PENDING") {
+          return { count: 0 };
+        }
+        return originalUpdateMany({
+          where,
+          data: { status: "DECLINED" },
+        } as any);
+      }) as any;
+
+      MockGuard.userId = SELLER_ID;
+      await request(app.getHttpServer())
+        .post(`/offers/${offerId}/accept`)
+        .expect(400);
+
+      expect(prismaMock.offers.get(offerId)!.status).toBe("PENDING");
     });
   });
 

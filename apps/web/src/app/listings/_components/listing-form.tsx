@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type {
   CreateListingDto,
   CreateListingVariantDto,
@@ -10,14 +10,13 @@ import type {
   ListingImage,
   ListingVariant,
   UpdateListingDto,
-} from '@forumo/shared';
+} from "@forumo/shared";
 
-import { useListingMutations } from '../../../lib/react-query/hooks';
-import { useApiClient } from '../../../lib/use-api-client';
+import { useListingMutations } from "../../../lib/react-query/hooks";
+import { useApiClient } from "../../../lib/use-api-client";
 
-const listingStatuses = ['DRAFT', 'PUBLISHED', 'PAUSED'] as const;
-const actionButtonClasses =
-  'btn btn-primary disabled:cursor-not-allowed';
+const listingStatuses = ["DRAFT", "PUBLISHED", "PAUSED"] as const;
+const actionButtonClasses = "btn btn-primary disabled:cursor-not-allowed";
 
 type VariantDraft = {
   id?: string;
@@ -29,7 +28,7 @@ type VariantDraft = {
 };
 
 type ListingFormProps = {
-  mode: 'create' | 'edit';
+  mode: "create" | "edit";
   listing?: SafeListing | null;
 };
 
@@ -40,7 +39,9 @@ type SubmitResult = {
   message: string;
 };
 
-function mapVariantsToDrafts(variants: ListingVariant[] | undefined): VariantDraft[] {
+function mapVariantsToDrafts(
+  variants: ListingVariant[] | undefined,
+): VariantDraft[] {
   if (!variants?.length) {
     return [];
   }
@@ -48,9 +49,12 @@ function mapVariantsToDrafts(variants: ListingVariant[] | undefined): VariantDra
     id: variant.id,
     label: variant.label,
     price: (variant.priceCents / 100).toString(),
-    currency: variant.currency ?? 'USD',
+    currency: variant.currency ?? "USD",
     sku: variant.sku ?? undefined,
-    inventoryCount: variant.inventoryCount != null ? String(variant.inventoryCount) : undefined,
+    inventoryCount:
+      variant.inventoryCount != null
+        ? String(variant.inventoryCount)
+        : undefined,
   }));
 }
 
@@ -60,48 +64,59 @@ function toCreateListingVariant(draft: VariantDraft): CreateListingVariantDto {
     priceCents: Math.round(parseFloat(draft.price) * 100),
     currency: draft.currency || undefined,
     sku: draft.sku?.trim() || undefined,
-    inventoryCount: draft.inventoryCount ? Number(draft.inventoryCount) : undefined,
+    inventoryCount: draft.inventoryCount
+      ? Number(draft.inventoryCount)
+      : undefined,
   };
 }
 
 function validateListingFields(
-  params: Pick<SafeListing, 'title' | 'description' | 'sellerId' | 'currency' | 'status'> & {
+  params: Pick<
+    SafeListing,
+    "title" | "description" | "sellerId" | "currency" | "status"
+  > & {
     price: string;
   },
-  mode: ListingFormProps['mode'],
+  mode: ListingFormProps["mode"],
 ): ValidationError[] {
   const errors: ValidationError[] = [];
-  if (mode === 'create' && !params.sellerId.trim()) {
-    errors.push('Seller ID is required.');
+  if (mode === "create" && !params.sellerId.trim()) {
+    errors.push("Seller ID is required.");
   }
   if (!params.title.trim()) {
-    errors.push('Title is required.');
+    errors.push("Title is required.");
   }
   if (!params.description.trim()) {
-    errors.push('Description is required.');
+    errors.push("Description is required.");
   }
   if (!params.price.trim() || Number.isNaN(Number(params.price))) {
-    errors.push('Price must be a valid number.');
+    errors.push("Price must be a valid number.");
   }
   if (!params.currency.trim()) {
-    errors.push('Currency is required.');
+    errors.push("Currency is required.");
   }
-  if (!listingStatuses.includes(params.status as (typeof listingStatuses)[number])) {
-    errors.push('Status must be one of the supported values.');
+  if (
+    !listingStatuses.includes(params.status as (typeof listingStatuses)[number])
+  ) {
+    errors.push("Status must be one of the supported values.");
   }
   return errors;
 }
 
 export function ListingForm({ mode, listing }: ListingFormProps) {
   const router = useRouter();
-  const [sellerId, setSellerId] = useState(listing?.sellerId ?? '');
-  const [title, setTitle] = useState(listing?.title ?? '');
-  const [description, setDescription] = useState(listing?.description ?? '');
-  const [price, setPrice] = useState(listing ? (listing.priceCents / 100).toString() : '');
-  const [currency, setCurrency] = useState(listing?.currency ?? 'USD');
-  const [status, setStatus] = useState(listing?.status ?? 'DRAFT');
-  const [location, setLocation] = useState(listing?.location ?? '');
-  const [variants, setVariants] = useState<VariantDraft[]>(mapVariantsToDrafts(listing?.variants));
+  const [sellerId, setSellerId] = useState(listing?.sellerId ?? "");
+  const [title, setTitle] = useState(listing?.title ?? "");
+  const [description, setDescription] = useState(listing?.description ?? "");
+  const [price, setPrice] = useState(
+    listing ? (listing.priceCents / 100).toString() : "",
+  );
+  const [currency, setCurrency] = useState(listing?.currency ?? "USD");
+  const [status, setStatus] = useState(listing?.status ?? "DRAFT");
+  const [location, setLocation] = useState(listing?.location ?? "");
+  const [variants, setVariants] = useState<VariantDraft[]>(
+    mapVariantsToDrafts(listing?.variants),
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [message, setMessage] = useState<SubmitResult | null>(null);
@@ -113,9 +128,13 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
   const existingImages: ListingImage[] = listing?.images ?? [];
 
-  const buttonLabel = mode === 'create' ? 'Create listing' : 'Save changes';
+  const buttonLabel = mode === "create" ? "Create listing" : "Save changes";
 
-  const handleVariantChange = (index: number, field: keyof VariantDraft, value: string) => {
+  const handleVariantChange = (
+    index: number,
+    field: keyof VariantDraft,
+    value: string,
+  ) => {
     setVariants((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
@@ -124,7 +143,10 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   };
 
   const addVariant = () => {
-    setVariants((prev) => [...prev, { label: '', price: '', currency: currency || 'USD' }]);
+    setVariants((prev) => [
+      ...prev,
+      { label: "", price: "", currency: currency || "USD" },
+    ]);
   };
 
   const removeVariant = (index: number) => {
@@ -144,13 +166,17 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       { sellerId, title, description, price, currency, status },
       mode,
     );
-    const normalizedVariants = variants.filter((variant) => variant.label.trim() || variant.price.trim());
+    const normalizedVariants = variants.filter(
+      (variant) => variant.label.trim() || variant.price.trim(),
+    );
     normalizedVariants.forEach((variant, index) => {
       if (!variant.label.trim()) {
         validationErrors.push(`Variant #${index + 1} must include a label.`);
       }
       if (!variant.price.trim() || Number.isNaN(Number(variant.price))) {
-        validationErrors.push(`Variant #${index + 1} must include a valid price.`);
+        validationErrors.push(
+          `Variant #${index + 1} must include a valid price.`,
+        );
       }
     });
 
@@ -171,19 +197,25 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       location: location.trim() || undefined,
     };
 
-    if (mode === 'create') {
+    if (mode === "create") {
       payload.sellerId = sellerId.trim();
     }
 
-    if (normalizedVariants.length > 0 || (mode === 'edit' && listing?.variants)) {
+    if (
+      normalizedVariants.length > 0 ||
+      (mode === "edit" && listing?.variants)
+    ) {
       payload.variants = normalizedVariants.map(toCreateListingVariant);
     }
 
     try {
       const savedListing =
-        mode === 'create'
+        mode === "create"
           ? await createMutation.mutateAsync(payload as CreateListingDto)
-          : await updateMutation.mutateAsync({ id: listing!.id, payload: payload as UpdateListingDto });
+          : await updateMutation.mutateAsync({
+              id: listing!.id,
+              payload: payload as UpdateListingDto,
+            });
 
       if (files.length > 0) {
         for (const file of files) {
@@ -191,7 +223,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         }
       }
 
-      setMessage({ success: true, message: 'Listing saved! Redirecting…' });
+      setMessage({ success: true, message: "Listing saved! Redirecting…" });
       router.push(`/listings/${savedListing.id}` as any);
       router.refresh();
     } catch (error) {
@@ -217,8 +249,11 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       {message ? (
         <div
-          className={`rounded-md border p-3 text-sm ${message.success ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'
-            }`}
+          className={`rounded-md border p-3 text-sm ${
+            message.success
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
         >
           {message.message}
         </div>
@@ -226,20 +261,26 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="text-[color:var(--ink-2)]">Seller ID {mode === 'create' ? '*' : ''}</span>
+          <span className="text-[color:var(--ink-2)]">
+            Seller ID {mode === "create" ? "*" : ""}
+          </span>
           <input
             type="text"
             className="input-forumo"
             value={sellerId}
             onChange={(event) => setSellerId(event.target.value)}
             placeholder="seller_123"
-            required={mode === 'create'}
-            disabled={mode === 'edit'}
+            required={mode === "create"}
+            disabled={mode === "edit"}
           />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-[color:var(--ink-2)]">Status</span>
-          <select className="input-forumo" value={status} onChange={(event) => setStatus(event.target.value as any)}>
+          <select
+            className="input-forumo"
+            value={status}
+            onChange={(event) => setStatus(event.target.value as any)}
+          >
             {listingStatuses.map((statusOption) => (
               <option key={statusOption} value={statusOption}>
                 {statusOption}
@@ -249,7 +290,12 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
           <span className="text-[color:var(--ink-2)]">Title *</span>
-          <input type="text" className="input-forumo" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input
+            type="text"
+            className="input-forumo"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
         </label>
         <label className="space-y-1 text-sm md:col-span-2">
           <span className="text-[color:var(--ink-2)]">Description *</span>
@@ -260,7 +306,9 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="text-[color:var(--ink-2)]">Price (in {currency}) *</span>
+          <span className="text-[color:var(--ink-2)]">
+            Price (in {currency}) *
+          </span>
           <input
             type="number"
             step="0.01"
@@ -293,19 +341,32 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Variants</h2>
-          <button type="button" className="text-sm text-[color:var(--accent)]" onClick={addVariant}>
+          <button
+            type="button"
+            className="text-sm text-[color:var(--accent)]"
+            onClick={addVariant}
+          >
             + Add variant
           </button>
         </div>
         {variants.length === 0 ? (
-          <p className="text-sm text-[color:var(--ink-3)]">No variants configured. Add one to override pricing per option.</p>
+          <p className="text-sm text-[color:var(--ink-3)]">
+            No variants configured. Add one to override pricing per option.
+          </p>
         ) : (
           <div className="space-y-3">
             {variants.map((variant, index) => (
-              <div key={variant.id ?? index} className="rounded-md border border-[color:var(--line)] p-4">
+              <div
+                key={variant.id ?? index}
+                className="rounded-md border border-[color:var(--line)] p-4"
+              >
                 <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-[color:var(--ink-3)]">
                   <span>Variant #{index + 1}</span>
-                  <button type="button" className="text-[color:var(--accent)]" onClick={() => removeVariant(index)}>
+                  <button
+                    type="button"
+                    className="text-[color:var(--accent)]"
+                    onClick={() => removeVariant(index)}
+                  >
                     Remove
                   </button>
                 </div>
@@ -316,7 +377,9 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       type="text"
                       className="input-forumo"
                       value={variant.label}
-                      onChange={(event) => handleVariantChange(index, 'label', event.target.value)}
+                      onChange={(event) =>
+                        handleVariantChange(index, "label", event.target.value)
+                      }
                     />
                   </label>
                   <label className="space-y-1 text-sm">
@@ -327,7 +390,9 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       min="0"
                       className="input-forumo"
                       value={variant.price}
-                      onChange={(event) => handleVariantChange(index, 'price', event.target.value)}
+                      onChange={(event) =>
+                        handleVariantChange(index, "price", event.target.value)
+                      }
                     />
                   </label>
                   <label className="space-y-1 text-sm">
@@ -336,7 +401,13 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       type="text"
                       className="input-forumo"
                       value={variant.currency}
-                      onChange={(event) => handleVariantChange(index, 'currency', event.target.value.toUpperCase())}
+                      onChange={(event) =>
+                        handleVariantChange(
+                          index,
+                          "currency",
+                          event.target.value.toUpperCase(),
+                        )
+                      }
                     />
                   </label>
                   <label className="space-y-1 text-sm">
@@ -344,8 +415,10 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                     <input
                       type="text"
                       className="input-forumo"
-                      value={variant.sku ?? ''}
-                      onChange={(event) => handleVariantChange(index, 'sku', event.target.value)}
+                      value={variant.sku ?? ""}
+                      onChange={(event) =>
+                        handleVariantChange(index, "sku", event.target.value)
+                      }
                     />
                   </label>
                   <label className="space-y-1 text-sm">
@@ -354,8 +427,14 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       type="number"
                       min="0"
                       className="input-forumo"
-                      value={variant.inventoryCount ?? ''}
-                      onChange={(event) => handleVariantChange(index, 'inventoryCount', event.target.value)}
+                      value={variant.inventoryCount ?? ""}
+                      onChange={(event) =>
+                        handleVariantChange(
+                          index,
+                          "inventoryCount",
+                          event.target.value,
+                        )
+                      }
                     />
                   </label>
                 </div>
@@ -370,21 +449,37 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         {existingImages.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {existingImages.map((image) => (
-              <div key={image.id} className="space-y-2 rounded-md border border-[color:var(--line)] p-2 text-sm">
-                <p className="truncate text-xs text-[color:var(--ink-3)]">{image.storageKey ?? image.url}</p>
+              <div
+                key={image.id}
+                className="space-y-2 rounded-md border border-[color:var(--line)] p-2 text-sm"
+              >
+                <p className="truncate text-xs text-[color:var(--ink-3)]">
+                  {image.storageKey ?? image.url}
+                </p>
                 {image.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={image.url} alt={title} className="h-32 w-full rounded-md object-cover" />
+                  <img
+                    src={image.url}
+                    alt={title}
+                    className="h-32 w-full rounded-md object-cover"
+                  />
                 ) : null}
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-[color:var(--ink-3)]">No images attached yet.</p>
+          <p className="text-sm text-[color:var(--ink-3)]">
+            No images attached yet.
+          </p>
         )}
         <label className="space-y-2 text-sm">
           <span className="text-[color:var(--ink-2)]">Upload images</span>
-          <input type="file" accept="image/*" multiple onChange={handleFileChange} />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+          />
         </label>
         {files.length > 0 ? (
           <ul className="text-sm text-[color:var(--ink-3)]">
@@ -396,10 +491,16 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       </section>
 
       <div className="flex items-center gap-3">
-        <button type="submit" className={actionButtonClasses} disabled={isSubmitting || isMutating}>
-          {isSubmitting || isMutating ? 'Saving…' : buttonLabel}
+        <button
+          type="submit"
+          className={actionButtonClasses}
+          disabled={isSubmitting || isMutating}
+        >
+          {isSubmitting || isMutating ? "Saving…" : buttonLabel}
         </button>
-        <p className="text-xs text-[color:var(--ink-3)]">All required fields are marked with *</p>
+        <p className="text-xs text-[color:var(--ink-3)]">
+          All required fields are marked with *
+        </p>
       </div>
     </form>
   );

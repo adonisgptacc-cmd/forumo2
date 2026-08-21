@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function AppNotFound() {
   return (
@@ -9,16 +9,10 @@ export default function AppNotFound() {
         This page doesn&apos;t exist or you don&apos;t have access to it.
       </p>
       <div className="flex gap-3 pt-2">
-        <Link
-          href="/app"
-          className="btn btn-primary"
-        >
+        <Link href="/app" className="btn btn-primary">
           Go to dashboard
         </Link>
-        <Link
-          href="/app/orders"
-          className="btn btn-ghost"
-        >
+        <Link href="/app/orders" className="btn btn-ghost">
           My orders
         </Link>
       </div>

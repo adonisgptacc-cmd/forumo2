@@ -48,13 +48,14 @@ export class AuctionEndProcessor {
         let winnerId: string | null = null;
 
         await this.prisma.$transaction(async (tx) => {
-          // Double check status in transaction
+          // Double check status in transaction and re-select winner to avoid stale read
           const current = await tx.auction.findUnique({
             where: { id: auction.id },
+            include: { bids: { orderBy: { amountCents: "desc" }, take: 1 } },
           });
           if (current?.status !== AuctionStatus.ACTIVE) return;
 
-          const winningBid = auction.bids[0];
+          const winningBid = (current as any).bids?.[0] ?? null;
 
           if (!winningBid) {
             // No bids
@@ -79,12 +80,31 @@ export class AuctionEndProcessor {
               where: { id: auction.id },
               data: { status: AuctionStatus.COMPLETED },
             });
-            // Reserve not met logic (notify seller, etc)
-            this.logger.log(`Auction ${auction.id} ended. Reserve not met.`);
+            await tx.listing.update({
+              where: { id: auction.listingId },
+              data: { status: ListingStatus.PAUSED },
+            });
+            this.logger.log(
+              `Auction ${auction.id} ended. Reserve not met — listing reset to PAUSED.`,
+            );
             return;
           }
 
-          // Winner found!
+          // Winner found! Guard against duplicate order from concurrent cron
+          const existingOrder = await tx.order.findUnique({
+            where: { auctionId: auction.id },
+          } as any);
+          if (existingOrder) {
+            await tx.auction.update({
+              where: { id: auction.id },
+              data: { status: AuctionStatus.COMPLETED },
+            });
+            this.logger.warn(
+              `Auction ${auction.id} already has order ${existingOrder.id} — skipping duplicate`,
+            );
+            return;
+          }
+
           await tx.auction.update({
             where: { id: auction.id },
             data: { status: AuctionStatus.COMPLETED },
@@ -101,6 +121,7 @@ export class AuctionEndProcessor {
               status: OrderStatus.PENDING,
               totalItemCents: winningBid.amountCents,
               currency: auction.currency,
+              auctionId: auction.id,
               items: {
                 create: {
                   listingId: auction.listingId,

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
+import React from "react";
+import Link from "next/link";
 
 interface Props {
   children: React.ReactNode;
@@ -25,11 +25,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    console.error("[ErrorBoundary]", error, info.componentStack);
     this.props.onError?.(error, info);
-    import('@sentry/nextjs')
+    import("@sentry/nextjs")
       .then(({ captureException }) =>
-        captureException(error, { extra: { componentStack: info.componentStack } }),
+        captureException(error, {
+          extra: { componentStack: info.componentStack },
+        }),
       )
       .catch(() => undefined);
   }
@@ -47,7 +49,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return this.props.fallback;
     }
 
-    const isDev = process.env.NODE_ENV === 'development';
+    const isDev = process.env.NODE_ENV === "development";
 
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-6 text-center space-y-3 my-4">
@@ -67,7 +69,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
             />
           </svg>
         </div>
-        <h2 className="text-base font-semibold text-slate-800">Something went wrong</h2>
+        <h2 className="text-base font-semibold text-slate-800">
+          Something went wrong
+        </h2>
         <p className="text-sm text-slate-500 max-w-xs mx-auto">
           This section couldn&apos;t load. It may be a temporary issue.
         </p>
@@ -78,7 +82,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </summary>
             <pre className="mt-2 text-xs text-red-800 whitespace-pre-wrap break-all overflow-auto max-h-48">
               {this.state.error.message}
-              {'\n\n'}
+              {"\n\n"}
               {this.state.error.stack}
             </pre>
           </details>

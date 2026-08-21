@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import type { ReturnReason, ReturnStatus, SafeReturn } from '@forumo/shared';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { ReturnReason, ReturnStatus, SafeReturn } from "@forumo/shared";
 import {
   useReturns,
   useApproveReturn,
   useRejectReturn,
   useConfirmReturnReceived,
-} from '../../../../../lib/react-query/hooks';
+} from "../../../../../lib/react-query/hooks";
 
 const REASON_LABELS: Record<ReturnReason, string> = {
-  not_as_described: 'Not as described',
-  damaged: 'Item arrived damaged',
-  not_received: 'Item not received',
-  changed_mind: 'Changed my mind',
-  other: 'Other',
+  not_as_described: "Not as described",
+  damaged: "Item arrived damaged",
+  not_received: "Item not received",
+  changed_mind: "Changed my mind",
+  other: "Other",
 };
 
 const STATUS_COLORS: Record<ReturnStatus, string> = {
-  requested: 'bg-amber-50 text-amber-700',
-  awaiting_seller: 'bg-blue-50 text-blue-700',
-  approved: 'bg-emerald-50 text-emerald-700',
-  rejected: 'bg-red-50 text-red-700',
-  shipped: 'bg-indigo-50 text-indigo-700',
-  received: 'bg-purple-50 text-purple-700',
-  refunded: 'bg-emerald-50 text-emerald-700',
+  requested: "bg-amber-50 text-amber-700",
+  awaiting_seller: "bg-blue-50 text-blue-700",
+  approved: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-700",
+  shipped: "bg-indigo-50 text-indigo-700",
+  received: "bg-purple-50 text-purple-700",
+  refunded: "bg-emerald-50 text-emerald-700",
 };
 
 function useCountdown(deadline: string) {
@@ -51,7 +51,8 @@ function useCountdown(deadline: string) {
 }
 
 function CountdownBadge({ deadline }: { deadline: string }) {
-  const { remaining, hours, minutes, seconds, expired } = useCountdown(deadline);
+  const { remaining, hours, minutes, seconds, expired } =
+    useCountdown(deadline);
 
   if (expired) {
     return (
@@ -65,26 +66,29 @@ function CountdownBadge({ deadline }: { deadline: string }) {
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
-        urgent ? 'bg-red-50 text-red-700' : 'bg-[color:var(--surface-2)] text-[color:var(--ink-2)]'
+        urgent
+          ? "bg-red-50 text-red-700"
+          : "bg-[color:var(--surface-2)] text-[color:var(--ink-2)]"
       }`}
     >
-      {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
-      {String(seconds).padStart(2, '0')} left
+      {String(hours).padStart(2, "0")}:{String(minutes).padStart(2, "0")}:
+      {String(seconds).padStart(2, "0")} left
     </span>
   );
 }
 
 function ReturnRow({ ret }: { ret: SafeReturn }) {
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
 
   const { mutateAsync: approve, isPending: approving } = useApproveReturn();
   const { mutateAsync: reject, isPending: rejecting } = useRejectReturn();
-  const { mutateAsync: confirmReceived, isPending: confirming } = useConfirmReturnReceived();
+  const { mutateAsync: confirmReceived, isPending: confirming } =
+    useConfirmReturnReceived();
 
   const status = ret.status as ReturnStatus;
-  const needsResponse = status === 'awaiting_seller' || status === 'requested';
-  const needsReceiveConfirm = status === 'shipped';
+  const needsResponse = status === "awaiting_seller" || status === "requested";
+  const needsReceiveConfirm = status === "shipped";
 
   async function handleApprove() {
     await approve(ret.id);
@@ -104,27 +108,37 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
     <div className="rounded-lg card p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link href={`/app/returns/${ret.id}` as any} className="hover:underline">
+          <Link
+            href={`/app/returns/${ret.id}` as any}
+            className="hover:underline"
+          >
             <p className="truncate text-sm font-medium text-[color:var(--ink)]">
               Order #{ret.order?.orderNumber ?? ret.orderId.slice(0, 8)}
             </p>
           </Link>
           <p className="mt-0.5 text-xs text-[color:var(--ink-3)]">
-            {REASON_LABELS[ret.reason as ReturnReason] ?? ret.reason} ·{' '}
+            {REASON_LABELS[ret.reason as ReturnReason] ?? ret.reason} ·{" "}
             {new Date(ret.createdAt).toLocaleDateString()}
           </p>
           {ret.conditionNotes && (
-            <p className="mt-2 text-sm text-[color:var(--ink-2)] line-clamp-2">{ret.conditionNotes}</p>
+            <p className="mt-2 text-sm text-[color:var(--ink-2)] line-clamp-2">
+              {ret.conditionNotes}
+            </p>
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}>
-            {status.replace(/_/g, ' ')}
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}
+          >
+            {status.replace(/_/g, " ")}
           </span>
           <p className="text-xs text-[color:var(--ink-3)]">
-            {ret.order?.currency?.toUpperCase()} {(ret.refundAmount / 100).toFixed(2)}
+            {ret.order?.currency?.toUpperCase()}{" "}
+            {(ret.refundAmount / 100).toFixed(2)}
           </p>
-          {needsResponse && <CountdownBadge deadline={ret.sellerResponseDeadline} />}
+          {needsResponse && (
+            <CountdownBadge deadline={ret.sellerResponseDeadline} />
+          )}
         </div>
       </div>
 
@@ -136,7 +150,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
             disabled={approving}
             className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {approving ? 'Approving…' : 'Approve'}
+            {approving ? "Approving…" : "Approve"}
           </button>
           <button
             onClick={() => setShowRejectForm(true)}
@@ -163,7 +177,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
               disabled={!rejectReason.trim() || rejecting}
               className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
-              {rejecting ? 'Declining…' : 'Confirm decline'}
+              {rejecting ? "Declining…" : "Confirm decline"}
             </button>
             <button
               type="button"
@@ -182,7 +196,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
           disabled={confirming}
           className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
-          {confirming ? 'Processing…' : 'Confirm item received & issue refund'}
+          {confirming ? "Processing…" : "Confirm item received & issue refund"}
         </button>
       )}
     </div>
@@ -201,7 +215,9 @@ export function SellerReturnsView() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">Failed to load return requests.</p>;
+    return (
+      <p className="text-sm text-red-600">Failed to load return requests.</p>
+    );
   }
 
   if (!returns?.length) {
@@ -216,10 +232,10 @@ export function SellerReturnsView() {
   }
 
   const pending = returns.filter((r) =>
-    ['requested', 'awaiting_seller', 'shipped'].includes(r.status),
+    ["requested", "awaiting_seller", "shipped"].includes(r.status),
   );
   const resolved = returns.filter((r) =>
-    ['approved', 'rejected', 'received', 'refunded'].includes(r.status),
+    ["approved", "rejected", "received", "refunded"].includes(r.status),
   );
 
   return (
@@ -227,7 +243,7 @@ export function SellerReturnsView() {
       {pending.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-[color:var(--ink-2)]">
-            Needs action{' '}
+            Needs action{" "}
             <span className="ml-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
               {pending.length}
             </span>
@@ -239,7 +255,9 @@ export function SellerReturnsView() {
       )}
       {resolved.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-[color:var(--ink-3)]">Resolved</h3>
+          <h3 className="text-sm font-medium text-[color:var(--ink-3)]">
+            Resolved
+          </h3>
           {resolved.map((ret) => (
             <ReturnRow key={ret.id} ret={ret} />
           ))}

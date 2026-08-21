@@ -1,0 +1,29 @@
+# Project-local Codex configuration, derived from ECC's Codex integration.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[features]
+multi_agent = true
+
+[mcp_servers.cxpak]
+command = "powershell.exe"
+args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/cxpak-mcp.ps1"]
+cwd = "."
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+
+[agents]
+max_threads = 6
+max_depth = 1
+
+[agents.explorer]
+description = "Read-only codebase explorer for gathering evidence before changes are proposed."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "Reviewer focused on correctness, security, regressions, and missing tests."
+config_file = "agents/reviewer.toml"
+
+[agents.docs_researcher]
+description = "Documentation specialist that verifies APIs and release notes against primary sources."
+config_file = "agents/docs-researcher.toml"

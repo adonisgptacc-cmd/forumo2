@@ -35,9 +35,10 @@ export const configSchema = z
     PAYMENT_RATE_LIMIT: z.coerce.number().int().positive().default(30),
     PAYMENT_RATE_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
     CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(30),
-    STRIPE_SECRET_KEY: z.string().min(1),
+    STRIPE_SECRET_KEY: optionalString,
     STRIPE_WEBHOOK_SECRET: optionalString,
     STRIPE_CONNECT_WEBHOOK_SECRET: optionalString,
+    ALLOWED_ORIGINS: optionalString,
     APP_BASE_URL: optionalString,
     FRONTEND_URL: optionalString,
     UPLOADS_BUCKET: optionalString,
@@ -53,6 +54,7 @@ export const configSchema = z
     SNS_SMS_SENDER_ID: optionalString,
     ADMIN_NOTIFICATION_EMAIL: optionalString,
     MODERATION_SERVICE_URL: optionalString,
+    MODERATION_INTERNAL_TOKEN: optionalString,
     MODERATION_SERVICE_TIMEOUT_MS: z.coerce
       .number()
       .int()
@@ -110,6 +112,41 @@ export const configSchema = z
             "METRICS_API_KEY must be at least 32 characters in production.",
           path: ["METRICS_API_KEY"],
         });
+      }
+
+      if (!value.SHIPPO_WEBHOOK_SECRET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SHIPPO_WEBHOOK_SECRET is required in production.",
+          path: ["SHIPPO_WEBHOOK_SECRET"],
+        });
+      }
+
+      if (!value.STRIPE_SECRET_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "STRIPE_SECRET_KEY is required in production unless PAYMENT_MOCK_ENABLED=true",
+          path: ["STRIPE_SECRET_KEY"],
+        });
+      }
+    }
+
+    if (value.ALLOWED_ORIGINS) {
+      const origins = value.ALLOWED_ORIGINS.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const origin of origins) {
+        try {
+          const url = new URL(origin);
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `ALLOWED_ORIGINS contains invalid origin: ${origin}`,
+            path: ["ALLOWED_ORIGINS"],
+          });
+        }
       }
     }
 

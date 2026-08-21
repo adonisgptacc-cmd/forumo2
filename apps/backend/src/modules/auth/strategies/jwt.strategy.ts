@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { Request } from 'express';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import type { Request } from "express";
 
 import { UsersService } from "../../users/users.service";
 import { SafeUser } from "../../users/user.serializer";
@@ -23,7 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      secretOrKey: configService.getOrThrow<string>("JWT_SECRET"),
       passReqToCallback: true,
     });
   }
@@ -31,10 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(req: Request, payload: JwtPayload): Promise<SafeUser> {
     const user = await this.usersService.findById(payload.sub);
     if (user.tokenVersion !== payload.tokenVersion) {
-      throw new UnauthorizedException('Session expired');
+      throw new UnauthorizedException("Session expired");
     }
     if (payload.twoFactorPending) {
-      throw new UnauthorizedException('2FA verification required');
+      throw new UnauthorizedException("2FA verification required");
     }
     assertAccountActive(user, req);
     return user;

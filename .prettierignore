@@ -1,0 +1,26 @@
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+build/
+coverage/
+.next/
+.expo/
+android/
+ios/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.tsbuildinfo
+
+# Tool-managed and governance surfaces are reviewed separately.
+.agents/
+.assistant/
+.claude/
+.codex/
+AGENTS.md
+CLAUDE.md
+.github/copilot-instructions.md
+
+# Generated API artifacts.
+docs/openapi.json

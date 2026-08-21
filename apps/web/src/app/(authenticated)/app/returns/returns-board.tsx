@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import type { ReturnStatus, SafeReturn } from '@forumo/shared';
-import { useReturns } from '../../../../lib/react-query/hooks';
+import Link from "next/link";
+import type { ReturnStatus, SafeReturn } from "@forumo/shared";
+import { useReturns } from "../../../../lib/react-query/hooks";
 
 const STATUS_LABELS: Record<ReturnStatus, string> = {
-  requested: 'Requested',
-  awaiting_seller: 'Awaiting seller',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  shipped: 'Shipped back',
-  received: 'Received',
-  refunded: 'Refunded',
+  requested: "Requested",
+  awaiting_seller: "Awaiting seller",
+  approved: "Approved",
+  rejected: "Rejected",
+  shipped: "Shipped back",
+  received: "Received",
+  refunded: "Refunded",
 };
 
 const STATUS_COLORS: Record<ReturnStatus, string> = {
-  requested: 'bg-amber-50 text-amber-700 border-amber-200',
-  awaiting_seller: 'bg-blue-50 text-blue-700 border-blue-200',
-  approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rejected: 'bg-red-50 text-red-700 border-red-200',
-  shipped: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  received: 'bg-purple-50 text-purple-700 border-purple-200',
-  refunded: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  requested: "bg-amber-50 text-amber-700 border-amber-200",
+  awaiting_seller: "bg-blue-50 text-blue-700 border-blue-200",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  shipped: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  received: "bg-purple-50 text-purple-700 border-purple-200",
+  refunded: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 export function ReturnsBoard() {
@@ -69,7 +69,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
             Order #{ret.order?.orderNumber ?? ret.orderId.slice(0, 8)}
           </p>
           <p className="mt-0.5 text-xs muted">
-            {ret.reason.replace(/_/g, ' ')} ·{' '}
+            {ret.reason.replace(/_/g, " ")} ·{" "}
             {new Date(ret.createdAt).toLocaleDateString()}
           </p>
         </div>
@@ -80,7 +80,7 @@ function ReturnRow({ ret }: { ret: SafeReturn }) {
             {STATUS_LABELS[status]}
           </span>
           <p className="mt-1 text-xs muted">
-            {ret.order?.currency?.toUpperCase()}{' '}
+            {ret.order?.currency?.toUpperCase()}{" "}
             {(ret.refundAmount / 100).toFixed(2)}
           </p>
         </div>

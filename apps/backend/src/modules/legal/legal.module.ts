@@ -5,9 +5,10 @@ import { LegalController } from "./legal.controller";
 import { LegalService } from "./legal.service";
 import { AccountDeletionService } from "./account-deletion.service";
 import { CacheModule } from "../../common/services/cache.module";
+import { OrdersModule } from "../orders/orders.module";
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, CacheModule],
+  imports: [PrismaModule, NotificationsModule, CacheModule, OrdersModule],
   controllers: [LegalController],
   providers: [LegalService, AccountDeletionService],
   exports: [LegalService, AccountDeletionService],

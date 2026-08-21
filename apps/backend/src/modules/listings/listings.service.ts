@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -53,7 +54,27 @@ export class ListingsService {
     return listings.map((listing) => serializeListing(listing));
   }
 
-  async findById(id: string): Promise<SafeListing> {
+  async findById(id: string, viewerId?: string): Promise<SafeListing> {
+    const listing = await this.prisma.listing.findFirst({
+      where: { id, deletedAt: null },
+      include: listingDefaultInclude,
+    });
+    if (!listing) {
+      throw new NotFoundException("Listing not found");
+    }
+    const isOwner = viewerId != null && listing.sellerId === viewerId;
+    if (!isOwner) {
+      if (
+        listing.status !== ListingStatus.PUBLISHED ||
+        listing.moderationStatus !== ListingModerationStatus.APPROVED
+      ) {
+        throw new NotFoundException("Listing not found");
+      }
+    }
+    return serializeListing(listing);
+  }
+
+  async findByIdInternal(id: string): Promise<SafeListing> {
     const listing = await this.prisma.listing.findFirst({
       where: { id, deletedAt: null },
       include: listingDefaultInclude,
@@ -102,7 +123,7 @@ export class ListingsService {
     });
 
     this.logger.log(`Listing ${listing.id} created for seller ${sellerId}`);
-    return this.findById(listing.id);
+    return this.findByIdInternal(listing.id);
   }
 
   async update(
@@ -175,24 +196,29 @@ export class ListingsService {
     status: ListingStatus,
     userId: string,
   ): Promise<{ updated: number }> {
-    await this.prisma.listing.updateMany({
+    if (status !== ListingStatus.PAUSED) {
+      throw new ForbiddenException(
+        "Bulk status change only allows PAUSED — PUBLISHED requires moderation",
+      );
+    }
+    const result = await this.prisma.listing.updateMany({
       where: { id: { in: ids }, sellerId: userId, deletedAt: null },
       data: { status },
     });
     await this.invalidateSearchCache();
-    return { updated: ids.length };
+    return { updated: result.count };
   }
 
   async bulkDelete(
     ids: string[],
     userId: string,
   ): Promise<{ deleted: number }> {
-    await this.prisma.listing.updateMany({
+    const result = await this.prisma.listing.updateMany({
       where: { id: { in: ids }, sellerId: userId, deletedAt: null },
       data: { deletedAt: new Date() },
     });
     await this.invalidateSearchCache();
-    return { deleted: ids.length };
+    return { deleted: result.count };
   }
 
   async attachImage(
@@ -312,6 +338,34 @@ export class ListingsService {
       select: { id: true, title: true, sellerId: true, moderationStatus: true },
     });
     if (!listing) throw new NotFoundException("Listing not found");
+    if (listing.sellerId === reporterId)
+      throw new BadRequestException("Cannot report your own listing");
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await this.prisma.auditLog.count({
+      where: {
+        actorId: reporterId,
+        action: "listing.report",
+        entityId: listingId,
+        createdAt: { gte: since },
+      },
+    });
+    if (recent >= 3)
+      throw new BadRequestException(
+        "Report limit reached — try again tomorrow",
+      );
+    const already = await this.prisma.auditLog.findFirst({
+      where: {
+        actorId: reporterId,
+        action: "listing.report",
+        entityId: listingId,
+        payload: { path: ["reason"], equals: reason },
+      },
+    });
+    if (already)
+      throw new BadRequestException(
+        "You have already reported this listing for this reason",
+      );
 
     // Flag the listing for admin review
     await this.prisma.listing.update({

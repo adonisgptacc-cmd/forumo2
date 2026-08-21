@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/admin',
-  transpilePackages: ['@forumo/shared', '@forumo/design-system'],
+  basePath: "/admin",
+  transpilePackages: ["@forumo/shared", "@forumo/design-system"],
   reactStrictMode: true,
 };
 

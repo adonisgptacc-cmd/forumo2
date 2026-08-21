@@ -1,14 +1,14 @@
-import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 export class CreateOfferDto {
-    @IsUUID()
-    listingId!: string;
+  @IsUUID()
+  listingId!: string;
 
-    @IsNumber()
-    @Min(1)
-    amountCents!: number;
+  @IsNumber()
+  @Min(1)
+  amountCents!: number;
 
-    @IsOptional()
-    @IsString()
-    message?: string;
+  @IsOptional()
+  @IsString()
+  message?: string;
 }

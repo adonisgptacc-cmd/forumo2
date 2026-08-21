@@ -1,10 +1,10 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
 
 export const listingDefaultInclude: Prisma.ListingInclude = {
   images: {
-    orderBy: { position: 'asc' },
+    orderBy: { position: "asc" },
   },
   variants: {
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: "asc" },
   },
 };

@@ -7,7 +7,7 @@
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start": "node dist/apps/backend/src/main.js",
     "build": "tsc -p tsconfig.build.json",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm run prisma:generate",
     "pretest:coverage": "pnpm run prisma:generate",

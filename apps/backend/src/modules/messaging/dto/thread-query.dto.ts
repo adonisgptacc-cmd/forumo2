@@ -1,5 +1,5 @@
-import { IsOptional, IsUUID } from 'class-validator';
-import { IsInt, Max, Min } from 'class-validator';
+import { IsOptional, IsUUID } from "class-validator";
+import { IsInt, Max, Min } from "class-validator";
 
 export class ThreadQueryDto {
   @IsOptional()

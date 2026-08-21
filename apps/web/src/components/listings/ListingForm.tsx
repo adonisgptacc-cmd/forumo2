@@ -1,24 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useRef, useMemo, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import type { SafeListing, ListingCategory, CreateAuctionDto } from '@forumo/shared';
+import { useState, useRef, useMemo, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import type {
+  SafeListing,
+  ListingCategory,
+  CreateAuctionDto,
+} from "@forumo/shared";
 import {
   useListingMutations,
   useCategories,
   useCurrentUser,
   useCreateAuction,
-} from '../../lib/react-query/hooks';
-import { createApiClient } from '../../lib/api-client';
+} from "../../lib/react-query/hooks";
+import { createApiClient } from "../../lib/api-client";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]';
-const labelCls = 'mb-1 block text-sm font-medium text-[color:var(--ink-2)]';
-const errorCls = 'mt-1 text-xs font-medium text-[oklch(0.55_0.22_27)]';
+  "w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]";
+const labelCls = "mb-1 block text-sm font-medium text-[color:var(--ink-2)]";
+const errorCls = "mt-1 text-xs font-medium text-[oklch(0.55_0.22_27)]";
 
 // ─── Form values (all strings — HTML inputs return strings) ───────────────────
 
@@ -26,11 +30,11 @@ interface FormValues {
   title: string;
   description: string;
   price: string;
-  condition: '' | 'NEW' | 'LIKE_NEW' | 'GOOD' | 'FAIR';
+  condition: "" | "NEW" | "LIKE_NEW" | "GOOD" | "FAIR";
   quantity: string;
   location: string;
   categoryId: string;
-  status: 'DRAFT' | 'PUBLISHED';
+  status: "DRAFT" | "PUBLISHED";
   isAuction: boolean;
   auctionStartPrice: string;
   auctionReservePrice: string;
@@ -42,25 +46,26 @@ interface FormValues {
 function validate(v: FormValues): Partial<Record<keyof FormValues, string>> {
   const e: Partial<Record<keyof FormValues, string>> = {};
 
-  if (!v.title || v.title.trim().length < 3) e.title = 'At least 3 characters';
+  if (!v.title || v.title.trim().length < 3) e.title = "At least 3 characters";
   if (!v.description || v.description.trim().length < 10)
-    e.description = 'At least 10 characters';
+    e.description = "At least 10 characters";
 
   const price = parseFloat(v.price);
-  if (!v.price || isNaN(price) || price <= 0) e.price = 'Must be greater than 0';
+  if (!v.price || isNaN(price) || price <= 0)
+    e.price = "Must be greater than 0";
 
   if (v.quantity) {
     const qty = parseInt(v.quantity, 10);
-    if (isNaN(qty) || qty < 1) e.quantity = 'Must be at least 1';
+    if (isNaN(qty) || qty < 1) e.quantity = "Must be at least 1";
   }
 
   if (v.isAuction) {
     const sp = parseFloat(v.auctionStartPrice);
     if (!v.auctionStartPrice || isNaN(sp) || sp <= 0)
-      e.auctionStartPrice = 'Starting bid is required';
+      e.auctionStartPrice = "Starting bid is required";
     const dd = parseInt(v.auctionDurationDays, 10);
     if (!v.auctionDurationDays || isNaN(dd) || dd < 1)
-      e.auctionDurationDays = 'Duration must be at least 1 day';
+      e.auctionDurationDays = "Duration must be at least 1 day";
   }
 
   return e;
@@ -84,7 +89,7 @@ function flattenCategories(
   return cats.flatMap((c) => [
     {
       id: c.id,
-      label: ' '.repeat(depth * 4) + (depth > 0 ? '└ ' : '') + c.name,
+      label: " ".repeat(depth * 4) + (depth > 0 ? "└ " : "") + c.name,
     },
     // children is not on the shared SafeCategory type but is returned by the API
     ...flattenCategories((c as any).children ?? [], depth + 1),
@@ -94,7 +99,7 @@ function flattenCategories(
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface ListingFormProps {
-  mode: 'create' | 'edit';
+  mode: "create" | "edit";
   listing?: SafeListing;
 }
 
@@ -105,7 +110,8 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   const { accessToken } = useCurrentUser();
   const api = useMemo(() => createApiClient(accessToken), [accessToken]);
 
-  const { createMutation, updateMutation, uploadImageMutation } = useListingMutations();
+  const { createMutation, updateMutation, uploadImageMutation } =
+    useListingMutations();
   const createAuction = useCreateAuction();
   const { data: categoriesData } = useCategories();
 
@@ -114,11 +120,12 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     [categoriesData],
   );
 
-  const existingCondition = ((listing?.metadata as any)?.condition as FormValues['condition']) ?? '';
+  const existingCondition =
+    ((listing?.metadata as any)?.condition as FormValues["condition"]) ?? "";
   const existingQuantity =
     listing?.variants?.[0]?.inventoryCount != null
       ? String(listing.variants[0].inventoryCount)
-      : '';
+      : "";
 
   const {
     register,
@@ -129,22 +136,22 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     clearErrors,
   } = useForm<FormValues>({
     defaultValues: {
-      title: listing?.title ?? '',
-      description: listing?.description ?? '',
-      price: listing ? (listing.priceCents / 100).toFixed(2) : '',
+      title: listing?.title ?? "",
+      description: listing?.description ?? "",
+      price: listing ? (listing.priceCents / 100).toFixed(2) : "",
       condition: existingCondition,
       quantity: existingQuantity,
-      location: listing?.location ?? '',
-      categoryId: '',
-      status: listing?.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
+      location: listing?.location ?? "",
+      categoryId: "",
+      status: listing?.status === "DRAFT" ? "DRAFT" : "PUBLISHED",
       isAuction: false,
-      auctionStartPrice: '',
-      auctionReservePrice: '',
-      auctionDurationDays: '7',
+      auctionStartPrice: "",
+      auctionReservePrice: "",
+      auctionDurationDays: "7",
     },
   });
 
-  const isAuction = watch('isAuction');
+  const isAuction = watch("isAuction");
 
   // ─── Image state ────────────────────────────────────────────────────────────
 
@@ -152,7 +159,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   const [images, setImages] = useState<ImageItem[]>(() =>
     (listing?.images ?? []).map((img) => ({
       key: img.id,
-      preview: img.url ?? '',
+      preview: img.url ?? "",
       existingId: img.id,
     })),
   );
@@ -191,7 +198,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
   // ─── Submit ─────────────────────────────────────────────────────────────────
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const onSubmit = handleSubmit(async (data) => {
@@ -204,24 +211,30 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     }
     clearErrors();
     setSubmitting(true);
-    setSubmitError('');
+    setSubmitError("");
 
     try {
       const priceCents = Math.round(parseFloat(data.price) * 100);
       const variants = data.quantity
-        ? [{ label: 'Default', priceCents, inventoryCount: parseInt(data.quantity, 10) }]
+        ? [
+            {
+              label: "Default",
+              priceCents,
+              inventoryCount: parseInt(data.quantity, 10),
+            },
+          ]
         : undefined;
       const metadata: Record<string, unknown> = {};
       if (data.condition) metadata.condition = data.condition;
 
       let listingId: string;
 
-      if (mode === 'create') {
+      if (mode === "create") {
         const created = await createMutation.mutateAsync({
           title: data.title,
           description: data.description,
           priceCents,
-          currency: 'ZAR',
+          currency: "ZAR",
           status: data.status,
           ...(data.location ? { location: data.location } : {}),
           metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
@@ -236,7 +249,7 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
             title: data.title,
             description: data.description,
             priceCents,
-            currency: 'ZAR',
+            currency: "ZAR",
             status: data.status,
             location: data.location || undefined,
             metadata: Object.keys(metadata).length > 0 ? metadata : null,
@@ -255,26 +268,41 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
       // Assign selected category
       if (data.categoryId) {
-        await api.categories.assignCategories(listingId, [data.categoryId], data.categoryId);
+        await api.categories.assignCategories(
+          listingId,
+          [data.categoryId],
+          data.categoryId,
+        );
       }
 
       // Create auction (create mode only, when toggled on)
-      if (mode === 'create' && data.isAuction && data.auctionStartPrice && data.auctionDurationDays) {
+      if (
+        mode === "create" &&
+        data.isAuction &&
+        data.auctionStartPrice &&
+        data.auctionDurationDays
+      ) {
         const auctionPayload: CreateAuctionDto = {
           listingId,
-          startingBidCents: Math.round(parseFloat(data.auctionStartPrice) * 100),
+          startingBidCents: Math.round(
+            parseFloat(data.auctionStartPrice) * 100,
+          ),
           durationDays: parseInt(data.auctionDurationDays, 10),
         };
         if (data.auctionReservePrice) {
-          auctionPayload.reserveCents = Math.round(parseFloat(data.auctionReservePrice) * 100);
+          auctionPayload.reserveCents = Math.round(
+            parseFloat(data.auctionReservePrice) * 100,
+          );
         }
         await createAuction.mutateAsync(auctionPayload);
       }
 
       setSubmitSuccess(true);
-      setTimeout(() => router.push('/app/listings' as any), 1500);
+      setTimeout(() => router.push("/app/listings" as any), 1500);
     } catch (err: unknown) {
-      setSubmitError((err as Error)?.message ?? 'Something went wrong. Please try again.');
+      setSubmitError(
+        (err as Error)?.message ?? "Something went wrong. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -286,10 +314,10 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
     return (
       <div
         className="card card-pad text-center space-y-2 fade-up"
-        style={{ background: 'var(--escrow-bg)', borderColor: 'transparent' }}
+        style={{ background: "var(--escrow-bg)", borderColor: "transparent" }}
       >
         <p className="text-lg font-semibold text-[color:var(--escrow)]">
-          {mode === 'create' ? 'Listing created!' : 'Listing updated!'}
+          {mode === "create" ? "Listing created!" : "Listing updated!"}
         </p>
         <p className="text-sm muted">Redirecting to your listings…</p>
       </div>
@@ -304,29 +332,33 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       <div>
         <label className={labelCls}>Title *</label>
         <input
-          {...register('title')}
+          {...register("title")}
           placeholder="What are you selling?"
           className={inputCls}
         />
-        {rhfErrors.title && <p className={errorCls}>{rhfErrors.title.message}</p>}
+        {rhfErrors.title && (
+          <p className={errorCls}>{rhfErrors.title.message}</p>
+        )}
       </div>
 
       {/* Description */}
       <div>
         <label className={labelCls}>Description *</label>
         <textarea
-          {...register('description')}
+          {...register("description")}
           rows={5}
           placeholder="Describe your item — condition, dimensions, history…"
-          className={inputCls + ' resize-y'}
+          className={inputCls + " resize-y"}
         />
-        {rhfErrors.description && <p className={errorCls}>{rhfErrors.description.message}</p>}
+        {rhfErrors.description && (
+          <p className={errorCls}>{rhfErrors.description.message}</p>
+        )}
       </div>
 
       {/* Category */}
       <div>
         <label className={labelCls}>Category</label>
-        <select {...register('categoryId')} className={inputCls}>
+        <select {...register("categoryId")} className={inputCls}>
           <option value="">— Select a category —</option>
           {flatCategories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -345,20 +377,22 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
               R
             </span>
             <input
-              {...register('price')}
+              {...register("price")}
               type="number"
               min="0.01"
               step="0.01"
               placeholder="0.00"
-              className={inputCls + ' pl-8'}
+              className={inputCls + " pl-8"}
             />
           </div>
-          {rhfErrors.price && <p className={errorCls}>{rhfErrors.price.message}</p>}
+          {rhfErrors.price && (
+            <p className={errorCls}>{rhfErrors.price.message}</p>
+          )}
         </div>
 
         <div>
           <label className={labelCls}>Condition</label>
-          <select {...register('condition')} className={inputCls}>
+          <select {...register("condition")} className={inputCls}>
             <option value="">— Select condition —</option>
             <option value="NEW">New</option>
             <option value="LIKE_NEW">Like New</option>
@@ -373,20 +407,22 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
         <div>
           <label className={labelCls}>Stock / Quantity</label>
           <input
-            {...register('quantity')}
+            {...register("quantity")}
             type="number"
             min="1"
             step="1"
             placeholder="1"
             className={inputCls}
           />
-          {rhfErrors.quantity && <p className={errorCls}>{rhfErrors.quantity.message}</p>}
+          {rhfErrors.quantity && (
+            <p className={errorCls}>{rhfErrors.quantity.message}</p>
+          )}
         </div>
 
         <div>
           <label className={labelCls}>Location</label>
           <input
-            {...register('location')}
+            {...register("location")}
             placeholder="City or region"
             className={inputCls}
           />
@@ -411,10 +447,10 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           }}
           className="w-full rounded-lg border-2 border-dashed border-[color:var(--line-2)] p-6 text-center transition-colors hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-2)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring-accent)]"
         >
-          <p className="text-sm subtle">
-            Click or drag images here
+          <p className="text-sm subtle">Click or drag images here</p>
+          <p className="mt-1 text-xs muted">
+            JPEG · PNG · WebP · GIF — max 8 MB each
           </p>
-          <p className="mt-1 text-xs muted">JPEG · PNG · WebP · GIF — max 8 MB each</p>
         </button>
         <input
           ref={fileInputRef}
@@ -476,17 +512,19 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       </div>
 
       {/* Auction toggle (create mode only) */}
-      {mode === 'create' && (
+      {mode === "create" && (
         <div className="rounded-xl border border-[color:var(--line)] bg-[color:var(--surface-2)] p-4 space-y-4">
           <label className="flex cursor-pointer items-center gap-3">
             <input
               type="checkbox"
-              {...register('isAuction')}
+              {...register("isAuction")}
               className="h-4 w-4 rounded border-[color:var(--line-2)] accent-[var(--accent)]"
             />
             <div>
               <span className="text-sm font-medium subtle">Enable auction</span>
-              <p className="text-xs muted">Buyers bid — highest bid wins at the deadline</p>
+              <p className="text-xs muted">
+                Buyers bid — highest bid wins at the deadline
+              </p>
             </div>
           </label>
 
@@ -500,16 +538,18 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       R
                     </span>
                     <input
-                      {...register('auctionStartPrice')}
+                      {...register("auctionStartPrice")}
                       type="number"
                       min="0.01"
                       step="0.01"
                       placeholder="0.00"
-                      className={inputCls + ' pl-8'}
+                      className={inputCls + " pl-8"}
                     />
                   </div>
                   {rhfErrors.auctionStartPrice && (
-                    <p className={errorCls}>{rhfErrors.auctionStartPrice.message}</p>
+                    <p className={errorCls}>
+                      {rhfErrors.auctionStartPrice.message}
+                    </p>
                   )}
                 </div>
 
@@ -520,12 +560,12 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
                       R
                     </span>
                     <input
-                      {...register('auctionReservePrice')}
+                      {...register("auctionReservePrice")}
                       type="number"
                       min="0.01"
                       step="0.01"
                       placeholder="Optional"
-                      className={inputCls + ' pl-8'}
+                      className={inputCls + " pl-8"}
                     />
                   </div>
                   <p className="mt-1 text-xs muted">
@@ -536,15 +576,20 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
 
               <div>
                 <label className={labelCls}>Auction duration *</label>
-                <select {...register('auctionDurationDays')} className={inputCls}>
+                <select
+                  {...register("auctionDurationDays")}
+                  className={inputCls}
+                >
                   {[1, 3, 5, 7, 10, 14, 21, 30].map((d) => (
                     <option key={d} value={String(d)}>
-                      {d} day{d !== 1 ? 's' : ''}
+                      {d} day{d !== 1 ? "s" : ""}
                     </option>
                   ))}
                 </select>
                 {rhfErrors.auctionDurationDays && (
-                  <p className={errorCls}>{rhfErrors.auctionDurationDays.message}</p>
+                  <p className={errorCls}>
+                    {rhfErrors.auctionDurationDays.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -555,12 +600,13 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
       {/* Publishing status */}
       <div>
         <label className={labelCls}>Publishing status</label>
-        <select {...register('status')} className={inputCls}>
+        <select {...register("status")} className={inputCls}>
           <option value="PUBLISHED">Publish now</option>
           <option value="DRAFT">Save as draft</option>
         </select>
         <p className="mt-1 text-xs muted">
-          Published listings enter moderation review before becoming visible to buyers.
+          Published listings enter moderation review before becoming visible to
+          buyers.
         </p>
       </div>
 
@@ -579,25 +625,23 @@ export function ListingForm({ mode, listing }: ListingFormProps) {
           className="btn btn-primary btn-lg"
         >
           {submitting
-            ? mode === 'create'
-              ? 'Creating…'
-              : 'Saving…'
-            : mode === 'create'
-              ? 'Create listing'
-              : 'Save changes'}
+            ? mode === "create"
+              ? "Creating…"
+              : "Saving…"
+            : mode === "create"
+              ? "Create listing"
+              : "Save changes"}
         </button>
 
         <button
           type="button"
-          onClick={() => router.push('/app/listings' as any)}
+          onClick={() => router.push("/app/listings" as any)}
           className="btn btn-ghost"
         >
           Cancel
         </button>
 
-        {mode === 'edit' && listing && (
-          <DeleteButton listingId={listing.id} />
-        )}
+        {mode === "edit" && listing && <DeleteButton listingId={listing.id} />}
       </div>
     </form>
   );
@@ -619,11 +663,11 @@ function DeleteButton({ listingId }: { listingId: string }) {
           disabled={deleteListingMutation.isPending}
           onClick={async () => {
             await deleteListingMutation.mutateAsync(listingId);
-            router.push('/app/listings' as any);
+            router.push("/app/listings" as any);
           }}
           className="font-medium text-[oklch(0.55_0.22_27)] hover:text-[oklch(0.50_0.22_27)] disabled:opacity-50"
         >
-          {deleteListingMutation.isPending ? 'Deleting…' : 'Yes, delete'}
+          {deleteListingMutation.isPending ? "Deleting…" : "Yes, delete"}
         </button>
         <button
           type="button"

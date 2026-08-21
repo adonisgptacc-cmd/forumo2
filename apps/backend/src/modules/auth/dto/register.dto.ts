@@ -1,4 +1,12 @@
-import { IsEmail, IsOptional, IsPhoneNumber, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsPhoneNumber,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 export class RegisterDto {
   @IsString()
@@ -13,11 +21,14 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(64)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-    message: 'password must include upper and lower case letters, a number and a special character',
+    message:
+      "password must include upper and lower case letters, a number and a special character",
   })
   password!: string;
 
   @IsOptional()
-  @IsPhoneNumber('ZA', { message: 'phone must be a valid international number' })
+  @IsPhoneNumber("ZA", {
+    message: "phone must be a valid international number",
+  })
   phone?: string;
 }

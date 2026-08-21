@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,28 +10,43 @@ import {
   RefreshControl,
   ScrollView,
   Dimensions,
-} from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { Storefront, SafeListing } from '@forumo/shared';
-import { brandColors, spacing } from '@forumo/config';
-import { useAuth } from '../providers/AuthProvider';
-import type { MainStackParamList } from '../navigation/types';
+} from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { Storefront, SafeListing } from "@forumo/shared";
+import { brandColors, spacing } from "@forumo/config";
+import { useAuth } from "../providers/AuthProvider";
+import type { MainStackParamList } from "../navigation/types";
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Storefront'>;
+type Props = NativeStackScreenProps<MainStackParamList, "Storefront">;
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - spacing.md * 2 - spacing.sm) / 2;
 
-function formatCents(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
+function formatCents(cents: number, currency = "USD") {
+  return new Intl.NumberFormat("en", { style: "currency", currency }).format(
+    cents / 100,
+  );
 }
 
-function ListingCard({ listing, onPress }: { listing: SafeListing; onPress: () => void }) {
+function ListingCard({
+  listing,
+  onPress,
+}: {
+  listing: SafeListing;
+  onPress: () => void;
+}) {
   return (
-    <TouchableOpacity style={styles.listingCard} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.listingCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
       <View style={styles.listingImageBox}>
         {listing.images && listing.images.length > 0 ? (
-          <Image source={{ uri: listing.images[0].url }} style={styles.listingImage} />
+          <Image
+            source={{ uri: listing.images[0].url }}
+            style={styles.listingImage}
+          />
         ) : (
           <View style={[styles.listingImage, styles.listingImagePlaceholder]}>
             <Text style={styles.placeholderIcon}>📷</Text>
@@ -39,9 +54,11 @@ function ListingCard({ listing, onPress }: { listing: SafeListing; onPress: () =
         )}
       </View>
       <View style={styles.listingInfo}>
-        <Text style={styles.listingTitle} numberOfLines={2}>{listing.title}</Text>
+        <Text style={styles.listingTitle} numberOfLines={2}>
+          {listing.title}
+        </Text>
         <Text style={styles.listingPrice}>
-          {formatCents(listing.priceCents, listing.currency ?? 'USD')}
+          {formatCents(listing.priceCents, listing.currency ?? "USD")}
         </Text>
       </View>
     </TouchableOpacity>
@@ -71,13 +88,13 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
       if (sf) {
         const result = await apiClient.listings.search({
           sellerId: sf.userId,
-          status: 'PUBLISHED',
+          status: "PUBLISHED",
           pageSize: 24,
         });
         setListings(result.data ?? []);
       }
     } catch (e: any) {
-      setError(e.message ?? 'Failed to load storefront');
+      setError(e.message ?? "Failed to load storefront");
     }
   }, [apiClient, sellerId, slug]);
 
@@ -109,8 +126,13 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
   if (error || !storefront) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{error ?? 'Storefront not found'}</Text>
-        <TouchableOpacity onPress={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
+        <Text style={styles.errorText}>{error ?? "Storefront not found"}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setLoading(true);
+            load().finally(() => setLoading(false));
+          }}
+        >
           <Text style={styles.retryText}>Try again</Text>
         </TouchableOpacity>
       </View>
@@ -124,12 +146,21 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
       numColumns={2}
       columnWrapperStyle={styles.columnWrapper}
       contentContainerStyle={styles.listContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brandColors.primary} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={brandColors.primary}
+        />
+      }
       ListHeaderComponent={
         <View>
           {/* Banner */}
           {storefront.bannerUrl ? (
-            <Image source={{ uri: storefront.bannerUrl }} style={styles.banner} />
+            <Image
+              source={{ uri: storefront.bannerUrl }}
+              style={styles.banner}
+            />
           ) : (
             <View style={styles.bannerPlaceholder} />
           )}
@@ -140,7 +171,9 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
               <Image source={{ uri: storefront.logoUrl }} style={styles.logo} />
             ) : (
               <View style={[styles.logo, styles.logoPlaceholder]}>
-                <Text style={styles.logoInitial}>{storefront.name.charAt(0).toUpperCase()}</Text>
+                <Text style={styles.logoInitial}>
+                  {storefront.name.charAt(0).toUpperCase()}
+                </Text>
               </View>
             )}
             <View style={styles.profileInfo}>
@@ -160,7 +193,11 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
           {storefront.collections && storefront.collections.length > 0 ? (
             <View style={styles.collectionsSection}>
               <Text style={styles.sectionTitle}>Collections</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.collectionsScroll}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.collectionsScroll}
+              >
                 {storefront.collections.map((col: any) => (
                   <View key={col.id} style={styles.collectionChip}>
                     <Text style={styles.collectionChipText}>{col.name}</Text>
@@ -188,7 +225,12 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
       renderItem={({ item }) => (
         <ListingCard
           listing={item}
-          onPress={() => navigation.navigate('ListingDetail', { listingId: item.id, listing: item })}
+          onPress={() =>
+            navigation.navigate("ListingDetail", {
+              listingId: item.id,
+              listing: item,
+            })
+          }
         />
       )}
     />
@@ -198,32 +240,32 @@ export const StorefrontScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   centered: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing.lg,
   },
   errorText: {
-    color: '#ef4444',
-    textAlign: 'center',
+    color: "#ef4444",
+    textAlign: "center",
     marginBottom: spacing.sm,
   },
   retryText: {
     color: brandColors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   banner: {
-    width: '100%',
+    width: "100%",
     height: 160,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
   },
   bannerPlaceholder: {
-    width: '100%',
+    width: "100%",
     height: 100,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
   },
   profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
@@ -234,17 +276,17 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     borderWidth: 3,
-    borderColor: '#0f172a',
+    borderColor: "#0f172a",
     marginTop: -24,
-    backgroundColor: '#334155',
+    backgroundColor: "#334155",
   },
   logoPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoInitial: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: brandColors.primary,
   },
   profileInfo: {
@@ -252,17 +294,17 @@ const styles = StyleSheet.create({
   },
   shopName: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontWeight: "700",
+    color: "#f8fafc",
   },
   shopSeller: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: "#94a3b8",
     marginTop: 2,
   },
   description: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: "#94a3b8",
     lineHeight: 20,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -277,31 +319,31 @@ const styles = StyleSheet.create({
   collectionChip: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
     paddingHorizontal: 14,
     paddingVertical: 6,
     marginRight: spacing.sm,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
   },
   collectionChipText: {
-    color: '#cbd5e1',
+    color: "#cbd5e1",
     fontSize: 13,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontWeight: "700",
+    color: "#f8fafc",
   },
   listingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   listingsCount: {
     fontSize: 13,
-    color: '#64748b',
+    color: "#64748b",
   },
   listContent: {
     paddingBottom: 32,
@@ -314,24 +356,24 @@ const styles = StyleSheet.create({
   listingCard: {
     width: CARD_WIDTH,
     borderRadius: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: "#0f172a",
     borderWidth: 1,
-    borderColor: '#1e293b',
-    overflow: 'hidden',
+    borderColor: "#1e293b",
+    overflow: "hidden",
   },
   listingImageBox: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
   },
   listingImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   listingImagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1e293b',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1e293b",
   },
   placeholderIcon: {
     fontSize: 32,
@@ -342,16 +384,16 @@ const styles = StyleSheet.create({
   },
   listingTitle: {
     fontSize: 13,
-    color: '#e2e8f0',
+    color: "#e2e8f0",
     lineHeight: 18,
   },
   listingPrice: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: brandColors.primary,
   },
   emptyState: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 48,
     gap: 8,
   },
@@ -360,6 +402,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: '#64748b',
+    color: "#64748b",
   },
 });

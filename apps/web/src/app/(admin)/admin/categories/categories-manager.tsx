@@ -1,8 +1,13 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useCategories, useTags, useCategoryMutations, useTagMutations } from '../../../../lib/react-query/hooks';
-import type { ListingCategory, ListingTag } from '@forumo/shared';
+import { useState } from "react";
+import {
+  useCategories,
+  useTags,
+  useCategoryMutations,
+  useTagMutations,
+} from "../../../../lib/react-query/hooks";
+import type { ListingCategory, ListingTag } from "@forumo/shared";
 
 export function CategoriesManager() {
   const { data: categories = [], isLoading: catLoading } = useCategories();
@@ -10,48 +15,56 @@ export function CategoriesManager() {
   const catMutations = useCategoryMutations();
   const tagMutations = useTagMutations();
 
-  const [tab, setTab] = useState<'categories' | 'tags'>('categories');
+  const [tab, setTab] = useState<"categories" | "tags">("categories");
 
   // Category form state
-  const [catSlug, setCatSlug] = useState('');
-  const [catName, setCatName] = useState('');
-  const [catDesc, setCatDesc] = useState('');
-  const [catParent, setCatParent] = useState('');
+  const [catSlug, setCatSlug] = useState("");
+  const [catName, setCatName] = useState("");
+  const [catDesc, setCatDesc] = useState("");
+  const [catParent, setCatParent] = useState("");
   const [editingCat, setEditingCat] = useState<ListingCategory | null>(null);
 
   // Tag form state
-  const [tagSlug, setTagSlug] = useState('');
-  const [tagLabel, setTagLabel] = useState('');
+  const [tagSlug, setTagSlug] = useState("");
+  const [tagLabel, setTagLabel] = useState("");
   const [editingTag, setEditingTag] = useState<ListingTag | null>(null);
 
   function resetCatForm() {
-    setCatSlug(''); setCatName(''); setCatDesc(''); setCatParent(''); setEditingCat(null);
+    setCatSlug("");
+    setCatName("");
+    setCatDesc("");
+    setCatParent("");
+    setEditingCat(null);
   }
 
   function resetTagForm() {
-    setTagSlug(''); setTagLabel(''); setEditingTag(null);
+    setTagSlug("");
+    setTagLabel("");
+    setEditingTag(null);
   }
 
   return (
     <div className="space-y-6">
       {/* Tabs */}
       <div className="flex gap-2 border-b border-[color:var(--line)] pb-2">
-        {(['categories', 'tags'] as const).map((t) => (
+        {(["categories", "tags"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-t text-sm font-medium ${tab === t ? 'border-b-2 border-[color:var(--accent)] text-[color:var(--accent)]' : 'text-[color:var(--ink-3)] hover:text-[color:var(--ink)]'}`}
+            className={`px-4 py-1.5 rounded-t text-sm font-medium ${tab === t ? "border-b-2 border-[color:var(--accent)] text-[color:var(--accent)]" : "text-[color:var(--ink-3)] hover:text-[color:var(--ink)]"}`}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
-      {tab === 'categories' && (
+      {tab === "categories" && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Category form */}
           <div className="card p-5 space-y-4">
-            <h3 className="font-semibold">{editingCat ? 'Edit category' : 'New category'}</h3>
+            <h3 className="font-semibold">
+              {editingCat ? "Edit category" : "New category"}
+            </h3>
             <div className="space-y-3">
               {!editingCat && (
                 <input
@@ -80,15 +93,21 @@ export function CategoriesManager() {
               >
                 <option value="">No parent (top-level)</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
             </div>
             {catMutations.create.isError && (
-              <p className="text-xs text-red-600">{(catMutations.create.error as Error)?.message}</p>
+              <p className="text-xs text-red-600">
+                {(catMutations.create.error as Error)?.message}
+              </p>
             )}
             {catMutations.update.isError && (
-              <p className="text-xs text-red-600">{(catMutations.update.error as Error)?.message}</p>
+              <p className="text-xs text-red-600">
+                {(catMutations.update.error as Error)?.message}
+              </p>
             )}
             <div className="flex gap-2">
               <button
@@ -112,10 +131,12 @@ export function CategoriesManager() {
                     resetCatForm();
                   }
                 }}
-                disabled={catMutations.create.isPending || catMutations.update.isPending}
+                disabled={
+                  catMutations.create.isPending || catMutations.update.isPending
+                }
                 className="btn btn-primary btn-sm"
               >
-                {editingCat ? 'Update' : 'Create'}
+                {editingCat ? "Update" : "Create"}
               </button>
               {editingCat && (
                 <button onClick={resetCatForm} className="btn btn-ghost btn-sm">
@@ -135,18 +156,24 @@ export function CategoriesManager() {
             ) : (
               <ul className="space-y-2 max-h-80 overflow-y-auto">
                 {categories.map((cat) => (
-                  <li key={cat.id} className="flex items-center justify-between rounded-lg border border-[color:var(--line)] px-3 py-2">
+                  <li
+                    key={cat.id}
+                    className="flex items-center justify-between rounded-lg border border-[color:var(--line)] px-3 py-2"
+                  >
                     <div>
                       <p className="text-sm font-medium">{cat.name}</p>
-                      <p className="text-xs text-slate-500">{cat.slug}{cat.parentId ? ' · subcategory' : ''}</p>
+                      <p className="text-xs text-slate-500">
+                        {cat.slug}
+                        {cat.parentId ? " · subcategory" : ""}
+                      </p>
                     </div>
                     <div className="flex gap-1">
                       <button
                         onClick={() => {
                           setEditingCat(cat);
                           setCatName(cat.name);
-                          setCatDesc(cat.description ?? '');
-                          setCatParent(cat.parentId ?? '');
+                          setCatDesc(cat.description ?? "");
+                          setCatParent(cat.parentId ?? "");
                         }}
                         className="rounded px-2 py-1 text-xs text-[color:var(--accent)] hover:bg-amber-50"
                       >
@@ -168,11 +195,13 @@ export function CategoriesManager() {
         </div>
       )}
 
-      {tab === 'tags' && (
+      {tab === "tags" && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Tag form */}
           <div className="card p-5 space-y-4">
-            <h3 className="font-semibold">{editingTag ? 'Edit tag' : 'New tag'}</h3>
+            <h3 className="font-semibold">
+              {editingTag ? "Edit tag" : "New tag"}
+            </h3>
             <div className="space-y-3">
               {!editingTag && (
                 <input
@@ -190,24 +219,34 @@ export function CategoriesManager() {
               />
             </div>
             {tagMutations.create.isError && (
-              <p className="text-xs text-red-600">{(tagMutations.create.error as Error)?.message}</p>
+              <p className="text-xs text-red-600">
+                {(tagMutations.create.error as Error)?.message}
+              </p>
             )}
             <div className="flex gap-2">
               <button
                 onClick={async () => {
                   if (editingTag) {
-                    await tagMutations.update.mutateAsync({ id: editingTag.id, label: tagLabel || undefined });
+                    await tagMutations.update.mutateAsync({
+                      id: editingTag.id,
+                      label: tagLabel || undefined,
+                    });
                     resetTagForm();
                   } else {
                     if (!tagSlug || !tagLabel) return;
-                    await tagMutations.create.mutateAsync({ slug: tagSlug, label: tagLabel });
+                    await tagMutations.create.mutateAsync({
+                      slug: tagSlug,
+                      label: tagLabel,
+                    });
                     resetTagForm();
                   }
                 }}
-                disabled={tagMutations.create.isPending || tagMutations.update.isPending}
+                disabled={
+                  tagMutations.create.isPending || tagMutations.update.isPending
+                }
                 className="btn btn-primary btn-sm"
               >
-                {editingTag ? 'Update' : 'Create'}
+                {editingTag ? "Update" : "Create"}
               </button>
               {editingTag && (
                 <button onClick={resetTagForm} className="btn btn-ghost btn-sm">
@@ -227,14 +266,20 @@ export function CategoriesManager() {
             ) : (
               <ul className="space-y-2 max-h-80 overflow-y-auto">
                 {tags.map((tag) => (
-                  <li key={tag.id} className="flex items-center justify-between rounded-lg border border-[color:var(--line)] px-3 py-2">
+                  <li
+                    key={tag.id}
+                    className="flex items-center justify-between rounded-lg border border-[color:var(--line)] px-3 py-2"
+                  >
                     <div>
                       <p className="text-sm font-medium">{tag.label}</p>
                       <p className="text-xs text-slate-500">{tag.slug}</p>
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => { setEditingTag(tag); setTagLabel(tag.label); }}
+                        onClick={() => {
+                          setEditingTag(tag);
+                          setTagLabel(tag.label);
+                        }}
                         className="rounded px-2 py-1 text-xs text-[color:var(--accent)] hover:bg-amber-50"
                       >
                         Edit

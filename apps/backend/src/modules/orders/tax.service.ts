@@ -16,11 +16,11 @@
  * "Tax calculated at checkout" and handle manually in that case.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import Stripe from 'stripe';
+import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import Stripe from "stripe";
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from "../../prisma/prisma.service";
 
 export interface TaxShippingAddress {
   line1: string;
@@ -34,7 +34,7 @@ export interface TaxShippingAddress {
 export interface CartLineItem {
   amountCents: number;
   reference?: string; // listing/product ID for traceability
-  taxCode?: string;   // Stripe tax code; default txcd_99999999 (general goods)
+  taxCode?: string; // Stripe tax code; default txcd_99999999 (general goods)
 }
 
 export interface TaxBreakdownEntry {
@@ -48,10 +48,10 @@ export interface TaxBreakdownEntry {
 
 export interface TaxEstimateResult {
   taxAmountCents: number;
-  taxRate: number;           // decimal e.g. 0.15 for 15%
+  taxRate: number; // decimal e.g. 0.15 for 15%
   taxJurisdiction: string;
   breakdown: TaxBreakdownEntry[];
-  available: boolean;        // false → Stripe Tax not active for this region
+  available: boolean; // false → Stripe Tax not active for this region
 }
 
 export interface TaxReceiptResult {
@@ -103,7 +103,7 @@ export class TaxService {
           line_items: cartItems.map((item, idx) => ({
             amount: item.amountCents,
             reference: item.reference ?? `item-${idx}`,
-            tax_code: item.taxCode ?? 'txcd_99999999',
+            tax_code: item.taxCode ?? "txcd_99999999",
           })),
           customer_details: {
             address: {
@@ -111,13 +111,15 @@ export class TaxService {
               ...(shippingAddress.line2 && { line2: shippingAddress.line2 }),
               city: shippingAddress.city,
               ...(shippingAddress.state && { state: shippingAddress.state }),
-              ...(shippingAddress.postalCode && { postal_code: shippingAddress.postalCode }),
+              ...(shippingAddress.postalCode && {
+                postal_code: shippingAddress.postalCode,
+              }),
               country: shippingAddress.country,
             },
-            address_source: 'shipping',
+            address_source: "shipping",
           },
         },
-        { expand: ['line_items'] } as Stripe.RequestOptions,
+        { expand: ["line_items"] } as Stripe.RequestOptions,
       );
 
       const taxExclusive = calculation.tax_amount_exclusive ?? 0;
@@ -128,9 +130,14 @@ export class TaxService {
       const taxAmountCents = taxExclusive + calculation.tax_amount_inclusive;
       const subtotalCents = cartItems.reduce((s, i) => s + i.amountCents, 0);
       const taxRate = subtotalCents > 0 ? taxAmountCents / subtotalCents : 0;
-      const jurisdiction = this.resolveJurisdiction(shippingAddress.country, calculation);
+      const jurisdiction = this.resolveJurisdiction(
+        shippingAddress.country,
+        calculation,
+      );
 
-      const breakdown: TaxBreakdownEntry[] = (calculation.tax_breakdown ?? []).map((entry) => ({
+      const breakdown: TaxBreakdownEntry[] = (
+        calculation.tax_breakdown ?? []
+      ).map((entry) => ({
         description: this.describeTaxEntry(entry),
         amountCents: entry.amount,
         rate: entry.tax_rate_details?.percentage_decimal
@@ -149,7 +156,9 @@ export class TaxService {
         available: true,
       };
     } catch (err) {
-      this.logger.warn(`Stripe Tax estimation failed: ${(err as Error).message}`);
+      this.logger.warn(
+        `Stripe Tax estimation failed: ${(err as Error).message}`,
+      );
       return this.unavailableFallback();
     }
   }
@@ -165,38 +174,47 @@ export class TaxService {
     try {
       const txn = await this.prisma.paymentTransaction.findFirst({
         where: { orderId, providerRef: { not: null } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       if (!txn?.providerRef) return;
 
       const pi = await this.stripe.paymentIntents.retrieve(txn.providerRef);
-      const autoTax = (pi as any).automatic_tax as { enabled?: boolean; status?: string } | undefined;
-      if (!autoTax?.enabled || autoTax.status !== 'complete') return;
+      const autoTax = (pi as any).automatic_tax as
+        { enabled?: boolean; status?: string } | undefined;
+      if (!autoTax?.enabled || autoTax.status !== "complete") return;
 
       // tax_amounts lives on the latest charge (expand required in some API versions)
       const latestCharge = pi.latest_charge as Stripe.Charge | null;
       const taxAmounts: Array<{
         amount: number;
         inclusive: boolean;
-        tax_rate: { percentage: number; country: string | null; tax_type: string | null };
+        tax_rate: {
+          percentage: number;
+          country: string | null;
+          tax_type: string | null;
+        };
       }> = (latestCharge as any)?.tax_amounts ?? [];
 
       if (!taxAmounts.length) return;
 
       const totalTaxCents = taxAmounts.reduce((s, t) => s + t.amount, 0);
       const first = taxAmounts[0];
-      const taxRate = first?.tax_rate?.percentage != null ? first.tax_rate.percentage / 100 : null;
+      const taxRate =
+        first?.tax_rate?.percentage != null
+          ? first.tax_rate.percentage / 100
+          : null;
       const country = first?.tax_rate?.country ?? null;
       const taxType = first?.tax_rate?.tax_type ?? null;
       const jurisdiction = country
-        ? `${country}${taxType ? ` (${taxType.toUpperCase()})` : ''}`
+        ? `${country}${taxType ? ` (${taxType.toUpperCase()})` : ""}`
         : null;
 
       const breakdown = taxAmounts.map((t) => ({
         amountCents: t.amount,
         inclusive: t.inclusive,
-        rate: t.tax_rate?.percentage != null ? t.tax_rate.percentage / 100 : null,
+        rate:
+          t.tax_rate?.percentage != null ? t.tax_rate.percentage / 100 : null,
         country: t.tax_rate?.country ?? null,
         taxType: t.tax_rate?.tax_type ?? null,
       }));
@@ -211,7 +229,9 @@ export class TaxService {
         },
       });
     } catch (err) {
-      this.logger.error(`Failed to record tax for order ${orderId}: ${(err as Error).message}`);
+      this.logger.error(
+        `Failed to record tax for order ${orderId}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -238,8 +258,11 @@ export class TaxService {
 
     if (!order) return null;
 
-    const subtotalCents = order.totalItemCents + order.shippingCents + order.feeCents;
-    const breakdown = Array.isArray(order.taxBreakdown) ? order.taxBreakdown : [];
+    const subtotalCents =
+      order.totalItemCents + order.shippingCents + order.feeCents;
+    const breakdown = Array.isArray(order.taxBreakdown)
+      ? order.taxBreakdown
+      : [];
 
     return {
       orderId: order.id,
@@ -258,35 +281,36 @@ export class TaxService {
     return {
       taxAmountCents: 0,
       taxRate: 0,
-      taxJurisdiction: '',
+      taxJurisdiction: "",
       breakdown: [],
       available: false,
     };
   }
 
-  private resolveJurisdiction(country: string, calc: Stripe.Tax.Calculation): string {
+  private resolveJurisdiction(
+    country: string,
+    calc: Stripe.Tax.Calculation,
+  ): string {
     const firstEntry = calc.tax_breakdown?.[0] as any;
     if (firstEntry?.jurisdiction?.display_name) {
       return firstEntry.jurisdiction.display_name as string;
     }
     const names: Record<string, string> = {
-      ZA: 'South Africa VAT',
-      US: 'United States Sales Tax',
-      GB: 'United Kingdom VAT',
-      AU: 'Australia GST',
-      CA: 'Canada GST/HST',
-      DE: 'Germany VAT',
-      FR: 'France VAT',
+      ZA: "South Africa VAT",
+      US: "United States Sales Tax",
+      GB: "United Kingdom VAT",
+      AU: "Australia GST",
+      CA: "Canada GST/HST",
+      DE: "Germany VAT",
+      FR: "France VAT",
     };
     return names[country] ?? `${country} Tax`;
   }
 
-  private describeTaxEntry(
-    entry: Stripe.Tax.Calculation.TaxBreakdown,
-  ): string {
-    const pct = entry.tax_rate_details?.percentage_decimal ?? '0';
-    const type = (entry.tax_rate_details?.tax_type ?? 'tax').toUpperCase();
-    const country = entry.tax_rate_details?.country ?? '';
+  private describeTaxEntry(entry: Stripe.Tax.Calculation.TaxBreakdown): string {
+    const pct = entry.tax_rate_details?.percentage_decimal ?? "0";
+    const type = (entry.tax_rate_details?.tax_type ?? "tax").toUpperCase();
+    const country = entry.tax_rate_details?.country ?? "";
     return `${country} ${type} ${parseFloat(pct)}%`.trim();
   }
 }

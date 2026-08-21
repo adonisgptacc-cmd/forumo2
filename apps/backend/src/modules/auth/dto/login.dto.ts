@@ -1,4 +1,13 @@
-import { IsBoolean, IsEmail, IsIP, IsObject, IsOptional, IsString, Length, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIP,
+  IsObject,
+  IsOptional,
+  IsString,
+  Length,
+  MinLength,
+} from "class-validator";
 
 export class LoginDto {
   @IsEmail()
@@ -22,7 +31,9 @@ export class LoginDto {
   userAgent?: string;
 
   @IsOptional()
-  @IsIP(undefined, { message: 'ipAddress must be a valid IPv4 or IPv6 address' })
+  @IsIP(undefined, {
+    message: "ipAddress must be a valid IPv4 or IPv6 address",
+  })
   ipAddress?: string;
 
   @IsOptional()

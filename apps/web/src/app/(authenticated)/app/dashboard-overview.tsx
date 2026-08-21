@@ -1,20 +1,40 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
+import Link from "next/link";
 
-import { useListings, useMessageThreads, useOrders, useCurrentUser, useBecomeSeller } from '../../../lib/react-query/hooks';
+import {
+  useListings,
+  useMessageThreads,
+  useOrders,
+  useCurrentUser,
+  useBecomeSeller,
+} from "../../../lib/react-query/hooks";
 
 export function DashboardOverview() {
   const { user } = useCurrentUser();
   const becomeSeller = useBecomeSeller();
-  const { data: listings, isLoading: listingsLoading } = useListings({ page: 1, pageSize: 5 });
+  const { data: listings, isLoading: listingsLoading } = useListings({
+    page: 1,
+    pageSize: 5,
+  });
   const { data: orders, isLoading: ordersLoading } = useOrders();
-  const { data: threads, isLoading: threadsLoading } = useMessageThreads(undefined, 1);
+  const { data: threads, isLoading: threadsLoading } = useMessageThreads(
+    undefined,
+    1,
+  );
 
   const threadList = threads?.data ?? [];
-  const openOrders = orders?.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED') ?? [];
+  const openOrders =
+    orders?.filter(
+      (order) => order.status !== "COMPLETED" && order.status !== "CANCELLED",
+    ) ?? [];
   const unreadMessages = threadList.reduce((total, thread) => {
-    return total + thread.messages.filter((message) => message.receipts?.every((receipt) => !receipt.readAt)).length;
+    return (
+      total +
+      thread.messages.filter((message) =>
+        message.receipts?.every((receipt) => !receipt.readAt),
+      ).length
+    );
   }, 0);
 
   const statsLoading = listingsLoading || ordersLoading || threadsLoading;
@@ -22,18 +42,27 @@ export function DashboardOverview() {
   return (
     <div className="grid gap-6">
       {/* Become a Seller banner — only shown to BUYER accounts */}
-      {user?.role === 'BUYER' && (
+      {user?.role === "BUYER" && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-semibold text-amber-800">Ready to sell on Forumo?</p>
-            <p className="text-sm muted mt-0.5">Upgrade your account to list items, receive payments, and manage orders.</p>
+            <p className="font-semibold text-amber-800">
+              Ready to sell on Forumo?
+            </p>
+            <p className="text-sm muted mt-0.5">
+              Upgrade your account to list items, receive payments, and manage
+              orders.
+            </p>
           </div>
           <button
             onClick={() => becomeSeller.mutate()}
             disabled={becomeSeller.isPending || becomeSeller.isSuccess}
             className="btn btn-primary btn-sm shrink-0"
           >
-            {becomeSeller.isPending ? 'Activating…' : becomeSeller.isSuccess ? 'Activated!' : 'Become a Seller'}
+            {becomeSeller.isPending
+              ? "Activating…"
+              : becomeSeller.isSuccess
+                ? "Activated!"
+                : "Become a Seller"}
           </button>
         </section>
       )}
@@ -47,9 +76,21 @@ export function DashboardOverview() {
           </>
         ) : (
           <>
-            <StatCard label="Active listings" value={listings?.data.length ?? 0} hint="Showing last 5" />
-            <StatCard label="Open orders" value={openOrders.length} hint="Across escrow + shipping" />
-            <StatCard label="Unread messages" value={unreadMessages} hint="Awaiting response" />
+            <StatCard
+              label="Active listings"
+              value={listings?.data.length ?? 0}
+              hint="Showing last 5"
+            />
+            <StatCard
+              label="Open orders"
+              value={openOrders.length}
+              hint="Across escrow + shipping"
+            />
+            <StatCard
+              label="Unread messages"
+              value={unreadMessages}
+              hint="Awaiting response"
+            />
           </>
         )}
       </section>
@@ -57,7 +98,10 @@ export function DashboardOverview() {
       <section className="card card-pad space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent listings</h2>
-          <Link className="text-sm text-[color:var(--accent)] hover:underline" href="/listings">
+          <Link
+            className="text-sm text-[color:var(--accent)] hover:underline"
+            href="/listings"
+          >
             Manage inventory →
           </Link>
         </div>
@@ -66,12 +110,17 @@ export function DashboardOverview() {
         ) : listings?.data.length ? (
           <ul className="space-y-3 text-sm">
             {listings.data.map((listing) => (
-              <li key={listing.id} className="flex items-center justify-between">
+              <li
+                key={listing.id}
+                className="flex items-center justify-between"
+              >
                 <div>
                   <p className="font-medium">{listing.title}</p>
                   <p className="text-xs muted">{listing.status}</p>
                 </div>
-                <span className="subtle">{formatPrice(listing.priceCents, listing.currency ?? 'USD')}</span>
+                <span className="subtle">
+                  {formatPrice(listing.priceCents, listing.currency ?? "USD")}
+                </span>
               </li>
             ))}
           </ul>
@@ -84,7 +133,10 @@ export function DashboardOverview() {
         <div className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Orders in escrow</h2>
-            <Link className="text-sm text-[color:var(--accent)] hover:underline" href="/app/orders">
+            <Link
+              className="text-sm text-[color:var(--accent)] hover:underline"
+              href="/app/orders"
+            >
               View workflow →
             </Link>
           </div>
@@ -93,10 +145,14 @@ export function DashboardOverview() {
           ) : openOrders.length ? (
             <ul className="space-y-3 text-sm">
               {openOrders.slice(0, 4).map((order) => (
-                <li key={order.id} className="rounded-lg border border-[color:var(--line)] p-3">
+                <li
+                  key={order.id}
+                  className="rounded-lg border border-[color:var(--line)] p-3"
+                >
                   <p className="font-semibold">{order.orderNumber}</p>
                   <p className="text-xs muted">
-                    {order.status} · {order.currency} {(order.totalItemCents + order.shippingCents) / 100}
+                    {order.status} · {order.currency}{" "}
+                    {(order.totalItemCents + order.shippingCents) / 100}
                   </p>
                 </li>
               ))}
@@ -109,7 +165,10 @@ export function DashboardOverview() {
         <div className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Latest messages</h2>
-            <Link className="text-sm text-[color:var(--accent)] hover:underline" href="/app/messages">
+            <Link
+              className="text-sm text-[color:var(--accent)] hover:underline"
+              href="/app/messages"
+            >
               Open inbox →
             </Link>
           </div>
@@ -120,9 +179,16 @@ export function DashboardOverview() {
               {threadList.slice(0, 4).map((thread) => {
                 const lastMessage = thread.messages.at(-1);
                 return (
-                  <li key={thread.id} className="rounded-lg border border-[color:var(--line)] p-3">
-                    <p className="font-semibold">{thread.subject ?? 'Conversation'}</p>
-                    <p className="text-xs muted">{lastMessage?.body ?? 'No messages yet.'}</p>
+                  <li
+                    key={thread.id}
+                    className="rounded-lg border border-[color:var(--line)] p-3"
+                  >
+                    <p className="font-semibold">
+                      {thread.subject ?? "Conversation"}
+                    </p>
+                    <p className="text-xs muted">
+                      {lastMessage?.body ?? "No messages yet."}
+                    </p>
                   </li>
                 );
               })}
@@ -136,10 +202,20 @@ export function DashboardOverview() {
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+}) {
   return (
     <div className="card card-pad space-y-1">
-      <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--ink-3)]">{label}</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--ink-3)]">
+        {label}
+      </p>
       <p className="text-3xl font-semibold">{value}</p>
       {hint ? <p className="text-xs muted">{hint}</p> : null}
     </div>
@@ -173,5 +249,7 @@ function ListSkeleton({ rows }: { rows: number }) {
 }
 
 function formatPrice(priceCents: number, currency: string) {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).format(priceCents / 100);
+  return new Intl.NumberFormat("en", { style: "currency", currency }).format(
+    priceCents / 100,
+  );
 }

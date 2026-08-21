@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { Prisma, AccountStatus, UserRole } from "@prisma/client";
+import { Prisma, AccountStatus, OrderStatus, UserRole } from "@prisma/client";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -12,13 +12,16 @@ import {
   AdminOrderSummary,
 } from "@forumo/shared";
 import { CacheService } from "../../common/services/cache.service";
+import { OrdersService } from "../orders/orders.service";
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly cache: CacheService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   // ─── Account Status Management ───────────────────────────────────────────────
@@ -88,6 +91,14 @@ export class AdminService {
     });
     if (!user) throw new NotFoundException("User not found");
 
+    const ordersToCancel = await this.prisma.order.findMany({
+      where: {
+        status: { in: ["PENDING", "CONFIRMED", "PAID"] },
+        OR: [{ buyerId: userId }, { sellerId: userId }],
+      },
+      select: { id: true },
+    });
+
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
@@ -104,16 +115,26 @@ export class AdminService {
         where: { sellerId: userId, status: "PUBLISHED", deletedAt: null },
         data: { status: "SUSPENDED" },
       }),
-      // Cancel open orders where the banned user is the buyer or seller
-      this.prisma.order.updateMany({
-        where: {
-          status: { in: ["PENDING", "CONFIRMED"] },
-          OR: [{ buyerId: userId }, { sellerId: userId }],
-        },
-        data: { status: "CANCELLED" },
-      }),
     ]);
     await this.cache.deleteByPrefix("listings:search:");
+
+    for (const { id: orderId } of ordersToCancel) {
+      try {
+        const order = await this.ordersService.requestRefund(orderId, {
+          status: OrderStatus.CANCELLED,
+          note: "Order cancelled because an account was banned",
+        });
+        if (order.status === OrderStatus.REFUND_FAILED) {
+          this.logger.error(
+            `Provider refund failed for order ${orderId} during account ban`,
+          );
+        }
+      } catch (err) {
+        this.logger?.error?.(
+          `Failed to refund escrow for cancelled order ${orderId} on ban: ${(err as Error).message}`,
+        );
+      }
+    }
 
     await this.notifications.notifyAccountBanned(user.email, user.name, reason);
   }

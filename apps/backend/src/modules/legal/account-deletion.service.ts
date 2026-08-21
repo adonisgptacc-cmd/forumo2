@@ -5,6 +5,8 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { ConfigService } from "@nestjs/config";
 import { CacheService } from "../../common/services/cache.service";
+import { OrderStatus } from "@prisma/client";
+import { OrdersService } from "../orders/orders.service";
 
 @Injectable()
 export class AccountDeletionService {
@@ -15,6 +17,7 @@ export class AccountDeletionService {
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
     private readonly cache: CacheService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -74,14 +77,36 @@ export class AccountDeletionService {
     });
     await this.cache.deleteByPrefix("listings:search:");
 
-    // Cancel pending/confirmed orders and trigger refunds via status update
-    await this.prisma.order.updateMany({
+    // Cancel pending/confirmed orders — route through refund path for escrow HOLDING
+    const ordersToCancel = await this.prisma.order.findMany({
       where: {
         OR: [{ buyerId: userId }, { sellerId: userId }],
-        status: { in: ["PENDING", "CONFIRMED"] },
+        status: {
+          in: [
+            OrderStatus.PENDING,
+            OrderStatus.CONFIRMED,
+            OrderStatus.PAID,
+            OrderStatus.REFUND_PENDING,
+            OrderStatus.REFUND_FAILED,
+          ],
+        },
       },
-      data: { status: "CANCELLED" },
+      select: { id: true },
     });
+    for (const { id: orderId } of ordersToCancel) {
+      const order = await this.ordersService.requestRefund(orderId, {
+        status: OrderStatus.CANCELLED,
+        note: "Order cancelled before account deletion",
+      });
+      if (
+        order.status !== OrderStatus.CANCELLED &&
+        order.status !== OrderStatus.REFUNDED
+      ) {
+        throw new Error(
+          `Account deletion paused until refund for order ${orderId} is confirmed`,
+        );
+      }
+    }
 
     // Soft-delete and anonymise PII — financial records remain intact (anonymised) for 7 years
     await this.prisma.user.update({

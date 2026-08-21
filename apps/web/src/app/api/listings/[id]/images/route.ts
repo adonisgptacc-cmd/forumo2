@@ -1,21 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   try {
     const formData = await req.formData();
-    const file = formData.get('file');
+    const file = formData.get("file");
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ message: 'Image file is required' }, { status: 400 });
+      return NextResponse.json(
+        { message: "Image file is required" },
+        { status: 400 },
+      );
     }
 
     const res = await fetch(`${API_BASE_URL}/listings/${id}/images`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
@@ -30,7 +37,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
-    console.error('Failed to upload listing image', error);
-    return NextResponse.json({ message: 'Unable to upload image' }, { status: 500 });
+    console.error("Failed to upload listing image", error);
+    return NextResponse.json(
+      { message: "Unable to upload image" },
+      { status: 500 },
+    );
   }
 }

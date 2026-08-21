@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 // TODO Phase 4: integrate Courier Guy and Fastway directly via their native APIs
 //   for South Africa-specific last-mile carriers not covered by Shippo.
 
@@ -64,26 +64,30 @@ export class ShippingService {
   private readonly client: any;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = config.get<string>('SHIPPO_API_KEY');
+    const apiKey = config.get<string>("SHIPPO_API_KEY");
     if (apiKey) {
       // Dynamic import keeps the optional dependency from crashing startup when unset
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const Shippo = require('shippo');
+        const Shippo = require("shippo");
         this.client = new Shippo({ apiKeyHeader: apiKey });
       } catch {
-        this.logger.warn('shippo package not installed — run: npm install shippo');
+        this.logger.warn(
+          "shippo package not installed — run: npm install shippo",
+        );
         this.client = null;
       }
     } else {
-      this.logger.warn('SHIPPO_API_KEY not set — shipping features disabled');
+      this.logger.warn("SHIPPO_API_KEY not set — shipping features disabled");
       this.client = null;
     }
   }
 
   private ensureClient(): any {
     if (!this.client) {
-      throw new Error('Shippo is not configured. Set SHIPPO_API_KEY in the environment.');
+      throw new Error(
+        "Shippo is not configured. Set SHIPPO_API_KEY in the environment.",
+      );
     }
     return this.client;
   }
@@ -105,10 +109,11 @@ export class ShippingService {
     const rates: any[] = shipment.rates ?? [];
     return rates.map((rate: any) => ({
       rateId: rate.object_id,
-      carrier: rate.provider ?? 'unknown',
-      service: rate.servicelevel?.name ?? rate.servicelevel?.token ?? 'Standard',
-      price: Math.round(parseFloat(rate.amount ?? '0') * 100),
-      currency: (rate.currency ?? 'USD').toUpperCase(),
+      carrier: rate.provider ?? "unknown",
+      service:
+        rate.servicelevel?.name ?? rate.servicelevel?.token ?? "Standard",
+      price: Math.round(parseFloat(rate.amount ?? "0") * 100),
+      currency: (rate.currency ?? "USD").toUpperCase(),
       estimatedDays: rate.estimated_days ?? null,
     }));
   }
@@ -118,51 +123,56 @@ export class ShippingService {
 
     const transaction = await client.transactions.create({
       rate: rateId,
-      label_file_type: 'PDF',
+      label_file_type: "PDF",
       async: false,
     });
 
-    if (transaction.status !== 'SUCCESS') {
+    if (transaction.status !== "SUCCESS") {
       const msgs: string = (transaction.messages ?? [])
         .map((m: any) => m.text ?? m.source)
         .filter(Boolean)
-        .join('; ');
+        .join("; ");
       throw new Error(`Label purchase failed: ${msgs || transaction.status}`);
     }
 
     return {
       labelUrl: transaction.label_url,
       trackingNumber: transaction.tracking_number,
-      carrier: transaction.rate?.provider ?? 'unknown',
+      carrier: transaction.rate?.provider ?? "unknown",
       estimatedDelivery: transaction.eta ? new Date(transaction.eta) : null,
       shippoTransactionId: transaction.object_id,
     };
   }
 
-  async getTracking(carrier: string, trackingNumber: string): Promise<TrackingInfo> {
+  async getTracking(
+    carrier: string,
+    trackingNumber: string,
+  ): Promise<TrackingInfo> {
     const client = this.ensureClient();
 
     const tracking = await client.trackingStatus.get(carrier, trackingNumber);
 
-    const status: string = tracking.tracking_status?.status ?? 'UNKNOWN';
+    const status: string = tracking.tracking_status?.status ?? "UNKNOWN";
     const eta: Date | null = tracking.eta ? new Date(tracking.eta) : null;
 
     const history: any[] = tracking.tracking_history ?? [];
     const events = history.map((evt: any) => ({
       timestamp: new Date(evt.status_date),
-      status: evt.status ?? 'UNKNOWN',
+      status: evt.status ?? "UNKNOWN",
       location: evt.location
         ? [evt.location.city, evt.location.state, evt.location.country]
             .filter(Boolean)
-            .join(', ')
+            .join(", ")
         : null,
-      description: evt.status_details ?? evt.status ?? '',
+      description: evt.status_details ?? evt.status ?? "",
     }));
 
     return { status, estimatedDelivery: eta, events };
   }
 
-  async validateAddress(address: ShippoAddress): Promise<AddressValidationResult> {
+  async validateAddress(
+    address: ShippoAddress,
+  ): Promise<AddressValidationResult> {
     const client = this.ensureClient();
 
     const result = await client.addresses.create({
@@ -180,22 +190,30 @@ export class ShippingService {
     };
   }
 
-  async createReturnLabel(originalTransactionId: string): Promise<PurchasedLabel> {
+  async createReturnLabel(
+    originalTransactionId: string,
+  ): Promise<PurchasedLabel> {
     const client = this.ensureClient();
 
-    const originalTransaction = await client.transactions.get(originalTransactionId);
+    const originalTransaction = await client.transactions.get(
+      originalTransactionId,
+    );
     if (!originalTransaction) {
-      throw new Error(`Transaction ${originalTransactionId} not found in Shippo`);
+      throw new Error(
+        `Transaction ${originalTransactionId} not found in Shippo`,
+      );
     }
 
-    const shipmentId = originalTransaction.rate?.shipment ?? originalTransaction.rate_id_or_shipment;
+    const shipmentId =
+      originalTransaction.rate?.shipment ??
+      originalTransaction.rate_id_or_shipment;
     if (!shipmentId) {
-      throw new Error('Cannot determine original shipment from transaction');
+      throw new Error("Cannot determine original shipment from transaction");
     }
 
     const originalShipment = await client.shipments.get(shipmentId);
     if (!originalShipment) {
-      throw new Error('Original shipment not found in Shippo');
+      throw new Error("Original shipment not found in Shippo");
     }
 
     // Create return shipment with from/to swapped
@@ -208,7 +226,9 @@ export class ShippingService {
 
     const rates: any[] = returnShipment.rates ?? [];
     if (!rates.length) {
-      throw new Error('No rates available for return shipment — check address validity');
+      throw new Error(
+        "No rates available for return shipment — check address validity",
+      );
     }
 
     // Select the cheapest rate automatically
@@ -219,7 +239,9 @@ export class ShippingService {
     return this.purchaseLabel(cheapestRate.object_id);
   }
 
-  private toShippoAddress(address: ShippoAddress): Record<string, string | undefined> {
+  private toShippoAddress(
+    address: ShippoAddress,
+  ): Record<string, string | undefined> {
     return {
       name: address.name,
       street1: address.street1,
@@ -238,9 +260,9 @@ export class ShippingService {
       length: String(parcel.length),
       width: String(parcel.width),
       height: String(parcel.height),
-      distance_unit: 'cm',
+      distance_unit: "cm",
       weight: String(parcel.weight),
-      mass_unit: 'g',
+      mass_unit: "g",
     };
   }
 }

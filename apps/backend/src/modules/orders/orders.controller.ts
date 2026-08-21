@@ -1,8 +1,22 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  Request,
+  BadRequestException,
+} from "@nestjs/common";
+import { OrderStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
 
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
@@ -10,17 +24,20 @@ import { SafeOrder } from "./order.serializer";
 import { OrdersService } from "./orders.service";
 import { TaxService, CartLineItem, TaxShippingAddress } from "./tax.service";
 
-@Controller('orders')
+@Controller("orders")
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly taxService: TaxService,
-  ) { }
+  ) {}
 
-  @Post(':id/initiate-payment')
+  @Post(":id/initiate-payment")
   @HttpCode(HttpStatus.OK)
-  initiatePayment(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+  initiatePayment(
+    @Param("id") id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.ordersService.initiatePayment(id, req.user.id);
   }
 
@@ -30,7 +47,7 @@ export class OrdersController {
    * when Stripe Tax is not enabled for the buyer's region — display
    * "Tax calculated at checkout" in that case.
    */
-  @Post('tax-estimate')
+  @Post("tax-estimate")
   @HttpCode(HttpStatus.OK)
   async estimateTax(
     @Body()
@@ -41,15 +58,15 @@ export class OrdersController {
     },
   ) {
     if (!body.cartItems?.length) {
-      throw new BadRequestException('cartItems is required');
+      throw new BadRequestException("cartItems is required");
     }
     if (!body.shippingAddress?.country) {
-      throw new BadRequestException('shippingAddress.country is required');
+      throw new BadRequestException("shippingAddress.country is required");
     }
     return this.taxService.estimateTax(
       body.cartItems,
       body.shippingAddress,
-      body.currency ?? 'usd',
+      body.currency ?? "usd",
     );
   }
 
@@ -57,91 +74,134 @@ export class OrdersController {
    * GET /orders/:id/receipt
    * Returns the tax receipt for an order. Accessible by buyer or seller only.
    */
-  @Get(':id/receipt')
-  getReceipt(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+  @Get(":id/receipt")
+  getReceipt(
+    @Param("id") id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.ordersService.getReceipt(id, req.user.id);
   }
 
   @Get()
   findAll(
     @Request() req: { user: { id: string } },
-    @Query('listingId') listingId?: string,
-    @Query('status') status?: string,
+    @Query("listingId") listingId?: string,
+    @Query("status") status?: string,
   ): Promise<SafeOrder[]> {
     return this.ordersService.findAll(req.user.id, { listingId, status });
   }
 
-  @Get('seller/analytics')
+  @Get("seller/analytics")
   getSellerAnalytics(@Request() req: { user: { id: string } }) {
     return this.ordersService.getSellerAnalytics(req.user.id);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: { user: { id: string } }): Promise<SafeOrder> {
+  @Get(":id")
+  findOne(
+    @Param("id") id: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<SafeOrder> {
     return this.ordersService.findById(id, req.user.id);
   }
 
   @Post()
-  create(@Body() dto: CreateOrderDto, @Request() req: { user: { id: string } }): Promise<SafeOrder> {
+  create(
+    @Body() dto: CreateOrderDto,
+    @Request() req: { user: { id: string } },
+  ): Promise<SafeOrder> {
     // Enforce that the authenticated user is the buyer — prevents impersonation
     return this.ordersService.create({ ...dto, buyerId: req.user.id });
   }
 
-  @Patch(':id/status')
+  @Patch(":id/status")
   async updateStatus(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: UpdateOrderStatusDto,
-    @Request() req: { user: { id: string } },
+    @Request() req: { user: { id: string; role?: string } },
   ): Promise<SafeOrder> {
-    // Verify the caller is a party to the order; actorId is always the authenticated user
-    const order = await this.ordersService.findById(id, req.user.id);
-    const isBuyer = order.buyerId === req.user.id;
-    const isSeller = order.sellerId === req.user.id;
+    const { id: userId, role } = req.user;
+    const isAdmin = role === "ADMIN";
+    const isModerator = role === "MODERATOR";
+    const isStaff = isAdmin || isModerator;
+    const providerRefundStatuses: readonly OrderStatus[] = [
+      OrderStatus.REFUNDED,
+      OrderStatus.REFUND_PENDING,
+      OrderStatus.REFUND_FAILED,
+    ];
 
-    // Status-level permission gates
-    if (dto.status === OrderStatus.COMPLETED && !isBuyer) {
-      throw new ForbiddenException('Only the buyer can release escrow');
-    }
-    if ((dto.status === OrderStatus.REFUNDED || dto.status === OrderStatus.CANCELLED) && !isBuyer && !isSeller) {
-      throw new ForbiddenException('Access denied');
-    }
-    if (dto.status === OrderStatus.FULFILLED && !isSeller) {
-      throw new ForbiddenException('Only the seller can mark an order as fulfilled');
+    if (providerRefundStatuses.includes(dto.status) && !isAdmin) {
+      throw new ForbiddenException(
+        "Only an administrator can initiate a provider refund",
+      );
     }
 
-    return this.ordersService.updateStatus(id, { ...dto, actorId: req.user.id });
+    const order = !isAdmin
+      ? await this.ordersService.findById(id, isModerator ? undefined : userId)
+      : null;
+
+    if (
+      dto.status === OrderStatus.CANCELLED &&
+      !isAdmin &&
+      order?.status !== OrderStatus.PENDING
+    ) {
+      throw new ForbiddenException(
+        "Captured orders must be refunded through an approved return, dispute, or administrator flow",
+      );
+    }
+
+    // Verify the caller is a party to the order; actorId is always the authenticated user.
+    // Staff (ADMIN/MODERATOR) skip the ownership check so they can force status corrections.
+    if (!isStaff) {
+      if (!order) {
+        throw new ForbiddenException("Access denied");
+      }
+      const isBuyer = order.buyerId === userId;
+      const isSeller = order.sellerId === userId;
+
+      // Status-level permission gates
+      if (dto.status === OrderStatus.COMPLETED && !isBuyer) {
+        throw new ForbiddenException("Only the buyer can release escrow");
+      }
+      if (dto.status === OrderStatus.FULFILLED && !isSeller) {
+        throw new ForbiddenException(
+          "Only the seller can mark an order as fulfilled",
+        );
+      }
+    }
+
+    return this.ordersService.updateStatus(id, { ...dto, actorId: userId });
   }
 
-  @Post(':id/release')
+  @Post(":id/release")
   @HttpCode(HttpStatus.OK)
   async releaseEscrow(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { note?: string },
     @Request() req: { user: { id: string } },
   ): Promise<SafeOrder> {
     const order = await this.ordersService.findById(id, req.user.id);
     if (order.buyerId !== req.user.id) {
-      throw new ForbiddenException('Only the buyer can release escrow');
+      throw new ForbiddenException("Only the buyer can release escrow");
     }
     return this.ordersService.updateStatus(id, {
       status: OrderStatus.COMPLETED,
-      note: body.note ?? 'Escrow released by buyer',
+      note: body.note ?? "Escrow released by buyer",
       actorId: req.user.id,
     });
   }
 
-  @Post(':id/refund')
+  @Post(":id/refund")
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Roles("ADMIN")
   refundEscrow(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { note?: string; providerStatus?: string },
     @Request() req: { user: { id: string } },
   ): Promise<SafeOrder> {
     return this.ordersService.updateStatus(id, {
       status: OrderStatus.REFUNDED,
-      note: body.note ?? 'Escrow refunded by admin',
+      note: body.note ?? "Escrow refunded by admin",
       actorId: req.user.id,
       providerStatus: body.providerStatus,
     });
@@ -152,10 +212,10 @@ export class OrdersController {
    * Seller purchases a Shippo shipping label for the selected rate (obtained from POST /shipping/rates).
    * Returns the PDF label URL and tracking number.
    */
-  @Post(':id/label')
+  @Post(":id/label")
   @HttpCode(HttpStatus.CREATED)
   purchaseLabel(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { rateId: string },
     @Request() req: { user: { id: string } },
   ) {
@@ -167,26 +227,43 @@ export class OrdersController {
    * Returns carrier, tracking number, estimated delivery, and all tracking events.
    * Accessible by buyer or seller.
    */
-  @Get(':id/tracking')
-  getTracking(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+  @Get(":id/tracking")
+  getTracking(
+    @Param("id") id: string,
+    @Request() req: { user: { id: string } },
+  ) {
     return this.ordersService.getTrackingEvents(id, req.user.id);
   }
 
-  @Post(':id/shipment')
+  @Post(":id/shipment")
   @HttpCode(HttpStatus.CREATED)
   createShipment(
-    @Param('id') id: string,
-    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; estimatedDelivery?: string },
+    @Param("id") id: string,
+    @Body()
+    body: {
+      carrier?: string;
+      trackingNumber?: string;
+      serviceLevel?: string;
+      estimatedDelivery?: string;
+    },
     @Request() req: { user: { id: string } },
   ) {
     return this.ordersService.createShipment(id, req.user.id, body);
   }
 
-  @Patch(':id/shipment')
+  @Patch(":id/shipment")
   @HttpCode(HttpStatus.OK)
   updateShipment(
-    @Param('id') id: string,
-    @Body() body: { carrier?: string; trackingNumber?: string; serviceLevel?: string; status?: string; estimatedDelivery?: string; deliveredAt?: string },
+    @Param("id") id: string,
+    @Body()
+    body: {
+      carrier?: string;
+      trackingNumber?: string;
+      serviceLevel?: string;
+      status?: string;
+      estimatedDelivery?: string;
+      deliveredAt?: string;
+    },
     @Request() req: { user: { id: string } },
   ) {
     return this.ordersService.updateShipment(id, req.user.id, body);

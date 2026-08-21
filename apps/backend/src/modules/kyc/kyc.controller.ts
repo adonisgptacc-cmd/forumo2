@@ -154,12 +154,20 @@ export class KycController {
   async reviewSubmission(
     @Param("id") id: string,
     @Request() req: any,
-    @Body() body: { status: "APPROVED" | "REJECTED"; rejectionReason?: string },
+    @Body() body: { status: string; rejectionReason?: string },
   ) {
+    const allowed: Record<string, string> = {
+      APPROVED: "APPROVED",
+      REJECTED: "REJECTED",
+    };
+    const normalized = allowed[body.status?.toUpperCase?.() as string];
+    if (!normalized) {
+      throw new BadRequestException("status must be APPROVED or REJECTED");
+    }
     return this.kycService.reviewSubmission(
       id,
       req.user.id,
-      body.status,
+      normalized as "APPROVED" | "REJECTED",
       body.rejectionReason,
     );
   }

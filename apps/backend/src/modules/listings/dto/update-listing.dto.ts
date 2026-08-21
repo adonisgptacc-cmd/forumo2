@@ -1,5 +1,5 @@
-import { ListingStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { ListingStatus } from "@prisma/client";
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsEnum,
@@ -10,7 +10,7 @@ import {
   IsString,
   MinLength,
   ValidateNested,
-} from 'class-validator';
+} from "class-validator";
 
 import { CreateListingVariantDto } from "./create-listing.dto";
 

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 /**
  * Redirect the bare /messages route to the authenticated app inbox.
@@ -6,5 +6,5 @@ import { redirect } from 'next/navigation';
  * sent to /login automatically.
  */
 export default function MessagesRedirect() {
-  redirect('/app/messages');
+  redirect("/app/messages");
 }

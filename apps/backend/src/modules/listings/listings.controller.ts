@@ -105,8 +105,9 @@ export class ListingsController {
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string): Promise<SafeListing> {
-    return this.listingsService.findById(id);
+  findOne(@Param("id") id: string, @Request() req: any): Promise<SafeListing> {
+    const viewerId = req?.user?.id as string | undefined;
+    return this.listingsService.findById(id, viewerId);
   }
 
   @Post()
@@ -128,10 +129,10 @@ export class ListingsController {
     const { ids, status } = body;
     if (!Array.isArray(ids) || ids.length === 0)
       throw new BadRequestException("ids must be a non-empty array");
-    const validStatuses = ["PUBLISHED", "PAUSED", "DRAFT"];
+    const validStatuses = ["PAUSED"];
     if (!validStatuses.includes(status))
       throw new BadRequestException(
-        `status must be one of ${validStatuses.join(", ")}`,
+        `Bulk status change only allows PAUSED — PUBLISHED requires moderation`,
       );
     return this.listingsService.bulkUpdateStatus(
       ids,

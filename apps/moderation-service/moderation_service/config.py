@@ -16,6 +16,7 @@ class Settings:
   flagged_keywords: List[str] = field(default_factory=list)
   flagged_mime_prefixes: List[str] = field(default_factory=lambda: ["image/svg", "image/x-icon"])
   max_image_size_mb: int = 20
+  internal_token: str = ""
   service_name: str = "Forumo Moderation Service"
 
 
@@ -44,7 +45,7 @@ def get_settings() -> Settings:
 
   mime_prefixes = _parse_csv(os.getenv('MODERATION_FLAGGED_MIME_PREFIXES'))
   if not mime_prefixes:
-    mime_prefixes = Settings.flagged_mime_prefixes
+    mime_prefixes = Settings().flagged_mime_prefixes
 
   max_image_size = os.getenv('MODERATION_MAX_IMAGE_SIZE_MB')
   try:
@@ -57,4 +58,5 @@ def get_settings() -> Settings:
     flagged_keywords=flagged,
     flagged_mime_prefixes=mime_prefixes,
     max_image_size_mb=max_image_size_mb,
+    internal_token=os.getenv('MODERATION_INTERNAL_TOKEN', ''),
   )

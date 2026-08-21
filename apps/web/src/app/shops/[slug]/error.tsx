@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect } from "react";
+import Link from "next/link";
 
 export default function ShopError({
   error,
@@ -18,7 +18,9 @@ export default function ShopError({
     <div className="min-h-screen bg-[color:var(--bg)] flex items-center justify-center px-4">
       <div className="text-center space-y-4 max-w-md">
         <p className="text-4xl font-bold text-red-600">!</p>
-        <h2 className="text-xl font-semibold text-[color:var(--ink)]">Failed to load storefront</h2>
+        <h2 className="text-xl font-semibold text-[color:var(--ink)]">
+          Failed to load storefront
+        </h2>
         <p className="text-sm text-[color:var(--ink-3)]">
           Something went wrong while loading this shop. Please try again.
         </p>

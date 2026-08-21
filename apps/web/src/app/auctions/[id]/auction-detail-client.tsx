@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApiClient } from '../../../lib/use-api-client';
-import { formatCurrency } from '../../../lib/format-currency';
-import Image from 'next/image';
-import { useAuctionSocket } from '../../../lib/realtime/use-auction-socket';
-import { PlaceBidForm } from '../../../components/auctions/place-bid-form';
-import { useEffect, useState } from 'react';
+import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useApiClient } from "../../../lib/use-api-client";
+import { formatCurrency } from "../../../lib/format-currency";
+import Image from "next/image";
+import { useAuctionSocket } from "../../../lib/realtime/use-auction-socket";
+import { PlaceBidForm } from "../../../components/auctions/place-bid-form";
+import { useEffect, useState } from "react";
 
 interface Bid {
   id: string;
@@ -22,17 +22,25 @@ interface AuctionDetail {
   endAt: string;
   status: string;
   seller: { id: string; name: string };
-  listing: { id: string; title: string; description: string; images: { url: string }[] };
+  listing: {
+    id: string;
+    title: string;
+    description: string;
+    images: { url: string }[];
+  };
   bids: Bid[];
 }
 
 function AuctionTimer({ endAt }: { endAt: string }) {
-  const [timeLeft, setTimeLeft] = useState('');
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
     const update = () => {
       const diff = new Date(endAt).getTime() - Date.now();
-      if (diff <= 0) { setTimeLeft('Ended'); return; }
+      if (diff <= 0) {
+        setTimeLeft("Ended");
+        return;
+      }
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
@@ -53,28 +61,42 @@ export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
   const socket = useAuctionSocket(auctionId);
   const [lastEvent, setLastEvent] = useState<string | null>(null);
 
-  const { data: auction, isLoading, error } = useQuery<AuctionDetail>({
-    queryKey: ['auction', auctionId],
-    queryFn: () => api.auctions.get(auctionId) as unknown as Promise<AuctionDetail>,
+  const {
+    data: auction,
+    isLoading,
+    error,
+  } = useQuery<AuctionDetail>({
+    queryKey: ["auction", auctionId],
+    queryFn: () =>
+      api.auctions.get(auctionId) as unknown as Promise<AuctionDetail>,
     enabled: !!auctionId,
   });
 
   useEffect(() => {
     if (!socket) return;
-    socket.on('auction:bid', () => {
-      setLastEvent('New bid placed!');
-      queryClient.invalidateQueries({ queryKey: ['auction', auctionId] });
+    socket.on("auction:bid", () => {
+      setLastEvent("New bid placed!");
+      queryClient.invalidateQueries({ queryKey: ["auction", auctionId] });
       setTimeout(() => setLastEvent(null), 3000);
     });
-    return () => { socket.off('auction:bid'); };
+    return () => {
+      socket.off("auction:bid");
+    };
   }, [socket, auctionId, queryClient]);
 
   if (isLoading) return <div className="p-8 text-center">Loading auction…</div>;
-  if (error) return <div className="p-8 text-center text-red-500">Error loading auction</div>;
+  if (error)
+    return (
+      <div className="p-8 text-center text-red-500">Error loading auction</div>
+    );
   if (!auction) return null;
 
-  const currentPrice = auction.bids.length > 0 ? auction.bids[0].amountCents : auction.startingBidCents;
-  const minNextBid = currentPrice + (currentPrice < 500 ? 25 : currentPrice < 2500 ? 50 : 100);
+  const currentPrice =
+    auction.bids.length > 0
+      ? auction.bids[0].amountCents
+      : auction.startingBidCents;
+  const minNextBid =
+    currentPrice + (currentPrice < 500 ? 25 : currentPrice < 2500 ? 50 : 100);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -83,14 +105,24 @@ export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
         <div className="space-y-4">
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border relative">
             {auction.listing.images[0] ? (
-              <Image src={auction.listing.images[0].url} alt={auction.listing.title} fill className="object-cover" />
+              <Image
+                src={auction.listing.images[0].url}
+                alt={auction.listing.title}
+                fill
+                className="object-cover"
+              />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">No Image</div>
+              <div className="flex items-center justify-center h-full text-gray-400">
+                No Image
+              </div>
             )}
           </div>
           <div className="grid grid-cols-4 gap-4">
             {auction.listing.images.slice(1).map((img, idx) => (
-              <div key={idx} className="aspect-square bg-gray-100 rounded-md overflow-hidden border relative">
+              <div
+                key={idx}
+                className="aspect-square bg-gray-100 rounded-md overflow-hidden border relative"
+              >
                 <Image src={img.url} alt="" fill className="object-cover" />
               </div>
             ))}
@@ -100,24 +132,34 @@ export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
         {/* Details & Bidding */}
         <div className="space-y-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{auction.listing.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {auction.listing.title}
+            </h1>
             <p className="text-gray-500">Sold by {auction.seller.name}</p>
           </div>
 
           <div className="bg-gray-50 p-6 rounded-xl border space-y-4">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">Current Price</p>
-                <p className="text-4xl font-bold text-gray-900 font-mono mt-1">{formatCurrency(currentPrice)}</p>
+                <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">
+                  Current Price
+                </p>
+                <p className="text-4xl font-bold text-gray-900 font-mono mt-1">
+                  {formatCurrency(currentPrice)}
+                </p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">Ends In</p>
+                <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">
+                  Ends In
+                </p>
                 <AuctionTimer endAt={auction.endAt} />
               </div>
             </div>
 
             {lastEvent && (
-              <div className="bg-blue-100 text-blue-800 text-sm py-2 px-3 rounded animate-pulse">{lastEvent}</div>
+              <div className="bg-blue-100 text-blue-800 text-sm py-2 px-3 rounded animate-pulse">
+                {lastEvent}
+              </div>
             )}
 
             <div className="pt-4 border-t border-gray-200">
@@ -127,26 +169,41 @@ export function AuctionDetailClient({ auctionId }: { auctionId: string }) {
 
           <div>
             <h3 className="text-xl font-bold mb-4">Description</h3>
-            <div className="prose max-w-none text-gray-700">{auction.listing.description}</div>
+            <div className="prose max-w-none text-gray-700">
+              {auction.listing.description}
+            </div>
           </div>
 
           <div>
-            <h3 className="text-xl font-bold mb-4">Bid History ({auction.bids.length})</h3>
+            <h3 className="text-xl font-bold mb-4">
+              Bid History ({auction.bids.length})
+            </h3>
             <div className="space-y-3">
               {auction.bids.length === 0 ? (
-                <p className="text-gray-500 italic">No bids yet. Be the first!</p>
+                <p className="text-gray-500 italic">
+                  No bids yet. Be the first!
+                </p>
               ) : (
                 auction.bids.map((bid) => (
-                  <div key={bid.id} className="flex justify-between items-center py-2 border-b last:border-0 border-gray-100">
+                  <div
+                    key={bid.id}
+                    className="flex justify-between items-center py-2 border-b last:border-0 border-gray-100"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
                         {bid.bidder.name.charAt(0)}
                       </div>
-                      <span className="font-medium text-gray-700">{bid.bidder.name}</span>
+                      <span className="font-medium text-gray-700">
+                        {bid.bidder.name}
+                      </span>
                     </div>
                     <div className="text-right">
-                      <span className="font-mono font-bold text-gray-900">{formatCurrency(bid.amountCents)}</span>
-                      <p className="text-xs text-gray-400">{new Date(bid.createdAt).toLocaleTimeString()}</p>
+                      <span className="font-mono font-bold text-gray-900">
+                        {formatCurrency(bid.amountCents)}
+                      </span>
+                      <p className="text-xs text-gray-400">
+                        {new Date(bid.createdAt).toLocaleTimeString()}
+                      </p>
                     </div>
                   </div>
                 ))

@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import Image from "next/image";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   useListingMutations,
   useCategories,
   useTags,
-} from '../../../../lib/react-query/hooks';
-import type { SafeListing } from '@forumo/shared';
+} from "../../../../lib/react-query/hooks";
+import type { SafeListing } from "@forumo/shared";
 
 interface Props {
   /** When provided, the form is in edit mode */
@@ -17,7 +17,8 @@ interface Props {
 
 export function ListingForm({ listing }: Props) {
   const router = useRouter();
-  const { createMutation, updateMutation, uploadImageMutation } = useListingMutations();
+  const { createMutation, updateMutation, uploadImageMutation } =
+    useListingMutations();
   const { data: categories = [] } = useCategories();
   const { data: tags = [] } = useTags();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,19 +39,21 @@ export function ListingForm({ listing }: Props) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Form fields
-  const [title, setTitle] = useState(listing?.title ?? '');
-  const [description, setDescription] = useState(listing?.description ?? '');
+  const [title, setTitle] = useState(listing?.title ?? "");
+  const [description, setDescription] = useState(listing?.description ?? "");
   const [priceCents, setPriceCents] = useState(
-    listing ? (listing.priceCents / 100).toFixed(2) : '',
+    listing ? (listing.priceCents / 100).toFixed(2) : "",
   );
-  const [currency, setCurrency] = useState(listing?.currency ?? 'GHS');
-  const [location, setLocation] = useState(listing?.location ?? '');
-  const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED'>(
-    (listing?.status as 'DRAFT' | 'PUBLISHED') ?? 'DRAFT',
+  const [currency, setCurrency] = useState(listing?.currency ?? "GHS");
+  const [location, setLocation] = useState(listing?.location ?? "");
+  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">(
+    (listing?.status as "DRAFT" | "PUBLISHED") ?? "DRAFT",
   );
 
   // Variants
-  const [variants, setVariants] = useState<{ label: string; priceCents: string }[]>(
+  const [variants, setVariants] = useState<
+    { label: string; priceCents: string }[]
+  >(
     listing?.variants?.map((v) => ({
       label: v.label,
       priceCents: (v.priceCents / 100).toFixed(2),
@@ -62,9 +65,9 @@ export function ListingForm({ listing }: Props) {
       setTitle(listing.title);
       setDescription(listing.description);
       setPriceCents((listing.priceCents / 100).toFixed(2));
-      setCurrency(listing.currency ?? 'GHS');
-      setLocation(listing.location ?? '');
-      setStatus((listing.status as 'DRAFT' | 'PUBLISHED') ?? 'DRAFT');
+      setCurrency(listing.currency ?? "GHS");
+      setLocation(listing.location ?? "");
+      setStatus((listing.status as "DRAFT" | "PUBLISHED") ?? "DRAFT");
       setVariants(
         listing.variants?.map((v) => ({
           label: v.label,
@@ -77,14 +80,18 @@ export function ListingForm({ listing }: Props) {
   }, [listing]);
 
   function addVariant() {
-    setVariants((prev) => [...prev, { label: '', priceCents: '' }]);
+    setVariants((prev) => [...prev, { label: "", priceCents: "" }]);
   }
 
   function removeVariant(idx: number) {
     setVariants((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function updateVariant(idx: number, field: 'label' | 'priceCents', value: string) {
+  function updateVariant(
+    idx: number,
+    field: "label" | "priceCents",
+    value: string,
+  ) {
     setVariants((prev) =>
       prev.map((v, i) => (i === idx ? { ...v, [field]: value } : v)),
     );
@@ -93,10 +100,10 @@ export function ListingForm({ listing }: Props) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    const allowed = files.filter((f) => f.type.startsWith('image/'));
+    const allowed = files.filter((f) => f.type.startsWith("image/"));
     setPendingFiles((prev) => [...prev, ...allowed]);
     // reset input so the same file can be re-added if removed
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function removePendingFile(idx: number) {
@@ -113,7 +120,9 @@ export function ListingForm({ listing }: Props) {
         const img = await uploadImageMutation.mutateAsync({ listingId, file });
         results.push(img);
       } catch {
-        setUploadError(`Failed to upload "${file.name}". Other images were saved.`);
+        setUploadError(
+          `Failed to upload "${file.name}". Other images were saved.`,
+        );
       }
     }
     setUploadedImages((prev) => [...prev, ...results]);
@@ -145,25 +154,29 @@ export function ListingForm({ listing }: Props) {
     if (isEdit && listing) {
       await updateMutation.mutateAsync({ id: listing.id, payload });
       await uploadPendingFiles(listing.id);
-      router.push('/app/listings' as any);
+      router.push("/app/listings" as any);
     } else {
       const created = await createMutation.mutateAsync(payload);
       setSavedListingId(created.id);
       if (pendingFiles.length) {
         await uploadPendingFiles(created.id);
       } else {
-        router.push('/app/listings' as any);
+        router.push("/app/listings" as any);
       }
     }
   }
 
   const inputCls =
-    'w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]';
-  const labelCls = 'mb-1 block text-sm font-medium text-[color:var(--ink-2)]';
+    "w-full rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]";
+  const labelCls = "mb-1 block text-sm font-medium text-[color:var(--ink-2)]";
 
   // After a new listing is saved and pending uploads were flushed, show done state
   const showUploadDone =
-    !isEdit && savedListingId && pendingFiles.length === 0 && !uploading && !createMutation.isPending;
+    !isEdit &&
+    savedListingId &&
+    pendingFiles.length === 0 &&
+    !uploading &&
+    !createMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -241,18 +254,18 @@ export function ListingForm({ listing }: Props) {
       <div>
         <label className={labelCls}>Publish status</label>
         <div className="flex gap-3">
-          {(['DRAFT', 'PUBLISHED'] as const).map((s) => (
+          {(["DRAFT", "PUBLISHED"] as const).map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setStatus(s)}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 status === s
-                  ? 'border-[color:var(--accent)] bg-[color:var(--accent-bg)] text-[color:var(--accent-2)]'
-                  : 'border-[color:var(--line-2)] text-[color:var(--ink-3)] hover:border-[color:var(--ink-3)]'
+                  ? "border-[color:var(--accent)] bg-[color:var(--accent-bg)] text-[color:var(--accent-2)]"
+                  : "border-[color:var(--line-2)] text-[color:var(--ink-3)] hover:border-[color:var(--ink-3)]"
               }`}
             >
-              {s === 'DRAFT' ? 'Save as draft' : 'Publish now'}
+              {s === "DRAFT" ? "Save as draft" : "Publish now"}
             </button>
           ))}
         </div>
@@ -264,7 +277,7 @@ export function ListingForm({ listing }: Props) {
       {/* Variants */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className={labelCls + ' mb-0'}>Variants</label>
+          <label className={labelCls + " mb-0"}>Variants</label>
           <button
             type="button"
             onClick={addVariant}
@@ -284,7 +297,7 @@ export function ListingForm({ listing }: Props) {
                 <input
                   placeholder="Label (e.g. Size M)"
                   value={v.label}
-                  onChange={(e) => updateVariant(idx, 'label', e.target.value)}
+                  onChange={(e) => updateVariant(idx, "label", e.target.value)}
                   className="flex-1 rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
                 <input
@@ -293,7 +306,9 @@ export function ListingForm({ listing }: Props) {
                   step="0.01"
                   placeholder="Price"
                   value={v.priceCents}
-                  onChange={(e) => updateVariant(idx, 'priceCents', e.target.value)}
+                  onChange={(e) =>
+                    updateVariant(idx, "priceCents", e.target.value)
+                  }
                   className="w-28 rounded-lg border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] transition-[border-color,box-shadow] focus:border-[color:var(--accent)] focus:outline-none focus:shadow-[0_0_0_3px_var(--ring-accent)]"
                 />
                 <button
@@ -312,7 +327,7 @@ export function ListingForm({ listing }: Props) {
       {/* Images */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className={labelCls + ' mb-0'}>Photos</label>
+          <label className={labelCls + " mb-0"}>Photos</label>
           <span className="text-xs muted">
             {uploadedImages.length + pendingFiles.length} / 10
           </span>
@@ -327,7 +342,7 @@ export function ListingForm({ listing }: Props) {
                 className="relative h-20 w-20 rounded-lg overflow-hidden border border-[color:var(--line-2)]"
               >
                 <Image
-                  src={img.url ?? ''}
+                  src={img.url ?? ""}
                   alt={`Photo ${idx + 1}`}
                   fill
                   className="object-cover"
@@ -375,8 +390,19 @@ export function ListingForm({ listing }: Props) {
           disabled={uploadedImages.length + pendingFiles.length >= 10}
           className="flex items-center gap-2 rounded-lg border border-dashed border-[color:var(--line-2)] px-4 py-3 text-sm text-[color:var(--ink-3)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
           </svg>
           Add photos
         </button>
@@ -399,7 +425,8 @@ export function ListingForm({ listing }: Props) {
       {/* Error */}
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {(error as Error)?.message ?? 'Something went wrong. Please try again.'}
+          {(error as Error)?.message ??
+            "Something went wrong. Please try again."}
         </p>
       )}
 
@@ -411,17 +438,17 @@ export function ListingForm({ listing }: Props) {
           className="btn btn-primary"
         >
           {uploading
-            ? 'Uploading photos…'
+            ? "Uploading photos…"
             : pending
-            ? 'Saving…'
-            : isEdit
-            ? 'Save changes'
-            : 'Create listing'}
+              ? "Saving…"
+              : isEdit
+                ? "Save changes"
+                : "Create listing"}
         </button>
         {showUploadDone && (
           <button
             type="button"
-            onClick={() => router.push('/app/listings' as any)}
+            onClick={() => router.push("/app/listings" as any)}
             className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
           >
             Done — view listings
@@ -429,7 +456,7 @@ export function ListingForm({ listing }: Props) {
         )}
         <button
           type="button"
-          onClick={() => router.push('/app/listings' as any)}
+          onClick={() => router.push("/app/listings" as any)}
           className="btn btn-ghost"
         >
           Cancel

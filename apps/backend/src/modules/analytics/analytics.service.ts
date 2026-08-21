@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
 
-export type Period = '7d' | '30d' | '90d';
-export type GroupBy = 'day' | 'week' | 'month';
+export type Period = "7d" | "30d" | "90d";
+export type GroupBy = "day" | "week" | "month";
 
 function periodToDays(period: Period): number {
-  return period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  return period === "7d" ? 7 : period === "30d" ? 30 : 90;
 }
 
 function periodStart(daysAgo: number): Date {
@@ -22,22 +22,27 @@ function pctChange(current: number, prior: number): number {
 
 function dateKey(date: Date, groupBy: GroupBy): string {
   const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  if (groupBy === 'day') return `${y}-${m}-${d}`;
-  if (groupBy === 'month') return `${y}-${m}`;
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  if (groupBy === "day") return `${y}-${m}-${d}`;
+  if (groupBy === "month") return `${y}-${m}`;
   // week: ISO week starting Monday
   const day = date.getDay();
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(date);
   monday.setDate(diff);
   const wy = monday.getFullYear();
-  const wm = String(monday.getMonth() + 1).padStart(2, '0');
-  const wd = String(monday.getDate()).padStart(2, '0');
+  const wm = String(monday.getMonth() + 1).padStart(2, "0");
+  const wd = String(monday.getDate()).padStart(2, "0");
   return `${wy}-${wm}-${wd}`;
 }
 
-const COUNTED_STATUSES = ['COMPLETED', 'DELIVERED', 'PAID', 'FULFILLED'] as const;
+const COUNTED_STATUSES = [
+  "COMPLETED",
+  "DELIVERED",
+  "PAID",
+  "FULFILLED",
+] as const;
 
 @Injectable()
 export class AnalyticsService {
@@ -51,11 +56,19 @@ export class AnalyticsService {
 
     const [currentOrders, priorOrders] = await Promise.all([
       this.prisma.order.findMany({
-        where: { sellerId, status: { in: [...COUNTED_STATUSES] }, placedAt: { gte: currentStart, lte: now } },
+        where: {
+          sellerId,
+          status: { in: [...COUNTED_STATUSES] },
+          placedAt: { gte: currentStart, lte: now },
+        },
         select: { totalItemCents: true },
       }),
       this.prisma.order.findMany({
-        where: { sellerId, status: { in: [...COUNTED_STATUSES] }, placedAt: { gte: priorStart, lt: currentStart } },
+        where: {
+          sellerId,
+          status: { in: [...COUNTED_STATUSES] },
+          placedAt: { gte: priorStart, lt: currentStart },
+        },
         select: { totalItemCents: true },
       }),
     ]);
@@ -66,7 +79,8 @@ export class AnalyticsService {
 
     const priorGmv = priorOrders.reduce((s, o) => s + o.totalItemCents, 0);
     const priorOrdersCount = priorOrders.length;
-    const priorAov = priorOrdersCount > 0 ? Math.round(priorGmv / priorOrdersCount) : 0;
+    const priorAov =
+      priorOrdersCount > 0 ? Math.round(priorGmv / priorOrdersCount) : 0;
 
     return {
       gmv,
@@ -88,12 +102,19 @@ export class AnalyticsService {
     const start = periodStart(days);
 
     const orders = await this.prisma.order.findMany({
-      where: { sellerId, status: { in: [...COUNTED_STATUSES] }, placedAt: { gte: start } },
+      where: {
+        sellerId,
+        status: { in: [...COUNTED_STATUSES] },
+        placedAt: { gte: start },
+      },
       select: { totalItemCents: true, feeCents: true, placedAt: true },
-      orderBy: { placedAt: 'asc' },
+      orderBy: { placedAt: "asc" },
     });
 
-    const buckets = new Map<string, { revenue: number; orders: number; fees: number }>();
+    const buckets = new Map<
+      string,
+      { revenue: number; orders: number; fees: number }
+    >();
     for (const o of orders) {
       if (!o.placedAt) continue;
       const key = dateKey(o.placedAt, groupBy);
@@ -121,7 +142,10 @@ export class AnalyticsService {
     // aggregate in code since there's no subtotalCents column
     const byListing = new Map<string, { revenue: number; orders: number }>();
     for (const item of orderItems) {
-      const existing = byListing.get(item.listingId) ?? { revenue: 0, orders: 0 };
+      const existing = byListing.get(item.listingId) ?? {
+        revenue: 0,
+        orders: 0,
+      };
       existing.revenue += item.unitPriceCents * item.quantity;
       existing.orders += 1;
       byListing.set(item.listingId, existing);
@@ -137,7 +161,11 @@ export class AnalyticsService {
       select: {
         id: true,
         title: true,
-        images: { select: { url: true }, take: 1, orderBy: { position: 'asc' } },
+        images: {
+          select: { url: true },
+          take: 1,
+          orderBy: { position: "asc" },
+        },
       },
     });
 
@@ -147,7 +175,7 @@ export class AnalyticsService {
       const listing = listingMap.get(listingId);
       return {
         listingId,
-        title: listing?.title ?? 'Unknown',
+        title: listing?.title ?? "Unknown",
         thumbnailUrl: listing?.images?.[0]?.url ?? null,
         views: 0,
         orders: data.orders,
@@ -158,7 +186,9 @@ export class AnalyticsService {
   }
 
   async getReviewsSummary(sellerId: string) {
-    const rollup = await this.prisma.sellerReviewRollup.findUnique({ where: { sellerId } });
+    const rollup = await this.prisma.sellerReviewRollup.findUnique({
+      where: { sellerId },
+    });
 
     if (!rollup) {
       return {

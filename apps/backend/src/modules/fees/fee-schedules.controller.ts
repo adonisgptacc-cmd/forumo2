@@ -8,13 +8,22 @@ import {
   Put,
   Request,
   UseGuards,
-} from '@nestjs/common';
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+} from "@nestjs/common";
+import {
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from "class-validator";
 
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { FeeService } from './fee.service';
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { FeeService } from "./fee.service";
 
 class CreateFeeScheduleDto {
   @IsString()
@@ -80,9 +89,9 @@ class UpdateFeeScheduleDto {
   isActive?: boolean;
 }
 
-@Controller('admin/fee-schedules')
+@Controller("admin/fee-schedules")
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles("ADMIN")
 export class FeeSchedulesController {
   constructor(private readonly feeService: FeeService) {}
 
@@ -96,13 +105,13 @@ export class FeeSchedulesController {
     return this.feeService.createSchedule({ ...dto, createdBy: req.user.id });
   }
 
-  @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateFeeScheduleDto) {
+  @Put(":id")
+  update(@Param("id") id: string, @Body() dto: UpdateFeeScheduleDto) {
     return this.feeService.updateSchedule(id, dto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
+  @Delete(":id")
+  remove(@Param("id") id: string) {
     return this.feeService.softDeleteSchedule(id);
   }
 }

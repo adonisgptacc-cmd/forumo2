@@ -1,5 +1,15 @@
-import { NotificationChannel } from '@prisma/client';
-import { IsEmail, IsEnum, IsIP, IsObject, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
+import { NotificationChannel } from "@prisma/client";
+import {
+  IsEmail,
+  IsEnum,
+  IsIP,
+  IsObject,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MinLength,
+} from "class-validator";
 
 export class PasswordResetConfirmDto {
   @IsEmail()
@@ -18,7 +28,9 @@ export class PasswordResetConfirmDto {
   userAgent?: string;
 
   @IsOptional()
-  @IsIP(undefined, { message: 'ipAddress must be a valid IPv4 or IPv6 address' })
+  @IsIP(undefined, {
+    message: "ipAddress must be a valid IPv4 or IPv6 address",
+  })
   ipAddress?: string;
 
   @IsOptional()
@@ -28,7 +40,8 @@ export class PasswordResetConfirmDto {
   @IsString()
   @MinLength(12)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
-    message: 'newPassword must include upper and lower case letters, a number and a special character',
+    message:
+      "newPassword must include upper and lower case letters, a number and a special character",
   })
   newPassword!: string;
 

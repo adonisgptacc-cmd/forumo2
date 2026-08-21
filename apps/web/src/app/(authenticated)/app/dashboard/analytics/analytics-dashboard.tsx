@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useState } from 'react';
+import Link from "next/link";
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,42 +10,45 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
+} from "recharts";
 import {
   useSellerAnalyticsOverview,
   useSellerAnalyticsRevenue,
   useSellerTopListings,
   useSellerReviewsSummary,
   type AnalyticsPeriod,
-} from '../../../../../lib/react-query/hooks';
-import type { SellerRevenuePoint } from '@forumo/shared';
+} from "../../../../../lib/react-query/hooks";
+import type { SellerRevenuePoint } from "@forumo/shared";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function formatZAR(cents: number) {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(
-    cents / 100,
-  );
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 }
 
 function formatPct(n: number) {
-  return `${n > 0 ? '+' : ''}${n}%`;
+  return `${n > 0 ? "+" : ""}${n}%`;
 }
 
 function shortDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString("en-ZA", { month: "short", day: "numeric" });
 }
 
 function downloadCSV(data: SellerRevenuePoint[], period: string) {
-  const header = 'Date,Revenue (ZAR),Orders,Fees (ZAR)';
+  const header = "Date,Revenue (ZAR),Orders,Fees (ZAR)";
   const rows = data.map(
-    (r) => `${r.date},${(r.revenue / 100).toFixed(2)},${r.orders},${(r.fees / 100).toFixed(2)}`,
+    (r) =>
+      `${r.date},${(r.revenue / 100).toFixed(2)},${r.orders},${(r.fees / 100).toFixed(2)}`,
   );
-  const csv = [header, ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `revenue-${period}.csv`;
   a.click();
@@ -54,7 +57,7 @@ function downloadCSV(data: SellerRevenuePoint[], period: string) {
 
 // ── skeleton ───────────────────────────────────────────────────────────────
 
-function Skeleton({ className = '' }: { className?: string }) {
+function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-gray-200 ${className}`} />;
 }
 
@@ -64,8 +67,10 @@ function ChangeBadge({ value }: { value: number }) {
   if (value === 0) return <span className="text-sm text-gray-400">—</span>;
   const positive = value > 0;
   return (
-    <span className={`flex items-center gap-0.5 text-sm font-medium ${positive ? 'text-emerald-600' : 'text-red-500'}`}>
-      <span>{positive ? '↑' : '↓'}</span>
+    <span
+      className={`flex items-center gap-0.5 text-sm font-medium ${positive ? "text-emerald-600" : "text-red-500"}`}
+    >
+      <span>{positive ? "↑" : "↓"}</span>
       {Math.abs(value)}%
     </span>
   );
@@ -111,14 +116,24 @@ function RevenueTooltip({ active, payload, label }: any) {
     <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg text-sm">
       <p className="font-medium text-gray-700">{label}</p>
       <p className="text-emerald-600">{formatZAR(d.revenue)} revenue</p>
-      <p className="text-gray-500">{d.orders} order{d.orders !== 1 ? 's' : ''}</p>
+      <p className="text-gray-500">
+        {d.orders} order{d.orders !== 1 ? "s" : ""}
+      </p>
     </div>
   );
 }
 
 // ── rating bar ─────────────────────────────────────────────────────────────
 
-function RatingBar({ star, count, total }: { star: number; count: number; total: number }) {
+function RatingBar({
+  star,
+  count,
+  total,
+}: {
+  star: number;
+  count: number;
+  total: number;
+}) {
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <div className="flex items-center gap-3 text-sm">
@@ -137,26 +152,42 @@ function RatingBar({ star, count, total }: { star: number; count: number; total:
 // ── main component ──────────────────────────────────────────────────────────
 
 const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
-  { label: '7 days', value: '7d' },
-  { label: '30 days', value: '30d' },
-  { label: '90 days', value: '90d' },
+  { label: "7 days", value: "7d" },
+  { label: "30 days", value: "30d" },
+  { label: "90 days", value: "90d" },
 ];
 
 export function AnalyticsDashboard() {
-  const [period, setPeriod] = useState<AnalyticsPeriod>('30d');
+  const [period, setPeriod] = useState<AnalyticsPeriod>("30d");
 
-  const { data: overview, isLoading: overviewLoading, isError: overviewError, refetch: refetchOverview } =
-    useSellerAnalyticsOverview(period);
+  const {
+    data: overview,
+    isLoading: overviewLoading,
+    isError: overviewError,
+    refetch: refetchOverview,
+  } = useSellerAnalyticsOverview(period);
 
-  const groupBy = period === '90d' ? 'week' : 'day';
-  const { data: revenue = [], isLoading: revenueLoading, isError: revenueError, refetch: refetchRevenue } =
-    useSellerAnalyticsRevenue(period, groupBy);
+  const groupBy = period === "90d" ? "week" : "day";
+  const {
+    data: revenue = [],
+    isLoading: revenueLoading,
+    isError: revenueError,
+    refetch: refetchRevenue,
+  } = useSellerAnalyticsRevenue(period, groupBy);
 
-  const { data: topListings = [], isLoading: topLoading, isError: topError, refetch: refetchTop } =
-    useSellerTopListings(5);
+  const {
+    data: topListings = [],
+    isLoading: topLoading,
+    isError: topError,
+    refetch: refetchTop,
+  } = useSellerTopListings(5);
 
-  const { data: reviews, isLoading: reviewsLoading, isError: reviewsError, refetch: refetchReviews } =
-    useSellerReviewsSummary();
+  const {
+    data: reviews,
+    isLoading: reviewsLoading,
+    isError: reviewsError,
+    refetch: refetchReviews,
+  } = useSellerReviewsSummary();
 
   return (
     <div className="space-y-8 pb-12">
@@ -170,8 +201,8 @@ export function AnalyticsDashboard() {
               onClick={() => setPeriod(p.value)}
               className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                 period === p.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
               {p.label}
@@ -183,7 +214,7 @@ export function AnalyticsDashboard() {
       {/* metric cards */}
       {overviewError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-          Failed to load overview.{' '}
+          Failed to load overview.{" "}
           <button className="underline" onClick={() => refetchOverview()}>
             Retry
           </button>
@@ -192,25 +223,25 @@ export function AnalyticsDashboard() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="GMV"
-            value={overview ? formatZAR(overview.gmv) : '—'}
+            value={overview ? formatZAR(overview.gmv) : "—"}
             change={overview?.changes.gmvChange}
             loading={overviewLoading}
           />
           <MetricCard
             label="Total Orders"
-            value={overview ? String(overview.orders) : '—'}
+            value={overview ? String(overview.orders) : "—"}
             change={overview?.changes.ordersChange}
             loading={overviewLoading}
           />
           <MetricCard
             label="Avg Order Value"
-            value={overview ? formatZAR(overview.avgOrderValue) : '—'}
+            value={overview ? formatZAR(overview.avgOrderValue) : "—"}
             change={overview?.changes.aovChange}
             loading={overviewLoading}
           />
           <MetricCard
             label="Conversion Rate"
-            value={overview ? `${overview.conversionRate.toFixed(1)}%` : '—'}
+            value={overview ? `${overview.conversionRate.toFixed(1)}%` : "—"}
             loading={overviewLoading}
           />
         </div>
@@ -231,7 +262,7 @@ export function AnalyticsDashboard() {
 
         {revenueError ? (
           <div className="flex h-48 items-center justify-center rounded-lg bg-red-50 text-sm text-red-600">
-            Failed to load revenue data.{' '}
+            Failed to load revenue data.{" "}
             <button className="ml-1 underline" onClick={() => refetchRevenue()}>
               Retry
             </button>
@@ -246,18 +277,21 @@ export function AnalyticsDashboard() {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={revenue} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <LineChart
+              data={revenue}
+              margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="date"
                 tickFormatter={shortDate}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: "#6b7280" }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 tickFormatter={(v) => `R${(v / 100).toFixed(0)}`}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: "#6b7280" }}
                 tickLine={false}
                 axisLine={false}
                 width={64}
@@ -269,7 +303,7 @@ export function AnalyticsDashboard() {
                 stroke="#10b981"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, fill: '#10b981' }}
+                activeDot={{ r: 4, fill: "#10b981" }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -284,7 +318,7 @@ export function AnalyticsDashboard() {
 
           {topError ? (
             <div className="text-sm text-red-600">
-              Failed to load.{' '}
+              Failed to load.{" "}
               <button className="underline" onClick={() => refetchTop()}>
                 Retry
               </button>
@@ -333,10 +367,14 @@ export function AnalyticsDashboard() {
                           ) : (
                             <div className="h-9 w-9 shrink-0 rounded-md bg-gray-100" />
                           )}
-                          <span className="line-clamp-1 font-medium text-gray-800">{l.title}</span>
+                          <span className="line-clamp-1 font-medium text-gray-800">
+                            {l.title}
+                          </span>
                         </Link>
                       </td>
-                      <td className="py-2.5 text-right text-gray-600">{l.orders}</td>
+                      <td className="py-2.5 text-right text-gray-600">
+                        {l.orders}
+                      </td>
                       <td className="py-2.5 text-right font-medium text-gray-900">
                         {formatZAR(l.revenue)}
                       </td>
@@ -354,7 +392,7 @@ export function AnalyticsDashboard() {
 
           {reviewsError ? (
             <div className="text-sm text-red-600">
-              Failed to load.{' '}
+              Failed to load.{" "}
               <button className="underline" onClick={() => refetchReviews()}>
                 Retry
               </button>
@@ -370,8 +408,11 @@ export function AnalyticsDashboard() {
           ) : (
             <>
               <p className="mb-4 text-sm text-gray-500">
-                {reviews.totalReviews} review{reviews.totalReviews !== 1 ? 's' : ''} ·{' '}
-                <span className="font-medium text-amber-500">{reviews.avgRating.toFixed(1)} ★</span>
+                {reviews.totalReviews} review
+                {reviews.totalReviews !== 1 ? "s" : ""} ·{" "}
+                <span className="font-medium text-amber-500">
+                  {reviews.avgRating.toFixed(1)} ★
+                </span>
               </p>
               <div className="space-y-2.5">
                 {([5, 4, 3, 2, 1] as const).map((star) => (

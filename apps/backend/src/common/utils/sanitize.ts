@@ -1,4 +1,4 @@
-import sanitizeHtml from 'sanitize-html';
+import sanitizeHtml from "sanitize-html";
 
 /**
  * Strip all HTML tags and attributes from user-supplied rich text.
@@ -20,7 +20,7 @@ export function sanitizeFields<T extends Record<string, unknown>>(
   const result = { ...obj };
   for (const key of keys) {
     const value = result[key];
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       (result as Record<keyof T, unknown>)[key] = sanitizeText(value);
     }
   }

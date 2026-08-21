@@ -1,13 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
 
-async function forwardJson(req: NextRequest, endpoint: string, method: 'PATCH') {
+async function forwardJson(
+  req: NextRequest,
+  endpoint: string,
+  method: "PATCH",
+) {
   try {
     const payload = await req.json();
     const res = await fetch(endpoint, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const text = await res.text();
@@ -21,12 +26,18 @@ async function forwardJson(req: NextRequest, endpoint: string, method: 'PATCH') 
     }
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
-    console.error('Failed to forward listing mutation', error);
-    return NextResponse.json({ message: 'Unable to update listing' }, { status: 500 });
+    console.error("Failed to forward listing mutation", error);
+    return NextResponse.json(
+      { message: "Unable to update listing" },
+      { status: 500 },
+    );
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
-  return forwardJson(req, `${API_BASE_URL}/listings/${id}`, 'PATCH');
+  return forwardJson(req, `${API_BASE_URL}/listings/${id}`, "PATCH");
 }

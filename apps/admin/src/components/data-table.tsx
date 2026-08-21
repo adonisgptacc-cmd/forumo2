@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { ReactNode } from 'react';
+import { ReactNode } from "react";
 
 export interface Column<T> {
   header: string;
@@ -16,7 +16,13 @@ interface Props<T> {
   emptyMessage?: string;
 }
 
-export function DataTable<T>({ columns, rows, keyExtractor, loading, emptyMessage = 'No records found.' }: Props<T>) {
+export function DataTable<T>({
+  columns,
+  rows,
+  keyExtractor,
+  loading,
+  emptyMessage = "No records found.",
+}: Props<T>) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
@@ -41,7 +47,7 @@ export function DataTable<T>({ columns, rows, keyExtractor, loading, emptyMessag
             {columns.map((col) => (
               <th
                 key={String(col.header)}
-                className={`px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider text-xs ${col.className ?? ''}`}
+                className={`px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider text-xs ${col.className ?? ""}`}
               >
                 {col.header}
               </th>
@@ -50,12 +56,18 @@ export function DataTable<T>({ columns, rows, keyExtractor, loading, emptyMessag
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
           {rows.map((row) => (
-            <tr key={keyExtractor(row)} className="hover:bg-gray-50 transition-colors">
+            <tr
+              key={keyExtractor(row)}
+              className="hover:bg-gray-50 transition-colors"
+            >
               {columns.map((col) => (
-                <td key={String(col.header)} className={`px-4 py-3 text-gray-700 ${col.className ?? ''}`}>
-                  {typeof col.accessor === 'function'
+                <td
+                  key={String(col.header)}
+                  className={`px-4 py-3 text-gray-700 ${col.className ?? ""}`}
+                >
+                  {typeof col.accessor === "function"
                     ? col.accessor(row)
-                    : String(row[col.accessor] ?? '—')}
+                    : String(row[col.accessor] ?? "—")}
                 </td>
               ))}
             </tr>

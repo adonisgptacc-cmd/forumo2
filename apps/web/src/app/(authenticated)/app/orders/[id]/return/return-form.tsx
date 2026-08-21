@@ -1,17 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import type { ReturnReason } from '@forumo/shared';
-import { useOrder, useInitiateReturn } from '../../../../../../lib/react-query/hooks';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import type { ReturnReason } from "@forumo/shared";
+import {
+  useOrder,
+  useInitiateReturn,
+} from "../../../../../../lib/react-query/hooks";
 
 const REASON_LABELS: Record<ReturnReason, string> = {
-  not_as_described: 'Not as described',
-  damaged: 'Item arrived damaged',
-  not_received: 'Item not received',
-  changed_mind: 'Changed my mind',
-  other: 'Other',
+  not_as_described: "Not as described",
+  damaged: "Item arrived damaged",
+  not_received: "Item not received",
+  changed_mind: "Changed my mind",
+  other: "Other",
 };
 
 export function ReturnForm({ orderId }: { orderId: string }) {
@@ -19,9 +22,11 @@ export function ReturnForm({ orderId }: { orderId: string }) {
   const { data: order, isLoading } = useOrder(orderId);
   const { mutateAsync: initiateReturn, isPending } = useInitiateReturn(orderId);
 
-  const [reason, setReason] = useState<ReturnReason | ''>('');
-  const [conditionNotes, setConditionNotes] = useState('');
-  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
+  const [reason, setReason] = useState<ReturnReason | "">("");
+  const [conditionNotes, setConditionNotes] = useState("");
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>(
+    {},
+  );
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +62,10 @@ export function ReturnForm({ orderId }: { orderId: string }) {
 
     const itemsPayload =
       Object.keys(selectedItems).length > 0
-        ? Object.entries(selectedItems).map(([orderItemId, quantity]) => ({ orderItemId, quantity }))
+        ? Object.entries(selectedItems).map(([orderItemId, quantity]) => ({
+            orderItemId,
+            quantity,
+          }))
         : undefined;
 
     try {
@@ -68,7 +76,7 @@ export function ReturnForm({ orderId }: { orderId: string }) {
       });
       setSubmitted(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setError(err instanceof Error ? err.message : "Something went wrong");
     }
   }
 
@@ -80,12 +88,14 @@ export function ReturnForm({ orderId }: { orderId: string }) {
         </div>
         <h2 className="text-xl font-semibold">Return requested</h2>
         <p className="text-[color:var(--ink-3)]">
-          The seller has <strong className="text-[color:var(--ink-2)]">48 hours</strong> to respond. If they
-          don&apos;t, your return will be automatically approved.
+          The seller has{" "}
+          <strong className="text-[color:var(--ink-2)]">48 hours</strong> to
+          respond. If they don&apos;t, your return will be automatically
+          approved.
         </p>
         <div className="flex justify-center gap-3">
           <Link
-            href={'/app/returns' as any}
+            href={"/app/returns" as any}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             View my returns
@@ -111,14 +121,17 @@ export function ReturnForm({ orderId }: { orderId: string }) {
           ← Back to order
         </Link>
         <h2 className="mt-2 text-xl font-semibold">Request a return</h2>
-        <p className="text-sm text-[color:var(--ink-3)]">Order #{order.orderNumber}</p>
+        <p className="text-sm text-[color:var(--ink-3)]">
+          Order #{order.orderNumber}
+        </p>
       </div>
 
       {/* Return policy callout */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
-        <strong>Return policy:</strong> Items can be returned within <strong>30 days</strong> of
-        delivery. The seller has 48 hours to approve or decline your request. If they don&apos;t
-        respond, the return is automatically approved.
+        <strong>Return policy:</strong> Items can be returned within{" "}
+        <strong>30 days</strong> of delivery. The seller has 48 hours to approve
+        or decline your request. If they don&apos;t respond, the return is
+        automatically approved.
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,11 +147,13 @@ export function ReturnForm({ orderId }: { orderId: string }) {
             className="w-full rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] focus:border-[color:var(--accent)] focus:outline-none"
           >
             <option value="">Select a reason…</option>
-            {(Object.entries(REASON_LABELS) as [ReturnReason, string][]).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {(Object.entries(REASON_LABELS) as [ReturnReason, string][]).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
           </select>
         </div>
 
@@ -146,8 +161,10 @@ export function ReturnForm({ orderId }: { orderId: string }) {
         {items.length > 1 && (
           <div>
             <label className="mb-2 block text-sm font-medium text-[color:var(--ink-2)]">
-              Select items to return{' '}
-              <span className="font-normal text-[color:var(--ink-3)]">(leave all unchecked to return everything)</span>
+              Select items to return{" "}
+              <span className="font-normal text-[color:var(--ink-3)]">
+                (leave all unchecked to return everything)
+              </span>
             </label>
             <div className="divide-y divide-[color:var(--line)] rounded-md border border-[color:var(--line-2)]">
               {items.map((item: any) => (
@@ -161,9 +178,12 @@ export function ReturnForm({ orderId }: { orderId: string }) {
                     onChange={() => toggleItem(item.id)}
                     className="h-4 w-4 rounded border-[color:var(--line-2)] accent-[var(--accent)]"
                   />
-                  <span className="flex-1 text-sm text-[color:var(--ink-2)]">{item.listingTitle}</span>
+                  <span className="flex-1 text-sm text-[color:var(--ink-2)]">
+                    {item.listingTitle}
+                  </span>
                   <span className="text-sm text-[color:var(--ink-3)]">
-                    {item.currency} {(item.unitPriceCents / 100).toFixed(2)} × {item.quantity}
+                    {item.currency} {(item.unitPriceCents / 100).toFixed(2)} ×{" "}
+                    {item.quantity}
                   </span>
                 </label>
               ))}
@@ -174,8 +194,10 @@ export function ReturnForm({ orderId }: { orderId: string }) {
         {/* Condition notes */}
         <div>
           <label className="mb-2 block text-sm font-medium text-[color:var(--ink-2)]">
-            Condition notes{' '}
-            <span className="font-normal text-[color:var(--ink-3)]">(describe the issue in detail)</span>
+            Condition notes{" "}
+            <span className="font-normal text-[color:var(--ink-3)]">
+              (describe the issue in detail)
+            </span>
           </label>
           <textarea
             value={conditionNotes}
@@ -185,15 +207,21 @@ export function ReturnForm({ orderId }: { orderId: string }) {
             placeholder="e.g. The item arrived with a cracked screen and scratches on the back panel…"
             className="w-full resize-none rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--ink)] placeholder:text-[color:var(--ink-3)] focus:border-[color:var(--accent)] focus:outline-none"
           />
-          <p className="mt-1 text-right text-xs text-[color:var(--ink-3)]">{conditionNotes.length}/1000</p>
+          <p className="mt-1 text-right text-xs text-[color:var(--ink-3)]">
+            {conditionNotes.length}/1000
+          </p>
         </div>
 
         {/* Photo upload note */}
         <div className="rounded-md border border-[color:var(--line-2)] bg-[color:var(--surface)]/50 px-4 py-3 text-sm text-[color:var(--ink-3)]">
-          📷 Photo evidence helps speed up approval. You can share photos with the seller via{' '}
-          <Link href="/app/messages" className="text-[color:var(--accent)] hover:underline">
+          📷 Photo evidence helps speed up approval. You can share photos with
+          the seller via{" "}
+          <Link
+            href="/app/messages"
+            className="text-[color:var(--accent)] hover:underline"
+          >
             messages
-          </Link>{' '}
+          </Link>{" "}
           after submitting.
         </div>
 
@@ -215,7 +243,7 @@ export function ReturnForm({ orderId }: { orderId: string }) {
             disabled={!reason || isPending}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            {isPending ? 'Submitting…' : 'Submit return request'}
+            {isPending ? "Submitting…" : "Submit return request"}
           </button>
         </div>
       </form>

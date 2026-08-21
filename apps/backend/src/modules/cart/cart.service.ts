@@ -155,7 +155,10 @@ export class CartService {
 
     if (existing) {
       const merged = existing.quantity + quantity;
-      const newQty = variantId ? Math.min(merged, stock) : merged;
+      const MAX_NON_VARIANT_QTY = 10;
+      const newQty = variantId
+        ? Math.min(merged, stock)
+        : Math.min(merged, MAX_NON_VARIANT_QTY);
       return this.prisma.cartItem.update({
         where: { id: existing.id },
         data: {
@@ -167,7 +170,10 @@ export class CartService {
       });
     }
 
-    const safeQty = variantId ? Math.min(quantity, stock) : quantity;
+    const MAX_NON_VARIANT_QTY = 10;
+    const safeQty = variantId
+      ? Math.min(quantity, stock)
+      : Math.min(quantity, MAX_NON_VARIANT_QTY);
     return this.prisma.cartItem.create({
       data: {
         cartId: cart.id,

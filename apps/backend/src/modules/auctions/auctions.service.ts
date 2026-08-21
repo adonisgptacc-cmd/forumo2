@@ -8,7 +8,12 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateAuctionDto } from "./dto/create-auction.dto";
 import { PlaceBidDto } from "./dto/place-bid.dto";
-import { AuctionStatus, ListingStatus, ListingType } from "@prisma/client";
+import {
+  AuctionStatus,
+  ListingModerationStatus,
+  ListingStatus,
+  ListingType,
+} from "@prisma/client";
 import { AuctionsGateway } from "./auctions.gateway";
 import { CacheService } from "../../common/services/cache.service";
 
@@ -30,7 +35,9 @@ export class AuctionsService {
     keyword?: string;
     sellerId?: string;
   }) {
-    const { status, page, pageSize, sort, keyword, sellerId } = params;
+    const { status, sort, keyword, sellerId } = params;
+    const page = Math.max(1, Math.min(1000, params.page || 1));
+    const pageSize = Math.max(1, Math.min(100, params.pageSize || 20));
     const where: any = {};
     if (status) {
       where.status = status;
@@ -119,11 +126,14 @@ export class AuctionsService {
         where: { id: dto.listingId },
         data: {
           type: ListingType.AUCTION,
-          status: ListingStatus.PUBLISHED,
+          status: ListingStatus.PAUSED,
+          moderationStatus: "PENDING" as any,
           priceCents: dto.startingBidCents,
         },
       });
-      this.logger.log(`Auction created for listing ${dto.listingId}`);
+      this.logger.log(
+        `Auction created for listing ${dto.listingId} — pending moderation`,
+      );
       return auction;
     });
     await this.cache.deleteByPrefix("listings:search:");
@@ -185,9 +195,15 @@ export class AuctionsService {
         );
       }
 
-      // Anti-sniping
+      // Anti-sniping — capped to 3 extensions (max +6 min) to prevent indefinite extension
       const timeRemaining = auction.endAt.getTime() - Date.now();
-      if (timeRemaining < 120000) {
+      const maxEndAt = new Date(
+        auction.startAt.getTime() + 7 * 24 * 60 * 60 * 1000 + 6 * 60 * 1000,
+      );
+      if (
+        timeRemaining < 120000 &&
+        auction.endAt.getTime() < maxEndAt.getTime()
+      ) {
         await tx.auction.update({
           where: { id: auctionId },
           data: { endAt: new Date(auction.endAt.getTime() + 120000) },

@@ -1,7 +1,7 @@
-import { Suspense } from 'react';
-import { TwoFactorForm } from './two-factor-form';
+import { Suspense } from "react";
+import { TwoFactorForm } from "./two-factor-form";
 
-export const metadata = { title: 'Two-Factor Authentication — Forumo' };
+export const metadata = { title: "Two-Factor Authentication — Forumo" };
 
 export default function TwoFactorPage() {
   return (

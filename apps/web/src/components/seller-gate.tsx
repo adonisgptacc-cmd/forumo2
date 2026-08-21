@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { useCurrentUser, useBecomeSeller } from '../lib/react-query/hooks';
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useCurrentUser, useBecomeSeller } from "../lib/react-query/hooks";
 
 interface Props {
   children: React.ReactNode;
@@ -18,7 +18,7 @@ export function SellerGate({ children }: Props) {
   const router = useRouter();
   const [done, setDone] = useState(false);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[color:var(--accent)] border-t-transparent" />
@@ -26,7 +26,7 @@ export function SellerGate({ children }: Props) {
     );
   }
 
-  const isBuyer = !user || user.role === 'BUYER';
+  const isBuyer = !user || user.role === "BUYER";
 
   if (isBuyer && !done) {
     return (
@@ -35,17 +35,18 @@ export function SellerGate({ children }: Props) {
           <div className="text-5xl">🏪</div>
           <h2 className="text-2xl font-bold">Become a Seller</h2>
           <p className="text-sm muted max-w-sm mx-auto">
-            Upgrade your account to start listing items, manage orders, and earn on Forumo. It&apos;s free and instant.
+            Upgrade your account to start listing items, manage orders, and earn
+            on Forumo. It&apos;s free and instant.
           </p>
         </div>
 
         <div className="card card-pad space-y-4 text-left">
           <ul className="space-y-2 text-sm subtle">
             {[
-              'List unlimited items for sale',
-              'Manage orders and escrow',
-              'Accept offers and set prices',
-              'Build your seller storefront',
+              "List unlimited items for sale",
+              "Manage orders and escrow",
+              "Accept offers and set prices",
+              "Build your seller storefront",
             ].map((benefit) => (
               <li key={benefit} className="flex items-center gap-2">
                 <span className="text-[color:var(--accent)]">✓</span>
@@ -56,7 +57,8 @@ export function SellerGate({ children }: Props) {
 
           {becomeSeller.isError && (
             <p className="text-sm text-red-600">
-              {(becomeSeller.error as Error)?.message ?? 'Something went wrong. Please try again.'}
+              {(becomeSeller.error as Error)?.message ??
+                "Something went wrong. Please try again."}
             </p>
           )}
 
@@ -70,11 +72,19 @@ export function SellerGate({ children }: Props) {
             disabled={becomeSeller.isPending}
             className="btn btn-primary btn-lg btn-block"
           >
-            {becomeSeller.isPending ? 'Upgrading…' : 'Activate seller account — free'}
+            {becomeSeller.isPending
+              ? "Upgrading…"
+              : "Activate seller account — free"}
           </button>
           <p className="text-center text-xs muted">
-            You can always manage your account in{' '}
-            <a href="/app/profile" className="text-[color:var(--accent)] hover:underline">Profile</a>.
+            You can always manage your account in{" "}
+            <a
+              href="/app/profile"
+              className="text-[color:var(--accent)] hover:underline"
+            >
+              Profile
+            </a>
+            .
           </p>
         </div>
       </div>
