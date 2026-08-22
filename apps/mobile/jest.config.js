@@ -28,5 +28,11 @@ module.exports = {
   transformIgnorePatterns: [
     "node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@react-navigation|@react-native-async-storage)/)",
   ],
-  testPathIgnorePatterns: ["<rootDir>/e2e/"],
+  // Deliberately not "<rootDir>/e2e/": Jest resolves <rootDir> tokens in
+  // ignore patterns through a path-separator conversion that leaves a
+  // backslash unconverted when it precedes a regex-special character (e.g.
+  // a dot-prefixed directory like ".claude" in the absolute path), silently
+  // breaking this exclusion on Windows checkouts nested under such a path.
+  // A rootDir-relative pattern avoids the substitution entirely.
+  testPathIgnorePatterns: ["/e2e/"],
 };
