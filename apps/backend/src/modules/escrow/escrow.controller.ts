@@ -13,6 +13,7 @@ import { EscrowService } from "./escrow.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import type { Request as ExpressRequest } from "express";
 
 @ApiTags("escrow")
 @Controller("escrow")
@@ -24,7 +25,9 @@ export class EscrowController {
   @Get("order/:orderId")
   async getEscrowByOrder(
     @Param("orderId") orderId: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ) {
     return this.escrowService.getEscrowByOrderId(
       orderId,
@@ -38,7 +41,9 @@ export class EscrowController {
   @Roles("ADMIN", "MODERATOR")
   async releaseEscrow(
     @Param("orderId") orderId: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body() body: { note?: string },
   ) {
     return this.escrowService.releaseEscrow(orderId, req.user.id, body.note);
@@ -49,7 +54,9 @@ export class EscrowController {
   @Roles("ADMIN", "MODERATOR")
   async refundEscrow(
     @Param("orderId") orderId: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body() body: { amountCents?: number; note?: string },
   ) {
     return this.escrowService.refundEscrow(
@@ -63,7 +70,9 @@ export class EscrowController {
   @Post("order/:orderId/dispute")
   async openDispute(
     @Param("orderId") orderId: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body() body: { reason: string },
   ) {
     return this.escrowService.openDispute(orderId, req.user.id, body.reason);
@@ -74,7 +83,9 @@ export class EscrowController {
   @Roles("ADMIN", "MODERATOR")
   async resolveDispute(
     @Param("disputeId") disputeId: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body()
     body: {
       resolution: string;
@@ -94,8 +105,10 @@ export class EscrowController {
   @Post("disputes/:disputeId/messages")
   async addDisputeMessage(
     @Param("disputeId") disputeId: string,
-    @Request() req: any,
-    @Body() body: { body: string; attachments?: any },
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+    @Body() body: { body: string; attachments?: Record<string, unknown> },
   ) {
     return this.escrowService.addDisputeMessage(
       disputeId,

@@ -55,7 +55,7 @@ export const EditListingScreen: React.FC<Props> = ({ route, navigation }) => {
         navigation.goBack();
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [apiClient, initialListing, listingId, navigation]);
 
   const validate = (): string | null => {
     if (!title.trim()) return "Title is required.";

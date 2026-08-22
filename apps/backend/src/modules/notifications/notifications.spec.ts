@@ -14,6 +14,7 @@ const OTHER_USER_ID = "user-2";
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: "BUYER" };
@@ -24,6 +25,7 @@ class MockGuard implements CanActivate {
 // ─── In-Memory Prisma ────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   notifications = new Map<string, any>();
 
   constructor() {
@@ -68,10 +70,10 @@ class InMemoryPrismaService {
   }
 
   get notification() {
-    const self = this;
     return {
-      findMany: async ({ where, orderBy, take }: any) => {
-        let results = Array.from(self.notifications.values()).filter((n) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findMany: async ({ where, orderBy: _orderBy, take }: any) => {
+        let results = Array.from(this.notifications.values()).filter((n) => {
           if (where.userId && n.userId !== where.userId) return false;
           if (where.channel && n.channel !== where.channel) return false;
           return true;
@@ -79,8 +81,9 @@ class InMemoryPrismaService {
         results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         return take ? results.slice(0, take) : results;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       count: async ({ where }: any) => {
-        return Array.from(self.notifications.values()).filter((n) => {
+        return Array.from(this.notifications.values()).filter((n) => {
           if (where.userId && n.userId !== where.userId) return false;
           if (where.channel && n.channel !== where.channel) return false;
           if ("readAt" in where && where.readAt === null && n.readAt !== null)
@@ -88,20 +91,22 @@ class InMemoryPrismaService {
           return true;
         }).length;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const notif = { id: randomUUID(), ...data, createdAt: new Date() };
-        self.notifications.set(notif.id, notif);
+        this.notifications.set(notif.id, notif);
         return notif;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       updateMany: async ({ where, data }: any) => {
         let count = 0;
-        for (const [id, n] of self.notifications.entries()) {
+        for (const [id, n] of this.notifications.entries()) {
           if (where.userId && n.userId !== where.userId) continue;
           if (where.id && n.id !== where.id) continue;
           if (where.channel && n.channel !== where.channel) continue;
           if ("readAt" in where && where.readAt === null && n.readAt !== null)
             continue;
-          self.notifications.set(id, { ...n, ...data });
+          this.notifications.set(id, { ...n, ...data });
           count++;
         }
         return { count };
@@ -152,6 +157,7 @@ describe("NotificationsModule", () => {
         .expect(200);
 
       expect(res.body).toHaveLength(2);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       expect(res.body.every((n: any) => n.userId === USER_ID)).toBe(true);
     });
 

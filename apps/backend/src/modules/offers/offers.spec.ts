@@ -1,23 +1,25 @@
 import { CanActivate, INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { ConfigModule } from "@nestjs/config";
 import { ListingStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
 
 import { PrismaService } from "../../prisma/prisma.service";
-import { OffersModule } from "./offers.module";
+import { OffersController } from "./offers.controller";
+import { OffersService } from "./offers.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CacheService } from "../../common/services/cache.service";
+import { FeeService } from "../fees/fee.service";
 
 const BUYER_ID = "buyer-1";
 const SELLER_ID = "seller-1";
-const OTHER_BUYER_ID = "buyer-2";
+const _OTHER_BUYER_ID = "buyer-2";
 const LISTING_ID = "listing-pub-1";
 const DRAFT_LISTING_ID = "listing-draft-1";
 
 class MockGuard implements CanActivate {
   static userId = BUYER_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: "BUYER" };
@@ -28,7 +30,9 @@ class MockGuard implements CanActivate {
 // ─── In-Memory Prisma ────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   listings = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   offers = new Map<string, any>();
 
   constructor() {
@@ -51,14 +55,15 @@ class InMemoryPrismaService {
   }
 
   get listing() {
-    const self = this;
     return {
-      findUnique: async ({ where }: any) => self.listings.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.listings.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const l = self.listings.get(where.id);
+        const l = this.listings.get(where.id);
         if (!l) return null;
         const updated = { ...l, ...data };
-        self.listings.set(where.id, updated);
+        this.listings.set(where.id, updated);
         return updated;
       },
     };
@@ -66,6 +71,7 @@ class InMemoryPrismaService {
 
   // Stable reference so tests can intercept individual methods.
   offerImpl = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findFirst: async ({ where }: any) => {
       for (const offer of this.offers.values()) {
         let match = true;
@@ -77,10 +83,13 @@ class InMemoryPrismaService {
       }
       return null;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findUnique: async ({ where }: any) => this.offers.get(where.id) ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findMany: async ({ where }: any) => {
       return Array.from(this.offers.values()).filter((o) => {
         if (!where?.OR) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         return where.OR.some((cond: any) => {
           if (cond.buyerId) return o.buyerId === cond.buyerId;
           if (cond.sellerId) return o.sellerId === cond.sellerId;
@@ -88,6 +97,7 @@ class InMemoryPrismaService {
         });
       });
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: any) => {
       const id = randomUUID();
       const offer = {
@@ -99,6 +109,7 @@ class InMemoryPrismaService {
       this.offers.set(id, offer);
       return offer;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     update: async ({ where, data }: any) => {
       const offer = this.offers.get(where.id);
       if (!offer) return null;
@@ -106,6 +117,7 @@ class InMemoryPrismaService {
       this.offers.set(where.id, updated);
       return updated;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     updateMany: async ({ where, data }: any) => {
       let count = 0;
       for (const [id, offer] of this.offers.entries()) {
@@ -126,10 +138,12 @@ class InMemoryPrismaService {
 
   get order() {
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => ({ id: randomUUID(), ...data }),
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   $transaction = async (fn: any) => fn(this);
 }
 
@@ -142,19 +156,36 @@ describe("OffersModule", () => {
   const buildApp = async (userId = BUYER_ID) => {
     MockGuard.userId = userId;
     prismaMock = new InMemoryPrismaService();
+    const feeMock = {
+      calculateFee: jest.fn().mockResolvedValue({
+        feeAmountCents: 400,
+        feePercent: 5,
+        breakdown: { percentPart: 400, fixedPart: 0 },
+      }),
+      getFeeScheduleForListing: jest.fn().mockResolvedValue(null),
+    };
+    // Build the testing module directly from the controller + mocked providers.
+    // Importing OffersModule would pull in FeesModule → AuthModule and drag the
+    // whole auth stack into this isolated spec.
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true }), OffersModule],
+      controllers: [OffersController],
+      providers: [
+        OffersService,
+        { provide: PrismaService, useValue: prismaMock },
+        {
+          provide: CacheService,
+          useValue: { deleteByPrefix: jest.fn().mockResolvedValue(0) },
+        },
+        { provide: FeeService, useValue: feeMock },
+      ],
     })
-      .overrideProvider(PrismaService)
-      .useValue(prismaMock)
-      .overrideProvider(CacheService)
-      .useValue({ deleteByPrefix: jest.fn().mockResolvedValue(0) })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockGuard)
       .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
+    return feeMock;
   };
 
   afterEach(async () => await app.close());
@@ -236,9 +267,10 @@ describe("OffersModule", () => {
 
   describe("POST /offers/:id/accept", () => {
     let offerId: string;
+    let feeMock: { calculateFee: jest.Mock };
 
     beforeEach(async () => {
-      await buildApp(BUYER_ID);
+      feeMock = (await buildApp(BUYER_ID)) as unknown as typeof feeMock;
       const createRes = await request(app.getHttpServer())
         .post("/offers")
         .send({ listingId: LISTING_ID, amountCents: 8500 });
@@ -252,6 +284,8 @@ describe("OffersModule", () => {
         .expect(201);
 
       expect(res.body.status).toBe("ACCEPTED");
+      // Platform fee computed from the offer amount — no fee bypass
+      expect(feeMock.calculateFee).toHaveBeenCalledWith(8500, LISTING_ID);
       // Listing should be paused
       expect(prismaMock.listings.get(LISTING_ID)!.status).toBe(
         ListingStatus.PAUSED,
@@ -289,6 +323,7 @@ describe("OffersModule", () => {
       // Simulate another transaction already flipping the offer to ACCEPTED
       // between the read and the guarded write.
       const originalUpdateMany = prismaMock.offerImpl.updateMany;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       prismaMock.offerImpl.updateMany = (async ({ where }: any) => {
         if (where.id === offerId && where.status === "PENDING") {
           return { count: 0 };
@@ -296,7 +331,9 @@ describe("OffersModule", () => {
         return originalUpdateMany({
           where,
           data: { status: "DECLINED" },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         } as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       }) as any;
 
       MockGuard.userId = SELLER_ID;

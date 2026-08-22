@@ -161,7 +161,7 @@ export const AuctionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     setLoading(true);
     loadAuction().finally(() => setLoading(false));
-  }, []);
+  }, [loadAuction]);
 
   // Socket.IO connection via WebSocket transport
   useEffect(() => {
@@ -253,7 +253,7 @@ export const AuctionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [auctionId, accessToken]);
+  }, [auctionId, accessToken, apiClient, liveStatus, user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);

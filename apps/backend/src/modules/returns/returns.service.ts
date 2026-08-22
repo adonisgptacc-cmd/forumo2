@@ -14,6 +14,15 @@ import { OrdersService } from "../orders/orders.service";
 import { InitiateReturnDto } from "./dto/initiate-return.dto";
 import { RejectReturnDto } from "./dto/reject-return.dto";
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const RETURN_WINDOW_DAYS = 30;
 
 type ReturnWithRelations = Return & {
@@ -87,6 +96,7 @@ export class ReturnsService {
         sellerId: order.sellerId,
         reason: dto.reason,
         conditionNotes: dto.conditionNotes,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
         items: dto.items ? (dto.items as any) : undefined,
         refundAmount: order.escrow?.amountCents ?? order.totalItemCents,
         sellerResponseDeadline: deadline,
@@ -127,7 +137,7 @@ export class ReturnsService {
       .sendEmail(
         updated.buyer.email,
         `Return approved — Order ${updated.order.orderNumber}`,
-        `<p>Hi ${updated.buyer.name},</p><p>Your return request for order <strong>${updated.order.orderNumber}</strong> has been approved. Please ship the item(s) back and update your tracking number.</p>`,
+        `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been approved. Please ship the item(s) back and update your tracking number.</p>`,
       )
       .catch(() => {});
 
@@ -172,7 +182,7 @@ export class ReturnsService {
       .sendEmail(
         updated.buyer.email,
         `Return declined — Order ${updated.order.orderNumber}`,
-        `<p>Hi ${updated.buyer.name},</p><p>Your return request for order <strong>${updated.order.orderNumber}</strong> has been declined.</p><p>Reason: <em>${dto.reason}</em></p><p>If you believe this decision is incorrect, you can <a href="https://forumo.app/returns/${updated.id}">escalate to a dispute</a>.</p>`,
+        `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been declined.</p><p>Reason: <em>${escapeHtml(dto.reason)}</em></p><p>If you believe this decision is incorrect, you can <a href="https://forumo.app/returns/${escapeHtml(updated.id)}">escalate to a dispute</a>.</p>`,
       )
       .catch(() => {});
 
@@ -287,7 +297,7 @@ export class ReturnsService {
           .sendEmail(
             ret.buyer.email,
             `Return auto-approved — Order ${ret.order.orderNumber}`,
-            `<p>Hi ${ret.buyer.name},</p><p>Your return request for order <strong>${ret.order.orderNumber}</strong> was automatically approved because the seller did not respond within 48 hours. Please ship the item(s) back and update your tracking number.</p>`,
+            `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> was automatically approved because the seller did not respond within 48 hours. Please ship the item(s) back and update your tracking number.</p>`,
           )
           .catch(() => {});
 
@@ -335,7 +345,7 @@ export class ReturnsService {
       .sendEmail(
         ret.buyer.email,
         `Refund issued — Order ${ret.order.orderNumber}`,
-        `<p>Hi ${ret.buyer.name},</p><p>Your refund of <strong>${ret.order.currency.toUpperCase()} ${(ret.refundAmount / 100).toFixed(2)}</strong> for order <strong>${ret.order.orderNumber}</strong> has been processed and will appear on your original payment method within 5–10 business days.</p>`,
+        `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your refund of <strong>${escapeHtml(ret.order.currency.toUpperCase())} ${escapeHtml((ret.refundAmount / 100).toFixed(2))}</strong> for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> has been processed and will appear on your original payment method within 5–10 business days.</p>`,
       )
       .catch(() => {});
 
@@ -357,7 +367,7 @@ export class ReturnsService {
       this.notifications.sendEmail(
         ret.seller.email,
         `New return request — Order ${ret.order.orderNumber}`,
-        `<p>Hi ${ret.seller.name},</p><p>A return has been requested for order <strong>${ret.order.orderNumber}</strong>.</p><p>Reason: <em>${ret.reason.replace(/_/g, " ")}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
+        `<p>Hi ${escapeHtml(ret.seller.name)},</p><p>A return has been requested for order <strong>${escapeHtml(ret.order.orderNumber)}</strong>.</p><p>Reason: <em>${escapeHtml(ret.reason.replace(/_/g, " "))}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
       ),
       this.notifications.createInApp(ret.sellerId, "RETURN_REQUESTED", {
         returnId: ret.id,

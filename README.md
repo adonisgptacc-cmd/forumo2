@@ -166,6 +166,7 @@ For a minimal production setup:
 
 **Next (before public launch)**
 
+- Complete the [minimum viable public-beta checklist](docs/ROADMAP.md#minimum-viable-public-beta-checklist), including clean-checkout CI evidence, critical browser smoke tests, staging deployment rehearsal, and operating/legal sign-offs
 - Validate the non-ZAR Stripe Connect payout path end-to-end (ZAR/Paystack payouts already validated and automated)
 - Test mobile app against a live backend
 

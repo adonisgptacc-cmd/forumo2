@@ -131,7 +131,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${toName},</p><p>Congratulations — you won the auction for <strong>${itemTitle}</strong> at ${currency} ${amount}.</p><p>Please complete your payment. Order reference: <strong>${orderId}</strong>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Congratulations — you won the auction for <strong>${escapeHtml(itemTitle)}</strong> at ${escapeHtml(currency)} ${escapeHtml(amount)}.</p><p>Please complete your payment. Order reference: <strong>${escapeHtml(orderId)}</strong>.</p>`;
     await this.sendEmail(toEmail, `You won: ${itemTitle}`, html);
   }
 
@@ -144,7 +144,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${toName},</p><p>Your auction for <strong>${itemTitle}</strong> has sold for ${currency} ${amount}.</p><p>Order reference: <strong>${orderId}</strong>. Funds are held in escrow until delivery is confirmed.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your auction for <strong>${escapeHtml(itemTitle)}</strong> has sold for ${escapeHtml(currency)} ${escapeHtml(amount)}.</p><p>Order reference: <strong>${escapeHtml(orderId)}</strong>. Funds are held in escrow until delivery is confirmed.</p>`;
     await this.sendEmail(toEmail, `Auction sold: ${itemTitle}`, html);
   }
 
@@ -156,7 +156,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${sellerName},</p><p>The escrow for order <strong>${orderId}</strong> has been released. ${currency} ${amount} will be transferred to your account shortly.</p>`;
+    const html = `<p>Hi ${escapeHtml(sellerName)},</p><p>The escrow for order <strong>${escapeHtml(orderId)}</strong> has been released. ${escapeHtml(currency)} ${escapeHtml(amount)} will be transferred to your account shortly.</p>`;
     await this.sendEmail(
       sellerEmail,
       `Payment released — Order ${orderId}`,
@@ -172,7 +172,7 @@ export class NotificationsService {
     currency: string,
   ): Promise<void> {
     const amount = (amountCents / 100).toFixed(2);
-    const html = `<p>Hi ${buyerName},</p><p>The escrow for order <strong>${orderId}</strong> has been refunded. ${currency} ${amount} will be returned to your original payment method shortly.</p>`;
+    const html = `<p>Hi ${escapeHtml(buyerName)},</p><p>The escrow for order <strong>${escapeHtml(orderId)}</strong> has been refunded. ${escapeHtml(currency)} ${escapeHtml(amount)} will be returned to your original payment method shortly.</p>`;
     await this.sendEmail(
       buyerEmail,
       `Refund processed — Order ${orderId}`,
@@ -189,7 +189,7 @@ export class NotificationsService {
     const duration = suspendedUntil
       ? `until ${suspendedUntil.toUTCString()}`
       : "indefinitely";
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been suspended ${duration}.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please <a href="https://forumo.app/appeal">submit an appeal</a>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account has been suspended ${escapeHtml(duration)}.</p><p>Reason: <em>${escapeHtml(reason)}</em></p><p>If you believe this is an error, please <a href="https://forumo.app/appeal">submit an appeal</a>.</p>`;
     await this.sendEmail(toEmail, "Your account has been suspended", html);
   }
 
@@ -197,7 +197,7 @@ export class NotificationsService {
     toEmail: string,
     toName: string,
   ): Promise<void> {
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account suspension has been lifted. You can now log in and resume activity.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account suspension has been lifted. You can now log in and resume activity.</p>`;
     await this.sendEmail(
       toEmail,
       "Your account suspension has been lifted",
@@ -210,7 +210,7 @@ export class NotificationsService {
     toName: string,
     reason: string,
   ): Promise<void> {
-    const html = `<p>Hi ${toName},</p><p>Your Forumo account has been permanently banned.</p><p>Reason: <em>${reason}</em></p><p>If you believe this is an error, please contact <a href="mailto:support@forumo.app">support@forumo.app</a>.</p>`;
+    const html = `<p>Hi ${escapeHtml(toName)},</p><p>Your Forumo account has been permanently banned.</p><p>Reason: <em>${escapeHtml(reason)}</em></p><p>If you believe this is an error, please contact <a href="mailto:support@forumo.app">support@forumo.app</a>.</p>`;
     await this.sendEmail(toEmail, "Your account has been banned", html);
   }
 
@@ -226,7 +226,7 @@ export class NotificationsService {
       );
       return;
     }
-    const html = `<p>A new dispute has been opened and requires your review.</p><ul><li>Order: <strong>${orderId}</strong></li><li>Dispute ID: <strong>${disputeId}</strong></li><li>Reason: ${reason}</li></ul>`;
+    const html = `<p>A new dispute has been opened and requires your review.</p><ul><li>Order: <strong>${escapeHtml(orderId)}</strong></li><li>Dispute ID: <strong>${escapeHtml(disputeId)}</strong></li><li>Reason: ${escapeHtml(reason)}</li></ul>`;
     await this.sendEmail(
       adminEmail,
       `New dispute opened — Order ${orderId}`,
@@ -246,6 +246,7 @@ export class NotificationsService {
         userId,
         channel: NotificationChannel.IN_APP,
         template,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
         payload: payload as any,
         status: "SENT",
         sentAt: new Date(),

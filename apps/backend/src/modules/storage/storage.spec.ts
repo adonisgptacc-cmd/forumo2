@@ -39,6 +39,7 @@ function makeFile(
     fieldname: "file",
     encoding: "7bit",
     size: buffer.length,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     stream: null as any,
     destination: "",
     filename: originalname,

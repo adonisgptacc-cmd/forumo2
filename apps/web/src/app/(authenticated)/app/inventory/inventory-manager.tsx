@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import {
   useMyListings,
@@ -213,9 +214,12 @@ function ListingInventoryCard({ listing }: { listing: SafeListing }) {
         onClick={() => setExpanded((v) => !v)}
       >
         {listing.images?.[0]?.url ? (
-          <img
+          <Image
             src={listing.images[0].url}
             alt={listing.title}
+            width={48}
+            height={48}
+            unoptimized
             className="h-12 w-12 rounded-lg object-cover flex-shrink-0"
           />
         ) : (

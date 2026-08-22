@@ -52,7 +52,7 @@ export const ProfileTab: React.FC = () => {
   useEffect(() => {
     setLoading(true);
     loadProfile().finally(() => setLoading(false));
-  }, []);
+  }, [loadProfile]);
 
   const onRefresh = async () => {
     setRefreshing(true);

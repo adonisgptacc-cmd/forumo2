@@ -82,6 +82,7 @@ const TRANSFER_CODE_FAILED = "TRF_FAILED_xyz789";
 class MockAuthGuard implements CanActivate {
   static currentUserId = BUYER_ID;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockAuthGuard.currentUserId, role: "BUYER" };
@@ -708,12 +709,19 @@ class WebhookInMemoryPrismaService {
       if (!where.id) return null;
       return this.usersMap.get(where.id) ?? null;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     update: async ({ where, data }: { where: { id: string }; data: any }) => {
       const rec = this.usersMap.get(where.id);
       if (rec) Object.assign(rec, data);
       return rec ?? null;
     },
-    updateMany: async ({ where, data }: { where: any; data: any }) => {
+    updateMany: async ({
+      where: _where,
+      data: _data,
+    }: {
+      where: unknown;
+      data: unknown;
+    }) => {
       // Used by handleAccountUpdated — no assertions on the result in these tests.
       return { count: 0 };
     },
@@ -762,6 +770,7 @@ class WebhookInMemoryPrismaService {
       return rec ? this.buildOrder(rec, include) : null;
     },
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const id = randomUUID();
       const now = new Date();
@@ -792,6 +801,7 @@ class WebhookInMemoryPrismaService {
         const items = Array.isArray(data.items.create)
           ? data.items.create
           : [data.items.create];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         items.forEach((item: any) => this.addItem(id, item));
       }
       if (data.timeline?.create) {
@@ -800,6 +810,7 @@ class WebhookInMemoryPrismaService {
           : [data.timeline.create];
         this.timelinesMap.set(
           id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
           events.map((e: any) =>
             this.makeTimelineEvent(id, e.status, e.note ?? ""),
           ),
@@ -814,6 +825,7 @@ class WebhookInMemoryPrismaService {
       include,
     }: {
       where: { id: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       data: any;
       include?: Prisma.OrderInclude;
     }) => {
@@ -833,6 +845,7 @@ class WebhookInMemoryPrismaService {
         const events = Array.isArray(data.timeline.create)
           ? data.timeline.create
           : [data.timeline.create];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         events.forEach((e: any) =>
           existing.push(this.makeTimelineEvent(rec.id, e.status, e.note ?? "")),
         );
@@ -845,6 +858,7 @@ class WebhookInMemoryPrismaService {
   // ─── paymentTransaction ─────────────────────────────────────────────────────
 
   paymentTransaction = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const rec: PaymentTransactionRecord = {
         id: randomUUID(),
@@ -871,6 +885,7 @@ class WebhookInMemoryPrismaService {
       data,
     }: {
       where: { orderId: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       data: any;
     }) => {
       const records = this.paymentsMap.get(where.orderId) ?? [];
@@ -890,6 +905,7 @@ class WebhookInMemoryPrismaService {
       where,
       include,
     }: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       where: any;
       include?: { order?: unknown };
     }) => {
@@ -939,6 +955,7 @@ class WebhookInMemoryPrismaService {
   // ─── escrowHolding ──────────────────────────────────────────────────────────
 
   escrowHolding = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const rec: EscrowHoldingRecord = {
         id: randomUUID(),
@@ -967,6 +984,7 @@ class WebhookInMemoryPrismaService {
       );
     },
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     update: async ({ where, data }: { where: { id: string }; data: any }) => {
       const rec = Array.from(this.escrowsMap.values()).find(
         (e) => e.id === where.id,
@@ -981,6 +999,7 @@ class WebhookInMemoryPrismaService {
   // ─── escrowTransaction ──────────────────────────────────────────────────────
 
   escrowTransaction = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const rec: EscrowTransactionRecord = {
         id: randomUUID(),
@@ -1002,6 +1021,7 @@ class WebhookInMemoryPrismaService {
   // ─── auditLog ───────────────────────────────────────────────────────────────
 
   auditLog = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => ({
       id: randomUUID(),
       actorId: data.actorId ?? null,
@@ -1015,6 +1035,7 @@ class WebhookInMemoryPrismaService {
   // ─── webhookEvent ───────────────────────────────────────────────────────────
 
   webhookEvent = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => ({ id: randomUUID(), ...data }),
     update: async () => ({}),
   };
@@ -1022,6 +1043,7 @@ class WebhookInMemoryPrismaService {
   // ─── payout ─────────────────────────────────────────────────────────────────
 
   payout = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findUnique: async ({ where, include }: { where: any; include?: any }) => {
       let rec: PayoutRecord | undefined;
 
@@ -1050,6 +1072,7 @@ class WebhookInMemoryPrismaService {
       return rec;
     },
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     update: async ({ where, data }: { where: { id: string }; data: any }) => {
       const rec = this.payoutsMap.get(where.id);
       if (!rec) throw new Error(`Payout ${where.id} not found`);
@@ -1082,6 +1105,7 @@ class WebhookInMemoryPrismaService {
 
   // ─── Private build helpers ──────────────────────────────────────────────────
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   private addItem(orderId: string, item: any) {
     const id = randomUUID();
     this.itemsMap.set(id, {

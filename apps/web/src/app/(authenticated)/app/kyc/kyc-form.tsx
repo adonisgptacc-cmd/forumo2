@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useKycStatus, useSubmitKyc } from "../../../../lib/react-query/hooks";
 import { buildKycFormData } from "../../../../lib/kyc-form-data";
@@ -246,9 +247,12 @@ function FileDropZone({
     return (
       <div className="flex items-center gap-4 rounded-xl border border-[color:var(--line-2)] bg-[color:var(--surface-2)] p-4">
         {preview ? (
-          <img
+          <Image
             src={preview}
             alt="preview"
+            width={64}
+            height={64}
+            unoptimized
             className="w-16 h-16 rounded-lg object-cover border border-[color:var(--line-2)] flex-shrink-0"
           />
         ) : (

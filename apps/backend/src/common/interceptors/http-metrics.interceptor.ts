@@ -10,7 +10,7 @@ import { metrics } from "../../telemetry/metrics";
 
 @Injectable()
 export class HttpMetricsInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const startedAt = Date.now();
     const request = context.switchToHttp().getRequest();
     const method = request?.method ?? "UNKNOWN";

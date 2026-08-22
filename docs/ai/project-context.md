@@ -45,7 +45,7 @@ forumo2/
 
 | Layer           | Technology            |
 | --------------- | --------------------- |
-| Package manager | pnpm 9.1.4            |
+| Package manager | pnpm 11.19.0          |
 | Task runner     | Turbo 2.x             |
 | Node version    | 20+                   |
 | Database        | PostgreSQL 16         |

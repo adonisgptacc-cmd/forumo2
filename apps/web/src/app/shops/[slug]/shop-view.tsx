@@ -23,9 +23,12 @@ function ListingCard({ listing }: { listing: SafeListing }) {
     >
       <div className="relative aspect-square bg-[color:var(--surface-2)]">
         {listing.images && listing.images.length > 0 ? (
-          <img
+          <Image
             src={listing.images[0].url}
             alt={listing.title}
+            width={200}
+            height={200}
+            unoptimized
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
           />
         ) : (

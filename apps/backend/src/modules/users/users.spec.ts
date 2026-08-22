@@ -15,6 +15,7 @@ const OTHER_USER_ID = "00000000-0000-0000-0000-000000000002";
 class MockGuard implements CanActivate {
   static userId = USER_ID;
   static role = "ADMIN";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -31,8 +32,11 @@ class AllowAllGuard implements CanActivate {
 // ─── In-Memory Prisma ────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   users = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   profiles = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   trustSeeds: any[] = [];
 
   constructor() {
@@ -70,68 +74,77 @@ class InMemoryPrismaService {
   }
 
   get user() {
-    const self = this;
     return {
-      findMany: async ({ where }: any) => {
-        return Array.from(self.users.values()).filter((u) => !u.deletedAt);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findMany: async ({ where: _where }: any) => {
+        return Array.from(this.users.values()).filter((u) => !u.deletedAt);
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findFirst: async ({ where }: any) => {
-        const u = self.users.get(where.id);
+        const u = this.users.get(where.id);
         return u && !u.deletedAt ? u : null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) => {
-        return self.users.get(where.id) ?? null;
+        return this.users.get(where.id) ?? null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const u = self.users.get(where.id);
+        const u = this.users.get(where.id);
         if (!u) return null;
         const updated = { ...u, ...data, updatedAt: new Date() };
-        self.users.set(where.id, updated);
+        this.users.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get userProfile() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) =>
-        self.profiles.get(where.userId) ?? null,
+        this.profiles.get(where.userId) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       upsert: async ({ where, create, update }: any) => {
-        const existing = self.profiles.get(where.userId);
+        const existing = this.profiles.get(where.userId);
         const result = existing ? { ...existing, ...update } : { ...create };
-        self.profiles.set(where.userId, result);
+        this.profiles.set(where.userId, result);
         return result;
       },
     };
   }
 
   get trustScoreSeed() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) =>
-        self.trustSeeds.filter((s) => s.userId === where.userId),
+        this.trustSeeds.filter((s) => s.userId === where.userId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findFirst: async ({ where }: any) =>
-        self.trustSeeds.find(
+        this.trustSeeds.find(
           (s) => s.id === where.id && s.userId === where.userId,
         ) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const seed = { id: randomUUID(), ...data, createdAt: new Date() };
-        self.trustSeeds.push(seed);
+        this.trustSeeds.push(seed);
         return seed;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       delete: async ({ where }: any) => {
-        const idx = self.trustSeeds.findIndex((s) => s.id === where.id);
-        if (idx !== -1) self.trustSeeds.splice(idx, 1);
+        const idx = this.trustSeeds.findIndex((s) => s.id === where.id);
+        if (idx !== -1) this.trustSeeds.splice(idx, 1);
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       aggregate: async ({ where }: any) => {
-        const seeds = self.trustSeeds.filter((s) => s.userId === where.userId);
+        const seeds = this.trustSeeds.filter((s) => s.userId === where.userId);
         const sum = seeds.reduce((acc, s) => acc + s.value, 0);
         return { _sum: { value: sum } };
       },
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   $transaction = async (queries: any[]) => {
     return Promise.all(queries);
   };
@@ -254,6 +267,7 @@ describe("UsersModule", () => {
       await buildApp();
       const res = await request(app.getHttpServer()).get("/users").expect(200);
       expect(res.body).toHaveLength(2);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       expect(res.body.every((u: any) => !u.deletedAt)).toBe(true);
     });
   });

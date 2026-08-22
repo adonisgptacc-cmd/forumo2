@@ -179,9 +179,8 @@ export class ListingSearchService {
           include: listingDefaultInclude,
         })
       : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const listingMap = new Map(
-      listings.map((listing) => [listing.id, listing] as [string, any]),
+    const listingMap = new Map<string, (typeof listings)[number]>(
+      listings.map((listing) => [listing.id, listing] as const),
     );
     const ordered = listingIds
       .map((id) => listingMap.get(id))

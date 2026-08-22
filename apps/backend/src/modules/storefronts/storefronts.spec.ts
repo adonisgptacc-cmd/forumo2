@@ -13,6 +13,7 @@ const OTHER_USER_ID = "seller-2";
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: "SELLER" };
@@ -23,16 +24,20 @@ class MockGuard implements CanActivate {
 // ─── In-Memory Prisma ────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   storefronts = new Map<string, any>(); // keyed by userId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   storefrontsBySlug = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   collections = new Map<string, any>();
 
   get storefront() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findFirst: async ({ where }: any) => {
-        for (const sf of self.storefronts.values()) {
+        for (const sf of this.storefronts.values()) {
           if (where.OR) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
             const match = where.OR.some((cond: any) => {
               if (cond.slug) return sf.slug === cond.slug;
               if (cond.userId) return sf.userId === cond.userId;
@@ -43,15 +48,16 @@ class InMemoryPrismaService {
         }
         return null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where, include }: any) => {
         const sf = where.userId
-          ? self.storefronts.get(where.userId)
-          : self.storefrontsBySlug.get(where.slug);
+          ? this.storefronts.get(where.userId)
+          : this.storefrontsBySlug.get(where.slug);
         if (!sf) return null;
         return {
           ...sf,
           collections: include?.collections
-            ? Array.from(self.collections.values()).filter(
+            ? Array.from(this.collections.values()).filter(
                 (c) => c.storefrontId === sf.id,
               )
             : undefined,
@@ -60,6 +66,7 @@ class InMemoryPrismaService {
             : undefined,
         };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const sf = {
           id: randomUUID(),
@@ -69,43 +76,47 @@ class InMemoryPrismaService {
           updatedAt: new Date(),
           collections: [],
         };
-        self.storefronts.set(data.userId, sf);
-        self.storefrontsBySlug.set(data.slug, sf);
+        this.storefronts.set(data.userId, sf);
+        this.storefrontsBySlug.set(data.slug, sf);
         return sf;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const sf = self.storefronts.get(where.userId);
+        const sf = this.storefronts.get(where.userId);
         if (!sf) return null;
         const updated = { ...sf, ...data, updatedAt: new Date() };
-        self.storefronts.set(where.userId, updated);
-        self.storefrontsBySlug.set(updated.slug, updated);
+        this.storefronts.set(where.userId, updated);
+        this.storefrontsBySlug.set(updated.slug, updated);
         return updated;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       delete: async ({ where }: any) => {
-        const sf = self.storefronts.get(where.userId);
+        const sf = this.storefronts.get(where.userId);
         if (sf) {
-          self.storefronts.delete(where.userId);
-          self.storefrontsBySlug.delete(sf.slug);
+          this.storefronts.delete(where.userId);
+          this.storefrontsBySlug.delete(sf.slug);
         }
       },
     };
   }
 
   get collection() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) => {
-        return Array.from(self.collections.values()).filter(
+        return Array.from(this.collections.values()).filter(
           (c) => c.storefrontId === where.storefrontId,
         );
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findFirst: async ({ where }: any) => {
         return (
-          Array.from(self.collections.values()).find(
+          Array.from(this.collections.values()).find(
             (c) => c.id === where.id && c.storefrontId === where.storefrontId,
           ) ?? null
         );
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const c = {
           id: randomUUID(),
@@ -113,18 +124,20 @@ class InMemoryPrismaService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        self.collections.set(c.id, c);
+        this.collections.set(c.id, c);
         return c;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const c = self.collections.get(where.id);
+        const c = this.collections.get(where.id);
         if (!c) return null;
         const updated = { ...c, ...data, updatedAt: new Date() };
-        self.collections.set(where.id, updated);
+        this.collections.set(where.id, updated);
         return updated;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       delete: async ({ where }: any) => {
-        self.collections.delete(where.id);
+        this.collections.delete(where.id);
       },
     };
   }

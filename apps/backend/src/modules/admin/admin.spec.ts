@@ -96,6 +96,7 @@ const prismaMock = {
     findUnique: jest.fn().mockResolvedValue(KYC_RECORD),
     update: jest
       .fn()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .mockImplementation(({ data }: any) =>
         Promise.resolve({ ...KYC_RECORD, ...data, reviewedAt: new Date() }),
       ),
@@ -105,6 +106,7 @@ const prismaMock = {
     findUnique: jest.fn().mockResolvedValue(LISTING_RECORD),
     update: jest
       .fn()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .mockImplementation(({ data }: any) =>
         Promise.resolve({ ...LISTING_RECORD, ...data, updatedAt: new Date() }),
       ),
@@ -114,6 +116,7 @@ const prismaMock = {
     findUnique: jest.fn().mockResolvedValue(DISPUTE_RECORD),
     update: jest
       .fn()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .mockImplementation(({ data }: any) =>
         Promise.resolve({ ...DISPUTE_RECORD, ...data }),
       ),

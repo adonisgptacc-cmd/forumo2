@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   UseGuards,
-  Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { InventoryService } from "./inventory.service";
@@ -31,7 +30,12 @@ export class InventoryController {
   @Roles("SELLER", "ADMIN")
   async addStock(
     @Param("variantId") variantId: string,
-    @Body() body: { quantity: number; location?: string; metadata?: any },
+    @Body()
+    body: {
+      quantity: number;
+      location?: string;
+      metadata?: Record<string, unknown>;
+    },
   ) {
     return this.inventoryService.addStock(
       variantId,

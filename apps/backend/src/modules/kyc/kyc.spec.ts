@@ -22,6 +22,7 @@ const SUBMISSION_ID = "submission-seed-1";
 class MockGuard implements CanActivate {
   static userId = USER_ID;
   static role = "BUYER";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -53,7 +54,9 @@ class MockStorageService {
 // ─── In-Memory Prisma ─────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   kycSubmissions = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   users = new Map<string, any>();
 
   constructor() {
@@ -79,10 +82,10 @@ class InMemoryPrismaService {
   }
 
   get kycSubmission() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findFirst: async ({ where }: any) => {
-        for (const sub of self.kycSubmissions.values()) {
+        for (const sub of this.kycSubmissions.values()) {
           let match = true;
           if (where.userId && sub.userId !== where.userId) match = false;
           if (where.status?.in && !where.status.in.includes(sub.status))
@@ -91,17 +94,21 @@ class InMemoryPrismaService {
         }
         return null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) => {
-        const sub = self.kycSubmissions.get(where.id);
+        const sub = this.kycSubmissions.get(where.id);
         return sub ? { ...sub } : null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) => {
-        return Array.from(self.kycSubmissions.values()).filter(
+        return Array.from(this.kycSubmissions.values()).filter(
           (s) => !where?.status || s.status === where.status,
         );
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const id = randomUUID();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         const docs = (data.documents?.create ?? []).map((d: any) => ({
           id: randomUUID(),
           ...d,
@@ -110,20 +117,21 @@ class InMemoryPrismaService {
           id,
           ...data,
           documents: docs,
-          user: self.users.get(data.userId),
+          user: this.users.get(data.userId),
         };
         delete sub.documents?.create;
-        self.kycSubmissions.set(id, sub);
+        this.kycSubmissions.set(id, sub);
         return sub;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const sub = self.kycSubmissions.get(where.id);
+        const sub = this.kycSubmissions.get(where.id);
         if (!sub) return null;
         const updated = { ...sub, ...data };
-        self.kycSubmissions.set(where.id, updated);
+        this.kycSubmissions.set(where.id, updated);
         return {
           ...updated,
-          user: self.users.get(updated.userId),
+          user: this.users.get(updated.userId),
           reviewer: data.reviewerId
             ? { id: data.reviewerId, email: "admin@test.com", name: "Admin" }
             : null,
@@ -133,13 +141,13 @@ class InMemoryPrismaService {
   }
 
   get user() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const u = self.users.get(where.id);
+        const u = this.users.get(where.id);
         if (!u) return null;
         const updated = { ...u, ...data };
-        self.users.set(where.id, updated);
+        this.users.set(where.id, updated);
         return updated;
       },
     };

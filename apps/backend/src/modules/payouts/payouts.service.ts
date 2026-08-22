@@ -1,5 +1,3 @@
-import { randomUUID } from "crypto";
-
 import {
   BadRequestException,
   Injectable,
@@ -281,6 +279,7 @@ export class PayoutsService {
         this.logger.log(
           `schedulePayouts: created ${newPayouts.length} payout record(s)`,
         );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
       } catch (e: any) {
         if (e?.code === "P2002") {
           this.logger.warn(

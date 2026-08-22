@@ -5,6 +5,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { AuctionStatus, OrderStatus, ListingStatus } from "@prisma/client";
 import { NotificationsService } from "../../notifications/notifications.service";
 import { CacheService } from "../../../common/services/cache.service";
+import { FeeService } from "../../fees/fee.service";
 
 @Injectable()
 export class AuctionEndProcessor {
@@ -14,6 +15,7 @@ export class AuctionEndProcessor {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly cache: CacheService,
+    private readonly feeService: FeeService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -55,7 +57,7 @@ export class AuctionEndProcessor {
           });
           if (current?.status !== AuctionStatus.ACTIVE) return;
 
-          const winningBid = (current as any).bids?.[0] ?? null;
+          const winningBid = current.bids?.[0] ?? null;
 
           if (!winningBid) {
             // No bids
@@ -93,7 +95,7 @@ export class AuctionEndProcessor {
           // Winner found! Guard against duplicate order from concurrent cron
           const existingOrder = await tx.order.findUnique({
             where: { auctionId: auction.id },
-          } as any);
+          });
           if (existingOrder) {
             await tx.auction.update({
               where: { id: auction.id },
@@ -110,8 +112,14 @@ export class AuctionEndProcessor {
             data: { status: AuctionStatus.COMPLETED },
           });
 
-          // Create Pending Order
+          // Create Pending Order — platform fee computed the same way as
+          // direct checkout so auction wins are not a fee bypass.
           const orderNumber = `ORD-${randomUUID().split("-")[0].toUpperCase()}`;
+          const { feeAmountCents: feeCents, feePercent } =
+            await this.feeService.calculateFee(
+              winningBid.amountCents,
+              auction.listingId,
+            );
 
           const order = await tx.order.create({
             data: {
@@ -120,6 +128,8 @@ export class AuctionEndProcessor {
               sellerId: auction.sellerId,
               status: OrderStatus.PENDING,
               totalItemCents: winningBid.amountCents,
+              feeCents,
+              feePercent,
               currency: auction.currency,
               auctionId: auction.id,
               items: {

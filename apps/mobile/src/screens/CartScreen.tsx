@@ -1,13 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
-  RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -28,7 +26,7 @@ const CART_STORAGE_KEY = "@forumo/cart";
 
 // Persisted cart store singleton
 let globalCart: CartItem[] = [];
-const cartListeners: Array<(items: CartItem[]) => void> = [];
+const cartListeners: ((items: CartItem[]) => void)[] = [];
 
 function persist(cart: CartItem[]) {
   AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)).catch(() => {});

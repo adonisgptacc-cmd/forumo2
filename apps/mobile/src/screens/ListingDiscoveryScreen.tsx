@@ -88,7 +88,7 @@ const FilterModal: React.FC<{
 
   useEffect(() => {
     setLocal(filters);
-  }, [visible]);
+  }, [filters, visible]);
 
   const toggleCategory = (slug: string) => {
     setLocal((prev) => ({
@@ -313,12 +313,12 @@ export const ListingDiscoveryScreen: React.FC = () => {
     }
     setHasMore(true);
     loadPage(1, false);
-  }, [keyword, filters]);
+  }, [keyword, filters, loadPage]);
 
   // Initial load
   useEffect(() => {
     loadPage(1, false);
-  }, []);
+  }, [loadPage]);
 
   const onEndReached = () => {
     if (hasMore && !loading) loadPage(page + 1);

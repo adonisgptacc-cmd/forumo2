@@ -172,7 +172,7 @@ export const OrdersTab: React.FC = () => {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);

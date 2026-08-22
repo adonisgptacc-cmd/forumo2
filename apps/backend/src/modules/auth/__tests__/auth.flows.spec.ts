@@ -94,6 +94,7 @@ class InMemoryPrismaService {
   readonly users = new Map<string, UserRecord>();
   readonly otpCodes: OtpRecord[] = [];
   readonly deviceSessions = new Map<string, DeviceSessionRecord>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   readonly profiles = new Map<string, any>();
 
   user = {
@@ -118,13 +119,17 @@ class InMemoryPrismaService {
         name: data.name ?? "Test User",
         email: data.email!,
         passwordHash: data.passwordHash!,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         phone: (data as any).phone ?? null,
         avatarUrl: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         role: (data as any).role ?? UserRole.BUYER,
         trustScore: 0,
         kycStatus: "PENDING",
         // Test users are pre-verified by default so login tests pass
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         emailVerified: (data as any).emailVerified ?? true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         emailVerificationToken: (data as any).emailVerificationToken ?? null,
         createdAt: now,
         updatedAt: now,
@@ -170,6 +175,7 @@ class InMemoryPrismaService {
       this.otpCodes.push(record);
       return record;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findFirst: async ({ where }: { where: any }) => {
       const expiresAfter: Date | undefined = where?.expiresAt?.gt;
       const matches = this.otpCodes.filter((record) => {
@@ -203,6 +209,7 @@ class InMemoryPrismaService {
       this.otpCodes[index] = updated;
       return updated;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     count: async ({ where }: { where: any }) => {
       const fingerprint = where.deviceFingerprint;
       const windowStart = where.createdAt?.gte as Date;
@@ -222,8 +229,11 @@ class InMemoryPrismaService {
       update,
       create,
     }: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       where: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: any;
     }) => {
       const key = `${where.userId_fingerprint.userId}:${where.userId_fingerprint.fingerprint}`;
@@ -249,9 +259,10 @@ class InMemoryPrismaService {
         (record) => record.userId === where.userId,
       );
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     updateMany: async ({ where, data }: { where: any; data: any }) => {
       let count = 0;
-      for (const [key, session] of this.deviceSessions.entries()) {
+      for (const [_key, session] of this.deviceSessions.entries()) {
         if (!where.userId || session.userId === where.userId) {
           Object.assign(session, data, { updatedAt: new Date() });
           count++;
@@ -267,6 +278,7 @@ class InMemoryPrismaService {
       create,
     }: {
       where: { userId: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: any;
     }) => {
       this.profiles.set(where.userId, { ...create, updatedAt: new Date() });
@@ -275,6 +287,7 @@ class InMemoryPrismaService {
   };
 
   auditLog = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       return { id: randomUUID(), ...data };
     },
@@ -361,6 +374,7 @@ describe("AuthModule HTTP flows", () => {
   it("prefers SMS when the user has a phone and channel is omitted", async () => {
     const user = await createUser(prisma, { phone: "+233550000001" });
     jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .spyOn<any, string>(authService as any, "generateOtpCode")
       .mockReturnValue("999000");
 
@@ -382,6 +396,7 @@ describe("AuthModule HTTP flows", () => {
   it("issues and verifies OTP codes while recording device sessions", async () => {
     const user = await createUser(prisma);
     jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .spyOn<any, string>(authService as any, "generateOtpCode")
       .mockReturnValue("135246");
 
@@ -428,6 +443,7 @@ describe("AuthModule HTTP flows", () => {
     const user = await createUser(prisma);
     const originalHash = user.passwordHash;
     jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .spyOn<any, string>(authService as any, "generateOtpCode")
       .mockReturnValue("777888");
 
@@ -469,6 +485,7 @@ describe("AuthModule HTTP flows", () => {
   it("lists device sessions for an authenticated user", async () => {
     const user = await createUser(prisma);
     jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .spyOn<any, string>(authService as any, "generateOtpCode")
       .mockReturnValue("111222");
 

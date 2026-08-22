@@ -11,6 +11,7 @@ import {
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
 import { LegalService } from "./legal.service";
+import type { Request as ExpressRequest } from "express";
 
 @Controller("legal")
 export class LegalController {
@@ -20,7 +21,12 @@ export class LegalController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
   @SkipTosCheck()
-  acceptTos(@Req() req: any, @Body() body: { version: string }) {
+  acceptTos(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+    @Body() body: { version: string },
+  ) {
     return this.legalService.acceptTos(
       req.user.id,
       body.version,
@@ -31,21 +37,33 @@ export class LegalController {
 
   @Post("delete-account")
   @UseGuards(JwtAuthGuard)
-  initiateAccountDeletion(@Req() req: any) {
+  initiateAccountDeletion(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.legalService.initiateAccountDeletion(req.user.id);
   }
 
   @Post("cancel-deletion")
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
-  cancelDeletion(@Req() req: any) {
+  cancelDeletion(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.legalService.cancelDeletion(req.user.id);
   }
 
   @Get("data-export")
   @UseGuards(JwtAuthGuard)
   @SkipTosCheck()
-  exportData(@Req() req: any) {
+  exportData(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.legalService.exportData(req.user.id);
   }
 }

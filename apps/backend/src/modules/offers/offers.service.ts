@@ -10,12 +10,14 @@ import { CreateOfferDto } from "./dto/create-offer.dto";
 import { ListingStatus, OrderStatus } from "@prisma/client";
 import { sanitizeText } from "../../common/utils/sanitize";
 import { CacheService } from "../../common/services/cache.service";
+import { FeeService } from "../fees/fee.service";
 
 @Injectable()
 export class OffersService {
   constructor(
     private prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly feeService: FeeService,
   ) {}
 
   async create(buyerId: string, dto: CreateOfferDto) {
@@ -108,6 +110,8 @@ export class OffersService {
       });
 
       const orderNumber = "ORD-" + randomBytes(8).toString("hex").toUpperCase();
+      const { feeAmountCents: feeCents, feePercent } =
+        await this.feeService.calculateFee(offer.amountCents, offer.listingId);
       await tx.order.create({
         data: {
           orderNumber,
@@ -115,6 +119,8 @@ export class OffersService {
           sellerId: offer.sellerId,
           status: OrderStatus.PENDING,
           totalItemCents: offer.amountCents,
+          feeCents,
+          feePercent,
           currency: offer.currency,
           items: {
             create: {

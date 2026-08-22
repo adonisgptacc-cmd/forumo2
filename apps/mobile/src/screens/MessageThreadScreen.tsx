@@ -63,7 +63,7 @@ export const MessageThreadScreen: React.FC = () => {
         );
         setThread(fallback);
       }
-    } catch (err) {
+    } catch {
       setError("Unable to load thread right now. Showing demo content.");
       const fallback = demoThreads.find((t) => t.id === route.params.threadId);
       setThread(fallback);

@@ -55,7 +55,7 @@ export class PaymentsService {
         signature,
         secret,
       ) as Stripe.Event;
-    } catch (error) {
+    } catch (_error) {
       throw new BadRequestException("Invalid Stripe webhook signature");
     }
   }
@@ -275,14 +275,14 @@ export class PaymentsService {
             (Prisma.JsonNull as unknown as Prisma.InputJsonValue),
         },
       });
-    } catch (e: any) {
-      if (e?.code === "P2002") {
+    } catch (_e: unknown) {
+      if ((_e as { code?: string })?.code === "P2002") {
         const existing = await this.prisma.webhookEvent.findUnique({
           where: { providerEventId },
         });
         if (existing) return existing;
       }
-      throw e;
+      throw _e;
     }
   }
 

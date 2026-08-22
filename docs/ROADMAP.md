@@ -2,9 +2,45 @@
 
 ## Release-readiness remediation backlog
 
-Audit baseline: **2026-08-16**
+Audit baseline: **2026-08-22**
 
 Target capability: a reproducible, bootable, transaction-safe Forumo release whose web, admin, mobile, backend, shared packages, and deployment configuration pass the documented quality gates from a clean checkout.
+
+### Minimum viable public-beta checklist
+
+For this roadmap, **viable** means a web-first public beta can accept real users and money without relying on demo authentication, silent provider mocks, unverified fund movement, or operator guesswork. Native mobile availability is a separate launch-scope decision: it is not required for a web-first beta, but it becomes a blocker if mobile is advertised at launch.
+
+| Gate                                  | Current evidence                                                                                                                                      | Work still required before launch                                                                                                                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reproducible engineering baseline     | pnpm `11.19.0`, frozen-lockfile installation, root verification, deterministic Prisma postinstall, and dependency regression tests pass locally.      | Pin/enforce Node, add CI toolchain and Prisma drift preflights, and prove the same commands from a clean CI checkout.                                                                                             |
+| Authentication and environment safety | Backend authentication tests and builds pass.                                                                                                         | Complete RR-010, RR-011, RR-012, and RR-020: canonicalize API URLs, validate Google OAuth callbacks, remove/gate demo mobile auth, and make disabled integrations explicit.                                       |
+| Money movement and order lifecycle    | Unit/integration suites cover payments, payouts, escrow, orders, auctions, and webhook rejection paths.                                               | Obtain the required escrow architecture approval; prove Stripe, Paystack, payout, refund, webhook replay, dispute, shipping, and auto-release scenarios in provider sandboxes.                                    |
+| Buyer/seller web journey              | Web type-check, tests, and production build pass.                                                                                                     | Add browser E2E evidence for register/login, browse, listing creation, cart/checkout, payment, order fulfilment, dispute/refund, review, seller payout, and session refresh.                                      |
+| Admin and trust operations            | Admin type-check and production build pass; KYC, moderation, users, listings, disputes, and analytics surfaces exist.                                 | Run role/authorization E2E tests and define operational owners, queues, SLAs, escalation paths, and recovery procedures for KYC, fraud, moderation, disputes, refunds, and payouts.                               |
+| Production deployment and recovery    | Kubernetes deployment, rollback, monitoring, and environment guidance is documented.                                                                  | Perform a staging deployment, migration rehearsal, backup/restore test, readiness/rollback smoke test, alert verification, and production secret/config review.                                                   |
+| Security and compliance               | No unmitigated high-severity dependency advisory remains; the two upstream-unfixed `image-size` advisories are locally patched and regression-tested. | Triage and remediate or formally accept the remaining 9 low and 24 moderate advisories; run secret, SAST, container, and dependency scans in CI; complete jurisdiction-specific legal/privacy/KYC/payment review. |
+| Mobile launch path                    | Twenty-seven screens are implemented and navigation-wired.                                                                                            | If mobile is in beta scope, complete RR-021 and RR-023 on Android and iOS against staging, including secure token storage, push routing, payment handoff, and offline/error behavior.                             |
+
+#### Ordered launch todo list
+
+1. [ ] Close the reproducibility gaps in RR-001 through RR-003 and capture a clean-checkout CI run.
+2. [ ] Close the authentication, URL, configuration, and demo-mode blockers in RR-010 through RR-012 and RR-020.
+3. [ ] Decide the escrow scheduler/reconciliation design and automatic-release policy, then complete protected RR-013 with concurrency and recovery tests.
+4. [ ] Define the exact launch markets, currencies, providers, shipping carriers, and web/mobile surfaces; disable unsupported combinations before accepting funds.
+5. [ ] Complete provider-sandbox and webhook-replay evidence in RR-022 for every enabled commerce path.
+6. [ ] Add the browser and API smoke suite in RR-032 for the critical buyer, seller, admin, and recovery journeys.
+7. [ ] Rehearse staging deployment, migration, backup/restore, rollback, observability alerts, and operator runbooks.
+8. [ ] Triage the remaining low/moderate dependency findings and make security, privacy, KYC, marketplace-policy, and data-retention sign-offs explicit.
+9. [ ] If mobile is part of launch, complete device-safe configuration and Android/iOS critical-path validation in RR-021 and RR-023.
+10. [ ] Produce a release-candidate evidence bundle containing the commit SHA, environment, test/build/coverage results, provider runs, known accepted risks, and named launch approvers.
+
+#### Product and operating decisions still needed
+
+- [ ] Is the first viable release web-only, or must Android and iOS ship with it?
+- [ ] Which countries, currencies, payment/payout providers, and shipping services are enabled at launch?
+- [ ] Who owns KYC review, listing moderation, fraud response, disputes, refunds, payout failures, and after-hours incidents, and what are their response-time targets?
+- [ ] Which legal entity, terms, privacy policy, prohibited-items policy, returns policy, KYC/AML obligations, tax obligations, and data-retention rules apply in each launch market?
+- [ ] What launch thresholds block or roll back a release: payment failure rate, webhook backlog, 5xx rate, auth-refresh failure, queue depth, unresolved high-risk disputes, or another metric?
 
 ### Priority and status legend
 
@@ -31,11 +67,11 @@ Target capability: a reproducible, bootable, transaction-safe Forumo release who
 
 #### RR-001 — Enforce the supported Node and pnpm toolchain (P0)
 
-- [ ] Decide whether the repository will remain on pnpm `9.1.4` or intentionally migrate to pnpm 11; record the decision before changing the lockfile.
+- [x] Migrate the repository to pnpm `11.19.0` so local, CI, container, and Codex verification use the same package-manager major.
 - [ ] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
 - [ ] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
 - [ ] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored.
-- [ ] If upgrading pnpm, migrate those settings to the supported configuration surface and regenerate the lockfile in a dedicated change.
+- [x] Migrate overrides and patched dependencies to `pnpm-workspace.yaml`, the supported pnpm 11 configuration surface.
 - [ ] Add a CI preflight that prints and validates Node/pnpm versions before installation.
 
 Dependencies: none.
@@ -324,7 +360,7 @@ Dependencies: completed implementation work.
 
 ### Open decisions
 
-- [ ] **Toolchain:** remain on pnpm 9.1.4 or migrate deliberately to pnpm 11?
+- [x] **Toolchain:** migrate deliberately to pnpm 11.19.0.
 - [ ] **Local integrations:** must all providers be configured locally, or should explicit disabled/test adapters be supported?
 - [ ] **Escrow scheduler:** BullMQ delayed jobs, database sweep, or a hybrid with reconciliation?
 - [ ] **Automatic release policy:** is the five-day window fixed globally or configurable by market/order type?

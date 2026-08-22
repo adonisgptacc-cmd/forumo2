@@ -7,8 +7,10 @@ import request from "supertest";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuctionsModule } from "./auctions.module";
+import { AuctionEndProcessor } from "./processors/auction-end.processor";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CacheService } from "../../common/services/cache.service";
+import { FeeService } from "../fees/fee.service";
 
 const SELLER_ID = "seller-1";
 const BIDDER_ID = "bidder-1";
@@ -26,6 +28,7 @@ jest.mock("./auctions.gateway", () => ({
 
 class MockGuard implements CanActivate {
   static userId = BIDDER_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: "BUYER" };
@@ -36,9 +39,13 @@ class MockGuard implements CanActivate {
 // ─── In-Memory Prisma ───────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   listings = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   auctions = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   bids = new Map<string, any[]>(); // auctionId → bids[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   notifications: any[] = [];
 
   constructor() {
@@ -52,6 +59,18 @@ class InMemoryPrismaService {
       type: null,
       images: [],
       variants: [],
+    });
+
+    // Seed users for auction-end notification lookups
+    this.users.set(SELLER_ID, {
+      id: SELLER_ID,
+      email: "seller@test.com",
+      name: "Seller",
+    });
+    this.users.set(BIDDER_ID, {
+      id: BIDDER_ID,
+      email: "bidder@test.com",
+      name: "Bidder",
     });
 
     // Pre-seed an active auction for bid tests
@@ -76,31 +95,34 @@ class InMemoryPrismaService {
   }
 
   get auction() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where, skip = 0, take = 12 }: any) => {
-        let all = Array.from(self.auctions.values());
+        let all = Array.from(this.auctions.values());
         if (where?.status) all = all.filter((a) => a.status === where.status);
         return all.slice(skip, skip + take).map((a) => ({
           ...a,
-          _count: { bids: (self.bids.get(a.id) ?? []).length },
+          _count: { bids: (this.bids.get(a.id) ?? []).length },
         }));
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       count: async ({ where }: any) => {
-        let all = Array.from(self.auctions.values());
+        let all = Array.from(this.auctions.values());
         if (where?.status) all = all.filter((a) => a.status === where.status);
         return all.length;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where, include }: any) => {
-        const a = self.auctions.get(where.id);
+        const a = this.auctions.get(where.id);
         if (!a) return null;
-        const bids = self.bids.get(a.id) ?? [];
+        const bids = this.bids.get(a.id) ?? [];
         return {
           ...a,
           bids: include?.bids ? [...bids].reverse().slice(0, 10) : undefined,
           _count: { bids: bids.length },
         };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const id = randomUUID();
         const auction = {
@@ -109,45 +131,48 @@ class InMemoryPrismaService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        self.auctions.set(id, auction);
-        self.bids.set(id, []);
+        this.auctions.set(id, auction);
+        this.bids.set(id, []);
         return auction;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const a = self.auctions.get(where.id);
+        const a = this.auctions.get(where.id);
         if (!a) return null;
         const updated = { ...a, ...data, updatedAt: new Date() };
-        self.auctions.set(where.id, updated);
+        this.auctions.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get listing() {
-    const self = this;
     return {
-      findUnique: async ({ where }: any) => self.listings.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.listings.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const l = self.listings.get(where.id);
+        const l = this.listings.get(where.id);
         if (!l) return null;
         const updated = { ...l, ...data };
-        self.listings.set(where.id, updated);
+        this.listings.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get bid() {
-    const self = this;
     return {
-      findFirst: async ({ where, orderBy }: any) => {
-        const bids = self.bids.get(where.auctionId) ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findFirst: async ({ where, orderBy: _orderBy }: any) => {
+        const bids = this.bids.get(where.auctionId) ?? [];
         if (!bids.length) return null;
         // Sort by amountCents desc to get highest
         const sorted = [...bids].sort((a, b) => b.amountCents - a.amountCents);
         return sorted[0];
       },
-      create: async ({ data, include }: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data, include: _include }: any) => {
         const id = randomUUID();
         const bid = {
           id,
@@ -155,15 +180,16 @@ class InMemoryPrismaService {
           createdAt: new Date(),
           bidder: { id: data.bidderId, name: "Bidder", avatarUrl: null },
         };
-        const bids = self.bids.get(data.auctionId) ?? [];
+        const bids = this.bids.get(data.auctionId) ?? [];
         bids.push(bid);
-        self.bids.set(data.auctionId, bids);
+        this.bids.set(data.auctionId, bids);
         return bid;
       },
-      update: async ({ where, data, include }: any) => {
-        const auctionId = where.id ? self._findBidAuctionId(where.id) : null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      update: async ({ where, data, include: _include }: any) => {
+        const auctionId = where.id ? this._findBidAuctionId(where.id) : null;
         if (!auctionId) return null;
-        const bids = self.bids.get(auctionId)!;
+        const bids = this.bids.get(auctionId)!;
         const idx = bids.findIndex((b) => b.id === where.id);
         if (idx === -1) return null;
         const updated = { ...bids[idx], ...data };
@@ -180,15 +206,57 @@ class InMemoryPrismaService {
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   $transaction = async (fn: any) => {
     return fn(this);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+  $executeRawSpy = jest.fn(async (..._args: any[]) => 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+  $executeRaw = (...args: any[]) => this.$executeRawSpy(...args);
+
   // Notifications stub (required by NotificationsModule)
   get notification() {
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async (data: any) => ({ id: randomUUID(), ...data }),
       findMany: async () => [],
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+  orders = new Map<string, any>();
+
+  get order() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => {
+        if (where.auctionId !== undefined) {
+          for (const o of this.orders.values()) {
+            if (o.auctionId === where.auctionId) return o;
+          }
+          return null;
+        }
+        return this.orders.get(where.id) ?? null;
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data }: any) => {
+        const id = randomUUID();
+        const order = { id, ...data };
+        this.orders.set(id, order);
+        return order;
+      },
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+  users = new Map<string, any>();
+
+  get user() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.users.get(where.id) ?? null,
     };
   }
 }
@@ -201,6 +269,8 @@ describe("AuctionsModule", () => {
 
   const buildApp = async (userId = BIDDER_ID) => {
     MockGuard.userId = userId;
+    // FeesModule → AuthModule requires JWT_SECRET at JwtModule factory time.
+    process.env.JWT_SECRET = process.env.JWT_SECRET ?? "test-jwt-secret";
     prismaMock = new InMemoryPrismaService();
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true }), AuctionsModule],
@@ -209,6 +279,15 @@ describe("AuctionsModule", () => {
       .useValue(prismaMock)
       .overrideProvider(CacheService)
       .useValue({ deleteByPrefix: jest.fn().mockResolvedValue(0) })
+      .overrideProvider(FeeService)
+      .useValue({
+        calculateFee: jest.fn().mockResolvedValue({
+          feeAmountCents: 50,
+          feePercent: 5,
+          breakdown: { percentPart: 50, fixedPart: 0 },
+        }),
+        getFeeScheduleForListing: jest.fn().mockResolvedValue(null),
+      })
       .overrideGuard(JwtAuthGuard)
       .useClass(MockGuard)
       .compile();
@@ -407,6 +486,102 @@ describe("AuctionsModule", () => {
         .post(`/auctions/${AUCTION_ID}/bids`)
         .send({ amountCents: 1000 })
         .expect(400);
+    });
+
+    it("begins the bid transaction with a per-auction advisory lock", async () => {
+      await buildApp(BIDDER_ID);
+      await request(app.getHttpServer())
+        .post(`/auctions/${AUCTION_ID}/bids`)
+        .send({ amountCents: 1000 })
+        .expect(201);
+
+      expect(prismaMock.$executeRawSpy).toHaveBeenCalled();
+      const [sqlParts, lockKey] = prismaMock.$executeRawSpy.mock.calls[0];
+      expect(sqlParts.join("")).toContain("pg_advisory_xact_lock");
+      expect(lockKey).toBe(AUCTION_ID);
+    });
+  });
+
+  // ── Auction settlement (AuctionEndProcessor) ──
+
+  describe("auction end processor", () => {
+    it("creates the winner order with a computed platform fee and dedupes reruns", async () => {
+      await buildApp(BIDDER_ID);
+
+      // End the auction, then place the winning bid through the API
+      const ended = prismaMock.auctions.get(AUCTION_ID)!;
+      ended.endAt = new Date(Date.now() - 1000);
+      prismaMock.auctions.set(AUCTION_ID, ended);
+
+      await request(app.getHttpServer())
+        .post(`/auctions/${AUCTION_ID}/bids`)
+        .send({ amountCents: 1000 })
+        .expect(400); // already ended — bid rejected
+
+      // Seed the winning bid directly (auction was live when the bid arrived)
+      const live = prismaMock.auctions.get(AUCTION_ID)!;
+      live.endAt = new Date(Date.now() + 60000);
+      prismaMock.auctions.set(AUCTION_ID, live);
+      const bidRes = await request(app.getHttpServer())
+        .post(`/auctions/${AUCTION_ID}/bids`)
+        .send({ amountCents: 5000 })
+        .expect(201);
+      expect(bidRes.body.amountCents).toBe(1000); // first bid lands at starting price
+
+      // End the auction again so the cron settles it
+      const finalState = prismaMock.auctions.get(AUCTION_ID)!;
+      finalState.endAt = new Date(Date.now() - 1000);
+      prismaMock.auctions.set(AUCTION_ID, finalState);
+
+      const processor = app.get(AuctionEndProcessor);
+      await processor.processEndedAuctions();
+
+      const orders = Array.from(prismaMock.orders.values());
+      expect(orders).toHaveLength(1);
+      expect(orders[0].buyerId).toBe(BIDDER_ID);
+      expect(orders[0].totalItemCents).toBe(1000);
+      // Fee computed from FeeService mock (5% of 1000)
+      expect(orders[0].feeCents).toBe(50);
+      expect(orders[0].feePercent).toBe(5);
+      expect(orders[0].auctionId).toBe(AUCTION_ID);
+
+      // Listing paused after settlement
+      expect(prismaMock.listings.get(LISTING_ID)!.status).toBe(
+        ListingStatus.PAUSED,
+      );
+
+      // Re-running the cron must not create a duplicate order
+      await processor.processEndedAuctions();
+      expect(Array.from(prismaMock.orders.values())).toHaveLength(1);
+    });
+
+    it("pauses the listing without an order when reserve is not met", async () => {
+      await buildApp(BIDDER_ID);
+
+      const withReserve = prismaMock.auctions.get(AUCTION_ID)!;
+      withReserve.reserveCents = 90000;
+      prismaMock.auctions.set(AUCTION_ID, withReserve);
+
+      // Winning bid below reserve
+      const live = prismaMock.auctions.get(AUCTION_ID)!;
+      live.endAt = new Date(Date.now() + 60000);
+      prismaMock.auctions.set(AUCTION_ID, live);
+      await request(app.getHttpServer())
+        .post(`/auctions/${AUCTION_ID}/bids`)
+        .send({ amountCents: 5000 })
+        .expect(201);
+
+      const endedAgain = prismaMock.auctions.get(AUCTION_ID)!;
+      endedAgain.endAt = new Date(Date.now() - 1000);
+      prismaMock.auctions.set(AUCTION_ID, endedAgain);
+
+      const processor = app.get(AuctionEndProcessor);
+      await processor.processEndedAuctions();
+
+      expect(Array.from(prismaMock.orders.values())).toHaveLength(0);
+      expect(prismaMock.listings.get(LISTING_ID)!.status).toBe(
+        ListingStatus.PAUSED,
+      );
     });
   });
 });

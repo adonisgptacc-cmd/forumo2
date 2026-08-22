@@ -18,6 +18,7 @@ const ORDER_ID = "order-inv-1";
 class MockGuard implements CanActivate {
   static userId = "seller-1";
   static role = "SELLER";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -33,6 +34,7 @@ class AllowAllGuard implements CanActivate {
 
 // ─── Helper: apply Prisma increment/decrement operators ──────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
 function applyPrismaUpdate(current: any, data: any): any {
   const result = { ...current };
   for (const [key, val] of Object.entries(data)) {
@@ -52,8 +54,11 @@ function applyPrismaUpdate(current: any, data: any): any {
 // ─── In-Memory Prisma ─────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   variants = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   inventoryItems = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   reservations = new Map<string, any>();
 
   constructor() {
@@ -66,24 +71,25 @@ class InMemoryPrismaService {
   }
 
   get listingVariant() {
-    const self = this;
     return {
-      findUnique: async ({ where }: any) => self.variants.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.variants.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const v = self.variants.get(where.id);
+        const v = this.variants.get(where.id);
         if (!v) return null;
         const updated = { ...v, ...data };
-        self.variants.set(where.id, updated);
+        this.variants.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get inventoryItem() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where, orderBy, take }: any) => {
-        let items = Array.from(self.inventoryItems.values());
+        let items = Array.from(this.inventoryItems.values());
         if (where?.variantId)
           items = items.filter((i) => i.variantId === where.variantId);
         if (where?.availableQuantity?.gte !== undefined) {
@@ -105,38 +111,42 @@ class InMemoryPrismaService {
         // Attach variant with listing
         return items.map((i) => ({
           ...i,
-          variant: self.variants.get(i.variantId)
+          variant: this.variants.get(i.variantId)
             ? {
-                ...self.variants.get(i.variantId),
-                listing: self.variants.get(i.variantId)?.listing,
+                ...this.variants.get(i.variantId),
+                listing: this.variants.get(i.variantId)?.listing,
               }
             : null,
         }));
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) =>
-        self.inventoryItems.get(where.id) ?? null,
+        this.inventoryItems.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const item = { id: randomUUID(), ...data, createdAt: Date.now() };
-        self.inventoryItems.set(item.id, item);
+        this.inventoryItems.set(item.id, item);
         return item;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const item = self.inventoryItems.get(where.id);
+        const item = this.inventoryItems.get(where.id);
         if (!item) return null;
         const updated = applyPrismaUpdate(item, data);
-        self.inventoryItems.set(where.id, updated);
+        this.inventoryItems.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get inventoryReservation() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) =>
-        self.reservations.get(where.id) ?? null,
+        this.reservations.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) => {
-        let items = Array.from(self.reservations.values());
+        let items = Array.from(this.reservations.values());
         if (where?.orderId)
           items = items.filter((r) => r.orderId === where.orderId);
         if (where?.status)
@@ -148,21 +158,23 @@ class InMemoryPrismaService {
         }
         return items.map((r) => ({
           ...r,
-          variant: self.variants.get(r.variantId)
-            ? { ...self.variants.get(r.variantId) }
+          variant: this.variants.get(r.variantId)
+            ? { ...this.variants.get(r.variantId) }
             : null,
         }));
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const r = { id: randomUUID(), ...data, createdAt: new Date() };
-        self.reservations.set(r.id, r);
+        this.reservations.set(r.id, r);
         return r;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const r = self.reservations.get(where.id);
+        const r = this.reservations.get(where.id);
         if (!r) return null;
         const updated = { ...r, ...data };
-        self.reservations.set(where.id, updated);
+        this.reservations.set(where.id, updated);
         return updated;
       },
     };

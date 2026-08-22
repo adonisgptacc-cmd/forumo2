@@ -51,7 +51,7 @@ export const MyListingsScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     load().finally(() => setLoading(false));
-  }, []);
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);

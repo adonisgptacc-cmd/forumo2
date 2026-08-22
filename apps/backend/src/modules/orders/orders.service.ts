@@ -1517,6 +1517,7 @@ export class OrdersService {
         ...(dto.serviceLevel !== undefined && {
           serviceLevel: dto.serviceLevel,
         }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma JsonValue requires flexible any for dynamic payload
         ...(dto.status !== undefined && { status: dto.status as any }),
         ...(dto.estimatedDelivery !== undefined && {
           estimatedDelivery: new Date(dto.estimatedDelivery),

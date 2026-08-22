@@ -26,6 +26,7 @@ const DISPUTE_ID = "dispute-seed-1";
 class MockGuard implements CanActivate {
   static userId = BUYER_ID;
   static role = "BUYER";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: MockGuard.role };
@@ -42,11 +43,17 @@ class AllowAllGuard implements CanActivate {
 // ─── In-Memory Prisma ─────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   escrowHoldings = new Map<string, any>(); // key: orderId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   escrowHoldingsById = new Map<string, any>(); // key: id
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   escrowTransactions = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   escrowDisputes = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   disputeMessages = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   orders = new Map<string, any>();
 
   constructor() {
@@ -112,89 +119,94 @@ class InMemoryPrismaService {
   }
 
   get escrowHolding() {
-    const self = this;
     return {
-      findUnique: async ({ where, include }: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where, include: _include }: any) => {
         const h =
-          self.escrowHoldings.get(where.orderId) ??
-          self.escrowHoldingsById.get(where.id);
+          this.escrowHoldings.get(where.orderId) ??
+          this.escrowHoldingsById.get(where.id);
         if (!h) return null;
         return {
           ...h,
-          disputes: Array.from(self.escrowDisputes.values()).filter(
+          disputes: Array.from(this.escrowDisputes.values()).filter(
             (d) => d.escrowId === h.id,
           ),
-          transactions: Array.from(self.escrowTransactions.values()).filter(
+          transactions: Array.from(this.escrowTransactions.values()).filter(
             (t) => t.escrowId === h.id,
           ),
         };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const h = { id: randomUUID(), ...data };
-        self.escrowHoldings.set(data.orderId, h);
-        self.escrowHoldingsById.set(h.id, h);
+        this.escrowHoldings.set(data.orderId, h);
+        this.escrowHoldingsById.set(h.id, h);
         return h;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
         const h =
-          self.escrowHoldings.get(where.orderId) ??
-          self.escrowHoldingsById.get(where.id);
+          this.escrowHoldings.get(where.orderId) ??
+          this.escrowHoldingsById.get(where.id);
         if (!h) return null;
         const updated = { ...h, ...data };
-        self.escrowHoldings.set(h.orderId, updated);
-        self.escrowHoldingsById.set(h.id, updated);
+        this.escrowHoldings.set(h.orderId, updated);
+        this.escrowHoldingsById.set(h.id, updated);
         return updated;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       updateMany: async ({ where, data }: any) => {
-        const h = self.escrowHoldings.get(where.orderId);
+        const h = this.escrowHoldings.get(where.orderId);
         if (!h || (where.status && h.status !== where.status)) {
           return { count: 0 };
         }
         const updated = { ...h, ...data };
-        self.escrowHoldings.set(h.orderId, updated);
-        self.escrowHoldingsById.set(h.id, updated);
+        this.escrowHoldings.set(h.orderId, updated);
+        this.escrowHoldingsById.set(h.id, updated);
         return { count: 1 };
       },
     };
   }
 
   get escrowTransaction() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const tx = { id: randomUUID(), ...data, createdAt: new Date() };
-        self.escrowTransactions.set(tx.id, tx);
+        this.escrowTransactions.set(tx.id, tx);
         return tx;
       },
     };
   }
 
   get escrowDispute() {
-    const self = this;
     return {
-      findUnique: async ({ where, include }: any) => {
-        const d = self.escrowDisputes.get(where.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where, include: _include }: any) => {
+        const d = this.escrowDisputes.get(where.id);
         if (!d) return null;
         return {
           ...d,
           escrow: {
-            ...self.escrowHoldingsById.get(d.escrowId),
-            order: self.orders.get(
-              self.escrowHoldingsById.get(d.escrowId)?.orderId,
+            ...this.escrowHoldingsById.get(d.escrowId),
+            order: this.orders.get(
+              this.escrowHoldingsById.get(d.escrowId)?.orderId,
             ),
           },
-          messages: Array.from(self.disputeMessages.values()).filter(
+          messages: Array.from(this.disputeMessages.values()).filter(
             (m) => m.disputeId === d.id,
           ),
         };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) => {
-        return Array.from(self.escrowDisputes.values()).filter((d) => {
+        return Array.from(this.escrowDisputes.values()).filter((d) => {
           if (where?.status?.in) return where.status.in.includes(d.status);
           return true;
         });
       },
-      create: async ({ data, include }: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data, include: _include }: any) => {
         const d = {
           id: randomUUID(),
           ...data,
@@ -206,39 +218,40 @@ class InMemoryPrismaService {
           },
           messages: [],
         };
-        self.escrowDisputes.set(d.id, d);
+        this.escrowDisputes.set(d.id, d);
         return d;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       update: async ({ where, data }: any) => {
-        const d = self.escrowDisputes.get(where.id);
+        const d = this.escrowDisputes.get(where.id);
         if (!d) return null;
         const updated = { ...d, ...data };
-        self.escrowDisputes.set(where.id, updated);
+        this.escrowDisputes.set(where.id, updated);
         return updated;
       },
     };
   }
 
   get disputeMessage() {
-    const self = this;
     return {
-      create: async ({ data, include }: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data, include: _include }: any) => {
         const msg = {
           id: randomUUID(),
           ...data,
           createdAt: new Date(),
           author: { id: data.authorId, email: "user@test.com", name: "User" },
         };
-        self.disputeMessages.set(msg.id, msg);
+        this.disputeMessages.set(msg.id, msg);
         return msg;
       },
     };
   }
 
   get order() {
-    const self = this;
     return {
-      findUnique: async ({ where }: any) => self.orders.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.orders.get(where.id) ?? null,
     };
   }
 }

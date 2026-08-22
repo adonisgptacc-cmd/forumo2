@@ -633,6 +633,7 @@ export class AdminService {
     const updated = await this.prisma.listing.update({
       where: { id },
       data: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma JsonValue requires flexible any for dynamic payload
         moderationStatus: body.moderationStatus as any,
         moderationNotes: body.moderationNotes ?? null,
       },
@@ -679,6 +680,7 @@ export class AdminService {
     const updated = await this.prisma.escrowDispute.update({
       where: { id },
       data: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma JsonValue requires flexible any for dynamic payload
         status: body.status as any,
         resolution: body.resolution ?? null,
         resolvedAt: body.status === "RESOLVED" ? new Date() : undefined,

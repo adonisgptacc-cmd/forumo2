@@ -1,6 +1,6 @@
 import { ForbiddenException } from "@nestjs/common";
 import { AccountStatus } from "@prisma/client";
-import type { Request } from "express";
+import type { Request as ExpressRequest } from "express";
 
 interface AccountCheckable {
   accountStatus: AccountStatus;
@@ -22,7 +22,7 @@ const PENDING_VERIFICATION_ALLOWLIST: Array<{
   { methods: ["POST"], prefix: "/api/v1/auth/logout" },
 ];
 
-export function isAllowedForPendingVerification(req: Request): boolean {
+export function isAllowedForPendingVerification(req: ExpressRequest): boolean {
   const method = req.method.toUpperCase();
   const path = req.path;
 
@@ -41,7 +41,7 @@ export function isAllowedForPendingVerification(req: Request): boolean {
  */
 export function assertAccountActive(
   user: AccountCheckable,
-  req: Request,
+  req: ExpressRequest,
 ): void {
   switch (user.accountStatus) {
     case AccountStatus.SUSPENDED:

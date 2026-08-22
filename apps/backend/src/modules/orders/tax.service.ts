@@ -180,6 +180,7 @@ export class TaxService {
       if (!txn?.providerRef) return;
 
       const pi = await this.stripe.paymentIntents.retrieve(txn.providerRef);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
       const autoTax = (pi as any).automatic_tax as
         { enabled?: boolean; status?: string } | undefined;
       if (!autoTax?.enabled || autoTax.status !== "complete") return;
@@ -194,6 +195,7 @@ export class TaxService {
           country: string | null;
           tax_type: string | null;
         };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
       }> = (latestCharge as any)?.tax_amounts ?? [];
 
       if (!taxAmounts.length) return;
@@ -291,6 +293,7 @@ export class TaxService {
     country: string,
     calc: Stripe.Tax.Calculation,
   ): string {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
     const firstEntry = calc.tax_breakdown?.[0] as any;
     if (firstEntry?.jurisdiction?.display_name) {
       return firstEntry.jurisdiction.display_name as string;

@@ -198,7 +198,7 @@ export const AuctionsTab: React.FC = () => {
 
   useEffect(() => {
     loadPage(1, false);
-  }, []);
+  }, [loadPage]);
 
   const onRefresh = async () => {
     setRefreshing(true);

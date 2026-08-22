@@ -6,6 +6,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { ConfigService } from "@nestjs/config";
+import { AuditLogService } from "../observability/audit-log.service";
 
 @Injectable()
 export class LegalService {
@@ -13,6 +14,7 @@ export class LegalService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async acceptTos(
@@ -26,12 +28,27 @@ export class LegalService {
     });
     if (!user) throw new NotFoundException("User not found");
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        termsAcceptedAt: new Date(),
-        tosVersion: version,
-      },
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.user.update({
+        where: { id: userId },
+        data: {
+          termsAcceptedAt: new Date(),
+          tosVersion: version,
+        },
+      });
+
+      await this.auditLog.record(
+        {
+          actorId: userId,
+          action: "legal.tos.accepted",
+          entityType: "user",
+          entityId: userId,
+          payload: { version },
+          ipAddress,
+          userAgent,
+        },
+        transaction,
+      );
     });
   }
 

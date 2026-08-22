@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { InventoryReservationStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { CacheService } from "../../common/services/cache.service";
 
 @Injectable()
@@ -62,6 +62,7 @@ export class InventoryService {
     variantId: string,
     quantity: number,
     location?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
     metadata?: any,
   ) {
     // Check if variant exists

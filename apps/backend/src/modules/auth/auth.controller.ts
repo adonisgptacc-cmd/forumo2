@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Response } from "express";
+import type { Request as ExpressRequest } from "express";
 import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
 
@@ -32,6 +33,13 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { AuditLogService } from "../observability/audit-log.service";
 
+type AuthenticatedRequest = ExpressRequest & {
+  user: Record<string, unknown> & { id: string; email: string; role: string };
+  cookies?: Record<string, string>;
+  twoFactorUserId?: string;
+  twoFactorSetupRequired?: boolean;
+} & Record<string, unknown>;
+
 @Controller("auth")
 @SkipTosCheck()
 export class AuthController {
@@ -43,7 +51,7 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ auth: {} })
-  async register(@Body() dto: RegisterDto, @Req() req: any) {
+  async register(@Body() dto: RegisterDto, @Req() req: AuthenticatedRequest) {
     const result = await this.authService.register(dto);
     await this.auditLog.record({
       action: "auth.register",
@@ -57,7 +65,7 @@ export class AuthController {
 
   @Post("login")
   @Throttle({ "auth-login": {} })
-  async login(@Body() dto: LoginDto, @Req() req: any) {
+  async login(@Body() dto: LoginDto, @Req() req: AuthenticatedRequest) {
     const result = await this.authService.login(dto);
     // Only audit after full authentication (post-2FA); partial tokens skip audit here
     if ("user" in result) {
@@ -76,7 +84,10 @@ export class AuthController {
 
   @Post("otp/request")
   @Throttle({ "auth-otp": {} })
-  async requestOtp(@Body() dto: RequestOtpDto, @Req() req: any) {
+  async requestOtp(
+    @Body() dto: RequestOtpDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const result = await this.authService.requestOtp(dto);
     await this.auditLog.record({
       action: "auth.otp.request",
@@ -90,7 +101,7 @@ export class AuthController {
 
   @Post("otp/verify")
   @Throttle({ auth: {} })
-  async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: any) {
+  async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: AuthenticatedRequest) {
     const result = await this.authService.verifyOtp(dto);
     await this.auditLog.record({
       actorId: result.user.id,
@@ -119,7 +130,7 @@ export class AuthController {
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
-  me(@Req() req: any) {
+  me(@Req() req: AuthenticatedRequest) {
     return this.authService.me(req.user.id);
   }
 
@@ -127,7 +138,7 @@ export class AuthController {
   @Throttle({ "auth-password-reset": {} })
   async requestPasswordReset(
     @Body() dto: RequestPasswordResetDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     const result = await this.authService.requestPasswordReset(dto);
     await this.auditLog.record({
@@ -144,7 +155,7 @@ export class AuthController {
   @Throttle({ "auth-password-reset": {} })
   async confirmPasswordReset(
     @Body() dto: PasswordResetConfirmDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     const result = await this.authService.confirmPasswordReset(dto);
     await this.auditLog.record({
@@ -161,7 +172,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ auth: {} })
   async changePassword(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
@@ -180,7 +191,10 @@ export class AuthController {
   }
 
   @Post("refresh")
-  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const cookieToken = (req.cookies as Record<string, string>)?.[
       "refresh_token"
     ];
@@ -210,7 +224,10 @@ export class AuthController {
 
   @Post("logout")
   @UseGuards(JwtAuthGuard)
-  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = (req.cookies as Record<string, string>)?.[
       "refresh_token"
     ];
@@ -230,7 +247,7 @@ export class AuthController {
 
   @Get("sessions")
   @UseGuards(JwtAuthGuard)
-  listOwnSessions(@Req() req: any) {
+  listOwnSessions(@Req() req: AuthenticatedRequest) {
     return this.authService.listDeviceSessions(req.user.id);
   }
 
@@ -249,9 +266,15 @@ export class AuthController {
 
   @Get("google/callback")
   @UseGuards(GoogleAuthGuard)
-  async googleAuthCallback(@Req() req: any, @Res() res: Response) {
-    const user = req.user;
-    const result = await this.authService.buildAuthResponse(user, {});
+  async googleAuthCallback(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const user = req.user as unknown as import("@prisma/client").User;
+    const result = await this.authService.buildAuthResponse(
+      user as unknown as Parameters<AuthService["buildAuthResponse"]>[0],
+      {},
+    );
 
     await this.auditLog.record({
       actorId: user.id,
@@ -278,11 +301,12 @@ export class AuthController {
   /** Exchange the short-lived oauth_token cookie for a bearer token (one-time use). */
   @Get("oauth/exchange")
   exchangeOAuthCookie(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
     const token = (req.cookies as Record<string, string>)?.["oauth_token"];
     if (!token) throw new UnauthorizedException("No OAuth token cookie found");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
     (res as any).clearCookie("oauth_token");
     return { accessToken: token };
   }
@@ -291,20 +315,20 @@ export class AuthController {
   @Post("2fa/setup-init")
   @UseGuards(TwoFactorPendingGuard)
   @Throttle({ auth: {} })
-  async twoFactorSetupInit(@Req() req: any) {
+  async twoFactorSetupInit(@Req() req: AuthenticatedRequest) {
     if (!req.twoFactorSetupRequired) {
       throw new BadRequestException(
         "2FA already configured; use /auth/2fa/verify to log in",
       );
     }
-    return this.authService.initSetup2FA(req.twoFactorUserId);
+    return this.authService.initSetup2FA(req.twoFactorUserId!);
   }
 
   @Post("2fa/setup-verify")
   @UseGuards(TwoFactorPendingGuard)
   @Throttle({ auth: {} })
   async twoFactorSetupVerify(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body()
     body: { code: string; rememberMe?: boolean; deviceFingerprint?: string },
   ) {
@@ -314,13 +338,14 @@ export class AuthController {
       );
     }
     const result = await this.authService.verifySetup2FA(
-      req.twoFactorUserId,
+      req.twoFactorUserId!,
       body.code,
       {
         rememberMe: body.rememberMe,
         deviceFingerprint: body.deviceFingerprint,
-        ipAddress: req.ip ?? null,
-        userAgent: req.headers?.["user-agent"] ?? null,
+        ipAddress: req.ip ?? undefined,
+        userAgent:
+          (req.headers?.["user-agent"] as string | undefined) ?? undefined,
       },
     );
     await this.auditLog.record({
@@ -339,7 +364,7 @@ export class AuthController {
   @UseGuards(TwoFactorPendingGuard)
   @Throttle({ auth: {} })
   async twoFactorVerify(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body()
     body: { code: string; rememberMe?: boolean; deviceFingerprint?: string },
   ) {
@@ -349,13 +374,14 @@ export class AuthController {
       );
     }
     const result = await this.authService.completeTwoFactorLogin(
-      req.twoFactorUserId,
+      req.twoFactorUserId!,
       body.code,
       {
         rememberMe: body.rememberMe,
         deviceFingerprint: body.deviceFingerprint,
-        ipAddress: req.ip ?? null,
-        userAgent: req.headers?.["user-agent"] ?? null,
+        ipAddress: req.ip ?? undefined,
+        userAgent:
+          (req.headers?.["user-agent"] as string | undefined) ?? undefined,
       },
     );
     await this.auditLog.record({
@@ -374,7 +400,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ auth: {} })
   async twoFactorDisable(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() body: { code: string; password: string },
   ) {
     const result = await this.authService.disable2FA(

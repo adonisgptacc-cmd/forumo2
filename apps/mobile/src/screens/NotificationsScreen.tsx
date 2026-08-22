@@ -137,7 +137,7 @@ export const NotificationsScreen: React.FC<Props> = () => {
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
-  }, []);
+  }, [load]);
 
   // Real-time notifications via Socket.IO WebSocket
   useEffect(() => {
@@ -179,7 +179,7 @@ export const NotificationsScreen: React.FC<Props> = () => {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [accessToken]);
+  }, [accessToken, apiClient]);
 
   const onRefresh = async () => {
     setRefreshing(true);

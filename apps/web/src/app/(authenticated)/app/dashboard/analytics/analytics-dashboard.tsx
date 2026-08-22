@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -359,9 +360,12 @@ export function AnalyticsDashboard() {
                           className="flex items-center gap-2.5 hover:opacity-80"
                         >
                           {l.thumbnailUrl ? (
-                            <img
+                            <Image
                               src={l.thumbnailUrl}
                               alt=""
+                              width={36}
+                              height={36}
+                              unoptimized
                               className="h-9 w-9 shrink-0 rounded-md object-cover"
                             />
                           ) : (

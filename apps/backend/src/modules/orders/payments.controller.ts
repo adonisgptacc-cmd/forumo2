@@ -23,6 +23,7 @@ import { PaymentsService } from "./payments.service";
 import { PaystackService } from "./paystack.service";
 import { AuditLogService } from "../observability/audit-log.service";
 import { PayoutsService } from "../payouts/payouts.service";
+import type { Request as ExpressRequest } from "express";
 
 interface StripeIntentPayload {
   id: string;
@@ -70,12 +71,14 @@ export class PaymentsController {
   ): Promise<{ received: boolean }> {
     // rawBody is a Buffer attached by NestJS when `rawBody: true` is set in NestFactory.create()
     const rawBody: Buffer | string =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
       (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
     const event = this.paymentsService.validateStripeEvent(
       payload,
       signature,
       rawBody,
     ) as Stripe.Event & { id?: string; created?: number };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
     const providerEventId = (event as any)?.id ?? (payload as any)?.id;
     const eventRecord = await this.paymentsService.recordWebhookEvent(
       event.type ?? payload?.type ?? "stripe",
@@ -95,6 +98,7 @@ export class PaymentsController {
     try {
       // ── Stripe Connect events (transfer / account) — no orderId needed ──
       if ((event.type as string) === "transfer.paid") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
         const transfer = (event as any).data.object as Stripe.Transfer;
         await this.payoutsService.handleTransferPaid(transfer.id);
         await this.paymentsService.markWebhookProcessed(eventRecord?.id);
@@ -102,6 +106,7 @@ export class PaymentsController {
       }
 
       if ((event.type as string) === "transfer.failed") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
         const transfer = (event as any).data.object as Stripe.Transfer;
         const reason =
           (transfer as unknown as { failure_message?: string })
@@ -147,8 +152,10 @@ export class PaymentsController {
         (providerObject as { status?: string } | undefined)?.status ??
         event.type ??
         "unknown";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
       const eventTime = (event as any)?.created
-        ? new Date((event as any).created * 1000)
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
+          new Date((event as any).created * 1000)
         : undefined;
 
       await this.auditLog.record({
@@ -238,7 +245,9 @@ export class PaymentsController {
   @Throttle({ payments: {} })
   async verifyPaystackPayment(
     @Body() body: { reference: string },
-    @Req() req: any,
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ): Promise<{
     verified: boolean;
     orderId: string;
@@ -262,6 +271,7 @@ export class PaymentsController {
     @Headers("x-paystack-signature") signature?: string,
   ): Promise<{ received: boolean }> {
     const rawBody: Buffer | string =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
       (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? payload));
     const ip = req.ip ?? "unknown";
     const ts = new Date().toISOString();
@@ -316,8 +326,11 @@ export class PaymentsController {
         );
       } else if (event === "refund.processed") {
         const refundRef =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
           (data as any).transaction?.reference ??
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
           (data as any).reference ??
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Stripe SDK types missing field, requires any for provider-specific payload
           (data as any).data?.reference;
         if (refundRef) {
           const orderIdForRefund =

@@ -26,7 +26,7 @@ interface VariantDraft {
 }
 
 export const CreateListingScreen: React.FC<Props> = ({ navigation }) => {
-  const { apiClient, user } = useAuth();
+  const { apiClient } = useAuth();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

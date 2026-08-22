@@ -8,12 +8,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateAuctionDto } from "./dto/create-auction.dto";
 import { PlaceBidDto } from "./dto/place-bid.dto";
-import {
-  AuctionStatus,
-  ListingModerationStatus,
-  ListingStatus,
-  ListingType,
-} from "@prisma/client";
+import { AuctionStatus, ListingStatus, ListingType } from "@prisma/client";
 import { AuctionsGateway } from "./auctions.gateway";
 import { CacheService } from "../../common/services/cache.service";
 
@@ -38,6 +33,7 @@ export class AuctionsService {
     const { status, sort, keyword, sellerId } = params;
     const page = Math.max(1, Math.min(1000, params.page || 1));
     const pageSize = Math.max(1, Math.min(100, params.pageSize || 20));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma where/orderBy flexible filter, refine to Prisma.AuctionWhereInput when stable
     const where: any = {};
     if (status) {
       where.status = status;
@@ -57,6 +53,7 @@ export class AuctionsService {
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma where/orderBy flexible filter, refine to Prisma.AuctionWhereInput when stable
     const orderBy: any =
       sort === "newest"
         ? { createdAt: "desc" }
@@ -127,6 +124,7 @@ export class AuctionsService {
         data: {
           type: ListingType.AUCTION,
           status: ListingStatus.PAUSED,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma where/orderBy flexible filter, refine to Prisma.AuctionWhereInput when stable
           moderationStatus: "PENDING" as any,
           priceCents: dto.startingBidCents,
         },
@@ -161,6 +159,8 @@ export class AuctionsService {
 
   async placeBid(userId: string, auctionId: string, dto: PlaceBidDto) {
     const createdBid = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${auctionId}))`;
+
       const auction = await tx.auction.findUnique({
         where: { id: auctionId },
       });

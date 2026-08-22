@@ -10,14 +10,14 @@ export const useAuctionSocket = (auctionId: string) => {
   const { data: session } = useSession() as unknown as {
     accessToken?: string;
   } & Record<string, unknown>;
+  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
 
   useEffect(() => {
     if (!auctionId) return;
     const base = getGatewayBaseUrl();
-    const token = (session as unknown as { accessToken?: string })?.accessToken;
     const s = io(`${base}/auctions`, {
       query: { auctionId },
-      auth: token ? { token } : {},
+      auth: accessToken ? { token: accessToken } : {},
       transports: ["websocket"],
     });
     setSocket(s);
@@ -25,10 +25,7 @@ export const useAuctionSocket = (auctionId: string) => {
       s.disconnect();
       setSocket(null);
     };
-  }, [
-    auctionId,
-    (session as unknown as { accessToken?: string })?.accessToken,
-  ]);
+  }, [accessToken, auctionId]);
 
   return socket;
 };

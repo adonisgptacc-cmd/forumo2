@@ -131,10 +131,15 @@ export const serializeRollup = (
   publishedCount: rollup?.publishedCount ?? 0,
   pendingCount: rollup?.pendingCount ?? 0,
   flaggedCount: rollup?.flaggedCount ?? 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma SellerReviewRollup missing star fields, requires any until schema updated
   star1: (rollup as any)?.star1 ?? 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma SellerReviewRollup missing star fields, requires any until schema updated
   star2: (rollup as any)?.star2 ?? 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma SellerReviewRollup missing star fields, requires any until schema updated
   star3: (rollup as any)?.star3 ?? 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma SellerReviewRollup missing star fields, requires any until schema updated
   star4: (rollup as any)?.star4 ?? 0,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma SellerReviewRollup missing star fields, requires any until schema updated
   star5: (rollup as any)?.star5 ?? 0,
   lastReviewAt: rollup?.lastReviewAt ?? null,
 });

@@ -17,12 +17,11 @@ export const sanitizeUser = (user: SanitizableUser | null): SafeUser | null => {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {
-    passwordHash,
-    emailVerificationToken,
-    twoFactorSecret,
-    twoFactorBackupCodes,
+    passwordHash: _passwordHash,
+    emailVerificationToken: _emailVerificationToken,
+    twoFactorSecret: _twoFactorSecret,
+    twoFactorBackupCodes: _twoFactorBackupCodes,
     ...rest
   } = user as User & { emailVerificationToken?: string };
   return rest as SafeUser;

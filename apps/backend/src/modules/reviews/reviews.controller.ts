@@ -24,6 +24,7 @@ import {
   SafeReview,
 } from "./review.serializer";
 import { ReviewsService } from "./reviews.service";
+import type { Request as ExpressRequest } from "express";
 
 @Controller("reviews")
 export class ReviewsController {
@@ -49,7 +50,9 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   voteReview(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ): Promise<{ helpfulCount: number; userVoted: boolean }> {
     return this.reviewsService.voteReview(id, req.user.id);
   }
@@ -72,7 +75,9 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   create(
     @Body() dto: CreateReviewDto,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ): Promise<SafeReview> {
     // reviewerId is taken from the authenticated token, never the request body.
     return this.reviewsService.create(dto, req.user.id);
@@ -83,7 +88,9 @@ export class ReviewsController {
   update(
     @Param("id") id: string,
     @Body() dto: UpdateReviewDto,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ): Promise<SafeReview> {
     return this.reviewsService.update(id, dto, {
       id: req.user.id,
@@ -93,7 +100,12 @@ export class ReviewsController {
 
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  remove(@Param("id") id: string, @Request() req: any): Promise<void> {
+  remove(
+    @Param("id") id: string,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ): Promise<void> {
     return this.reviewsService.remove(id, {
       id: req.user.id,
       role: req.user.role,

@@ -7,11 +7,7 @@ import {
 } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../../prisma/prisma.service";
-import {
-  EscrowStatus,
-  DisputeStatus,
-  EscrowTransactionType,
-} from "@prisma/client";
+import { EscrowStatus } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
 
@@ -371,6 +367,7 @@ export class EscrowService {
     disputeId: string,
     authorId: string,
     body: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
     attachments?: any,
     actorRole?: string,
   ) {

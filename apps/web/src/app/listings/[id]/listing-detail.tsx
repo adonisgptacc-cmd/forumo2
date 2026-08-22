@@ -118,7 +118,7 @@ export function ListingDetail({ id }: { id: string }) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [auction?.endAt]);
+  }, [auction, auction?.endAt]);
 
   const condition = (data?.metadata as Record<string, unknown> | null)
     ?.condition as string | undefined;

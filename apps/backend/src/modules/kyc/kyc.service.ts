@@ -5,7 +5,6 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { KycStatus } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
@@ -24,6 +23,7 @@ export class KycService {
       url: string;
       bucket: string;
       storageKey: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
       metadata?: any;
     }[],
   ) {

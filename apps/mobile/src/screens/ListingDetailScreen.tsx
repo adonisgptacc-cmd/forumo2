@@ -62,11 +62,11 @@ export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [apiClient, listingId]);
+  }, [apiClient, listingId, selectedVariant]);
 
   useEffect(() => {
     if (!initialListing) load();
-  }, []);
+  }, [initialListing, load]);
 
   // Check wishlist status
   useEffect(() => {
@@ -75,7 +75,7 @@ export const ListingDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       .check(listingId)
       .then((r) => setSaved(r.saved))
       .catch(() => {});
-  }, [user, listingId]);
+  }, [apiClient, user, listingId]);
 
   const handleAddToCart = () => {
     if (!listing) return;

@@ -159,6 +159,7 @@ describe("AuthService OTP flows", () => {
     };
 
     jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       .spyOn<any, string>(service as any, "generateOtpCode")
       .mockReturnValue("123456");
 

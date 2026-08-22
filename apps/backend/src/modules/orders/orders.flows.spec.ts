@@ -32,6 +32,7 @@ class MockGuard implements CanActivate {
   static currentId = BUYER_ID;
   static currentRole = "BUYER";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.currentId, role: MockGuard.currentRole };
@@ -85,6 +86,7 @@ describe("OrdersModule flows", () => {
 
   it("returns seeded paid/cancelled/refunded orders", async () => {
     const res = await request(app.getHttpServer()).get("/orders").expect(200);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     const numbers = res.body.map((order: any) => order.orderNumber);
 
     expect(numbers).toContain("ORD-SEEDED-PAID");
@@ -470,7 +472,9 @@ describe("OrdersModule flows", () => {
       .expect(200);
 
     expect(retryRes.body.status).toBe(OrderStatus.REFUNDED);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     const refundTxns = (retryRes.body.escrow.transactions as any[]).filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       (t: any) => t.type === EscrowTransactionType.REFUND,
     );
     expect(refundTxns).toHaveLength(1);
@@ -1077,6 +1081,7 @@ class InMemoryPrismaService {
       const order = this.orders.get(where.id);
       return order ? this.buildOrder(order, include) : null;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const id = randomUUID();
       const now = new Date();
@@ -1107,6 +1112,7 @@ class InMemoryPrismaService {
         const createdItems = Array.isArray(data.items.create)
           ? data.items.create
           : [data.items.create];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         createdItems.forEach((item: any) => this.createOrderItem(id, item));
       }
       if (data.timeline?.create) {
@@ -1115,6 +1121,7 @@ class InMemoryPrismaService {
           : [data.timeline.create];
         this.timelines.set(
           id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
           events.map((event: any) => this.createTimelineRecord(id, event)),
         );
       }
@@ -1126,6 +1133,7 @@ class InMemoryPrismaService {
       include,
     }: {
       where: { id: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       data: any;
       include: Prisma.OrderInclude;
     }) => {
@@ -1136,9 +1144,13 @@ class InMemoryPrismaService {
       Object.assign(record, {
         status: data.status ?? record.status,
         paymentStatus: data.paymentStatus ?? record.paymentStatus,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         paidAt: (data as any).paidAt ?? record.paidAt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         fulfilledAt: (data as any).fulfilledAt ?? record.fulfilledAt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         deliveredAt: (data as any).deliveredAt ?? record.deliveredAt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         cancelledAt: (data as any).cancelledAt ?? record.cancelledAt,
       });
       record.updatedAt = new Date();
@@ -1147,6 +1159,7 @@ class InMemoryPrismaService {
         const events = Array.isArray(data.timeline.create)
           ? data.timeline.create
           : [data.timeline.create];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         events.forEach((event: any) =>
           existing.push(this.createTimelineRecord(record.id, event)),
         );
@@ -1157,6 +1170,7 @@ class InMemoryPrismaService {
   };
 
   paymentTransaction = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const record: PaymentTransactionRecord = {
         id: randomUUID(),
@@ -1206,6 +1220,7 @@ class InMemoryPrismaService {
   };
 
   escrowHolding = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const record: EscrowHoldingRecord = {
         id: randomUUID(),
@@ -1233,6 +1248,7 @@ class InMemoryPrismaService {
       );
       return record ?? null;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     update: async ({ where, data }: { where: { id: string }; data: any }) => {
       const record = Array.from(this.escrows.values()).find(
         (escrow) => escrow.id === where.id,
@@ -1252,6 +1268,7 @@ class InMemoryPrismaService {
         orderId: string;
         status?: EscrowStatus | { in: EscrowStatus[] };
       };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       data: any;
     }) => {
       const record = this.escrows.get(where.orderId);
@@ -1273,6 +1290,7 @@ class InMemoryPrismaService {
   };
 
   escrowTransaction = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const record: EscrowTransactionRecord = {
         id: randomUUID(),
@@ -1292,6 +1310,7 @@ class InMemoryPrismaService {
   };
 
   auditLog = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       const record: AuditLogRecord = {
         id: randomUUID(),
@@ -1315,12 +1334,14 @@ class InMemoryPrismaService {
   };
 
   webhookEvent = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     create: async ({ data }: { data: any }) => {
       return { id: randomUUID(), ...data };
     },
     update: async () => ({}),
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   private createOrderItem(orderId: string, item: any) {
     const id = randomUUID();
     this.items.set(id, {
@@ -1338,6 +1359,7 @@ class InMemoryPrismaService {
 
   private createTimelineRecord(
     orderId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     event: any,
   ): OrderTimelineRecord {
     return {

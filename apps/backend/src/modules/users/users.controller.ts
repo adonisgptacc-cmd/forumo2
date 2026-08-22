@@ -24,6 +24,7 @@ import {
   UpdateUserDto,
 } from "../../common/dtos/users.dto";
 import { UsersService, UserProfileResponse } from "./users.service";
+import type { Request as ExpressRequest } from "express";
 
 @Controller("users")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,58 +34,130 @@ export class UsersController {
   // ── "me" routes must come before ":id" routes to prevent ParseUUIDPipe collision ──
 
   @Get("me/profile")
-  getOwnProfile(@Req() req: any): Promise<UserProfileResponse> {
+  getOwnProfile(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ): Promise<UserProfileResponse> {
     return this.usersService.getProfile(req.user.id);
   }
 
   @Patch("me/profile")
   updateOwnProfile(
-    @Req() req: any,
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body() dto: UpdateProfileDto,
   ): Promise<SafeUser> {
     return this.usersService.updateProfile(req.user.id, dto);
   }
 
   @Delete("me/avatar")
-  deleteOwnAvatar(@Req() req: any): Promise<SafeUser> {
+  deleteOwnAvatar(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ): Promise<SafeUser> {
     return this.usersService.removeAvatar(req.user.id);
   }
 
   @Get("me/export")
-  exportMyData(@Req() req: any) {
+  exportMyData(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.usersService.exportUserData(req.user.id);
   }
 
   @Post("me/accept-terms")
   @HttpCode(HttpStatus.NO_CONTENT)
-  acceptTerms(@Req() req: any) {
+  acceptTerms(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.usersService.recordConsent(req.user.id);
   }
 
   @Post("me/become-seller")
   @HttpCode(HttpStatus.OK)
-  becomeSeller(@Req() req: any): Promise<SafeUser> {
+  becomeSeller(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ): Promise<SafeUser> {
     return this.usersService.becomeSeller(req.user.id);
   }
 
   @Get("me/addresses")
-  listAddresses(@Req() req: any) {
+  listAddresses(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.usersService.listAddresses(req.user.id);
   }
 
   @Post("me/addresses")
-  createAddress(@Req() req: any, @Body() body: any) {
-    return this.usersService.createAddress(req.user.id, body);
+  createAddress(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+    @Body() body: unknown,
+  ) {
+    return this.usersService.createAddress(
+      req.user.id,
+      body as {
+        label?: string;
+        fullName: string;
+        phone?: string;
+        line1: string;
+        line2?: string;
+        city: string;
+        state?: string;
+        postalCode?: string;
+        country: string;
+        type?: string;
+        isDefault?: boolean;
+      },
+    );
   }
 
   @Patch("me/addresses/:id")
-  updateAddress(@Req() req: any, @Param("id") id: string, @Body() body: any) {
-    return this.usersService.updateAddress(req.user.id, id, body);
+  updateAddress(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    return this.usersService.updateAddress(
+      req.user.id,
+      id,
+      body as {
+        label?: string;
+        fullName?: string;
+        phone?: string;
+        line1?: string;
+        line2?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+        isDefault?: boolean;
+      },
+    );
   }
 
   @Delete("me/addresses/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteAddress(@Req() req: any, @Param("id") id: string) {
+  deleteAddress(
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+    @Param("id") id: string,
+  ) {
     return this.usersService.deleteAddress(req.user.id, id);
   }
 
@@ -137,7 +210,9 @@ export class UsersController {
   createTrustSeed(
     @Param("id", new ParseUUIDPipe()) id: string,
     @Body() dto: CreateTrustSeedDto,
-    @Req() req: any,
+    @Req()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
   ) {
     return this.usersService.createTrustSeed(id, dto, req.user.id);
   }

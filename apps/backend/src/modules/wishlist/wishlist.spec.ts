@@ -15,6 +15,7 @@ const LISTING_ID_2 = "listing-2";
 
 class MockGuard implements CanActivate {
   static userId = USER_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: MockGuard.userId, role: "BUYER" };
@@ -25,7 +26,9 @@ class MockGuard implements CanActivate {
 // ─── In-Memory Prisma ─────────────────────────────────────────────────────────
 
 class InMemoryPrismaService {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   listings = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   savedListings = new Map<string, any>(); // key: `${userId}_${listingId}`
 
   constructor() {
@@ -48,21 +51,21 @@ class InMemoryPrismaService {
   }
 
   get listing() {
-    const self = this;
     return {
-      findUnique: async ({ where }: any) => self.listings.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findUnique: async ({ where }: any) => this.listings.get(where.id) ?? null,
     };
   }
 
   get savedListing() {
-    const self = this;
     return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findMany: async ({ where }: any) => {
-        return Array.from(self.savedListings.values())
+        return Array.from(this.savedListings.values())
           .filter((sl) => sl.userId === where.userId)
           .sort((a, b) => b.createdAt - a.createdAt)
           .map((sl) => {
-            const listing = self.listings.get(sl.listingId);
+            const listing = this.listings.get(sl.listingId);
             return {
               ...sl,
               listing: listing
@@ -78,15 +81,17 @@ class InMemoryPrismaService {
             };
           });
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) => {
         const { userId, listingId } = where.userId_listingId;
-        return self.savedListings.get(`${userId}_${listingId}`) ?? null;
+        return this.savedListings.get(`${userId}_${listingId}`) ?? null;
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       create: async ({ data }: any) => {
         const key = `${data.userId}_${data.listingId}`;
         const sl = { id: randomUUID(), ...data, createdAt: new Date() };
-        self.savedListings.set(key, sl);
-        const listing = self.listings.get(data.listingId);
+        this.savedListings.set(key, sl);
+        const listing = this.listings.get(data.listingId);
         return {
           ...sl,
           listing: listing
@@ -100,11 +105,12 @@ class InMemoryPrismaService {
             : null,
         };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       delete: async ({ where }: any) => {
         const { userId, listingId } = where.userId_listingId;
         const key = `${userId}_${listingId}`;
-        const item = self.savedListings.get(key);
-        self.savedListings.delete(key);
+        const item = this.savedListings.get(key);
+        this.savedListings.delete(key);
         return item;
       },
     };

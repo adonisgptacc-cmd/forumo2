@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -89,7 +88,7 @@ export const ReviewsScreen: React.FC<Props> = ({ route }) => {
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
-  }, []);
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);

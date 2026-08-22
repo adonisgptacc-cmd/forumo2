@@ -1,4 +1,4 @@
-import type { Auction, SafeOffer, SafeOrder } from "@forumo/shared";
+import type { Auction, SafeOrder } from "@forumo/shared";
 
 export type AuthStackParamList = {
   Onboarding: undefined;

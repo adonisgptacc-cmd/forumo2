@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
-import type { Request } from "express";
+import type { Request as ExpressRequest } from "express";
 
 import { UsersService } from "../../users/users.service";
 import { SafeUser } from "../../users/user.serializer";
@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(req: Request, payload: JwtPayload): Promise<SafeUser> {
+  async validate(req: ExpressRequest, payload: JwtPayload): Promise<SafeUser> {
     const user = await this.usersService.findById(payload.sub);
     if (user.tokenVersion !== payload.tokenVersion) {
       throw new UnauthorizedException("Session expired");

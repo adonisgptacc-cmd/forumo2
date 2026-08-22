@@ -22,7 +22,6 @@ import {
 } from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
 import {
-  ListingWithRelations,
   SafeListing,
   SafeListingImage,
   serializeListing,

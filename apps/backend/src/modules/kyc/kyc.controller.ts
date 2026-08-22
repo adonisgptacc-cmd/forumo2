@@ -22,6 +22,7 @@ import {
   MAX_UPLOAD_FILES,
   uploadLimits,
 } from "../../common/config/upload-limits";
+import type { Request as ExpressRequest } from "express";
 
 type KycDocumentMetadata = Record<string, unknown>;
 
@@ -83,7 +84,9 @@ export class KycController {
   )
   @ApiConsumes("multipart/form-data")
   async submitKyc(
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: { documentTypes: string; metadata?: string },
   ) {
@@ -127,7 +130,11 @@ export class KycController {
   @Get("status")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async getStatus(@Request() req: any) {
+  async getStatus(
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ) {
     return this.kycService.getSubmission(req.user.id);
   }
 
@@ -153,7 +160,9 @@ export class KycController {
   @ApiBearerAuth()
   async reviewSubmission(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
     @Body() body: { status: string; rejectionReason?: string },
   ) {
     const allowed: Record<string, string> = {

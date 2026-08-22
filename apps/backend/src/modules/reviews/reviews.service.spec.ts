@@ -14,8 +14,10 @@ const mockPrisma = {
   reviewVote: { upsert: mockVoteUpsert, count: mockVoteCount },
   reviewFlag: { create: mockFlagCreate },
   $transaction: mockTransaction,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
 } as any;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
 const mockModeration = {} as any;
 
 describe("ReviewsService — vote and flag", () => {

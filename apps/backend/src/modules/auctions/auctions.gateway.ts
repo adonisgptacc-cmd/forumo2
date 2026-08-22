@@ -2,11 +2,8 @@ import { Logger } from "@nestjs/common";
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  ConnectedSocket,
-  MessageBody,
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 
@@ -27,16 +24,16 @@ export class AuctionsGateway
     }
   }
 
-  handleDisconnect(client: Socket): void {
+  handleDisconnect(_client: Socket): void {
     // Standard cleanup if needed
   }
 
-  emitBid(auctionId: string, bid: any): void {
+  emitBid(auctionId: string, bid: Record<string, unknown>): void {
     if (!this.server) return;
     this.server.to(auctionId).emit("auction:bid", bid);
   }
 
-  emitAuctionEnd(auctionId: string, result: any): void {
+  emitAuctionEnd(auctionId: string, result: Record<string, unknown>): void {
     if (!this.server) return;
     this.server.to(auctionId).emit("auction:ended", result);
   }

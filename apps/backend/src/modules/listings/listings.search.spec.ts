@@ -28,6 +28,7 @@ const listingB = {
 } as const;
 
 describe("ListingSearchService", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   let prisma: any;
   let service: ListingSearchService;
 
@@ -45,6 +46,7 @@ describe("ListingSearchService", () => {
         ),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     service = new ListingSearchService(prisma as any);
   });
 
@@ -109,6 +111,7 @@ describe("ListingSearchService", () => {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn().mockResolvedValue(undefined),
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     service = new ListingSearchService(prisma as any, cache as any);
 
     await service.search({
@@ -137,6 +140,7 @@ describe("ListingSearchService", () => {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn().mockResolvedValue(undefined),
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     service = new ListingSearchService(prisma as any, cache as any);
 
     await expect(
@@ -147,6 +151,7 @@ describe("ListingSearchService", () => {
   });
 
   it("normalizes keyword spacing and uses multiple tsquery strategies", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     const { tsQueries, headlineQuery } = (service as any).buildKeywordQueries(
       "  woven   cloth ",
     );
@@ -172,6 +177,7 @@ describe("ListingSearchService", () => {
       tags: ["woven"],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     const cteSql = (prisma.$queryRaw.mock.calls[0]?.[0] as any).strings.join(
       " ",
     );
@@ -192,6 +198,7 @@ describe("ListingSearchService", () => {
 
     await service.search({ keyword: "kente", page: 1, pageSize: 5 });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     const searchSql = (prisma.$queryRaw.mock.calls[1]?.[0] as any).strings.join(
       " ",
     );

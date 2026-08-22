@@ -180,6 +180,7 @@ export class ShippoWebhookController {
     );
 
     if (currentStatus.toUpperCase() === SHIPPO_DELIVERED_STATUS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Shippo webhook payload requires flexible any for provider verification
       await this.handleDelivered(shipment.order as any, orderId);
     }
 
@@ -277,7 +278,9 @@ export class ShippoWebhookController {
     }
 
     const rawBody: Buffer | string =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Shippo webhook payload requires flexible any for provider verification
       (req as any).rawBody ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Shippo webhook payload requires flexible any for provider verification
       Buffer.from(JSON.stringify((req as any).body ?? {}));
 
     const expected = createHmac("sha256", secret).update(rawBody).digest("hex");

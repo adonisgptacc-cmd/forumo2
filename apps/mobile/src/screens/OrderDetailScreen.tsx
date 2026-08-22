@@ -81,13 +81,13 @@ export const OrderDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } else {
       navigation.setOptions({ title: `Order #${initialOrder.orderNumber}` });
     }
-  }, []);
+  }, [initialOrder, loadOrder, navigation]);
 
   useEffect(() => {
     if (order) {
       navigation.setOptions({ title: `Order #${order.orderNumber}` });
     }
-  }, [order]);
+  }, [navigation, order]);
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -24,6 +24,7 @@ import { CacheService } from "../../common/services/cache.service";
 const SELLER_ID = "seller-1";
 
 class MockJwtGuard implements CanActivate {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   canActivate(context: any) {
     const req = context.switchToHttp().getRequest();
     req.user = { id: SELLER_ID, role: "SELLER" };
@@ -152,8 +153,10 @@ class InMemoryPrismaService {
   };
 
   listing = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     count: async ({ where }: any) =>
       (await this.listing.findMany({ where })).length,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findMany: async ({ where, orderBy, include }: any) => {
       let results = Array.from(this.listings.values()).filter(
         (listing) => !listing.deletedAt,
@@ -176,6 +179,7 @@ class InMemoryPrismaService {
       }
       return results.map((listing) => this.buildListing(listing, include));
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     findFirst: async ({ where, include }: any) => {
       const match = Array.from(this.listings.values()).find((listing) => {
         if (where.id && listing.id !== where.id) {
@@ -294,6 +298,7 @@ class InMemoryPrismaService {
 
   private buildListing(
     listing: ListingRecord,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
     include?: any,
   ): Listing | ListingWithRelations {
     if (!include) {

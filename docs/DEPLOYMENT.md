@@ -29,7 +29,7 @@ Production deployment to Kubernetes. All manifests live under [`k8s/`](../k8s/).
 - `kubectl` ≥ 1.28
 - `helm` ≥ 3.12
 - `docker` ≥ 24
-- `pnpm` 9.1.4
+- `pnpm` 11.19.0
 - `node` 20+
 - `aws` CLI (for Secrets Manager seeding)
 

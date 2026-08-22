@@ -79,7 +79,7 @@ async function bootstrap() {
   );
   app.use(cookieParser());
   app.useGlobalFilters(new AllExceptionsFilter());
-  const configService = app.get(ConfigService);
+  void app.get(ConfigService);
   app.setGlobalPrefix("api/v1");
   app.useGlobalPipes(new ZodValidationPipe());
 
@@ -96,7 +96,7 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT ?? 4000;
-  const server = await app.listen(port, "0.0.0.0");
+  await app.listen(port, "0.0.0.0");
   console.log(`🚀 Backend listening on http://0.0.0.0:${port}`);
   console.log(`📚 API Docs available at http://localhost:${port}/docs`);
 

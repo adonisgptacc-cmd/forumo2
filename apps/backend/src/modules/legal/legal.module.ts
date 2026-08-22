@@ -6,9 +6,16 @@ import { LegalService } from "./legal.service";
 import { AccountDeletionService } from "./account-deletion.service";
 import { CacheModule } from "../../common/services/cache.module";
 import { OrdersModule } from "../orders/orders.module";
+import { ObservabilityModule } from "../observability/observability.module";
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, CacheModule, OrdersModule],
+  imports: [
+    PrismaModule,
+    NotificationsModule,
+    CacheModule,
+    OrdersModule,
+    ObservabilityModule,
+  ],
   controllers: [LegalController],
   providers: [LegalService, AccountDeletionService],
   exports: [LegalService, AccountDeletionService],

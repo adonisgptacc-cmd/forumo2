@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -102,9 +103,12 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
     >
-      <img
+      <Image
         src={src}
         alt="Attachment"
+        width={800}
+        height={600}
+        unoptimized
         className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
@@ -446,9 +450,12 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                               onClick={() => setLightboxSrc(url)}
                               className="overflow-hidden rounded-lg border border-[color:var(--line)] hover:opacity-80"
                             >
-                              <img
+                              <Image
                                 src={url}
                                 alt={`Attachment ${i + 1}`}
+                                width={96}
+                                height={96}
+                                unoptimized
                                 className="h-24 w-24 object-cover"
                               />
                             </button>
@@ -662,9 +669,12 @@ export function DisputeDetail({ orderId }: { orderId: string }) {
                       className="overflow-hidden rounded-lg border border-[color:var(--line)] hover:opacity-80 transition-opacity"
                       title={url}
                     >
-                      <img
+                      <Image
                         src={url}
                         alt={`Evidence ${i + 1}`}
+                        width={64}
+                        height={64}
+                        unoptimized
                         className="h-16 w-16 object-cover"
                       />
                     </button>

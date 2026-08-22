@@ -1,9 +1,136 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const read = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+const runPnpm = (args) => {
+  const options = {
+    cwd: new URL("../", import.meta.url),
+    encoding: "utf8",
+  };
+  return process.platform === "win32"
+    ? spawnSync(`pnpm ${args.join(" ")}`, {
+        ...options,
+        shell: true,
+      })
+    : spawnSync("pnpm", args, options);
+};
+
+const readPnpmConfig = (key) => {
+  const result = runPnpm(["config", "get", key, "--json"]);
+
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.notEqual(result.stdout.trim(), "", `pnpm did not load ${key}`);
+  return JSON.parse(result.stdout);
+};
+
+const parseVersion = (version) => version.split(".").map(Number);
+
+const isAtLeastVersion = (actual, minimum) => {
+  const actualParts = parseVersion(actual);
+  const minimumParts = parseVersion(minimum);
+
+  for (let index = 0; index < minimumParts.length; index += 1) {
+    const actualPart = actualParts[index] ?? 0;
+    const minimumPart = minimumParts[index] ?? 0;
+
+    if (actualPart > minimumPart) {
+      return true;
+    }
+
+    if (actualPart < minimumPart) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+test("pnpm runtime matches the repository package-manager pin", () => {
+  const expected = JSON.parse(read("package.json")).packageManager;
+  const result = runPnpm(["--version"]);
+
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.equal(`pnpm@${result.stdout.trim()}`, expected);
+});
+
+test("turbo supports pnpm 11 flat patch lockfiles", () => {
+  const rootPackage = JSON.parse(read("package.json"));
+  const minimumTurboVersion = "2.9.7";
+  const result = runPnpm(["turbo", "--version"]);
+
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.ok(
+    isAtLeastVersion(result.stdout.trim(), minimumTurboVersion),
+    `turbo ${result.stdout.trim()} cannot parse pnpm 11 patchedDependencies lockfile entries`,
+  );
+  assert.match(rootPackage.devDependencies.turbo, /^\^?2\./);
+});
+
+test("pnpm uses the repository-local store in every runtime", () => {
+  const result = runPnpm(["store", "path"]);
+  const workspaceRoot = fileURLToPath(new URL("../", import.meta.url));
+  const expectedStoreRoot = resolve(workspaceRoot, ".pnpm-store");
+  const workspaceConfig = read("pnpm-workspace.yaml");
+
+  assert.match(workspaceConfig, /^storeDir: \.pnpm-store$/m);
+  assert.match(workspaceConfig, /^enableGlobalVirtualStore: false$/m);
+  assert.match(workspaceConfig, /^verifyDepsBeforeRun: warn$/m);
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.ok(
+    resolve(result.stdout.trim()).startsWith(expectedStoreRoot),
+    `pnpm resolved an external store: ${result.stdout.trim()}`,
+  );
+});
+
+test("pnpm loads the repository overrides and patch declarations", () => {
+  const overrides = readPnpmConfig("overrides");
+  const patchedDependencies = readPnpmConfig("patchedDependencies");
+
+  assert.equal(overrides["@auth/core@<0.41.3"], "0.41.3");
+  assert.equal(
+    patchedDependencies["@expo/cli@0.17.13"],
+    resolve(
+      fileURLToPath(new URL("../", import.meta.url)),
+      "patches/@expo__cli@0.17.13.patch",
+    ),
+  );
+});
+
+test("pnpm applies an explicit dependency build-script policy", () => {
+  const allowBuilds = readPnpmConfig("allowBuilds");
+
+  assert.equal(allowBuilds["@prisma/client"], true);
+  assert.equal(allowBuilds["@prisma/engines"], true);
+  assert.equal(allowBuilds.bcrypt, true);
+  assert.equal(allowBuilds.esbuild, true);
+  assert.equal(allowBuilds["@nestjs/core"], false);
+  assert.equal(allowBuilds["@sentry/cli"], false);
+  assert.equal(allowBuilds.msw, false);
+  assert.equal(allowBuilds.prisma, false);
+  assert.equal(allowBuilds.protobufjs, false);
+});
+
+test("workspace installs generate the backend Prisma client explicitly", () => {
+  const rootPackage = JSON.parse(read("package.json"));
+  const backendPackage = JSON.parse(read("apps/backend/package.json"));
+
+  assert.equal(
+    rootPackage.scripts.postinstall,
+    "pnpm --filter backend prisma:generate",
+  );
+  assert.equal(
+    backendPackage.scripts["prisma:generate"],
+    "prisma generate --schema prisma/schema.prisma",
+  );
+  assert.equal(backendPackage.scripts.prebuild, "pnpm run prisma:generate");
+  assert.equal(backendPackage.scripts.pretypecheck, "pnpm run prisma:generate");
+});
 
 test("production workloads consume the External Secrets outputs", () => {
   const backend = read("k8s/backend/deployment.yaml");

@@ -185,7 +185,7 @@ export const OffersScreen: React.FC<Props> = () => {
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
-  }, []);
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -196,7 +196,7 @@ export const OffersScreen: React.FC<Props> = () => {
   const handleAccept = async (offerId: string) => {
     setAccepting(offerId);
     try {
-      const updated = await apiClient.offers.accept(offerId);
+      await apiClient.offers.accept(offerId);
       setOffers((prev) =>
         prev.map((o) => (o.id === offerId ? { ...o, status: "ACCEPTED" } : o)),
       );

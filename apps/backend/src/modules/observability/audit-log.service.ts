@@ -13,12 +13,14 @@ interface AuditInput {
   userAgent?: string | null;
 }
 
+type AuditClient = Pick<PrismaService, "auditLog">;
+
 @Injectable()
 export class AuditLogService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(event: AuditInput) {
-    await this.prisma.auditLog.create({
+  async record(event: AuditInput, client: AuditClient = this.prisma) {
+    await client.auditLog.create({
       data: {
         actorId: event.actorId ?? null,
         action: event.action,
