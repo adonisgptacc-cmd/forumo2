@@ -29,6 +29,7 @@
     "test:dependency-security": "node --test tests/dependency-security.test.mjs",
     "test:hygiene": "node --test tests/repository-hygiene.test.mjs",
     "test:ai-config": "node --test tests/ai-governance.test.mjs",
+    "test:prisma-drift": "node --test tests/prisma-drift.test.mjs",
     "test:coverage": "turbo run test --coverage",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint --fix",
@@ -36,7 +37,7 @@
     "format:check": "prettier --check apps packages docs scripts tests \"*.json\" \"*.md\"",
     "build": "turbo run build",
     "verify:quick": "pnpm format:check && pnpm lint && pnpm typecheck",
-    "verify": "pnpm test:hygiene && pnpm test:dependency-security && pnpm verify:quick && pnpm test:ai-config && pnpm test && pnpm test:deployment && pnpm build",
+    "verify": "pnpm test:hygiene && pnpm test:dependency-security && pnpm verify:quick && pnpm test:ai-config && pnpm test:prisma-drift && pnpm test && pnpm test:deployment && pnpm build",
     "clean": "turbo run clean && rm -rf node_modules",
     "typecheck": "turbo run typecheck"
   },

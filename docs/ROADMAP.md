@@ -68,11 +68,11 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 #### RR-001 — Enforce the supported Node and pnpm toolchain (P0)
 
 - [x] Migrate the repository to pnpm `11.19.0` so local, CI, container, and Codex verification use the same package-manager major.
-- [ ] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
-- [ ] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
-- [ ] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored.
+- [x] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
+- [x] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
+- [x] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored. (N/A — repository is on pnpm 11.)
 - [x] Migrate overrides and patched dependencies to `pnpm-workspace.yaml`, the supported pnpm 11 configuration surface.
-- [ ] Add a CI preflight that prints and validates Node/pnpm versions before installation.
+- [x] Add a CI preflight that prints and validates Node/pnpm versions before installation.
 
 Dependencies: none.
 
@@ -94,11 +94,11 @@ pnpm list --depth 0
 
 #### RR-002 — Make Prisma generation deterministic (P0)
 
-- [ ] Confirm `prisma` and `@prisma/client` use compatible, intentionally pinned versions.
-- [ ] Run generation from `apps/backend/prisma/schema.prisma` and confirm the generated client exports all schema models and enums.
-- [ ] Add or repair a package lifecycle/CI step so a clean install cannot type-check or build against an ungenerated client.
-- [ ] Add a CI drift check that fails when the schema and generated client are inconsistent.
-- [ ] Document when developers must run `prisma generate`, including after branch switches that change the schema.
+- [x] Confirm `prisma` and `@prisma/client` use compatible, intentionally pinned versions. (Both caret-pinned to `^5.20.0`, verified they resolve to the same `5.22.0` and typecheck cleanly.)
+- [x] Run generation from `apps/backend/prisma/schema.prisma` and confirm the generated client exports all schema models and enums. (Verified via `tests/prisma-drift.test.mjs`.)
+- [x] Add or repair a package lifecycle/CI step so a clean install cannot type-check or build against an ungenerated client. (`pretypecheck`/`pretest`/`prebuild` hooks in `apps/backend/package.json` already run `prisma:generate` first; confirmed working from a clean install.)
+- [x] Add a CI drift check that fails when the schema and generated client are inconsistent. (`tests/prisma-drift.test.mjs`, run via `pnpm test:prisma-drift` in the CI `lint` job.)
+- [x] Document when developers must run `prisma generate`, including after branch switches that change the schema.
 
 Dependencies: RR-001.
 
@@ -118,9 +118,9 @@ pnpm --filter backend test
 
 #### RR-003 — Repair the design-system type boundary (P1)
 
-- [ ] Decide whether Storybook stories are part of the package type-check or have a separate Storybook tsconfig.
-- [ ] Add the correct direct Storybook type dependency or update story imports to the supported package API.
-- [ ] Add design-system `typecheck`, `test`, and Storybook build tasks to Turbo/CI if they are intended release surfaces.
+- [x] Decide whether Storybook stories are part of the package type-check or have a separate Storybook tsconfig. (Kept in the existing single `tsconfig.json` — stories were already included via `src/**/*`; no split needed.)
+- [x] Add the correct direct Storybook type dependency or update story imports to the supported package API. (Added `@storybook/react` as an explicit devDependency; it was only a transitive dep of `@storybook/react-vite`, which pnpm's strict linking hid from `tsc`.)
+- [x] Add design-system `typecheck`, `test`, and Storybook build tasks to Turbo/CI if they are intended release surfaces. (Added `typecheck` script; it's picked up automatically by the existing `turbo run typecheck` used in root `pnpm typecheck`/CI `lint` job — no `turbo.json` change needed. The package has no test suite or release-surface Storybook build requirement yet, so those are left out of scope.)
 
 Dependencies: RR-001.
 
