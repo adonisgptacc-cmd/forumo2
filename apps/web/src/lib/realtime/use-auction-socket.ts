@@ -1,40 +1,34 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { useSession } from "next-auth/react";
+import { getGatewayBaseUrl } from "@forumo/shared";
 
 export const useAuctionSocket = (auctionId: string) => {
-  const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const { data: session } = useSession() as unknown as {
+    accessToken?: string;
+  } & Record<string, unknown>;
 
   useEffect(() => {
-    // Only connect if we have an auctionId
     if (!auctionId) return;
-
-    // Initialize socket connection
-    // In dev, Next.js might effectively be on listing 3000, backend on 3001
-    // Adjust URL as per env
-    const socketUrl =
-      process.env.NEXT_PUBLIC_WS_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:4000";
-
-    socketRef.current = io(`${socketUrl}/auctions`, {
+    const base = getGatewayBaseUrl();
+    const token = (session as unknown as { accessToken?: string })?.accessToken;
+    const s = io(`${base}/auctions`, {
       query: { auctionId },
+      auth: token ? { token } : {},
       transports: ["websocket"],
     });
-
-    const socket = socketRef.current;
-
-    socket.on("connect", () => {
-      console.log("Connected to auction room:", auctionId);
-    });
-
+    setSocket(s);
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      s.disconnect();
+      setSocket(null);
     };
-  }, [auctionId]);
+  }, [
+    auctionId,
+    (session as unknown as { accessToken?: string })?.accessToken,
+  ]);
 
-  return socketRef.current;
+  return socket;
 };

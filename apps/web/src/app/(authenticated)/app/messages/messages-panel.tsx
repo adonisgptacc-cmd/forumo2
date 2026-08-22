@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { io } from "socket.io-client";
 
-import type { SafeMessageThread } from "@forumo/shared";
+import { getGatewayBaseUrl, type SafeMessageThread } from "@forumo/shared";
 import {
   useCurrentUser,
   useMessageThreads,
@@ -31,11 +32,13 @@ function Avatar({
   avatarUrl?: string | null;
 }) {
   if (avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img
+      <Image
         src={avatarUrl}
         alt={name ?? ""}
+        width={40}
+        height={40}
+        unoptimized
         className="h-10 w-10 rounded-full object-cover shrink-0"
       />
     );
@@ -116,9 +119,7 @@ export function MessagesPanel() {
 
   useEffect(() => {
     if (!accessToken) return;
-    const base = (
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1"
-    ).replace(/\/api\/v1$/, "");
+    const base = getGatewayBaseUrl();
     const socket = io(`${base}/messages`, { auth: { token: accessToken } });
     socket.on("messages:new", () => {
       queryClient.invalidateQueries({ queryKey: ["threads"], exact: false });

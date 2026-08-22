@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { getApiBaseUrl } from "@forumo/shared";
 
 export function OAuthCallback() {
   const router = useRouter();
@@ -14,8 +15,7 @@ export function OAuthCallback() {
 
     // Exchange the short-lived httpOnly cookie set by the backend for a bearer token.
     // The token is never exposed in the URL — this prevents history/log leakage.
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+    const apiBase = getApiBaseUrl();
     fetch(`${apiBase}/auth/oauth/exchange`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then(({ accessToken }: { accessToken: string }) => {

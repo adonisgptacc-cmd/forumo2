@@ -861,6 +861,37 @@ export const listingTagSchema = z.object({
 });
 export type ListingTag = z.infer<typeof listingTagSchema>;
 
+export const createCategorySchema = z.object({
+  slug: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/),
+  name: z.string().min(1).max(50),
+  description: z.string().max(500).optional(),
+  parentId: z.string().uuid().nullable().optional(),
+  position: z.number().int().min(0).optional(),
+});
+export type CreateCategoryDto = z.infer<typeof createCategorySchema>;
+
+export const updateCategorySchema = createCategorySchema.partial();
+export type UpdateCategoryDto = z.infer<typeof updateCategorySchema>;
+
+export const createTagSchema = z.object({
+  slug: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/),
+  label: z.string().min(1).max(50),
+});
+export type CreateTagDto = z.infer<typeof createTagSchema>;
+
+export const updateTagSchema = z.object({
+  label: z.string().min(1).max(50),
+});
+export type UpdateTagDto = z.infer<typeof updateTagSchema>;
+
 export const savedListingSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),

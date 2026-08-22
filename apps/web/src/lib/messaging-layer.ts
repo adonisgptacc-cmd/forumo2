@@ -7,7 +7,8 @@ import type {
   SendMessageDto,
 } from "@forumo/shared";
 
-import { apiBaseUrl, createApiClient } from "./api-client";
+import { getGatewayBaseUrl } from "@forumo/shared";
+import { createApiClient } from "./api-client";
 
 export class MessagingLayer {
   private readonly apiClient: ReturnType<typeof createApiClient>;
@@ -16,9 +17,9 @@ export class MessagingLayer {
     this.apiClient = createApiClient(accessToken);
   }
 
-  connect(userId: string): Socket {
+  connect(token?: string | null): Socket {
     const base = getGatewayBaseUrl();
-    return io(`${base}/messages`, { auth: { userId } });
+    return io(`${base}/messages`, { auth: token ? { token } : {} });
   }
 
   async listThreads(
@@ -55,8 +56,4 @@ export class MessagingLayer {
   emitRead(socket: Socket | null, messageId: string) {
     socket?.emit("messages:read", { messageId });
   }
-}
-
-export function getGatewayBaseUrl() {
-  return (apiBaseUrl ?? "").replace(/\/api\/v1$/, "");
 }

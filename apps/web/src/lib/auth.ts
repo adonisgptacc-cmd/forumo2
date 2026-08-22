@@ -121,9 +121,9 @@ export const authOptions: NextAuthOptions = {
 
       // Silently exchange the refresh token for a new access token
       try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-        const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+        const { getApiBaseUrl } = await import("@forumo/shared");
+        const baseUrl = getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/auth/refresh`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

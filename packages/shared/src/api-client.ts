@@ -109,6 +109,38 @@ export class ApiError extends Error {
   }
 }
 
+export function getApiBaseUrl(raw?: string | null): string {
+  const candidate =
+    raw ??
+    (typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined)
+      : undefined) ??
+    "http://localhost:4000";
+  const trimmed = candidate.replace(/\/$/, "");
+  if (trimmed.endsWith("/api/v1")) return trimmed;
+  if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+  return `${trimmed}/api/v1`;
+}
+
+export function getGatewayBaseUrl(raw?: string | null): string {
+  const api = getApiBaseUrl(raw);
+  return api.replace(/\/api\/v1$/, "");
+}
+
+export function getWsBaseUrl(raw?: string | null): string {
+  if (
+    raw ??
+    (typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_WS_URL as string | undefined)
+      : undefined)
+  ) {
+    const wsRaw =
+      raw ?? (process.env.NEXT_PUBLIC_WS_URL as string | undefined)!;
+    return wsRaw.replace(/\/$/, "");
+  }
+  return getGatewayBaseUrl();
+}
+
 export interface ForumoApiClientOptions {
   baseUrl: string;
   fetchImpl?: typeof fetch;

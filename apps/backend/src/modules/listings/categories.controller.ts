@@ -9,10 +9,34 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
+import { z } from "zod";
+import { createZodDto } from "nestjs-zod";
+import {
+  createCategorySchema,
+  updateCategorySchema,
+  createTagSchema,
+  updateTagSchema,
+} from "@forumo/shared";
 import { CategoriesService } from "./categories.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
+
+class CreateCategoryDto extends createZodDto(createCategorySchema) {}
+class UpdateCategoryDto extends createZodDto(updateCategorySchema) {}
+class CreateTagDto extends createZodDto(createTagSchema) {}
+class UpdateTagDto extends createZodDto(updateTagSchema) {}
+
+const assignCategoriesSchema = z.object({
+  categoryIds: z.array(z.string().uuid()),
+  primaryCategoryId: z.string().uuid().nullable().optional(),
+});
+class AssignCategoriesDto extends createZodDto(assignCategoriesSchema) {}
+
+const assignTagsSchema = z.object({
+  tagIds: z.array(z.string().uuid()),
+});
+class AssignTagsDto extends createZodDto(assignTagsSchema) {}
 
 @Controller("categories")
 export class CategoriesController {
@@ -33,33 +57,27 @@ export class CategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  createCategory(
-    @Body()
-    body: {
-      slug: string;
-      name: string;
-      description?: string;
-      parentId?: string;
-      position?: number;
-    },
-  ) {
-    return this.categoriesService.createCategory(body);
+  createCategory(@Body() dto: CreateCategoryDto) {
+    const { parentId, ...rest } = dto as CreateCategoryDto & {
+      parentId?: string | null;
+    };
+    return this.categoriesService.createCategory({
+      ...rest,
+      parentId: parentId ?? undefined,
+    });
   }
 
   @Patch(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  updateCategory(
-    @Param("id") id: string,
-    @Body()
-    body: {
-      name?: string;
-      description?: string;
-      parentId?: string;
-      position?: number;
-    },
-  ) {
-    return this.categoriesService.updateCategory(id, body);
+  updateCategory(@Param("id") id: string, @Body() dto: UpdateCategoryDto) {
+    const { parentId, ...rest } = dto as UpdateCategoryDto & {
+      parentId?: string | null;
+    };
+    return this.categoriesService.updateCategory(id, {
+      ...rest,
+      parentId: parentId ?? undefined,
+    });
   }
 
   @Delete(":id")
@@ -73,15 +91,15 @@ export class CategoriesController {
   @Post("tags")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  createTag(@Body() body: { slug: string; label: string }) {
-    return this.categoriesService.createTag(body);
+  createTag(@Body() dto: CreateTagDto) {
+    return this.categoriesService.createTag(dto);
   }
 
   @Patch("tags/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  updateTag(@Param("id") id: string, @Body() body: { label?: string }) {
-    return this.categoriesService.updateTag(id, body);
+  updateTag(@Param("id") id: string, @Body() dto: UpdateTagDto) {
+    return this.categoriesService.updateTag(id, dto);
   }
 
   @Delete("tags/:id")
@@ -96,14 +114,14 @@ export class CategoriesController {
   @UseGuards(JwtAuthGuard)
   assignCategories(
     @Param("listingId") listingId: string,
-    @Body() body: { categoryIds: string[]; primaryCategoryId?: string },
+    @Body() dto: AssignCategoriesDto,
     @Request() req: { user: { id: string } },
   ) {
     return this.categoriesService.assignCategoriesToListing(
       listingId,
       req.user.id,
-      body.categoryIds,
-      body.primaryCategoryId,
+      dto.categoryIds,
+      dto.primaryCategoryId ?? undefined,
     );
   }
 
@@ -111,13 +129,13 @@ export class CategoriesController {
   @UseGuards(JwtAuthGuard)
   assignTags(
     @Param("listingId") listingId: string,
-    @Body() body: { tagIds: string[] },
+    @Body() dto: AssignTagsDto,
     @Request() req: { user: { id: string } },
   ) {
     return this.categoriesService.assignTagsToListing(
       listingId,
       req.user.id,
-      body.tagIds,
+      dto.tagIds,
     );
   }
 }

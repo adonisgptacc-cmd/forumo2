@@ -17,6 +17,7 @@ import {
   UseInterceptors,
   MaxFileSizeValidator,
   ParseFilePipe,
+  FileTypeValidator,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ListingModerationStatus, ListingStatus } from "@prisma/client";
@@ -28,6 +29,7 @@ import { SafeListing, SafeListingImage } from "./listing.serializer";
 import { ListingsService } from "./listings.service";
 import { ListingSearchService } from "./search.service";
 import { LocalSearchService } from "./local-search.service";
+import type { Request as ExpressRequest } from "express";
 
 @Controller("listings")
 export class ListingsController {
@@ -71,6 +73,16 @@ export class ListingsController {
       const d = new Date(String(v));
       return isNaN(d.getTime()) ? undefined : d;
     };
+    const toStringArray = (v: unknown): string[] | undefined => {
+      if (Array.isArray(v))
+        return v.filter((x) => typeof x === "string") as string[];
+      if (typeof v === "string")
+        return v
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      return undefined;
+    };
     const VALID_SORTS = [
       "relevance",
       "price_asc",
@@ -95,9 +107,9 @@ export class ListingsController {
       minPriceCents: toInt(query.minPriceCents),
       maxPriceCents: toInt(query.maxPriceCents),
       sellerId: typeof query.sellerId === "string" ? query.sellerId : undefined,
-      sellerIds: query.sellerIds as any,
-      tags: query.tags as any,
-      categories: query.categories as any,
+      sellerIds: toStringArray(query.sellerIds),
+      tags: toStringArray(query.tags),
+      categories: toStringArray(query.categories),
       createdAfter: toDate(query.createdAfter),
       createdBefore: toDate(query.createdBefore),
       sort: toSort(query.sort),
@@ -105,7 +117,12 @@ export class ListingsController {
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string, @Request() req: any): Promise<SafeListing> {
+  findOne(
+    @Param("id") id: string,
+    @Request()
+    req: ExpressRequest &
+      Record<string, unknown> & { user: { id: string; role: string } },
+  ): Promise<SafeListing> {
     const viewerId = req?.user?.id as string | undefined;
     return this.listingsService.findById(id, viewerId);
   }
@@ -136,7 +153,7 @@ export class ListingsController {
       );
     return this.listingsService.bulkUpdateStatus(
       ids,
-      status as any,
+      ListingStatus.PAUSED,
       req.user.id,
     );
   }
@@ -196,7 +213,10 @@ export class ListingsController {
     @Param("id") id: string,
     @UploadedFile(
       new ParseFilePipe({
-        validators: [new MaxFileSizeValidator({ maxSize: 8 * 1024 * 1024 })],
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 8 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(jpeg|png|webp)/ }),
+        ],
       }),
     )
     file: Express.Multer.File,

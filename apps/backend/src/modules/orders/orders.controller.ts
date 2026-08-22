@@ -121,8 +121,6 @@ export class OrdersController {
   ): Promise<SafeOrder> {
     const { id: userId, role } = req.user;
     const isAdmin = role === "ADMIN";
-    const isModerator = role === "MODERATOR";
-    const isStaff = isAdmin || isModerator;
     const providerRefundStatuses: readonly OrderStatus[] = [
       OrderStatus.REFUNDED,
       OrderStatus.REFUND_PENDING,
@@ -136,7 +134,7 @@ export class OrdersController {
     }
 
     const order = !isAdmin
-      ? await this.ordersService.findById(id, isModerator ? undefined : userId)
+      ? await this.ordersService.findById(id, userId)
       : null;
 
     if (
@@ -147,26 +145,6 @@ export class OrdersController {
       throw new ForbiddenException(
         "Captured orders must be refunded through an approved return, dispute, or administrator flow",
       );
-    }
-
-    // Verify the caller is a party to the order; actorId is always the authenticated user.
-    // Staff (ADMIN/MODERATOR) skip the ownership check so they can force status corrections.
-    if (!isStaff) {
-      if (!order) {
-        throw new ForbiddenException("Access denied");
-      }
-      const isBuyer = order.buyerId === userId;
-      const isSeller = order.sellerId === userId;
-
-      // Status-level permission gates
-      if (dto.status === OrderStatus.COMPLETED && !isBuyer) {
-        throw new ForbiddenException("Only the buyer can release escrow");
-      }
-      if (dto.status === OrderStatus.FULFILLED && !isSeller) {
-        throw new ForbiddenException(
-          "Only the seller can mark an order as fulfilled",
-        );
-      }
     }
 
     return this.ordersService.updateStatus(id, { ...dto, actorId: userId });

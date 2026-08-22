@@ -24,10 +24,9 @@ import type {
   PlaceBidDto,
   CreateStorefrontDto,
 } from "@forumo/shared";
-import { ForumoApiClient } from "@forumo/shared";
+import { ForumoApiClient, getApiBaseUrl } from "@forumo/shared";
 
-export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
+export const apiBaseUrl = getApiBaseUrl();
 const useMocks =
   process.env.NEXT_PUBLIC_USE_API_MOCKS === "true" &&
   process.env.NODE_ENV !== "production";

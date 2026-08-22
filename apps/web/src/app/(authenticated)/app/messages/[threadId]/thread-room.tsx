@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-import type { Message, MessageAttachment } from "@forumo/shared";
+import {
+  getGatewayBaseUrl,
+  type Message,
+  type MessageAttachment,
+} from "@forumo/shared";
 import {
   useCurrentUser,
   useMarkThreadRead,
@@ -217,9 +221,7 @@ export function ThreadRoom({ threadId }: { threadId: string }) {
   // real-time: single socket, listen for new messages in this thread
   useEffect(() => {
     if (!accessToken) return;
-    const base = (
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1"
-    ).replace(/\/api\/v1$/, "");
+    const base = getGatewayBaseUrl();
     const socket = io(`${base}/messages`, { auth: { token: accessToken } });
     socket.on("messages:new", (payload: { threadId: string }) => {
       if (payload.threadId === threadId) {

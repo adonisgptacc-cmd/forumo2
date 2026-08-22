@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import { CartProvider } from "../lib/cart-context";
-import { getGatewayBaseUrl } from "../lib/messaging-layer";
+import { getGatewayBaseUrl } from "@forumo/shared";
 import { queryKeys } from "../lib/react-query/query-keys";
 import type { SafeNotification } from "@forumo/shared";
 
