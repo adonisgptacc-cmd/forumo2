@@ -187,13 +187,16 @@ export class EscrowService {
       select: { seller: { select: { email: true, name: true } } },
     });
     if (releaseOrder?.seller) {
-      await this.notifications.notifyEscrowReleased(
-        releaseOrder.seller.email,
-        releaseOrder.seller.name ?? "Seller",
-        orderId,
-        escrow.amountCents,
-        escrow.currency,
-      );
+      // Non-blocking notification — runs after transaction commits, cannot affect escrow release
+      void this.notifications
+        .notifyEscrowReleased(
+          releaseOrder.seller.email,
+          releaseOrder.seller.name ?? "Seller",
+          orderId,
+          escrow.amountCents,
+          escrow.currency,
+        )
+        .catch(() => undefined);
     }
 
     return updated;
