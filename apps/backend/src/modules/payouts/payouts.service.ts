@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PaystackService } from "../orders/paystack.service";
+import { AuditLogService } from "../observability/audit-log.service";
 
 // Stripe Connect is not available in all African markets.
 // Paystack Transfers is used for ZAR/NGN/GHS/KES payouts.
@@ -36,6 +37,7 @@ export class PayoutsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly paystackService: PaystackService,
+    private readonly auditLog: AuditLogService,
   ) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
     if (apiKey) {
@@ -406,6 +408,38 @@ export class PayoutsService {
       this.logger.error(`processPayout: failed for ${payoutId}: ${reason}`);
       throw err;
     }
+  }
+
+  // ─── Admin: Retry a permanently failed payout ─────────────────────────────
+
+  async retryFailedPayout(payoutId: string, actorId: string): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+    });
+    if (!payout) {
+      throw new NotFoundException(`Payout ${payoutId} not found`);
+    }
+    if (payout.status !== PayoutStatus.FAILED) {
+      throw new BadRequestException(
+        `Payout ${payoutId} is not FAILED (currently ${payout.status})`,
+      );
+    }
+
+    await this.prisma.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.FAILED },
+      data: { status: PayoutStatus.PENDING, failureReason: null },
+    });
+
+    await this.auditLog.record({
+      actorId,
+      action: "payout.retry",
+      entityType: "payout",
+      entityId: payoutId,
+    });
+
+    this.logger.log(
+      `retryFailedPayout: payout ${payoutId} reset to PENDING by ${actorId}`,
+    );
   }
 
   // Bridges schedulePayouts() (which only creates PENDING rows) to actual money

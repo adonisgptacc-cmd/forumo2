@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
@@ -122,6 +123,24 @@ export class PayoutsController {
     @Body() body: { payoutId: string },
   ): Promise<{ success: boolean }> {
     await this.payoutsService.processPayout(body.payoutId);
+    return { success: true };
+  }
+
+  // ─── Admin: Retry a permanently failed payout ─────────────────────────────
+
+  @Post("admin/:payoutId/retry")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "(Admin) Reset a FAILED payout back to PENDING for retry",
+  })
+  async adminRetryPayout(
+    @Param("payoutId") payoutId: string,
+    @Req() req: AuthRequest,
+  ): Promise<{ success: boolean }> {
+    await this.payoutsService.retryFailedPayout(payoutId, req.user.id);
     return { success: true };
   }
 

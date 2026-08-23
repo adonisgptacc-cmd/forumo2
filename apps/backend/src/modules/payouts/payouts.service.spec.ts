@@ -19,7 +19,12 @@ describe("PayoutsService legacy payout reconciliation", () => {
     };
     return {
       prisma,
-      service: new PayoutsService(prisma as never, {} as never, {} as never),
+      service: new PayoutsService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
     };
   }
 
@@ -92,6 +97,7 @@ describe("PayoutsService.processPayout concurrency", () => {
       prisma as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { prisma, service };
   }
@@ -111,5 +117,60 @@ describe("PayoutsService.processPayout concurrency", () => {
     expect(claimAttempts.length).toBe(2);
     const rejected = results.filter((r) => r.status === "rejected");
     expect(rejected.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("PayoutsService.retryFailedPayout", () => {
+  function createService(payout: Record<string, unknown> | null) {
+    const prisma = {
+      payout: {
+        findUnique: jest.fn().mockResolvedValue(payout),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const auditLogService = { record: jest.fn().mockResolvedValue({}) };
+    return {
+      prisma,
+      auditLogService,
+      service: new PayoutsService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        auditLogService as never,
+      ),
+    };
+  }
+
+  it("rejects retrying a payout that is not FAILED", async () => {
+    const { service } = createService({ id: "payout-1", status: "PENDING" });
+
+    await expect(
+      service.retryFailedPayout("payout-1", "admin-1"),
+    ).rejects.toThrow(/not FAILED/);
+  });
+
+  it("resets a FAILED payout to PENDING, clears failureReason, preserves retryCount", async () => {
+    const { prisma, auditLogService, service } = createService({
+      id: "payout-1",
+      status: "FAILED",
+      failureReason: "card declined",
+      retryCount: 1,
+    });
+
+    await service.retryFailedPayout("payout-1", "admin-1");
+
+    expect(prisma.payout.updateMany).toHaveBeenCalledWith({
+      where: { id: "payout-1", status: "FAILED" },
+      data: { status: "PENDING", failureReason: null },
+    });
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: "admin-1",
+        action: "payout.retry",
+        entityType: "payout",
+        entityId: "payout-1",
+      }),
+    );
   });
 });
