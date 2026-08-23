@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../../prisma/prisma.service";
-import { EscrowStatus } from "@prisma/client";
+import { EscrowStatus, Prisma } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
 
@@ -119,8 +119,13 @@ export class EscrowService {
     return escrow;
   }
 
-  async releaseEscrow(orderId: string, actorId: string, note?: string) {
-    const escrow = await this.prisma.escrowHolding.findUnique({
+  async releaseEscrow(
+    orderId: string,
+    actorId: string,
+    note?: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const escrow = await client.escrowHolding.findUnique({
       where: { orderId },
     });
 
@@ -129,7 +134,7 @@ export class EscrowService {
     }
 
     // Atomic conditional update — prevents duplicate releases under concurrent requests
-    const result = await this.prisma.escrowHolding.updateMany({
+    const result = await client.escrowHolding.updateMany({
       where: { orderId, status: "HOLDING" },
       data: { status: "RELEASED", releasedAt: new Date() },
     });
@@ -140,13 +145,13 @@ export class EscrowService {
       );
     }
 
-    const updated = await this.prisma.escrowHolding.findUnique({
+    const updated = await client.escrowHolding.findUnique({
       where: { orderId },
     });
     if (!updated) throw new NotFoundException("Escrow not found after release");
 
     // Create transaction record
-    await this.prisma.escrowTransaction.create({
+    await client.escrowTransaction.create({
       data: {
         escrowId: escrow.id,
         type: "RELEASE",
@@ -157,13 +162,27 @@ export class EscrowService {
       },
     });
 
-    this.logger.warn(
-      `[PAYOUT PENDING] Escrow for order ${orderId} released. ` +
-        `Seller payout of ${escrow.amountCents} ${escrow.currency} must be triggered via payment provider. ` +
-        `Integrate Stripe Connect transfer or equivalent before going live.`,
+    await client.auditLog.create({
+      data: {
+        actorId,
+        action: "escrow.release",
+        entityType: "order",
+        entityId: orderId,
+        payload: {
+          amountCents: escrow.amountCents,
+          currency: escrow.currency,
+          note: note ?? null,
+        },
+      },
+    });
+
+    // Payout is scheduled and processed by PayoutsService's own cron chain
+    // (schedulePayouts -> processPendingPayouts), not synchronously here.
+    this.logger.log(
+      `Escrow for order ${orderId} released; payout will be scheduled by PayoutsService.`,
     );
 
-    const releaseOrder = await this.prisma.order.findUnique({
+    const releaseOrder = await client.order.findUnique({
       where: { id: orderId },
       select: { seller: { select: { email: true, name: true } } },
     });

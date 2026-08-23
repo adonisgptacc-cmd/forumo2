@@ -179,6 +179,15 @@ class InMemoryPrismaService {
     };
   }
 
+  get auditLog() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data }: any) => {
+        return { id: randomUUID(), ...data, createdAt: new Date() };
+      },
+    };
+  }
+
   get escrowDispute() {
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
