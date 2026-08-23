@@ -133,11 +133,11 @@ Acceptance criteria:
 
 #### RR-010 — Normalize the web API base URL contract (P0)
 
-- [ ] Define one canonical meaning for `NEXT_PUBLIC_API_BASE_URL`: either origin-only or already versioned with `/api/v1`.
-- [ ] Centralize URL joining so callers cannot duplicate or omit the version prefix.
-- [ ] Fix NextAuth token refresh, which currently combines the documented `/api/v1` base with another `/api/v1/auth/refresh` suffix.
-- [ ] Audit OAuth, server actions, shared client creation, WebSocket setup, and admin client construction for the same class of duplication.
-- [ ] Reject malformed base URLs at startup/build time with a clear error.
+- [x] Define one canonical meaning for `NEXT_PUBLIC_API_BASE_URL`: either origin-only or already versioned with `/api/v1`. (`getApiBaseUrl()` in `packages/shared/src/api-client.ts` accepts either form and normalizes idempotently; both accepted forms are now unit-tested.)
+- [x] Centralize URL joining so callers cannot duplicate or omit the version prefix. (`apps/admin` was constructing its own `ForumoApiClient` base URL directly from `process.env` with a different hardcoded default than `apps/web`, bypassing the shared helper — the one real duplication found. Fixed in `apps/admin/src/lib/api-client.ts` and `apps/admin/src/lib/auth.ts` to call `getApiBaseUrl()`.)
+- [x] Fix NextAuth token refresh, which currently combines the documented `/api/v1` base with another `/api/v1/auth/refresh` suffix. (Verified this is already correct in the current tree — `apps/web/src/lib/auth.ts` builds `${getApiBaseUrl()}/auth/refresh`, which does not double the prefix. Likely already fixed by an earlier commit; the roadmap text describes the risk pattern, not a live bug.)
+- [x] Audit OAuth, server actions, shared client creation, WebSocket setup, and admin client construction for the same class of duplication. (OAuth button, `messaging-layer.ts` WebSocket base, and web server actions (`apps/web/src/app/(admin)/admin/*/actions.ts`) all already route through `getApiBaseUrl()`/`getGatewayBaseUrl()` via `createApiClient()`. Admin client construction was the one gap; fixed above.)
+- [ ] Reject malformed base URLs at startup/build time with a clear error. (Not done — `getApiBaseUrl()` silently normalizes any string rather than validating it's a well-formed URL. Left for a follow-up; out of scope for this bounded pass.)
 
 Dependencies: RR-001.
 
@@ -155,10 +155,10 @@ Tests:
 
 #### RR-011 — Correct Google OAuth routing and fallbacks (P0)
 
-- [ ] Replace the web Google sign-in fallback from admin port `3001` to the canonical backend OAuth endpoint.
-- [ ] Prefer the normalized API URL helper from RR-010 over a component-local fallback.
-- [ ] Validate local and production callback URLs against the Google provider configuration.
-- [ ] Confirm failure/cancellation redirects return to a safe web route with a user-facing error.
+- [x] Replace the web Google sign-in fallback from admin port `3001` to the canonical backend OAuth endpoint. (Verified: no port-3001 fallback exists in the current tree — `google-signin-button.tsx` links straight to the backend's `/auth/google`. Already fixed, likely by an earlier commit.)
+- [x] Prefer the normalized API URL helper from RR-010 over a component-local fallback. (Verified: it already calls `getApiBaseUrl()`, no local fallback logic.)
+- [ ] Validate local and production callback URLs against the Google provider configuration. (Requires comparing against the real Google Cloud Console OAuth client config, which needs operator access to actual credentials — out of scope for this pass.)
+- [x] Confirm failure/cancellation redirects return to a safe web route with a user-facing error. (This was the real, verified bug: `GoogleAuthGuard` had no failure handling, so cancellation/failure produced a raw JSON 401 on the backend's own origin instead of a redirect. Fixed via `handleRequest` override in `apps/backend/src/modules/auth/guards/google-auth.guard.ts`, redirecting to `${FRONTEND_URL}/login?error=oauth_failed` — the same error param the frontend's `OAuthCallback` component already checks for. Added a `response.headersSent` guard in `all-exceptions.filter.ts` to prevent a double-response crash. Covered by `google-auth.guard.spec.ts`.)
 
 Dependencies: RR-010.
 

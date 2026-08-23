@@ -1,6 +1,55 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiError, ForumoApiClient } from "./api-client";
+import {
+  ApiError,
+  ForumoApiClient,
+  getApiBaseUrl,
+  getGatewayBaseUrl,
+} from "./api-client";
+
+describe("getApiBaseUrl", () => {
+  it("appends /api/v1 to an origin-only URL", () => {
+    expect(getApiBaseUrl("http://localhost:4000")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("appends /v1 to a URL that already ends in /api", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("leaves an already-versioned URL unchanged", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api/v1")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("strips a trailing slash before normalizing", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api/v1/")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("falls back to the localhost default when nothing is provided", () => {
+    expect(getApiBaseUrl(null)).toBe("http://localhost:4000/api/v1");
+  });
+});
+
+describe("getGatewayBaseUrl", () => {
+  it("strips the /api/v1 suffix for a non-versioned gateway (e.g. WebSocket) base", () => {
+    expect(getGatewayBaseUrl("http://localhost:4000")).toBe(
+      "http://localhost:4000",
+    );
+  });
+
+  it("strips /api/v1 from an already-versioned URL", () => {
+    expect(getGatewayBaseUrl("http://localhost:4000/api/v1")).toBe(
+      "http://localhost:4000",
+    );
+  });
+});
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
