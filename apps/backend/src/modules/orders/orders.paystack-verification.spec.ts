@@ -36,6 +36,7 @@ describe("OrdersService Paystack verification authorization", () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await expect(

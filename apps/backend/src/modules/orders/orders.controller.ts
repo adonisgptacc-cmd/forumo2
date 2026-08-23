@@ -168,6 +168,21 @@ export class OrdersController {
     });
   }
 
+  /**
+   * POST /orders/:id/confirm-delivery
+   * Buyer self-reports delivery when there is no carrier tracking. Starts
+   * the escrow auto-release countdown (the Shippo webhook is the other
+   * trigger for the same countdown).
+   */
+  @Post(":id/confirm-delivery")
+  @HttpCode(HttpStatus.OK)
+  async confirmDelivery(
+    @Param("id") id: string,
+    @Request() req: { user: { id: string } },
+  ): Promise<SafeOrder> {
+    return this.ordersService.confirmDelivery(id, req.user.id);
+  }
+
   @Post(":id/refund")
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)

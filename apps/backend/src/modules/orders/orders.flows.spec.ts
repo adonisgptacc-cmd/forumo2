@@ -147,6 +147,86 @@ describe("OrdersModule flows", () => {
     expect(prismaMock.auditLogs).toHaveLength(1);
   });
 
+  describe("POST /orders/:id/confirm-delivery", () => {
+    it("rejects when the caller is not the buyer", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/orders")
+        .send({
+          buyerId: BUYER_ID,
+          sellerId: SELLER_ID,
+          items: [{ listingId: LISTING_ID, quantity: 1 }],
+          shippingCents: 500,
+          feeCents: 250,
+        })
+        .expect(201);
+      const orderId = createRes.body.id;
+
+      MockGuard.currentId = "someone-else";
+      MockGuard.currentRole = "BUYER";
+      await request(app.getHttpServer())
+        .post(`/orders/${orderId}/confirm-delivery`)
+        .expect(403);
+    });
+
+    it("rejects when the order has not shipped yet", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/orders")
+        .send({
+          buyerId: BUYER_ID,
+          sellerId: SELLER_ID,
+          items: [{ listingId: LISTING_ID, quantity: 1 }],
+          shippingCents: 500,
+          feeCents: 250,
+        })
+        .expect(201);
+      const orderId = createRes.body.id;
+      // Order is PENDING immediately after creation — confirm-delivery
+      // must reject before FULFILLED.
+      await request(app.getHttpServer())
+        .post(`/orders/${orderId}/confirm-delivery`)
+        .expect(400);
+    });
+
+    it("starts the release countdown and marks the order DELIVERED on success", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/orders")
+        .send({
+          buyerId: BUYER_ID,
+          sellerId: SELLER_ID,
+          items: [{ listingId: LISTING_ID, quantity: 1 }],
+          shippingCents: 500,
+          feeCents: 250,
+        })
+        .expect(201);
+      const orderId = createRes.body.id;
+
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.PAID, providerStatus: "succeeded" })
+        .expect(200);
+
+      MockGuard.currentId = SELLER_ID;
+      MockGuard.currentRole = "SELLER";
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.FULFILLED })
+        .expect(200);
+
+      MockGuard.currentId = BUYER_ID;
+      MockGuard.currentRole = "BUYER";
+      const confirmRes = await request(app.getHttpServer())
+        .post(`/orders/${orderId}/confirm-delivery`)
+        .expect(200);
+
+      expect(confirmRes.body.status).toBe(OrderStatus.DELIVERED);
+
+      const escrow = await prismaMock.escrowHolding.findUnique({
+        where: { orderId },
+      });
+      expect(escrow?.releaseAfter).not.toBeNull();
+    });
+  });
+
   it("cancels and refunds via webhook + cancellation", async () => {
     const createRes = await request(app.getHttpServer())
       .post("/orders")
@@ -1267,6 +1347,7 @@ class InMemoryPrismaService {
       where: {
         orderId: string;
         status?: EscrowStatus | { in: EscrowStatus[] };
+        releaseAfter?: Date | null;
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       data: any;
@@ -1275,16 +1356,21 @@ class InMemoryPrismaService {
       if (!record) {
         return { count: 0 };
       }
-      const allowed =
+      const statusAllowed =
         where.status == null ||
         (typeof where.status === "object" &&
           where.status.in.includes(record.status)) ||
         where.status === record.status;
-      if (!allowed) {
+      const releaseAfterAllowed =
+        where.releaseAfter === undefined ||
+        record.releaseAfter === where.releaseAfter;
+      if (!statusAllowed || !releaseAfterAllowed) {
         return { count: 0 };
       }
       record.status = (data.status as EscrowStatus) ?? record.status;
       record.releasedAt = (data.releasedAt as Date) ?? record.releasedAt;
+      record.releaseAfter =
+        (data.releaseAfter as Date | null | undefined) ?? record.releaseAfter;
       return { count: 1 };
     },
   };

@@ -35,6 +35,7 @@ import { TaxService, TaxReceiptResult } from "./tax.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { FeeService } from "../fees/fee.service";
 import { ShippingService } from "../shipping/shipping.service";
+import { EscrowService } from "../escrow/escrow.service";
 
 /**
  * Canonical order state machine. Only these transitions are valid for
@@ -110,6 +111,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly feeService: FeeService,
     private readonly shippingService: ShippingService,
+    private readonly escrowService: EscrowService,
   ) {}
 
   async findAll(
@@ -145,6 +147,45 @@ export class OrdersService {
       throw new ForbiddenException("Access denied");
     }
     return serializeOrder(order);
+  }
+
+  /**
+   * POST /orders/:id/confirm-delivery
+   * Buyer self-reports delivery when there is no carrier tracking. Starts
+   * the escrow auto-release countdown (the Shippo webhook is the other
+   * trigger for the same countdown — see EscrowService.startReleaseCountdown).
+   */
+  async confirmDelivery(orderId: string, buyerId: string): Promise<SafeOrder> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { buyerId: true, status: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if (order.buyerId !== buyerId) {
+      throw new ForbiddenException("Only the buyer can confirm delivery");
+    }
+
+    if (
+      order.status !== OrderStatus.FULFILLED &&
+      order.status !== OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        `Cannot confirm delivery for an order in status ${order.status}`,
+      );
+    }
+
+    await this.escrowService.startReleaseCountdown(orderId);
+
+    const updated = (await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: this.defaultInclude,
+    })) as OrderWithRelations;
+
+    return serializeOrder(updated);
   }
 
   async create(dto: CreateOrderInput): Promise<SafeOrder> {
