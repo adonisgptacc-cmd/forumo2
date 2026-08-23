@@ -1266,56 +1266,15 @@ export class OrdersService {
     },
     dto: UpdateOrderStatusInput,
   ): Promise<void> {
-    const escrow =
-      order.escrow ??
-      (await tx.escrowHolding.findUnique({ where: { orderId: order.id } })) ??
-      null;
-    if (!escrow) {
+    if (!order.escrow) {
       return;
     }
-    // Atomic conditional update — only a HOLDING or DISPUTED escrow can be
-    // released. Prevents releasing the same escrow twice and prevents
-    // releasing funds that were already refunded.
-    const releasedAt = new Date();
-    const result = await tx.escrowHolding.updateMany({
-      where: {
-        orderId: order.id,
-        status: { in: [EscrowStatus.HOLDING, EscrowStatus.DISPUTED] },
-      },
-      data: { status: EscrowStatus.RELEASED, releasedAt },
-    });
-
-    if (result.count === 0) {
-      throw new BadRequestException(
-        `Cannot release escrow with status: ${escrow.status}`,
-      );
-    }
-
-    await tx.escrowTransaction.create({
-      data: {
-        escrowId: escrow.id,
-        type: EscrowTransactionType.RELEASE,
-        amountCents: escrow.amountCents,
-        currency: escrow.currency,
-        note: "Escrow released to seller",
-        actorId: dto.actorId ?? null,
-        metadata: this.toJsonInput({ orderId: order.id }),
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorId: dto.actorId ?? null,
-        action: "order.escrow.release",
-        entityType: "order",
-        entityId: order.id,
-        payload:
-          this.toJsonInput({
-            amountCents: escrow.amountCents,
-            currency: escrow.currency,
-          }) ?? Prisma.JsonNull,
-      },
-    });
+    await this.escrowService.releaseEscrow(
+      order.id,
+      dto.actorId ?? "system",
+      dto.note,
+      tx,
+    );
   }
 
   private async handleEscrowRefund(

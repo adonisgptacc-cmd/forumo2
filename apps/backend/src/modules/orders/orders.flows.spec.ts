@@ -522,6 +522,56 @@ describe("OrdersModule flows", () => {
     expect(after.body.status).toBe(OrderStatus.DISPUTED);
   });
 
+  describe("POST /orders/:id/release with an open dispute", () => {
+    it("rejects release when the escrow is DISPUTED (400)", async () => {
+      const createRes = await request(app.getHttpServer())
+        .post("/orders")
+        .send({
+          buyerId: BUYER_ID,
+          sellerId: SELLER_ID,
+          items: [{ listingId: LISTING_ID, quantity: 1 }],
+          shippingCents: 500,
+          feeCents: 250,
+        })
+        .expect(201);
+      const orderId = createRes.body.id;
+
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.PAID, providerStatus: "succeeded" })
+        .expect(200);
+
+      MockGuard.currentId = SELLER_ID;
+      MockGuard.currentRole = "SELLER";
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.FULFILLED })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.DELIVERED })
+        .expect(200);
+
+      // Simulate an open dispute the way EscrowService.openDispute() does —
+      // set the escrow's own status to DISPUTED.
+      await prismaMock.escrowHolding.updateMany({
+        where: { orderId, status: "HOLDING" },
+        data: { status: "DISPUTED" },
+      });
+
+      MockGuard.currentId = BUYER_ID;
+      MockGuard.currentRole = "BUYER";
+      await request(app.getHttpServer())
+        .post(`/orders/${orderId}/release`)
+        .expect(400);
+
+      const escrow = await prismaMock.escrowHolding.findUnique({
+        where: { orderId },
+      });
+      expect(escrow?.status).toBe("DISPUTED");
+    });
+  });
+
   it("does not double-refund when cancellation is retried", async () => {
     const createRes = await request(app.getHttpServer())
       .post("/orders")
