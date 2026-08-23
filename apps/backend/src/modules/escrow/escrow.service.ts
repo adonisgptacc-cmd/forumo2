@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EscrowStatus, Prisma } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -18,6 +19,7 @@ export class EscrowService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   async createEscrowHolding(
@@ -34,14 +36,14 @@ export class EscrowService {
       throw new BadRequestException("Escrow already exists for this order");
     }
 
-    // Create escrow holding
+    // Create escrow holding. releaseAfter is intentionally left unset here —
+    // it is only started once delivery is confirmed, via startReleaseCountdown().
     const escrow = await this.prisma.escrowHolding.create({
       data: {
         orderId,
         amountCents,
         currency,
         status: "HOLDING",
-        releaseAfter: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days default
       },
     });
 
@@ -200,6 +202,58 @@ export class EscrowService {
     }
 
     return updated;
+  }
+
+  /**
+   * Starts the auto-release countdown once delivery is confirmed, by either
+   * the Shippo carrier webhook or the buyer's self-report endpoint.
+   * Idempotent: safe to call from either trigger without double-counting.
+   */
+  async startReleaseCountdown(orderId: string): Promise<void> {
+    const escrow = await this.prisma.escrowHolding.findUnique({
+      where: { orderId },
+    });
+
+    if (!escrow || escrow.status !== "HOLDING" || escrow.releaseAfter) {
+      return;
+    }
+
+    const releaseDays =
+      this.config.get<number>("ESCROW_AUTO_RELEASE_DAYS") ?? 5;
+    const releaseAfter = new Date();
+    releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
+
+    await this.prisma.escrowHolding.update({
+      where: { id: escrow.id },
+      data: { releaseAfter },
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+
+    if (order && order.status !== "DELIVERED" && order.status !== "COMPLETED") {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: "DELIVERED",
+          deliveredAt: new Date(),
+          timeline: {
+            create: [
+              {
+                status: "DELIVERED",
+                note: "Delivered — escrow release countdown started",
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    this.logger.log(
+      `Escrow release countdown started for order ${orderId}: auto-releases at ${releaseAfter.toISOString()}`,
+    );
   }
 
   async refundEscrow(
