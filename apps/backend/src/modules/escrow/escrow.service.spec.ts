@@ -246,3 +246,38 @@ describe("EscrowService.startReleaseCountdown", () => {
     expect(orderUpdate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("EscrowService.autoReleaseExpiredEscrows", () => {
+  it("does not release an escrow whose order was never marked DELIVERED, even if releaseAfter is somehow set", async () => {
+    const dueEscrow = {
+      orderId: "order-never-delivered",
+      id: "escrow-1",
+      status: "HOLDING",
+      releaseAfter: new Date(Date.now() - 1000),
+      amountCents: 5000,
+      currency: "USD",
+    };
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findMany: jest.fn().mockImplementation(({ where }) => {
+          // Simulate a real Prisma filter: only return rows matching the
+          // order.status filter this test is asserting exists.
+          const orderStatus = "FULFILLED"; // never reached DELIVERED
+          const allowedStatuses: string[] = where?.order?.status?.in ?? [];
+          return allowedStatuses.includes(orderStatus) ? [dueEscrow] : [];
+        }),
+      },
+    });
+    const service = buildService(prisma);
+
+    await service.autoReleaseExpiredEscrows();
+
+    expect(prisma.escrowHolding.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          order: { status: { in: ["DELIVERED", "COMPLETED"] } },
+        }),
+      }),
+    );
+  });
+});

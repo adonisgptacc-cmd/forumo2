@@ -550,6 +550,7 @@ export class EscrowService {
       where: {
         status: EscrowStatus.HOLDING,
         releaseAfter: { lte: now },
+        order: { status: { in: ["DELIVERED", "COMPLETED"] } },
         disputes: {
           none: { status: { in: ["OPEN", "UNDER_REVIEW", "ESCALATED"] } },
         },
