@@ -45,6 +45,9 @@ web_build.log
 .cxpak/
 .integration-sources/
 
+# Subagent-driven-development scratch workspaces (ledgers, briefs, review packages)
+.superpowers/
+
 # Personal AI-assistant overrides (must not weaken shared policy)
 AGENTS.local.md
 .assistant/settings.local.json
