@@ -185,21 +185,31 @@ export class EscrowService {
       `Escrow for order ${orderId} released; payout will be scheduled by PayoutsService.`,
     );
 
-    const releaseOrder = await client.order.findUnique({
-      where: { id: orderId },
-      select: { seller: { select: { email: true, name: true } } },
-    });
-    if (releaseOrder?.seller) {
-      // Non-blocking notification — runs after transaction commits, cannot affect escrow release
-      void this.notifications
-        .notifyEscrowReleased(
-          releaseOrder.seller.email,
-          releaseOrder.seller.name ?? "Seller",
-          orderId,
-          escrow.amountCents,
-          escrow.currency,
-        )
-        .catch(() => undefined);
+    // Only notify from here when this call owns its own write. When an
+    // external `client` (a live Prisma.TransactionClient) is passed in, our
+    // writes are part of a wider transaction that has NOT committed yet and
+    // may still roll back — dispatching a "funds released" email here would
+    // tell the seller about a release that never happened. In that case the
+    // caller is responsible for firing the notification once its own
+    // transaction resolves (see OrdersService.applyStatusUpdate).
+    if (client === this.prisma) {
+      const releaseOrder = await client.order.findUnique({
+        where: { id: orderId },
+        select: { seller: { select: { email: true, name: true } } },
+      });
+      if (releaseOrder?.seller) {
+        // Non-blocking notification — the write above is already durable, and
+        // a notification failure must never fail the release.
+        void this.notifications
+          .notifyEscrowReleased(
+            releaseOrder.seller.email,
+            releaseOrder.seller.name ?? "Seller",
+            orderId,
+            escrow.amountCents,
+            escrow.currency,
+          )
+          .catch(() => undefined);
+      }
     }
 
     return updated;
@@ -224,42 +234,60 @@ export class EscrowService {
     const releaseAfter = new Date();
     releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
 
-    // Atomic conditional update — claims the right to start the countdown.
-    // Prevents duplicate DELIVERED transitions / timeline entries when two
-    // callers race for the same order (e.g. a webhook retry racing the
-    // buyer's confirm-delivery endpoint). Mirrors releaseEscrow's pattern.
-    const result = await this.prisma.escrowHolding.updateMany({
-      where: { orderId, status: "HOLDING", releaseAfter: null },
-      data: { releaseAfter },
-    });
-
-    if (result.count === 0) {
-      // Lost the race — another caller already claimed and started the
-      // countdown for this order. No-op.
-      return;
-    }
-
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { status: true },
-    });
-
-    if (order && order.status !== "DELIVERED" && order.status !== "COMPLETED") {
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: "DELIVERED",
-          deliveredAt: new Date(),
-          timeline: {
-            create: [
-              {
-                status: "DELIVERED",
-                note: "Delivered — escrow release countdown started",
-              },
-            ],
-          },
-        },
+    // Both writes run inside ONE transaction. The countdown claim and the
+    // order's DELIVERED transition must commit or roll back together:
+    // because this method short-circuits when releaseAfter is already set,
+    // a half-applied state (releaseAfter set, order never DELIVERED) would
+    // be permanently unrecoverable — a retry would silently no-op and the
+    // cron's delivery-status filter would exclude the escrow forever.
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      // Atomic conditional update — claims the right to start the countdown.
+      // Prevents duplicate DELIVERED transitions / timeline entries when two
+      // callers race for the same order (e.g. a webhook retry racing the
+      // buyer's confirm-delivery endpoint). Mirrors releaseEscrow's pattern.
+      const result = await tx.escrowHolding.updateMany({
+        where: { orderId, status: "HOLDING", releaseAfter: null },
+        data: { releaseAfter },
       });
+
+      if (result.count === 0) {
+        // Lost the race — another caller already claimed and started the
+        // countdown for this order. No-op.
+        return false;
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      });
+
+      if (
+        order &&
+        order.status !== "DELIVERED" &&
+        order.status !== "COMPLETED"
+      ) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: "DELIVERED",
+            deliveredAt: new Date(),
+            timeline: {
+              create: [
+                {
+                  status: "DELIVERED",
+                  note: "Delivered — escrow release countdown started",
+                },
+              ],
+            },
+          },
+        });
+      }
+
+      return true;
+    });
+
+    if (!claimed) {
+      return;
     }
 
     this.logger.log(
@@ -449,6 +477,24 @@ export class EscrowService {
         actorId,
         `Dispute resolved: ${resolution}`,
       );
+
+      // Advance the order too. PayoutsService.schedulePayouts() only picks up
+      // RELEASED escrows whose order is DELIVERED or COMPLETED — a disputed
+      // order normally sits at DISPUTED, so without this the escrow would be
+      // released but no Payout row would ever be created. Mirrors the
+      // auto-release cron's own post-release order transition.
+      await this.prisma.order.updateMany({
+        where: { id: dispute.escrow.orderId, status: { not: "COMPLETED" } },
+        data: { status: "COMPLETED" },
+      });
+      await this.prisma.orderTimelineEvent.create({
+        data: {
+          orderId: dispute.escrow.orderId,
+          status: "COMPLETED",
+          note: `Escrow released after dispute resolution: ${resolution}`,
+          actorId,
+        },
+      });
     } else if (action === "REFUND") {
       await this.refundEscrow(
         dispute.escrow.orderId,
@@ -585,9 +631,12 @@ export class EscrowService {
 
     for (const escrow of due) {
       try {
+        // actorId must be null, never a sentinel like "system":
+        // EscrowTransaction.actorId and AuditLog.actorId are real FKs to
+        // User.id, so any non-existent id raises a foreign-key violation.
         await this.releaseEscrow(
           escrow.orderId,
-          "system",
+          null,
           "Auto-released after buyer dispute window expired",
         );
 

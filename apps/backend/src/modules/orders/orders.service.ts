@@ -99,6 +99,16 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   [OrderStatus.REFUNDED]: [],
 };
 
+/**
+ * Everything needed to tell the seller their escrow was released, carried out
+ * of a transaction so the email can be sent only after that transaction has
+ * actually committed.
+ */
+type EscrowReleaseNotice = {
+  amountCents: number;
+  currency: string;
+};
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -180,8 +190,24 @@ export class OrdersService {
 
     await this.escrowService.startReleaseCountdown(orderId);
 
-    const updated = (await this.prisma.order.findUnique({
+    // Distinct, attributed record of the buyer's own confirmation. Written
+    // unconditionally: startReleaseCountdown's note is generic (it is shared
+    // with the Shippo carrier webhook) and its order-update block is skipped
+    // entirely when the order is already DELIVERED, which would otherwise
+    // leave no trace at all that the buyer confirmed anything.
+    const updated = (await this.prisma.order.update({
       where: { id: orderId },
+      data: {
+        timeline: {
+          create: [
+            {
+              status: OrderStatus.DELIVERED,
+              note: "Delivery confirmed by buyer",
+              actorId: buyerId,
+            },
+          ],
+        },
+      },
       include: this.defaultInclude,
     })) as OrderWithRelations;
 
@@ -560,7 +586,7 @@ export class OrdersService {
     dto: UpdateOrderStatusInput,
     eventTime?: Date,
   ): Promise<SafeOrder> {
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       const order = (await tx.order.findUnique({
         where: { id },
         include: {
@@ -598,7 +624,11 @@ export class OrdersService {
           where: { id },
           include: this.defaultInclude,
         })) as OrderWithRelations;
-        return serializeOrder(current);
+        return {
+          order: serializeOrder(current),
+          applied: false,
+          escrowRelease: null as EscrowReleaseNotice | null,
+        };
       }
 
       if (!isStaff && !ORDER_TRANSITIONS[order.status]?.includes(dto.status)) {
@@ -630,6 +660,7 @@ export class OrdersService {
       };
 
       const providerStatus = dto.providerStatus ?? undefined;
+      let escrowRelease: EscrowReleaseNotice | null = null;
 
       switch (dto.status) {
         case OrderStatus.PAID:
@@ -694,7 +725,7 @@ export class OrdersService {
           data.paymentStatus = PaymentStatus.REFUND_FAILED;
           break;
         case OrderStatus.COMPLETED:
-          await this.handleEscrowRelease(tx, order, dto);
+          escrowRelease = await this.handleEscrowRelease(tx, order, dto);
           break;
         default:
           break;
@@ -706,15 +737,56 @@ export class OrdersService {
         include: this.defaultInclude,
       })) as OrderWithRelations;
 
-      const serialized = serializeOrder(updated);
+      return { order: serializeOrder(updated), applied: true, escrowRelease };
+    });
 
-      // Fire email notifications outside the transaction (non-blocking, non-fatal)
-      void this.fireOrderNotifications(serialized, dto.status).catch(
+    // Side effects that must never run against uncommitted state are fired
+    // here, after $transaction has actually resolved — non-blocking and
+    // non-fatal. A rolled-back transaction throws instead of reaching this
+    // point, so no email can announce a release that did not happen.
+    if (outcome.applied) {
+      void this.fireOrderNotifications(outcome.order, dto.status).catch(
         () => undefined,
       );
+      if (outcome.escrowRelease) {
+        void this.fireEscrowReleaseNotification(
+          outcome.order,
+          outcome.escrowRelease,
+        ).catch(() => undefined);
+      }
+    }
 
-      return serialized;
-    });
+    return outcome.order;
+  }
+
+  /**
+   * Tells the seller their escrow was released. EscrowService.releaseEscrow()
+   * deliberately does NOT send this when it is handed an external transaction
+   * client, so the caller owning the transaction sends it post-commit.
+   * Never throws.
+   */
+  private async fireEscrowReleaseNotification(
+    order: SafeOrder,
+    release: EscrowReleaseNotice,
+  ): Promise<void> {
+    try {
+      const seller = await this.prisma.user.findUnique({
+        where: { id: order.sellerId },
+        select: { email: true, name: true },
+      });
+      if (!seller?.email) return;
+      await this.notifications.notifyEscrowReleased(
+        seller.email,
+        seller.name ?? "Seller",
+        order.id,
+        release.amountCents,
+        release.currency,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Escrow release notification failed for order ${order.id}: ${this.getErrorMessage(error)}`,
+      );
+    }
   }
 
   async requestRefund(
@@ -1265,16 +1337,23 @@ export class OrdersService {
       } | null;
     },
     dto: UpdateOrderStatusInput,
-  ): Promise<void> {
+  ): Promise<EscrowReleaseNotice | null> {
     if (!order.escrow) {
-      return;
+      return null;
     }
-    await this.escrowService.releaseEscrow(
+    const released = await this.escrowService.releaseEscrow(
       order.id,
       dto.actorId ?? null,
       dto.note,
       tx,
     );
+    // Returned, not sent: releaseEscrow() suppresses its own notification
+    // when handed an external transaction client. applyStatusUpdate() sends
+    // it once the surrounding transaction has committed.
+    return {
+      amountCents: released.amountCents,
+      currency: released.currency,
+    };
   }
 
   private async handleEscrowRefund(

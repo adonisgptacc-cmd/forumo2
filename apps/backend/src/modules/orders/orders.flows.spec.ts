@@ -18,6 +18,7 @@ import request from "supertest";
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersModule } from "./orders.module";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const BUYER_ID = "buyer-1";
 const SELLER_ID = "seller-1";
@@ -43,6 +44,7 @@ class MockGuard implements CanActivate {
 describe("OrdersModule flows", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
+  let notifyEscrowReleased: jest.SpyInstance;
 
   beforeEach(async () => {
     MockGuard.currentId = BUYER_ID;
@@ -67,10 +69,14 @@ describe("OrdersModule flows", () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    notifyEscrowReleased = jest
+      .spyOn(moduleRef.get(NotificationsService), "notifyEscrowReleased")
+      .mockResolvedValue(undefined);
     await app.init();
   });
 
   afterEach(async () => {
+    notifyEscrowReleased?.mockRestore();
     if (app) {
       try {
         await app.close();
@@ -145,6 +151,60 @@ describe("OrdersModule flows", () => {
       EscrowTransactionType.RELEASE,
     );
     expect(prismaMock.auditLogs).toHaveLength(1);
+  });
+
+  it("tells the seller about the release only after the status transaction resolves", async () => {
+    // releaseEscrow() suppresses its own notification when handed an external
+    // transaction client, because that transaction may still roll back.
+    // OrdersService must therefore send it once $transaction has resolved.
+    const createRes = await request(app.getHttpServer())
+      .post("/orders")
+      .send({
+        buyerId: BUYER_ID,
+        sellerId: SELLER_ID,
+        items: [{ listingId: LISTING_ID, quantity: 1 }],
+        shippingCents: 500,
+        feeCents: 250,
+      })
+      .expect(201);
+    const orderId = createRes.body.id;
+
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.PAID, providerStatus: "succeeded" })
+      .expect(200);
+
+    MockGuard.currentId = SELLER_ID;
+    MockGuard.currentRole = "SELLER";
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.FULFILLED })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.DELIVERED })
+      .expect(200);
+    MockGuard.currentId = BUYER_ID;
+    MockGuard.currentRole = "BUYER";
+
+    expect(notifyEscrowReleased).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.COMPLETED })
+      .expect(200);
+
+    // Fired with `void` after $transaction resolves — drain the microtasks.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(notifyEscrowReleased).toHaveBeenCalledTimes(1);
+    expect(notifyEscrowReleased).toHaveBeenCalledWith(
+      "seller@test.com",
+      "Seller",
+      orderId,
+      1500, // the escrow's held amount for this order
+      "USD",
+    );
   });
 
   describe("POST /orders/:id/confirm-delivery", () => {
@@ -224,6 +284,68 @@ describe("OrdersModule flows", () => {
         where: { orderId },
       });
       expect(escrow?.releaseAfter).not.toBeNull();
+
+      // Distinct, buyer-attributed audit entry — separate from the generic
+      // note startReleaseCountdown shares with the carrier webhook.
+      const buyerNotes = confirmRes.body.timeline.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- serialized timeline entry
+        (event: any) => event.note === "Delivery confirmed by buyer",
+      );
+      expect(buyerNotes).toHaveLength(1);
+      expect(buyerNotes[0].actorId).toBe(BUYER_ID);
+    });
+
+    it("still records the buyer's confirmation when the order is already DELIVERED", async () => {
+      // startReleaseCountdown skips its whole order-update block once the
+      // order is DELIVERED, so without an unconditional write there would be
+      // no record at all that the buyer confirmed anything.
+      const createRes = await request(app.getHttpServer())
+        .post("/orders")
+        .send({
+          buyerId: BUYER_ID,
+          sellerId: SELLER_ID,
+          items: [{ listingId: LISTING_ID, quantity: 1 }],
+          shippingCents: 500,
+          feeCents: 250,
+        })
+        .expect(201);
+      const orderId = createRes.body.id;
+
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.PAID, providerStatus: "succeeded" })
+        .expect(200);
+
+      MockGuard.currentId = SELLER_ID;
+      MockGuard.currentRole = "SELLER";
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.FULFILLED })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/orders/${orderId}/status`)
+        .send({ status: OrderStatus.DELIVERED })
+        .expect(200);
+
+      MockGuard.currentId = BUYER_ID;
+      MockGuard.currentRole = "BUYER";
+      const confirmRes = await request(app.getHttpServer())
+        .post(`/orders/${orderId}/confirm-delivery`)
+        .expect(200);
+
+      const buyerNotes = confirmRes.body.timeline.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- serialized timeline entry
+        (event: any) => event.note === "Delivery confirmed by buyer",
+      );
+      expect(buyerNotes).toHaveLength(1);
+      expect(buyerNotes[0].actorId).toBe(BUYER_ID);
+      // The generic countdown note must NOT have been written twice.
+      const genericNotes = confirmRes.body.timeline.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- serialized timeline entry
+        (event: any) =>
+          event.note === "Delivered — escrow release countdown started",
+      );
+      expect(genericNotes).toHaveLength(0);
     });
   });
 
@@ -819,13 +941,27 @@ class InMemoryPrismaService {
   private auditLogStore: AuditLogRecord[] = [];
 
   constructor() {
-    this.users.set(BUYER_ID, { id: BUYER_ID, deletedAt: null, role: "BUYER" });
+    this.users.set(BUYER_ID, {
+      id: BUYER_ID,
+      deletedAt: null,
+      role: "BUYER",
+      email: "buyer@test.com",
+      name: "Buyer",
+    });
     this.users.set(SELLER_ID, {
       id: SELLER_ID,
       deletedAt: null,
       role: "SELLER",
+      email: "seller@test.com",
+      name: "Seller",
     });
-    this.users.set(ADMIN_ID, { id: ADMIN_ID, deletedAt: null, role: "ADMIN" });
+    this.users.set(ADMIN_ID, {
+      id: ADMIN_ID,
+      deletedAt: null,
+      role: "ADMIN",
+      email: "admin@test.com",
+      name: "Admin",
+    });
     this.listings.set(LISTING_ID, {
       id: LISTING_ID,
       sellerId: SELLER_ID,
@@ -1563,7 +1699,13 @@ type ListingRecord = Pick<
   }[];
 };
 
-type UserRecord = { id: string; deletedAt: Date | null; role: string };
+type UserRecord = {
+  id: string;
+  deletedAt: Date | null;
+  role: string;
+  email: string;
+  name: string;
+};
 
 type OrderRecord = Pick<
   Order,
