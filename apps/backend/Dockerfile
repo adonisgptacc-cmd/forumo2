@@ -1,5 +1,7 @@
 # Base image
-FROM node:20-slim AS base
+# pnpm 11 (see root package.json "packageManager") requires Node >=22.13 —
+# it uses the node:sqlite built-in, unavailable before Node 22.5.
+FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
