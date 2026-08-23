@@ -68,7 +68,7 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 #### RR-001 — Enforce the supported Node and pnpm toolchain (P0)
 
 - [x] Migrate the repository to pnpm `11.19.0` so local, CI, container, and Codex verification use the same package-manager major.
-- [x] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
+- [x] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images. (`.nvmrc` pins Node `22`. It was initially set to `20` to match the then-current Dockerfiles, but that combination was never actually verified — a real `docker compose up --build` later revealed pnpm `11.19.0` hard-requires Node ≥22.13 (`node:sqlite` built-in, added in Node 22.5), crashing under Node 20 in Docker with `ERR_UNKNOWN_BUILTIN_MODULE`. Corrected to Node `22`, and `apps/backend/Dockerfile`/`apps/web/Dockerfile` bumped from `node:20-slim` to `node:22-slim` to match (approved change, see RR-012).)
 - [x] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
 - [x] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored. (N/A — repository is on pnpm 11.)
 - [x] Migrate overrides and patched dependencies to `pnpm-workspace.yaml`, the supported pnpm 11 configuration surface.
@@ -170,26 +170,33 @@ Acceptance criteria:
 
 #### RR-012 — Make the Docker development stack bootable and honest (P0)
 
-- [ ] Reconcile backend environment validation with the values supplied by `docker-compose.yml`.
-- [ ] Remove hard-coded reusable secrets from Compose; load development-only values through a git-ignored `.env` or an explicit safe bootstrap path.
+- [x] Reconcile backend environment validation with the values supplied by `docker-compose.yml`. (`apps/backend/Dockerfile` bakes `ENV NODE_ENV=production`, which activates strict production secret checks in `config.schema.ts` that Compose never supplied — `docker compose up` could not previously reach a running backend. Fixed by having the `backend` service explicitly set `NODE_ENV=${NODE_ENV:-development}`, overriding the image default.)
+- [x] Remove hard-coded reusable secrets from Compose; load development-only values through a git-ignored `.env` or an explicit safe bootstrap path. (Every dev credential in `docker-compose.yml` and `docker-compose.override.yml` — Postgres, MinIO, JWT, moderation token, pgadmin — now uses `${VAR:-default}` substitution; Compose auto-loads a git-ignored root `.env` if present. Verified via `tests/docker-compose.test.mjs`.)
 - [ ] Decide which integrations are mandatory for local startup and which may be disabled behind explicit feature/config flags.
 - [ ] Make disabled Stripe, Paystack, Shippo, email, SMS, and OAuth capabilities visible in health/readiness output.
 - [ ] Never silently return payment success from mock providers unless an explicit development mock flag is enabled.
-- [ ] Add Compose health checks that prove backend readiness, not merely that the container process exists.
+- [x] Add Compose health checks that prove backend readiness, not merely that the container process exists. (`backend`/`web`/`moderation` had no healthchecks at all. Added real ones — backend hits its existing `/api/v1/health/ready` endpoint (DB/Redis/MinIO/moderation-queue checks), web hits `/`, moderation hits its existing `/healthz`. `depends_on` upgraded to `condition: service_healthy` throughout.)
 
 Dependencies: RR-001, RR-002.
 
+Additional pre-existing, previously-undiscovered bugs found and fixed while getting a real `docker compose up --build` to succeed (none of this was RR-012 scope going in, but `docker compose up` could not reach a running state without them — see the RR-001 `.nvmrc` note above for the Node version correction):
+
+- `apps/backend/Dockerfile` and `apps/web/Dockerfile` used `node:20-slim`, but pnpm `11.19.0` hard-requires Node ≥22.13 (`node:sqlite` built-in). Bumped both to `node:22-slim` (approved protected-path change).
+- `packages/shared` had no `build` script (`main`/`types` pointed at raw `src/index.ts`), so `RUN pnpm --filter @forumo/shared build` in both Dockerfiles always failed. Worse: `apps/backend` imports real runtime values (Zod schemas) from `@forumo/shared` without declaring it as a dependency — it only "worked" via a `tsconfig.base.json` path alias that affects type-checking only, not the compiled runtime. `node dist/apps/backend/src/main.js` (exactly what the backend image runs) would have crashed on startup with `Cannot find module '@forumo/shared'`. Fixed by giving `@forumo/shared` a real `tsc` build to `dist/`, declaring it as a proper `workspace:*` dependency in `apps/backend/package.json`, and building it in the root `postinstall` step. Added a regression test (`tests/repository-hygiene.test.mjs`) that fails if backend ever imports an undeclared `@forumo/*` package again.
+
 Acceptance criteria:
 
-- `docker compose up` reaches healthy state using documented development configuration.
-- Production configuration still fails fast when required payment/webhook secrets are missing.
-- A developer can tell from logs and health output which external integrations are disabled.
-- No real or reusable provider secret is committed.
+- [x] `docker compose up` reaches healthy state using documented development configuration. (Verified live: built all three custom images and ran the full stack — `backend`, `web`, `moderation`, `postgres`, `redis`, `minio`, `mailpit` all reported `healthy`; hit `/api/v1/health/ready` and got `{"status":"ok",...}` with database/redis/minio all `up`, and `web` returned HTTP 200. `pgadmin`, extra dev tooling from the override file and not part of this roadmap item, has a pre-existing, unrelated crash — see note below.)
+- Production configuration still fails fast when required payment/webhook secrets are missing. (Unchanged — `config.schema.ts`'s production `superRefine` checks were not touched.)
+- A developer can tell from logs and health output which external integrations are disabled. (Not addressed — remaining work.)
+- [x] No real or reusable provider secret is committed. (For the credentials this pass touched — see above. Provider API keys are unaffected/still absent from Compose, as before.)
 
 Tests:
 
-- Config-schema tests for development, test, and production matrices.
-- Compose smoke test for Postgres, Redis, MinIO, moderation service, backend, web, and admin health.
+- Config-schema tests for development, test, and production matrices. (Not added — remaining work.)
+- Compose smoke test for Postgres, Redis, MinIO, moderation service, backend, web, and admin health. (`tests/docker-compose.test.mjs` covers the static config; the live smoke test was run manually this session, not automated into CI — remaining work. No `admin` service exists in `docker-compose.yml` today.)
+
+Known pre-existing issue found, not fixed (out of this item's scope): `docker-compose.override.yml`'s `pgadmin` service crash-loops — pgadmin4 v8 rejects the default `PGADMIN_DEFAULT_EMAIL` value (`admin@local.test`) as an invalid address. Predates this session; the default value itself wasn't changed, only made overridable.
 
 #### RR-013 — Implement safe escrow auto-release execution (P0, protected workflow)
 
