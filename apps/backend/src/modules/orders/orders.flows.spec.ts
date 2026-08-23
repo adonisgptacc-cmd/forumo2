@@ -19,6 +19,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersModule } from "./orders.module";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { NotificationsService } from "../notifications/notifications.service";
+import { TaxService } from "./tax.service";
 
 const BUYER_ID = "buyer-1";
 const SELLER_ID = "seller-1";
@@ -45,6 +46,7 @@ describe("OrdersModule flows", () => {
   let app: INestApplication;
   let prismaMock: InMemoryPrismaService;
   let notifyEscrowReleased: jest.SpyInstance;
+  let recordTaxTransaction: jest.SpyInstance;
 
   beforeEach(async () => {
     MockGuard.currentId = BUYER_ID;
@@ -72,11 +74,15 @@ describe("OrdersModule flows", () => {
     notifyEscrowReleased = jest
       .spyOn(moduleRef.get(NotificationsService), "notifyEscrowReleased")
       .mockResolvedValue(undefined);
+    recordTaxTransaction = jest
+      .spyOn(moduleRef.get(TaxService), "recordTaxTransaction")
+      .mockResolvedValue(undefined);
     await app.init();
   });
 
   afterEach(async () => {
     notifyEscrowReleased?.mockRestore();
+    recordTaxTransaction?.mockRestore();
     if (app) {
       try {
         await app.close();
@@ -205,6 +211,36 @@ describe("OrdersModule flows", () => {
       1500, // the escrow's held amount for this order
       "USD",
     );
+  });
+
+  it("records the tax transaction only after the PAID status transaction resolves", async () => {
+    // recordTaxTransaction() reads the order back via `this.prisma`, not the
+    // transaction client, so it must not fire until $transaction has
+    // actually committed — otherwise it would read pre-commit state.
+    const createRes = await request(app.getHttpServer())
+      .post("/orders")
+      .send({
+        buyerId: BUYER_ID,
+        sellerId: SELLER_ID,
+        items: [{ listingId: LISTING_ID, quantity: 1 }],
+        shippingCents: 500,
+        feeCents: 250,
+      })
+      .expect(201);
+    const orderId = createRes.body.id;
+
+    expect(recordTaxTransaction).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .patch(`/orders/${orderId}/status`)
+      .send({ status: OrderStatus.PAID, providerStatus: "succeeded" })
+      .expect(200);
+
+    // Fired with `void` after $transaction resolves — drain the microtasks.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(recordTaxTransaction).toHaveBeenCalledTimes(1);
+    expect(recordTaxTransaction).toHaveBeenCalledWith(orderId);
   });
 
   describe("POST /orders/:id/confirm-delivery", () => {

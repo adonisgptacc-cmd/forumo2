@@ -35,6 +35,24 @@ describe("getApiBaseUrl", () => {
   it("falls back to the localhost default when nothing is provided", () => {
     expect(getApiBaseUrl(null)).toBe("http://localhost:4000/api/v1");
   });
+
+  it("rejects a value that is not a parseable URL", () => {
+    expect(() => getApiBaseUrl("not a url")).toThrow(/not a valid/i);
+  });
+
+  it("rejects an empty string (would resolve to a bare relative path)", () => {
+    expect(() => getApiBaseUrl("")).toThrow(/not a valid/i);
+  });
+
+  it("rejects a non-http(s) protocol", () => {
+    expect(() => getApiBaseUrl("ftp://files.example.com")).toThrow(
+      /not a valid/i,
+    );
+  });
+
+  it("includes the offending value in the error message", () => {
+    expect(() => getApiBaseUrl("not a url")).toThrow(/not a url/);
+  });
 });
 
 describe("getGatewayBaseUrl", () => {

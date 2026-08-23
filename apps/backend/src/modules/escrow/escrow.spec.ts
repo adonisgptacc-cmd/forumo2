@@ -444,6 +444,27 @@ describe("EscrowModule", () => {
       expect(transactions[0].type).toBe("RELEASE");
       expect(transactions[0].amountCents).toBe(10000);
     });
+
+    it("advances the order to COMPLETED so payouts can be scheduled", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      // PayoutsService.schedulePayouts() only picks up RELEASED escrows whose
+      // order is DELIVERED or COMPLETED — DELIVERED already qualifies, but a
+      // manual release must still advance the order so it can't strand a
+      // payout for an order sitting in any other pre-COMPLETED state.
+      expect(prismaMock.orders.get(ORDER_ID)!.status).toBe("DELIVERED");
+
+      await request(app.getHttpServer())
+        .post(`/escrow/order/${ORDER_ID}/release`)
+        .send({ note: "Order completed" })
+        .expect(201);
+
+      expect(prismaMock.orders.get(ORDER_ID)!.status).toBe("COMPLETED");
+      const completionEvent = prismaMock.orderTimelineEvents.find(
+        (event) => event.orderId === ORDER_ID && event.status === "COMPLETED",
+      );
+      expect(completionEvent).toBeDefined();
+      expect(completionEvent.actorId).toBe(ADMIN_ID);
+    });
   });
 
   // ── POST /escrow/order/:orderId/refund ──

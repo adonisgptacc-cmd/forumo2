@@ -117,9 +117,27 @@ export function getApiBaseUrl(raw?: string | null): string {
       : undefined) ??
     "http://localhost:4000";
   const trimmed = candidate.replace(/\/$/, "");
-  if (trimmed.endsWith("/api/v1")) return trimmed;
-  if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
-  return `${trimmed}/api/v1`;
+  const base = trimmed.endsWith("/api/v1")
+    ? trimmed
+    : trimmed.endsWith("/api")
+      ? `${trimmed}/v1`
+      : `${trimmed}/api/v1`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(base);
+  } catch {
+    throw new Error(
+      `Invalid API base URL: "${candidate}" is not a valid http(s) URL. Check NEXT_PUBLIC_API_BASE_URL.`,
+    );
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `Invalid API base URL: "${candidate}" is not a valid http(s) URL. Check NEXT_PUBLIC_API_BASE_URL.`,
+    );
+  }
+
+  return base;
 }
 
 export function getGatewayBaseUrl(raw?: string | null): string {

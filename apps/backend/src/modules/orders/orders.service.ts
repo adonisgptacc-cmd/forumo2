@@ -671,10 +671,6 @@ export class OrdersService {
           );
           await this.ensureEscrowHolding(tx, order);
           data.paymentStatus = PaymentStatus.CAPTURED;
-          // Record actual Stripe Tax details — non-blocking, runs after transaction commits
-          void this.taxService
-            .recordTaxTransaction(order.id)
-            .catch(() => undefined);
           break;
         case OrderStatus.CANCELLED:
           await tx.paymentTransaction.updateMany({
@@ -753,6 +749,13 @@ export class OrdersService {
           outcome.order,
           outcome.escrowRelease,
         ).catch(() => undefined);
+      }
+      if (dto.status === OrderStatus.PAID) {
+        // Records actual Stripe Tax details. Reads the order via `this.prisma`
+        // (not `tx`), so it must not fire until the transaction has committed.
+        void this.taxService
+          .recordTaxTransaction(outcome.order.id)
+          .catch(() => undefined);
       }
     }
 

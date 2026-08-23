@@ -216,6 +216,50 @@ export class EscrowService {
   }
 
   /**
+   * Advances the order to COMPLETED after a release that happens outside
+   * the order's own status-transition transaction (dispute resolution,
+   * manual admin release). PayoutsService.schedulePayouts() only picks up
+   * RELEASED escrows whose order is DELIVERED or COMPLETED, so skipping
+   * this can strand a payout for an order sitting in any other status
+   * when it was released.
+   */
+  private async completeOrderAfterRelease(
+    orderId: string,
+    actorId: string | null,
+    note: string,
+  ): Promise<void> {
+    await this.prisma.order.updateMany({
+      where: { id: orderId, status: { not: "COMPLETED" } },
+      data: { status: "COMPLETED" },
+    });
+    await this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId,
+        status: "COMPLETED",
+        note,
+        actorId,
+      },
+    });
+  }
+
+  /**
+   * Manual admin/moderator release (the standalone `/escrow/.../release`
+   * endpoint), as opposed to a release that happens as part of the order's
+   * own PATCH /orders/:id/status transition. That path already advances
+   * Order.status inside its own transaction; this one does not, so it must
+   * do so itself here — see completeOrderAfterRelease().
+   */
+  async releaseEscrowAsAdmin(orderId: string, actorId: string, note?: string) {
+    const updated = await this.releaseEscrow(orderId, actorId, note);
+    await this.completeOrderAfterRelease(
+      orderId,
+      actorId,
+      note ? `Escrow released by admin: ${note}` : "Escrow released by admin",
+    );
+    return updated;
+  }
+
+  /**
    * Starts the auto-release countdown once delivery is confirmed, by either
    * the Shippo carrier webhook or the buyer's self-report endpoint.
    * Idempotent: safe to call from either trigger without double-counting.
@@ -481,20 +525,12 @@ export class EscrowService {
       // Advance the order too. PayoutsService.schedulePayouts() only picks up
       // RELEASED escrows whose order is DELIVERED or COMPLETED — a disputed
       // order normally sits at DISPUTED, so without this the escrow would be
-      // released but no Payout row would ever be created. Mirrors the
-      // auto-release cron's own post-release order transition.
-      await this.prisma.order.updateMany({
-        where: { id: dispute.escrow.orderId, status: { not: "COMPLETED" } },
-        data: { status: "COMPLETED" },
-      });
-      await this.prisma.orderTimelineEvent.create({
-        data: {
-          orderId: dispute.escrow.orderId,
-          status: "COMPLETED",
-          note: `Escrow released after dispute resolution: ${resolution}`,
-          actorId,
-        },
-      });
+      // released but no Payout row would ever be created.
+      await this.completeOrderAfterRelease(
+        dispute.escrow.orderId,
+        actorId,
+        `Escrow released after dispute resolution: ${resolution}`,
+      );
     } else if (action === "REFUND") {
       await this.refundEscrow(
         dispute.escrow.orderId,
