@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { EscrowService } from "./escrow.service";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- overrides can extend/replace any nested mock shape (e.g. add order.update, orderTimelineEvent). Returning `any` lets each test's override object determine the accessible shape instead of the base literal's narrower inferred type.
-function buildPrismaMock(overrides: Record<string, any> = {}): any {
+function buildBasePrismaMock() {
   const escrow = {
     id: "escrow-1",
     orderId: "order-1",
@@ -28,11 +27,30 @@ function buildPrismaMock(overrides: Record<string, any> = {}): any {
         seller: { email: "seller@test.com", name: "Seller" },
       }),
     },
-    ...overrides,
   };
 }
 
-function buildService(prisma: ReturnType<typeof buildPrismaMock>) {
+// Overloaded (rather than a single generic with a default type parameter)
+// so each call site's override object determines the accessible shape on
+// its own terms — e.g. adding order.update, orderTimelineEvent.create — via
+// direct inference from that call's argument, instead of every call sharing
+// one inferred/defaulted instantiation. This keeps the base mock's own
+// properties type-checked everywhere, without falling back to a bare `any`
+// that would erase compile-time shape checking for every test in this file.
+function buildPrismaMock(): ReturnType<typeof buildBasePrismaMock>;
+function buildPrismaMock<O extends Record<string, unknown>>(
+  overrides: O,
+): Omit<ReturnType<typeof buildBasePrismaMock>, keyof O> & O;
+function buildPrismaMock<O extends Record<string, unknown>>(overrides?: O) {
+  const base = buildBasePrismaMock();
+  return { ...base, ...(overrides ?? {}) };
+}
+
+// Generic (rather than typed via `ReturnType<typeof buildPrismaMock>`) so
+// each test's own `prisma` variable — already precisely typed by its own
+// buildPrismaMock(...) call above — flows through unchanged, instead of
+// every call site being forced through one shared instantiation.
+function buildService<P>(prisma: P) {
   const notifications = {
     notifyEscrowReleased: jest.fn().mockResolvedValue(undefined),
   };
@@ -108,7 +126,7 @@ describe("EscrowService.startReleaseCountdown", () => {
             status: "HOLDING",
             releaseAfter: null,
           }),
-        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       order: {
         findUnique: jest.fn().mockResolvedValue(order),
@@ -120,8 +138,8 @@ describe("EscrowService.startReleaseCountdown", () => {
 
     await service.startReleaseCountdown("order-1");
 
-    expect(prisma.escrowHolding.update).toHaveBeenCalledWith({
-      where: { id: "escrow-1" },
+    expect(prisma.escrowHolding.updateMany).toHaveBeenCalledWith({
+      where: { orderId: "order-1", status: "HOLDING", releaseAfter: null },
       data: { releaseAfter: expect.any(Date) },
     });
     expect(prisma.order.update).toHaveBeenCalledWith(
@@ -141,7 +159,7 @@ describe("EscrowService.startReleaseCountdown", () => {
           status: "HOLDING",
           releaseAfter: new Date(),
         }),
-        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       order: { findUnique: jest.fn(), update: jest.fn() },
     });
@@ -149,7 +167,7 @@ describe("EscrowService.startReleaseCountdown", () => {
 
     await service.startReleaseCountdown("order-1");
 
-    expect(prisma.escrowHolding.update).not.toHaveBeenCalled();
+    expect(prisma.escrowHolding.updateMany).not.toHaveBeenCalled();
     expect(prisma.order.update).not.toHaveBeenCalled();
   });
 
@@ -157,13 +175,74 @@ describe("EscrowService.startReleaseCountdown", () => {
     const prisma = buildPrismaMock({
       escrowHolding: {
         findUnique: jest.fn().mockResolvedValue(null),
-        update: jest.fn(),
+        updateMany: jest.fn(),
       },
     });
     const service = buildService(prisma);
 
     await service.startReleaseCountdown("order-nonexistent");
 
-    expect(prisma.escrowHolding.update).not.toHaveBeenCalled();
+    expect(prisma.escrowHolding.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the atomic updateMany loses the race (count: 0)", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      order: { findUnique: jest.fn(), update: jest.fn() },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it("only applies the DELIVERED side effects once when two calls race for the same order", async () => {
+    // Mirrors escrow.spec.ts's InMemoryPrismaService.escrowHolding.updateMany
+    // pattern: a stateful mock that tracks whether the row has already been
+    // claimed, so the first concurrent caller wins (count: 1) and any
+    // subsequent caller loses the race (count: 0).
+    let claimed = false;
+    const updateMany = jest.fn().mockImplementation(async () => {
+      if (claimed) return { count: 0 };
+      claimed = true;
+      return { count: 1 };
+    });
+    const orderUpdate = jest.fn().mockResolvedValue({});
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany,
+      },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: "order-1", status: "FULFILLED" }),
+        update: orderUpdate,
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    await Promise.all([
+      service.startReleaseCountdown("order-1"),
+      service.startReleaseCountdown("order-1"),
+    ]);
+
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(orderUpdate).toHaveBeenCalledTimes(1);
   });
 });

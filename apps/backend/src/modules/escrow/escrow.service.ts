@@ -223,10 +223,20 @@ export class EscrowService {
     const releaseAfter = new Date();
     releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
 
-    await this.prisma.escrowHolding.update({
-      where: { id: escrow.id },
+    // Atomic conditional update — claims the right to start the countdown.
+    // Prevents duplicate DELIVERED transitions / timeline entries when two
+    // callers race for the same order (e.g. a webhook retry racing the
+    // buyer's confirm-delivery endpoint). Mirrors releaseEscrow's pattern.
+    const result = await this.prisma.escrowHolding.updateMany({
+      where: { orderId, status: "HOLDING", releaseAfter: null },
       data: { releaseAfter },
     });
+
+    if (result.count === 0) {
+      // Lost the race — another caller already claimed and started the
+      // countdown for this order. No-op.
+      return;
+    }
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
