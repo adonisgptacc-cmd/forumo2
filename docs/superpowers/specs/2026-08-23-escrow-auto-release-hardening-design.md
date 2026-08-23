@@ -77,6 +77,47 @@ permanently dead. This is the correctness bug this spec exists to fix.
     transfer if two backend replicas raced here, but the database-level
     race itself isn't guarded.
 
+## Amendment (found while writing the implementation plan)
+
+The claim above — "no buyer-facing delivery confirmation exists" — was
+wrong, and tracing the correction surfaced a real duplication bug:
+
+- `POST /orders/:id/release` (`orders.controller.ts:153`) already lets
+  the buyer release escrow immediately, at their sole discretion, any
+  time (no delivery confirmation, no waiting period). It transitions the
+  order to `COMPLETED`, which `OrdersService.updateStatus()` handles by
+  calling a private `handleEscrowRelease()` method.
+- `handleEscrowRelease()` (`orders.service.ts:1215`) is a **separate,
+  duplicate implementation** of the escrow-release state transition —
+  its own atomic conditional `updateMany`, its own `EscrowTransaction`
+  creation — instead of calling `EscrowService.releaseEscrow()`. This is
+  exactly the duplication the roadmap's RR-013 acceptance criteria
+  warns against ("reuse the established escrow release service path; do
+  not duplicate transfer or state-transition logic").
+- `handleEscrowRelease()`'s release guard is `status: { in: [HOLDING,
+DISPUTED] }` — unlike every other release path in this system (the
+  cron, the admin manual-release endpoint), it will release an escrow
+  that has an **open dispute**.
+
+This does not change the core release-window bug fix (section 1 below,
+still needed for the automatic/cron path). It does change decisions 3
+and adds two new ones, confirmed in this session:
+
+7. **Keep the new buyer "confirm delivery, start the countdown"
+   endpoint**, but reframe it: it is not the only buyer self-service
+   path (the existing immediate-release endpoint already is one) — it's
+   a _passive_ option for buyers who'd rather let the dispute window run
+   than actively hit "release now."
+8. **Consolidate `handleEscrowRelease()` to call
+   `EscrowService.releaseEscrow()`** instead of duplicating the release
+   transition. In scope for this plan, not a follow-up — same release
+   path this spec already modifies.
+9. **Block buyer-initiated release while a dispute is open**, matching
+   every other release path. `handleEscrowRelease()`'s guard becomes
+   `status: HOLDING` only (via delegating to `releaseEscrow()`, which
+   already only accepts `HOLDING`) — a buyer with an open dispute must
+   resolve or withdraw it first, not have it silently superseded.
+
 ## Decisions made (this brainstorming session)
 
 1. **Eligibility rule: delivery-gated, no fallback timer.** Escrow can
@@ -203,7 +244,53 @@ RELEASED`. Only one concurrent caller can win the claim; the loser gets
 a clean rejection instead of both proceeding to call the payment
 provider.
 
-### 7. Cleanup
+### 7. Consolidate `handleEscrowRelease()` into `EscrowService.releaseEscrow()`
+
+`OrdersService.handleEscrowRelease()` (`orders.service.ts:1215`)
+currently duplicates the atomic release transition and
+`EscrowTransaction` creation inline, inside the same Prisma
+transaction (`tx`) that `updateStatus()` uses for the order update
+itself, and releases from `HOLDING` **or** `DISPUTED`.
+
+`handleEscrowRelease()` currently runs inside `updateStatus()`'s own
+`prisma.$transaction(async (tx) => ...)` block, so the escrow release
+and the order's transition to `COMPLETED` commit atomically together
+today. Simply calling `releaseEscrow()` (which opens its own separate
+transaction via `this.prisma`) before or after `updateStatus()`'s
+transaction would lose that atomicity — a real regression risk: if the
+order-status update failed after a successful release, the escrow would
+be stuck `RELEASED` on a non-`COMPLETED` order, a new inconsistent state
+that isn't reachable today.
+
+Instead, give `EscrowService.releaseEscrow()` an optional transaction
+client parameter, defaulting to `this.prisma` for its existing standalone
+callers (the admin manual-release endpoint, the auto-release cron):
+
+```ts
+async releaseEscrow(
+  orderId: string,
+  actorId: string,
+  note?: string,
+  client: Prisma.TransactionClient | PrismaService = this.prisma,
+) { /* body unchanged except using `client` instead of `this.prisma` */ }
+```
+
+`handleEscrowRelease()`'s body is replaced with a call to
+`this.escrowService.releaseEscrow(order.id, dto.actorId, dto.note, tx)`,
+passing its own `tx` through — preserving atomicity with the order
+update, while going through the single real implementation instead of a
+duplicate. Requires injecting `EscrowService` into `OrdersService`. Confirmed no
+circular-dependency risk: `EscrowModule` imports only `PrismaModule` and
+`NotificationsModule`, nothing from `orders` — `OrdersModule` just needs
+`EscrowModule` added to its own `imports` array, no `forwardRef()`
+needed.
+
+`releaseEscrow()` only accepts `status: HOLDING`, so this also delivers
+decision 9 (blocking release while disputed) as a side effect of
+removing the duplicate `DISPUTED` branch — no separate code change
+needed for that decision.
+
+### 8. Cleanup
 
 Remove the stale `[PAYOUT PENDING] ... Integrate Stripe Connect
 transfer or equivalent before going live` log line in `releaseEscrow()`
@@ -229,6 +316,15 @@ transfer or equivalent before going live` log line in `releaseEscrow()`
   payouts, correctly resets state, preserves `retryCount`.
 - Metrics: assert the counter is incremented with the right labels on
   each success/failure/skip branch touched above.
+- Unit/integration test proving `POST /orders/:id/release` now rejects
+  (400) when the escrow has an open dispute — this is the regression
+  test for decision 9, and it must fail against the current code
+  (`DISPUTED` is currently accepted) before the fix and pass after.
+- Test proving `handleEscrowRelease()`'s order-status transaction and
+  the escrow release still commit atomically together (e.g. simulate
+  the order-update step failing after `releaseEscrow()` succeeds inside
+  the same `tx`, and confirm the whole transaction rolls back — the
+  escrow must not end up `RELEASED` on a non-`COMPLETED` order).
 
 ## Explicitly out of scope
 
