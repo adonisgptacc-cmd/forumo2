@@ -703,6 +703,35 @@ export class AdminService {
       },
     });
 
+    // Un-stick the underlying escrow. Marking the dispute RESOLVED without
+    // touching the escrow leaves it at DISPUTED forever: the auto-release
+    // cron requires HOLDING, EscrowService.resolveDispute() refuses an
+    // already-resolved dispute, and both the buyer release path and the
+    // admin manual release require HOLDING too.
+    //
+    // This endpoint's body has no release-vs-refund direction (unlike
+    // EscrowService.resolveDispute()'s explicit `action`), so it must never
+    // move money. It only returns the escrow to the normal, actionable
+    // HOLDING state; the actual release or refund is then a separate,
+    // explicit call to POST /escrow/order/:orderId/release or /refund.
+    //
+    // Atomic conditional update, mirroring EscrowService.resolveDispute():
+    // count === 0 simply means there was nothing to un-stick (the escrow was
+    // already HOLDING/RELEASED/REFUNDED, or a concurrent caller won the
+    // race). That is not an error — closing the dispute record is this
+    // endpoint's primary job and must still succeed.
+    if (body.status === "RESOLVED" && existing.escrow) {
+      const unstuck = await this.prisma.escrowHolding.updateMany({
+        where: { id: existing.escrow.id, status: "DISPUTED" },
+        data: { status: "HOLDING" },
+      });
+      if (unstuck.count === 0) {
+        this.logger.log(
+          `resolveDispute(${id}): escrow ${existing.escrow.id} was not DISPUTED; nothing to un-stick`,
+        );
+      }
+    }
+
     return {
       id: updated.id,
       escrowId: updated.escrowId,
