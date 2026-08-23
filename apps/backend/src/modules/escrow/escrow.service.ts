@@ -11,6 +11,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { EscrowStatus, Prisma } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
+import { metrics } from "../../telemetry/metrics";
 
 @Injectable()
 export class EscrowService {
@@ -605,11 +606,21 @@ export class EscrowService {
             actorId: null,
           },
         });
+
+        metrics.backgroundJobsProcessed.inc({
+          job: "escrow_auto_release",
+          status: "released",
+        });
       } catch (err) {
         this.logger.error(
           `autoReleaseExpiredEscrows: failed for order ${escrow.orderId}`,
           err,
         );
+
+        metrics.backgroundJobsProcessed.inc({
+          job: "escrow_auto_release",
+          status: "failed",
+        });
       }
     }
   }

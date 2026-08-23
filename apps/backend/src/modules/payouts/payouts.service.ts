@@ -12,6 +12,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PaystackService } from "../orders/paystack.service";
 import { AuditLogService } from "../observability/audit-log.service";
+import { metrics } from "../../telemetry/metrics";
 
 // Stripe Connect is not available in all African markets.
 // Paystack Transfers is used for ZAR/NGN/GHS/KES payouts.
@@ -253,12 +254,20 @@ export class PayoutsService {
         this.logger.warn(
           `schedulePayouts: withholding order ${escrow.orderId}; a matching legacy payout requires reconciliation`,
         );
+        metrics.backgroundJobsProcessed.inc({
+          job: "payout_schedule",
+          status: "skipped_legacy_conflict",
+        });
         continue;
       }
       if (netAmount < MINIMUM_PAYOUT_CENTS) {
         this.logger.warn(
           `schedulePayouts: skipping seller ${sellerId} — net amount ${netAmount} below minimum`,
         );
+        metrics.backgroundJobsProcessed.inc({
+          job: "payout_schedule",
+          status: "skipped_below_minimum",
+        });
         continue;
       }
 
@@ -269,6 +278,10 @@ export class PayoutsService {
         currency: currency.toLowerCase(),
         status: PayoutStatus.PENDING,
         scheduledAt: new Date(),
+      });
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_schedule",
+        status: "created",
       });
     }
 
@@ -399,6 +412,10 @@ export class PayoutsService {
       } else {
         await this.processStripePayout(payoutId, payout);
       }
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_process",
+        status: "succeeded",
+      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Transfer error";
       await this.prisma.payout.update({
@@ -406,6 +423,10 @@ export class PayoutsService {
         data: { status: PayoutStatus.FAILED, failureReason: reason },
       });
       this.logger.error(`processPayout: failed for ${payoutId}: ${reason}`);
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_process",
+        status: "failed",
+      });
       throw err;
     }
   }
@@ -435,6 +456,11 @@ export class PayoutsService {
       action: "payout.retry",
       entityType: "payout",
       entityId: payoutId,
+    });
+
+    metrics.backgroundJobsProcessed.inc({
+      job: "payout_process",
+      status: "retried",
     });
 
     this.logger.log(

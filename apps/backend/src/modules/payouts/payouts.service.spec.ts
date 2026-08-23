@@ -1,4 +1,5 @@
 import { PayoutsService } from "./payouts.service";
+import { metrics } from "../../telemetry/metrics";
 
 describe("PayoutsService legacy payout reconciliation", () => {
   const eligibleEscrow = {
@@ -172,5 +173,52 @@ describe("PayoutsService.retryFailedPayout", () => {
         entityId: "payout-1",
       }),
     );
+  });
+});
+
+describe("PayoutsService metrics", () => {
+  it("increments backgroundJobsProcessed with job=payout_process, status=succeeded on success", async () => {
+    const incSpy = jest.spyOn(metrics.backgroundJobsProcessed, "inc");
+    const prisma = {
+      payout: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "payout-1",
+          status: "PENDING",
+          amount: 10_000,
+          currency: "usd",
+          seller: {
+            id: "seller-1",
+            stripeConnectAccountId: "acct_1",
+            stripeConnectOnboarded: true,
+            profile: null,
+          },
+        }),
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn().mockResolvedValue(5),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ createdAt: new Date(0) }),
+      },
+    };
+    const stripeTransfersCreate = jest.fn().mockResolvedValue({ id: "tr_1" });
+    // 4 constructor args as of Task 8's AuditLogService injection.
+    const service = new PayoutsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    (service as unknown as { stripe: unknown }).stripe = {
+      transfers: { create: stripeTransfersCreate },
+    };
+
+    await service.processPayout("payout-1");
+
+    expect(incSpy).toHaveBeenCalledWith({
+      job: "payout_process",
+      status: "succeeded",
+    });
+    incSpy.mockRestore();
   });
 });

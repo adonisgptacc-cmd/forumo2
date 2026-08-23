@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { EscrowService } from "./escrow.service";
+import { metrics } from "../../telemetry/metrics";
 
 function buildBasePrismaMock() {
   const escrow = {
@@ -279,5 +280,41 @@ describe("EscrowService.autoReleaseExpiredEscrows", () => {
         }),
       }),
     );
+  });
+});
+
+describe("EscrowService.autoReleaseExpiredEscrows metrics", () => {
+  it("increments backgroundJobsProcessed with job=escrow_auto_release, status=released on success", async () => {
+    const incSpy = jest.spyOn(metrics.backgroundJobsProcessed, "inc");
+    const dueEscrow = { orderId: "order-1", id: "escrow-1" };
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findMany: jest.fn().mockResolvedValue([dueEscrow]),
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          amountCents: 5000,
+          currency: "USD",
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ seller: { email: "s@test.com", name: "S" } }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    await service.autoReleaseExpiredEscrows();
+
+    expect(incSpy).toHaveBeenCalledWith({
+      job: "escrow_auto_release",
+      status: "released",
+    });
+    incSpy.mockRestore();
   });
 });
