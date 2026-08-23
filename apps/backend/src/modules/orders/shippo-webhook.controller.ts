@@ -10,11 +10,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EscrowStatus, OrderStatus, ShipmentStatus } from "@prisma/client";
+import { OrderStatus, ShipmentStatus } from "@prisma/client";
 import type { Request } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { EscrowService } from "../escrow/escrow.service";
 
 interface ShippoTrackingLocation {
   city?: string;
@@ -76,6 +77,7 @@ export class ShippoWebhookController {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly escrowService: EscrowService,
   ) {}
 
   /**
@@ -220,26 +222,9 @@ export class ShippoWebhookController {
       });
     }
 
-    // Set escrow auto-release countdown (buyer has N days to dispute before funds auto-release)
-    if (
-      order.escrow &&
-      order.escrow.status === EscrowStatus.HOLDING &&
-      !order.escrow.releaseAfter
-    ) {
-      const releaseDays =
-        this.config.get<number>("ESCROW_AUTO_RELEASE_DAYS") ?? 5;
-      const releaseAfter = new Date();
-      releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
-
-      await this.prisma.escrowHolding.update({
-        where: { id: order.escrow.id },
-        data: { releaseAfter },
-      });
-
-      this.logger.log(
-        `Escrow release countdown started for order ${orderId}: auto-releases at ${releaseAfter.toISOString()}`,
-      );
-      // TODO: register a scheduled job to auto-release escrow when releaseAfter is reached
+    // Start the auto-release countdown now that delivery is carrier-confirmed.
+    if (order.escrow) {
+      await this.escrowService.startReleaseCountdown(orderId);
     }
 
     // Notify buyer to confirm delivery
