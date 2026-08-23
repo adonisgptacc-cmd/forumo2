@@ -123,7 +123,7 @@ export class EscrowService {
 
   async releaseEscrow(
     orderId: string,
-    actorId: string,
+    actorId: string | null,
     note?: string,
     client: Prisma.TransactionClient = this.prisma,
   ) {
@@ -425,6 +425,24 @@ export class EscrowService {
 
     // Execute action
     if (action === "RELEASE") {
+      // releaseEscrow()'s atomic conditional update only claims escrows
+      // currently at status "HOLDING" (by design — this is what blocks a
+      // buyer from releasing a disputed escrow via the normal release path).
+      // A dispute resolved in the seller's favor is the one legitimate case
+      // where a DISPUTED escrow must still become RELEASED, so we perform
+      // the DISPUTED -> HOLDING transition atomically here, immediately
+      // before delegating to the still-strict releaseEscrow(). This keeps
+      // releaseEscrow()'s guard intact for every other caller (buyer path,
+      // auto-release cron).
+      const claimed = await this.prisma.escrowHolding.updateMany({
+        where: { id: dispute.escrow.id, status: "DISPUTED" },
+        data: { status: "HOLDING" },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Cannot release escrow: expected status DISPUTED, race or already resolved`,
+        );
+      }
       await this.releaseEscrow(
         dispute.escrow.orderId,
         actorId,

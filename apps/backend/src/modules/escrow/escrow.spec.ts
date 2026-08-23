@@ -156,7 +156,9 @@ class InMemoryPrismaService {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       updateMany: async ({ where, data }: any) => {
-        const h = this.escrowHoldings.get(where.orderId);
+        const h =
+          (where.orderId && this.escrowHoldings.get(where.orderId)) ||
+          (where.id && this.escrowHoldingsById.get(where.id));
         if (!h || (where.status && h.status !== where.status)) {
           return { count: 0 };
         }
@@ -475,6 +477,25 @@ describe("EscrowModule", () => {
       // The dispute itself should be marked RESOLVED
       expect(prismaMock.escrowDisputes.get(DISPUTE_ID)!.status).toBe(
         "RESOLVED",
+      );
+    });
+
+    it("resolves a dispute with RELEASE action and releases the DISPUTED escrow", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      const res = await request(app.getHttpServer())
+        .patch(`/escrow/disputes/${DISPUTE_ID}/resolve`)
+        .send({ resolution: "Seller proved delivery", action: "RELEASE" })
+        .expect(200);
+
+      expect(res.body.status).toBe("RELEASED");
+      // The dispute itself should be marked RESOLVED
+      expect(prismaMock.escrowDisputes.get(DISPUTE_ID)!.status).toBe(
+        "RESOLVED",
+      );
+      // The escrow (previously DISPUTED) must end up RELEASED, not stuck
+      // DISPUTED and not throwing — this is the dispute-release deadlock fix.
+      expect(prismaMock.escrowHoldings.get(ORDER_ID_2)!.status).toBe(
+        "RELEASED",
       );
     });
 

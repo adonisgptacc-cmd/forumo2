@@ -1271,7 +1271,7 @@ export class OrdersService {
     }
     await this.escrowService.releaseEscrow(
       order.id,
-      dto.actorId ?? "system",
+      dto.actorId ?? null,
       dto.note,
       tx,
     );
