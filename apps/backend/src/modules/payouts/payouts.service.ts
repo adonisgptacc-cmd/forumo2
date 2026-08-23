@@ -378,11 +378,18 @@ export class PayoutsService {
       );
     }
 
-    // Mark PROCESSING before calling provider to prevent double-processing
-    await this.prisma.payout.update({
-      where: { id: payoutId },
+    // Atomic conditional update — only one concurrent caller can claim this
+    // payout; the loser gets a clean rejection instead of both proceeding
+    // to call the payment provider.
+    const claimed = await this.prisma.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.PENDING },
       data: { status: PayoutStatus.PROCESSING },
     });
+    if (claimed.count === 0) {
+      throw new BadRequestException(
+        `Payout ${payoutId} is not PENDING (already claimed by a concurrent call)`,
+      );
+    }
 
     try {
       if (PAYSTACK_CURRENCIES.has(payout.currency.toUpperCase())) {

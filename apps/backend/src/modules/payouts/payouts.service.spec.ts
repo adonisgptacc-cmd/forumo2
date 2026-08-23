@@ -51,3 +51,65 @@ describe("PayoutsService legacy payout reconciliation", () => {
     });
   });
 });
+
+describe("PayoutsService.processPayout concurrency", () => {
+  function createProcessPayoutService() {
+    const payoutRow = {
+      id: "payout-1",
+      status: "PENDING",
+      amount: 10_000,
+      currency: "usd",
+      sellerId: "seller-1",
+      seller: {
+        id: "seller-1",
+        stripeConnectAccountId: null,
+        stripeConnectOnboarded: false,
+        profile: null,
+      },
+    };
+    let currentStatus = "PENDING";
+    const prisma = {
+      payout: {
+        findUnique: jest
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve({ ...payoutRow, status: currentStatus }),
+          ),
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockImplementation(({ where, data }) => {
+          if (where.status !== currentStatus)
+            return Promise.resolve({ count: 0 });
+          currentStatus = data.status;
+          return Promise.resolve({ count: 1 });
+        }),
+        count: jest.fn().mockResolvedValue(5),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ createdAt: new Date(0) }),
+      },
+    };
+    const service = new PayoutsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+    return { prisma, service };
+  }
+
+  it("only one of two concurrent calls succeeds in claiming a PENDING payout", async () => {
+    const { prisma, service } = createProcessPayoutService();
+
+    const results = await Promise.allSettled([
+      service.processPayout("payout-1"),
+      service.processPayout("payout-1"),
+    ]);
+
+    const claimAttempts = prisma.payout.updateMany.mock.calls.filter(
+      ([args]: [{ data: { status: string } }]) =>
+        args.data.status === "PROCESSING",
+    );
+    expect(claimAttempts.length).toBe(2);
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(rejected.length).toBeGreaterThanOrEqual(1);
+  });
+});
