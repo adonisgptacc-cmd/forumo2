@@ -20,6 +20,10 @@ export class RegisterDto {
   @IsEmail()
   email?: string;
 
+  // Attached to `password` rather than `email`/`phone`: class-validator's
+  // @IsOptional() on those fields would skip this cross-field check too
+  // whenever the value is absent — exactly the case this constraint exists
+  // to catch. `password` is never @IsOptional(), so the check always runs.
   @IsString()
   @MinLength(8)
   @MaxLength(64)
