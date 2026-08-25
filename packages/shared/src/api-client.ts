@@ -2,8 +2,12 @@ import {
   AuthResponse,
   TwoFactorRequired,
   TwoFactorSetupRequired,
+  PasswordSetupRequired,
   twoFactorRequiredSchema,
   twoFactorSetupRequiredSchema,
+  passwordSetupRequiredSchema,
+  identifierLoginPayloadSchema,
+  registerPayloadSchema,
   CreateListingDto,
   UpdateListingDto,
   CreateOrderDto,
@@ -292,12 +296,20 @@ export class ForumoApiClient {
 
   readonly auth = {
     login: async (payload: {
-      email: string;
+      identifier: string;
       password: string;
       deviceFingerprint?: string;
-    }): Promise<AuthResponse | TwoFactorRequired | TwoFactorSetupRequired> => {
+    }): Promise<
+      | AuthResponse
+      | TwoFactorRequired
+      | TwoFactorSetupRequired
+      | PasswordSetupRequired
+    > => {
       const response = await this.requestJson<
-        AuthResponse | TwoFactorRequired | TwoFactorSetupRequired
+        | AuthResponse
+        | TwoFactorRequired
+        | TwoFactorSetupRequired
+        | PasswordSetupRequired
       >("/auth/login", {
         method: "POST",
         body: payload,
@@ -306,6 +318,8 @@ export class ForumoApiClient {
         return twoFactorRequiredSchema.parse(response);
       if (twoFactorSetupRequiredSchema.safeParse(response).success)
         return twoFactorSetupRequiredSchema.parse(response);
+      if (passwordSetupRequiredSchema.safeParse(response).success)
+        return passwordSetupRequiredSchema.parse(response);
       return authResponseSchema.parse(response);
     },
     refresh: async (
@@ -349,6 +363,25 @@ export class ForumoApiClient {
         headers: { Authorization: `Bearer ${twoFactorToken}` },
       });
     },
+    request2FAOtp: async (
+      twoFactorToken: string,
+    ): Promise<{ message: string; channel: string; deliveredAt: string }> => {
+      return this.requestJson("/auth/2fa/otp/request", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${twoFactorToken}` },
+      });
+    },
+    verify2FAOtp: async (
+      twoFactorToken: string,
+      code: string,
+      opts?: { rememberMe?: boolean; deviceFingerprint?: string },
+    ): Promise<AuthResponse> => {
+      return this.requestJson("/auth/2fa/otp/verify", {
+        method: "POST",
+        body: { code, ...opts },
+        headers: { Authorization: `Bearer ${twoFactorToken}` },
+      });
+    },
     disable2FA: async (
       code: string,
       password: string,
@@ -359,9 +392,29 @@ export class ForumoApiClient {
         body: { code, password },
       });
     },
+    recoverOAuthAccount: {
+      request: async (email: string): Promise<{ message: string }> => {
+        return this.requestJson<{ message: string }>(
+          "/auth/recover-oauth-account/request",
+          { method: "POST", body: { email } },
+        );
+      },
+      confirm: async (payload: {
+        email: string;
+        code: string;
+        newPassword: string;
+        phone?: string;
+      }): Promise<TwoFactorSetupRequired> => {
+        const response = await this.requestJson<TwoFactorSetupRequired>(
+          "/auth/recover-oauth-account/confirm",
+          { method: "POST", body: payload },
+        );
+        return twoFactorSetupRequiredSchema.parse(response);
+      },
+    },
     register: async (payload: {
       name: string;
-      email: string;
+      email?: string;
       password: string;
       phone?: string;
     }): Promise<{ message: string }> => {

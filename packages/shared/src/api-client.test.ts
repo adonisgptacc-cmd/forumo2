@@ -6,6 +6,12 @@ import {
   getApiBaseUrl,
   getGatewayBaseUrl,
 } from "./api-client";
+import {
+  passwordSetupRequiredSchema,
+  identifierLoginPayloadSchema,
+  registerPayloadSchema,
+  safeUserSchema,
+} from "./types";
 
 describe("getApiBaseUrl", () => {
   it("appends /api/v1 to an origin-only URL", () => {
@@ -296,5 +302,60 @@ describe("ForumoApiClient", () => {
     await expect(client.listings.search()).rejects.toMatchObject({
       name: "ZodError",
     });
+  });
+});
+
+describe("passwordSetupRequiredSchema", () => {
+  it("parses the password-setup-required login response", () => {
+    const parsed = passwordSetupRequiredSchema.parse({
+      passwordSetupRequired: true,
+      recoveryToken: "a.b.c",
+    });
+    expect(parsed.passwordSetupRequired).toBe(true);
+  });
+});
+
+describe("identifierLoginPayloadSchema", () => {
+  it("accepts an email-shaped identifier", () => {
+    expect(() =>
+      identifierLoginPayloadSchema.parse({
+        identifier: "zuri@example.com",
+        password: "hunter2!Aa",
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a phone-shaped identifier", () => {
+    expect(() =>
+      identifierLoginPayloadSchema.parse({
+        identifier: "+27821234567",
+        password: "hunter2!Aa",
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("registerPayloadSchema", () => {
+  it("allows a phone-only registration with no email", () => {
+    expect(() =>
+      registerPayloadSchema.parse({
+        name: "Zuri",
+        password: "hunter2!Aa",
+        phone: "+27821234567",
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("safeUserSchema", () => {
+  it("allows a null email for phone-only accounts", () => {
+    expect(() =>
+      safeUserSchema.parse({
+        id: "user-1",
+        email: null,
+        phone: "+27821234567",
+        role: "BUYER",
+      }),
+    ).not.toThrow();
   });
 });
