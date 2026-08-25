@@ -472,6 +472,16 @@ describe("OtpDeliveryService.deliver channel preference", () => {
     );
     expect(result.channel).toBe(NotificationChannel.SMS);
   });
+
+  it("throws rather than emailing a phone-only user forced onto the EMAIL channel", async () => {
+    await expect(
+      service.deliver(
+        userPhoneOnly,
+        { ...dtoWithoutChannel, channel: NotificationChannel.EMAIL },
+        "123456",
+      ),
+    ).rejects.toThrow(/no email address/i);
+  });
 });
 ```
 
@@ -481,7 +491,7 @@ Run (from `apps/backend`):
 ```bash
 npx jest otp-delivery.service.spec.ts
 ```
-Expected: FAIL on the first test — `deliver()` currently returns `SMS` for `userWithBoth` (it prefers phone today).
+Expected: FAIL on two tests — `deliver()` currently returns `SMS` for `userWithBoth` (it prefers phone today), and the null-email guard test fails because `deliver()` doesn't check for a missing email yet (it would currently call `sendEmail(null, code)`, which either throws a different, unasserted error or misbehaves depending on the mocked delivery path — either way, not the specific message this test expects).
 
 - [ ] **Step 3: Fix `OtpDeliveryService.deliver()`**
 
@@ -494,6 +504,27 @@ In `apps/backend/src/modules/auth/otp-delivery.service.ts`, change lines 60–64
       : NotificationChannel.SMS;
     const channel = explicitChannel ?? inferredChannel;
 ```
+
+`User.email` is now nullable (Task 1), so the method's final branch — `return this.sendEmail(user.email, code);`, reached when `channel === NotificationChannel.SMS && user.phone` is false, i.e. the EMAIL path — no longer type-checks (`sendEmail`'s parameter is `string`). Find that line and guard it:
+
+```ts
+    if (channel === NotificationChannel.SMS && user.phone) {
+      return this.sendSms(user.phone, code);
+    }
+
+    if (!user.email) {
+      // Unreachable in practice: the preference above only resolves to
+      // EMAIL when user.email is set (falls back to SMS otherwise), and an
+      // explicit channel override of EMAIL for a phone-only user is a
+      // caller error this method has no other identifier to satisfy.
+      throw new BadRequestException(
+        "Cannot deliver an email OTP: this account has no email address",
+      );
+    }
+    return this.sendEmail(user.email, code);
+```
+
+This requires adding `BadRequestException` to the `@nestjs/common` import at the top of `otp-delivery.service.ts` (currently only imports `Injectable`, `Logger`).
 
 - [ ] **Step 4: Fix `AuthService.resolveChannel()`**
 
@@ -518,7 +549,7 @@ Run (from `apps/backend`):
 ```bash
 npx jest otp-delivery.service.spec.ts
 ```
-Expected: PASS, all three tests.
+Expected: PASS, all four tests.
 
 Then fix the one existing test that encodes the old (buggy) behavior:
 `apps/backend/src/modules/auth/__tests__/auth.flows.spec.ts:374`, `it("prefers SMS when the user has a phone and channel is omitted", ...)`. That test seeds a user with both email and phone (`createUser(prisma, { phone: "+233550000001" })` — `createUser`'s default already includes `email: "otp@example.com"`) and asserts `NotificationChannel.SMS`. Rename and flip it:
@@ -1567,6 +1598,34 @@ describe("TOTP lockout via Redis", () => {
     ).rejects.toThrow(/too many failed attempts/i);
   });
 });
+
+describe("initSetup2FA QR label for phone-only users", () => {
+  // `PrismaMock` (top of this file) only declares `user.findFirst` and
+  // `user.create` — `initSetup2FA()` calls `prisma.user.findUniqueOrThrow`
+  // and `prisma.user.update`, neither mocked yet anywhere in this file.
+  // Add both to `PrismaMock`'s type and to the `prisma.user` object built
+  // in `beforeEach` (as `jest.fn()`, alongside the existing `findFirst`/
+  // `create`) before writing this test — otherwise `prisma.user.findUniqueOrThrow`
+  // is `undefined` and the test throws a TypeError, not a meaningful failure.
+
+  it("uses phone as the TOTP QR label when email is null", async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValue({
+      ...createUser(),
+      email: null,
+      phone: "+27821234567",
+      twoFactorEnabled: false,
+    });
+    prisma.user.update.mockResolvedValue({});
+
+    const result = await service.initSetup2FA("user-1");
+
+    expect(result.qrCode).toBeDefined();
+    // The QR code encodes the label via otplib's keyuri — decoding the
+    // data URL isn't necessary here; this test's real job is proving
+    // initSetup2FA() doesn't throw/crash on a null email, which it would
+    // if `authenticator.keyuri(user.email, ...)` were called with `null`.
+  });
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -1574,8 +1633,9 @@ describe("TOTP lockout via Redis", () => {
 Run (from `apps/backend`):
 ```bash
 npx jest auth.service.spec.ts -t "TOTP lockout"
+npx jest auth.service.spec.ts -t "initSetup2FA QR label"
 ```
-Expected: FAIL — `AuthService`'s constructor doesn't accept a `CacheService` yet, and `checkTotpAttempts`/`recordTotpFailure` are synchronous methods reading a `Map`, not `cache.get`/`cache.set`.
+Expected: both FAIL. The TOTP-lockout tests fail because `AuthService`'s constructor doesn't accept a `CacheService` yet, and `checkTotpAttempts`/`recordTotpFailure` are synchronous methods reading a `Map`, not `cache.get`/`cache.set`. The QR-label test fails at compile/type-check time (or throws at runtime, depending on how strictly this file's mocks are typed) because `authenticator.keyuri(user.email, ...)` is still called with `user.email` directly, and `user.email` is `null` in this fixture — confirming the tsc error this step exists to fix (see Ruling in the SDD ledger after Task 1's review).
 
 - [ ] **Step 3: Inject `CacheService` and rewrite the lockout methods**
 
@@ -1727,11 +1787,24 @@ Apply the identical three-call-site change to `verifySetup2FA()` — its body ha
     // building the AuthResponse) is unchanged by this task.
 ```
 
-- [ ] **Step 5: Update `AuthModule`'s provider list if needed**
+- [ ] **Step 5: Fix `initSetup2FA()`'s TOTP QR label for phone-only users**
+
+`User.email` is now nullable (Task 1), so `initSetup2FA()`'s `authenticator.keyuri(user.email, "Forumo", secret)` call no longer type-checks — `keyuri`'s first argument (the label shown inside the authenticator app, e.g. Google Authenticator) is typed `string`. Find that line and change it to fall back through the identifiers a user might have:
+
+```ts
+    const secret = authenticator.generateSecret();
+    const accountLabel = user.email ?? user.phone ?? user.id;
+    const otpAuthUrl = authenticator.keyuri(accountLabel, "Forumo", secret);
+    const qrCode = await QRCode.toDataURL(otpAuthUrl);
+```
+
+(`user.id` as the final fallback is unreachable in practice — every account has at least one of email/phone per the `AtLeastOneIdentifier` constraint from Task 4 — but keeps the parameter genuinely non-nullable without an unsafe assertion.)
+
+- [ ] **Step 6: Update `AuthModule`'s provider list if needed**
 
 `CacheModule` is `@Global()` (`apps/backend/src/common/services/cache.module.ts:8`), so `CacheService` is already injectable anywhere without adding an import to `AuthModule`. No change needed to `apps/backend/src/modules/auth/auth.module.ts`.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 7: Run the tests to verify they pass**
 
 Run (from `apps/backend`):
 ```bash
@@ -1739,15 +1812,15 @@ npx jest auth.service.spec.ts
 ```
 Expected: PASS, including the two new tests.
 
-- [ ] **Step 7: Full compile + auth suite check**
+- [ ] **Step 8: Full compile + auth suite check**
 
 ```bash
 npx tsc --noEmit
 npx jest auth
 ```
-Expected: no errors, all auth tests pass. `auth.flows.spec.ts` constructs its own `Test.createTestingModule` — if it doesn't provide/override `CacheService`, check whether the real `CacheModule` is pulled in transitively (it's global, so it will be) and whether that test file's Redis connection needs mocking; if `CacheService`'s real Redis client fails to connect in the test environment, it already degrades gracefully (`CacheService` logs a warning and returns `undefined`/no-ops on failure — see `apps/backend/src/common/services/cache.service.ts:44-47`), so tests should still pass, just without real lockout persistence. Confirm this is actually what happens rather than assuming it.
+Expected: no `auth.service.ts` errors. Task 14 (dispatched earlier in this run, right after Task 1) already swept the cross-module `User.email`-nullable fallout in `admin.service.ts`/`auction-end.processor.ts`/`escrow.service.ts`, and Task 3 fixed `otp-delivery.service.ts` — so at this point `npx tsc --noEmit` should be fully clean, zero errors anywhere, not just in the files this task touched. If it isn't, that's a real regression to fix before committing, not an expected/deferred gap. All auth tests pass. `auth.flows.spec.ts` constructs its own `Test.createTestingModule` — if it doesn't provide/override `CacheService`, check whether the real `CacheModule` is pulled in transitively (it's global, so it will be) and whether that test file's Redis connection needs mocking; if `CacheService`'s real Redis client fails to connect in the test environment, it already degrades gracefully (`CacheService` logs a warning and returns `undefined`/no-ops on failure — see `apps/backend/src/common/services/cache.service.ts:44-47`), so tests should still pass, just without real lockout persistence. Confirm this is actually what happens rather than assuming it.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add apps/backend/src/modules/auth/auth.service.ts
@@ -2931,6 +3004,177 @@ With `pnpm dev:web` and `pnpm dev:backend` running, navigate directly to `/login
 ```bash
 git add apps/web/src/app/login/recover-account
 git commit -m "feat(web): OAuth account recovery page (set password, route to 2FA setup)"
+```
+
+---
+
+### Task 14: Fix the `User.email` nullability ripple outside the auth module
+
+**Added after Task 1's review** (see the SDD ledger's ruling): making `email` nullable in Task 1 breaks `npx tsc --noEmit` in modules this plan otherwise never touches — `admin.service.ts`, `auction-end.processor.ts`, `escrow.service.ts` — plus two spots inside the auth module itself, already fixed by additions folded into Tasks 3 and 7. This task is dispatched immediately after Task 1, ahead of Task 2, since it only depends on Task 1's schema change and nothing else in this plan. Doing it this early — rather than letting it linger until some later cleanup — means every subsequent task's own "run `npx tsc --noEmit`, expect no errors" step is actually true, instead of silently tolerating a pile of pre-existing unrelated errors for 9+ tasks.
+
+**Files:**
+- Modify: `packages/shared/src/types.ts` (`adminUserSummarySchema.email`, `adminUserDetailSchema.email` → nullable)
+- Modify: `apps/backend/src/modules/admin/admin.service.ts`
+- Modify: `apps/backend/src/modules/auctions/processors/auction-end.processor.ts`
+- Modify: `apps/backend/src/modules/escrow/escrow.service.ts`
+
+**Interfaces:**
+- Consumes: Task 1's nullable `User.email`.
+- Produces: `npx tsc --noEmit` clean across the whole backend and `packages/shared`. Nothing later in this plan depends on anything new here — this is a compile-error sweep, not a feature.
+
+- [ ] **Step 1: Confirm the current error set**
+
+Run (from `apps/backend`):
+```bash
+npx tsc --noEmit
+```
+Expected: errors in `admin.service.ts`, `auction-end.processor.ts`, and `escrow.service.ts` (roughly a dozen combined), all `Argument of type 'string | null' is not assignable to parameter of type 'string'` or similar, tracing back to `User.email`. This is the authoritative list — treat the guidance below as the pattern to apply, and the compiler's own output as ground truth for exactly which lines need it. If the compiler shows errors in files not mentioned here, fix those too using the same reasoning (guard-or-widen), and list them in your report.
+
+- [ ] **Step 2: Widen the two shared Admin schemas that require a non-null email**
+
+In `packages/shared/src/types.ts`, two schemas type an admin-facing user summary/detail with `email: z.string().email()` (required) — these are populated directly from Prisma `User` rows via `admin.service.ts`, so they need the same nullable treatment `safeUserSchema` already got in Task 2 (if Task 2 has landed by the time you run this — if not, apply the same pattern independently here; the two changes don't depend on each other).
+
+`adminUserSummarySchema` (used by `AdminKycSubmission.user`/`.reviewer`, `AdminListingModeration.seller`, `AdminDisputeSummary.openedBy`):
+```ts
+export const adminUserSummarySchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email().nullable(),
+  name: z.string().nullable().optional(),
+});
+```
+
+`adminUserDetailSchema`:
+```ts
+export const adminUserDetailSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().nullable(),
+  email: z.string().email().nullable(),
+  role: z.string(),
+  accountStatus: accountStatusSchema,
+  kycStatus: z.string(),
+  listingsCount: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+});
+```
+
+Rebuild the package (from `packages/shared`):
+```bash
+npx tsc -p tsconfig.json
+```
+Expected: no errors. This alone should resolve every `admin.service.ts` error that comes from assigning `submission.user.email`/`updated.reviewer.email`/etc. into one of these two schema-typed object literals — those call sites in `admin.service.ts` need no code change themselves.
+
+- [ ] **Step 3: Guard the notification call sites that require a non-null email**
+
+The remaining errors are genuine — code passing a possibly-null `user.email` into a `NotificationsService` method whose parameter is typed `string`. The fix in every case is the same shape: only send the notification when an email exists. Apply it at each site:
+
+`apps/backend/src/modules/admin/admin.service.ts`, in `suspendUser()` (the call is currently unconditional, right after the `$transaction`):
+```ts
+    if (user.email) {
+      await this.notifications.notifyAccountSuspended(
+        user.email,
+        user.name,
+        reason,
+        suspendedUntil,
+      );
+    }
+```
+
+In `unsuspendUser()`:
+```ts
+    if (user.email) {
+      await this.notifications.notifyAccountUnsuspended(user.email, user.name);
+    }
+```
+
+In `banUser()`:
+```ts
+    if (user.email) {
+      await this.notifications.notifyAccountBanned(user.email, user.name, reason);
+    }
+```
+
+In `liftExpiredSuspensions()`, the call is inside a `.map()` over a bulk list — filter rather than wrapping each call in an `if`:
+```ts
+    await Promise.all(
+      expired
+        .filter((u) => u.email)
+        .map((u) => this.notifications.notifyAccountUnsuspended(u.email!, u.name)),
+    );
+```
+(The non-null assertion here is safe — it's on the exact value the `.filter()` immediately above just checked, not a bare unchecked assumption.)
+
+`apps/backend/src/modules/auctions/processors/auction-end.processor.ts`, in the block that notifies the auction winner and seller:
+```ts
+          if (winner?.email) {
+            await this.notifications.notifyAuctionWon(
+              winner.email,
+              winner.name ?? "Winner",
+              createdOrderId,
+              auction.listing.title,
+              auction.bids[0].amountCents,
+              auction.currency,
+            );
+          }
+          if (seller?.email) {
+            await this.notifications.notifyAuctionSold(
+              seller.email,
+              seller.name ?? "Seller",
+              createdOrderId,
+              auction.listing.title,
+              auction.bids[0].amountCents,
+              auction.currency,
+            );
+          }
+```
+(Changes `if (winner)`/`if (seller)` to `if (winner?.email)`/`if (seller?.email)` — a winner/seller lacking an email now simply doesn't get this notification, same as any other phone-only-account gap this plan already accepts elsewhere.)
+
+`apps/backend/src/modules/escrow/escrow.service.ts`, in the release-notification block:
+```ts
+    if (client === this.prisma) {
+      const releaseOrder = await client.order.findUnique({
+        where: { id: orderId },
+        select: { seller: { select: { email: true, name: true } } },
+      });
+      if (releaseOrder?.seller?.email) {
+        // Non-blocking notification — the write above is already durable, and
+        // a notification failure must never fail the release.
+        void this.notifications
+          .notifyEscrowReleased(
+            releaseOrder.seller.email,
+            releaseOrder.seller.name ?? "Seller",
+            orderId,
+            escrow.amountCents,
+            escrow.currency,
+          )
+          .catch(() => undefined);
+      }
+    }
+```
+(Changes `if (releaseOrder?.seller)` to `if (releaseOrder?.seller?.email)` — same reasoning.)
+
+- [ ] **Step 4: Re-run the compiler and existing test suites**
+
+```bash
+cd apps/backend
+npx tsc --noEmit
+npx jest admin
+npx jest auctions
+npx jest escrow
+```
+Expected: `tsc --noEmit` fully clean, zero errors, anywhere. All three test suites still pass — this task changes control flow only for the null-email case, which none of the existing tests construct (every existing fixture has a real email), so no existing test's expected behavior should change. If any existing test *does* break, that test was relying on the notification firing unconditionally — investigate before assuming the test is simply wrong.
+
+Widening `adminUserSummarySchema`/`adminUserDetailSchema` to nullable email is a type change consumers could theoretically be affected by. Check the two frontends that render these types:
+```bash
+cd ../../apps/admin && npx tsc --noEmit
+cd ../web && npx tsc --noEmit
+```
+Expected: both clean. Rendering a possibly-`null` string inside JSX (`{user.email}`) doesn't itself cause a type error — `ReactNode` accepts `null` — so a break here would mean something more specific (e.g. a `.toLowerCase()` call directly on `user.email` without a guard) and needs its own small fix at that exact call site, following the same guard pattern as Step 3.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/shared/src/types.ts apps/backend/src/modules/admin/admin.service.ts apps/backend/src/modules/auctions/processors/auction-end.processor.ts apps/backend/src/modules/escrow/escrow.service.ts
+git commit -m "fix: guard email-only notifications and widen admin schemas for nullable User.email"
 ```
 
 ---
