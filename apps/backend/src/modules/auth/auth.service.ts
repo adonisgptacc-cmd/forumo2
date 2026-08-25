@@ -889,7 +889,7 @@ export class AuthService {
       return requestedChannel;
     }
 
-    return user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL;
+    return user.email ? NotificationChannel.EMAIL : NotificationChannel.SMS;
   }
 
   async validateOrCreateGoogleUser(profile: {

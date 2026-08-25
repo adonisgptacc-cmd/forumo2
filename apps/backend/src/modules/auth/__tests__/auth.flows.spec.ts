@@ -373,7 +373,7 @@ describe("AuthModule HTTP flows", () => {
     }
   });
 
-  it("prefers SMS when the user has a phone and channel is omitted", async () => {
+  it("prefers EMAIL when the user has both identifiers and channel is omitted", async () => {
     const user = await createUser(prisma, { phone: "+233550000001" });
     jest
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
@@ -389,10 +389,10 @@ describe("AuthModule HTTP flows", () => {
       })
       .expect(201);
 
-    expect(response.body.channel).toBe(NotificationChannel.SMS);
+    expect(response.body.channel).toBe(NotificationChannel.EMAIL);
     const [, deliveredDto] = otpDelivery.deliver.mock.calls[0];
     expect((deliveredDto as RequestOtpDto).channel).toBeUndefined();
-    expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.SMS);
+    expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.EMAIL);
   });
 
   it("issues and verifies OTP codes while recording device sessions", async () => {

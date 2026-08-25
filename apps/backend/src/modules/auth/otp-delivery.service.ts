@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NotificationChannel, User } from "@prisma/client";
 import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
@@ -58,15 +58,24 @@ export class OtpDeliveryService {
     code: string,
   ): Promise<OtpDeliveryResult> {
     const explicitChannel = dto.channel;
-    const inferredChannel = user.phone
-      ? NotificationChannel.SMS
-      : NotificationChannel.EMAIL;
+    const inferredChannel = user.email
+      ? NotificationChannel.EMAIL
+      : NotificationChannel.SMS;
     const channel = explicitChannel ?? inferredChannel;
 
     if (channel === NotificationChannel.SMS && user.phone) {
       return this.sendSms(user.phone, code);
     }
 
+    if (!user.email) {
+      // Unreachable in practice: the preference above only resolves to
+      // EMAIL when user.email is set (falls back to SMS otherwise), and an
+      // explicit channel override of EMAIL for a phone-only user is a
+      // caller error this method has no other identifier to satisfy.
+      throw new BadRequestException(
+        "Cannot deliver an email OTP: this account has no email address",
+      );
+    }
     return this.sendEmail(user.email, code);
   }
 
