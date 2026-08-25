@@ -74,7 +74,7 @@ export class AuthController {
         action: "auth.login",
         entityType: "user",
         entityId: result.user.id,
-        payload: { email: dto.email },
+        payload: { identifier: dto.identifier },
         ipAddress: req.ip ?? null,
         userAgent: req.headers?.["user-agent"] ?? null,
       });
