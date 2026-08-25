@@ -48,6 +48,7 @@ type UserRecord = {
   email: string;
   passwordHash: string;
   phone: string | null;
+  phoneVerified: boolean;
   avatarUrl: string | null;
   role: UserRole;
   trustScore: number;
@@ -121,6 +122,7 @@ class InMemoryPrismaService {
         passwordHash: data.passwordHash!,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         phone: (data as any).phone ?? null,
+        phoneVerified: (data as any).phoneVerified ?? false,
         avatarUrl: null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         role: (data as any).role ?? UserRole.BUYER,

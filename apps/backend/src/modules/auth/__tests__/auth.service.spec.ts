@@ -17,6 +17,7 @@ const createUser = (): User => ({
   email: "zuri@example.com",
   passwordHash: "hashed",
   phone: "+27123456789",
+  phoneVerified: false,
   avatarUrl: null,
   role: "BUYER",
   trustScore: 0,
@@ -150,7 +151,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.create.mockImplementation(async (args) => args as never);
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
     const dto: RequestOtpDto = {
-      email: user.email,
+      email: user.email!,
       purpose: OtpPurpose.LOGIN,
       deviceFingerprint: "fingerprint-123",
       ipAddress: "127.0.0.1",
@@ -241,7 +242,7 @@ describe("AuthService OTP flows", () => {
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
 
     const dto: VerifyOtpDto = {
-      email: user.email,
+      email: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "654321",
       deviceFingerprint: "fingerprint-123",
@@ -291,7 +292,7 @@ describe("AuthService OTP flows", () => {
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
 
     const dto: VerifyOtpDto = {
-      email: user.email,
+      email: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "222333",
       deviceFingerprint: "fingerprint-xyz",
@@ -338,7 +339,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.findFirst.mockResolvedValue(null);
 
     const dto: VerifyOtpDto = {
-      email: user.email,
+      email: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "111111",
       deviceFingerprint: "different-device",
