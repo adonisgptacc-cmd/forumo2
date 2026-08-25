@@ -943,16 +943,24 @@ export class OrdersService {
       switch (status) {
         case OrderStatus.CONFIRMED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order confirmed — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been confirmed by the seller. Total: ${total}.</p><p><a href="${orderUrl}">View your order</a></p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `New order received — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>You have a new confirmed order <strong>${ref}</strong>. Total: ${total}.</p><p><a href="${orderUrl}">Manage this order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order confirmed — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been confirmed by the seller. Total: ${total}.</p><p><a href="${orderUrl}">View your order</a></p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `New order received — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>You have a new confirmed order <strong>${ref}</strong>. Total: ${total}.</p><p><a href="${orderUrl}">Manage this order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.confirmed", {
               orderId: order.id,
               ref,
@@ -965,21 +973,29 @@ export class OrdersService {
             ? `<tr><td style="padding:4px 0">Tax (${order.taxJurisdiction ?? ""})</td><td style="padding:4px 0;text-align:right">${order.currency} ${(order.taxAmountCents / 100).toFixed(2)}</td></tr>`
             : "";
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Payment confirmed — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your payment for order <strong>${ref}</strong> has been received. Here is your receipt summary:</p>` +
-                `<table style="width:100%;border-collapse:collapse;font-size:14px">` +
-                `<tr><td style="padding:4px 0">Subtotal</td><td style="padding:4px 0;text-align:right">${order.currency} ${((order.totalItemCents + order.shippingCents + order.feeCents) / 100).toFixed(2)}</td></tr>` +
-                taxLine +
-                `</table>` +
-                `<p><a href="${orderUrl}">View your order</a></p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `Payment received — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Payment confirmed — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your payment for order <strong>${ref}</strong> has been received. Here is your receipt summary:</p>` +
+                      `<table style="width:100%;border-collapse:collapse;font-size:14px">` +
+                      `<tr><td style="padding:4px 0">Subtotal</td><td style="padding:4px 0;text-align:right">${order.currency} ${((order.totalItemCents + order.shippingCents + order.feeCents) / 100).toFixed(2)}</td></tr>` +
+                      taxLine +
+                      `</table>` +
+                      `<p><a href="${orderUrl}">View your order</a></p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Payment received — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(seller.id, "order.paid", {
               orderId: order.id,
               ref,
@@ -994,11 +1010,15 @@ export class OrdersService {
 
         case OrderStatus.FULFILLED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Your order has shipped — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been shipped. Check your order page for tracking details.</p><p><a href="${orderUrl}">Track your order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Your order has shipped — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been shipped. Check your order page for tracking details.</p><p><a href="${orderUrl}">Track your order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.shipped", {
               orderId: order.id,
               ref,
@@ -1008,11 +1028,15 @@ export class OrdersService {
 
         case OrderStatus.DELIVERED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Confirm delivery — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been marked as delivered. Please confirm receipt to release payment to the seller.</p><p><a href="${orderUrl}">Confirm delivery</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Confirm delivery — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been marked as delivered. Please confirm receipt to release payment to the seller.</p><p><a href="${orderUrl}">Confirm delivery</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.delivered", {
               orderId: order.id,
               ref,
@@ -1022,41 +1046,61 @@ export class OrdersService {
 
         case OrderStatus.COMPLETED:
           await Promise.all([
-            this.notifications.sendEmail(
-              seller.email,
-              `Funds released — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>The buyer has confirmed delivery for order <strong>${ref}</strong>. ${total} has been released from escrow to your account.</p>`,
-            ),
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order complete — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> is complete. Thank you for shopping on Forumo!</p>`,
-            ),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Funds released — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>The buyer has confirmed delivery for order <strong>${ref}</strong>. ${total} has been released from escrow to your account.</p>`,
+                  ),
+                ]
+              : []),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order complete — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> is complete. Thank you for shopping on Forumo!</p>`,
+                  ),
+                ]
+              : []),
           ]);
           break;
 
         case OrderStatus.CANCELLED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order cancelled — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been cancelled. Any payment will be refunded shortly.</p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `Order cancelled — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>Order <strong>${ref}</strong> has been cancelled.</p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order cancelled — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been cancelled. Any payment will be refunded shortly.</p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Order cancelled — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>Order <strong>${ref}</strong> has been cancelled.</p>`,
+                  ),
+                ]
+              : []),
           ]);
           break;
 
         case OrderStatus.DISPUTED:
           await Promise.all([
-            this.notifications.sendEmail(
-              seller.email,
-              `Dispute opened — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>A dispute has been raised for order <strong>${ref}</strong>. An admin will review shortly. <a href="${orderUrl}">View dispute</a></p>`,
-            ),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Dispute opened — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>A dispute has been raised for order <strong>${ref}</strong>. An admin will review shortly. <a href="${orderUrl}">View dispute</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(seller.id, "order.disputed", {
               orderId: order.id,
               ref,

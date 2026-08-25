@@ -174,12 +174,14 @@ export class KycService {
       data: { kycStatus: decision },
     });
 
-    await this.notifications.notifyKycDecision(
-      updated.user.email,
-      updated.user.name ?? "User",
-      decision,
-      updated.rejectionReason,
-    );
+    if (updated.user.email) {
+      await this.notifications.notifyKycDecision(
+        updated.user.email,
+        updated.user.name ?? "User",
+        decision,
+        updated.rejectionReason,
+      );
+    }
 
     return updated;
   }

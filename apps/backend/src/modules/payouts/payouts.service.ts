@@ -666,13 +666,15 @@ export class PayoutsService {
     });
 
     const amount = (payout.amount / 100).toFixed(2);
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> has been successfully transferred to your bank account.</p>
        <p>Transfer reference: <code>${stripeTransferId}</code></p>`,
-    );
+      );
+    }
 
     this.logger.log(`handleTransferPaid: payout ${payout.id} marked PAID`);
   }
@@ -715,15 +717,17 @@ export class PayoutsService {
     const bankDetailsUrl = `${frontendUrl}/dashboard/payouts/bank-details`;
     const amount = (payout.amount / 100).toFixed(2);
 
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Unfortunately your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> could not be completed.</p>
        <p><strong>Reason:</strong> ${failureReason}</p>
        ${shouldRetry ? "<p>We will automatically retry in 24 hours.</p>" : ""}
        <p>Please <a href="${bankDetailsUrl}">update your bank details</a> to ensure future payouts succeed.</p>`,
-    );
+      );
+    }
 
     this.logger.warn(
       `handleTransferFailed: payout ${payout.id} failed — retry=${shouldRetry}`,
@@ -767,13 +771,15 @@ export class PayoutsService {
     });
 
     const amount = (payout.amount / 100).toFixed(2);
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> has been successfully transferred to your bank account.</p>
        <p>Transfer reference: <code>${transferCode}</code></p>`,
-    );
+      );
+    }
 
     this.logger.log(
       `handlePaystackTransferSuccess: payout ${payout.id} marked PAID`,
@@ -818,15 +824,17 @@ export class PayoutsService {
     const bankDetailsUrl = `${frontendUrl}/dashboard/payouts/bank-details`;
     const amount = (payout.amount / 100).toFixed(2);
 
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Unfortunately your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> could not be completed.</p>
        <p><strong>Reason:</strong> ${failureReason}</p>
        ${shouldRetry ? "<p>We will automatically retry in 24 hours.</p>" : ""}
        <p>Please <a href="${bankDetailsUrl}">update your bank details</a> to ensure future payouts succeed.</p>`,
-    );
+      );
+    }
 
     this.logger.warn(
       `handlePaystackTransferFailed: payout ${payout.id} failed — retry=${shouldRetry}`,

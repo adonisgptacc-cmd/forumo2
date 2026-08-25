@@ -197,7 +197,7 @@ export class EscrowService {
         where: { id: orderId },
         select: { seller: { select: { email: true, name: true } } },
       });
-      if (releaseOrder?.seller) {
+      if (releaseOrder?.seller?.email) {
         // Non-blocking notification — the write above is already durable, and
         // a notification failure must never fail the release.
         void this.notifications
@@ -395,7 +395,7 @@ export class EscrowService {
       where: { id: orderId },
       select: { buyer: { select: { email: true, name: true } } },
     });
-    if (refundOrder?.buyer) {
+    if (refundOrder?.buyer?.email) {
       await this.notifications.notifyEscrowRefunded(
         refundOrder.buyer.email,
         refundOrder.buyer.name ?? "Buyer",

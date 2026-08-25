@@ -325,7 +325,7 @@ export default function AdminHome() {
       (allUsers as AdminUserDetail[]).filter((u) => {
         const matchesQuery =
           (u.name ?? "").toLowerCase().includes(userQuery.toLowerCase()) ||
-          u.email.toLowerCase().includes(userQuery.toLowerCase());
+          (u.email ?? "").toLowerCase().includes(userQuery.toLowerCase());
         const matchesRole =
           userRole === "all" || u.role.toLowerCase() === userRole.toLowerCase();
         const matchesKyc =
@@ -417,7 +417,7 @@ export default function AdminHome() {
                   "forumo-users.csv",
                   (filteredUsers as AdminUserDetail[]).map((u) => [
                     u.name ?? "",
-                    u.email,
+                    u.email ?? "",
                     u.role,
                     u.kycStatus,
                     String(u.listingsCount),

@@ -626,7 +626,7 @@ export interface UploadResult {
 
 export const adminUserSummarySchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email(),
+  email: z.string().email().nullable(),
   name: z.string().nullable().optional(),
 });
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
@@ -700,7 +700,7 @@ export type AccountStatus = z.infer<typeof accountStatusSchema>;
 export const adminUserDetailSchema = z.object({
   id: z.string().uuid(),
   name: z.string().nullable(),
-  email: z.string().email(),
+  email: z.string().email().nullable(),
   role: z.string(),
   accountStatus: accountStatusSchema,
   kycStatus: z.string(),

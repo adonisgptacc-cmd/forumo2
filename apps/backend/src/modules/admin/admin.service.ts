@@ -59,12 +59,14 @@ export class AdminService {
     ]);
     await this.cache.deleteByPrefix("listings:search:");
 
-    await this.notifications.notifyAccountSuspended(
-      user.email,
-      user.name,
-      reason,
-      suspendedUntil,
-    );
+    if (user.email) {
+      await this.notifications.notifyAccountSuspended(
+        user.email,
+        user.name,
+        reason,
+        suspendedUntil,
+      );
+    }
   }
 
   async unsuspendUser(userId: string): Promise<void> {
@@ -82,7 +84,9 @@ export class AdminService {
       },
     });
 
-    await this.notifications.notifyAccountUnsuspended(user.email, user.name);
+    if (user.email) {
+      await this.notifications.notifyAccountUnsuspended(user.email, user.name);
+    }
   }
 
   async banUser(userId: string, reason: string): Promise<void> {
@@ -136,7 +140,9 @@ export class AdminService {
       }
     }
 
-    await this.notifications.notifyAccountBanned(user.email, user.name, reason);
+    if (user.email) {
+      await this.notifications.notifyAccountBanned(user.email, user.name, reason);
+    }
   }
 
   // ─── Cron: auto-lift expired temporary suspensions ───────────────────────────
@@ -164,9 +170,9 @@ export class AdminService {
     });
 
     await Promise.all(
-      expired.map((u) =>
-        this.notifications.notifyAccountUnsuspended(u.email, u.name),
-      ),
+      expired
+        .filter((u) => u.email)
+        .map((u) => this.notifications.notifyAccountUnsuspended(u.email!, u.name)),
     );
   }
 
