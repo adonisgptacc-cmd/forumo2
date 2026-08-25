@@ -1626,6 +1626,34 @@ describe("initSetup2FA QR label for phone-only users", () => {
     // if `authenticator.keyuri(user.email, ...)` were called with `null`.
   });
 });
+
+describe("2FA completion for phone-only users", () => {
+  it("completeTwoFactorLogin() succeeds for a phone-only user (no redundant email re-lookup)", async () => {
+    const phoneOnlyUser = {
+      ...createUser(),
+      email: null,
+      phone: "+27821234567",
+      twoFactorEnabled: true,
+      twoFactorSecret: "JBSWY3DPEHPK3PXP",
+    };
+    cache.get.mockResolvedValue(undefined);
+    prisma.user.findUniqueOrThrow.mockResolvedValue(phoneOnlyUser);
+    prisma.user.update.mockResolvedValue(phoneOnlyUser);
+    jest.spyOn(authenticator, "verify").mockReturnValue(true);
+
+    // Before this task's fix, this call would either fail to compile
+    // (findActiveUserByEmail expects a string, user.email is null) or, if
+    // "fixed" with a bare non-null assertion instead of removing the
+    // redundant re-fetch, throw at runtime for exactly this user.
+    await expect(
+      service.completeTwoFactorLogin(phoneOnlyUser.id, "123456"),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        accessToken: expect.any(String),
+      }),
+    );
+  });
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -1745,12 +1773,34 @@ Replace the three lockout methods (lines 136–158):
     } else {
       await this.clearTotpAttempts(userId);
     }
-    // The rest of the method (building and returning the AuthResponse,
-    // updating lastLoginAt) is unchanged by this task — only the three
-    // lockout-method call sites above gain `await`.
+
+    // The method used to re-fetch `fullUser` via
+    // `this.findActiveUserByEmail(user.email)` here — redundant (the `user`
+    // fetched above via `findUniqueOrThrow` is already the full record) and,
+    // since `User.email` is nullable as of Task 1, broken outright for a
+    // phone-only user: `findActiveUserByEmail(null)` would either type-error
+    // or (once "fixed" with a bare `!` assertion) throw at runtime for
+    // every phone-only account. Use `user` directly instead.
+    const response = await this.buildAuthResponse(user, {
+      rememberMe: dto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(
+        dto.deviceFingerprint,
+        dto.ipAddress,
+      ),
+      sessionMetadata: dto.metadata,
+      userAgent: dto.userAgent,
+      ipAddress: dto.ipAddress,
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    return response;
+  }
 ```
 
-Apply the identical three-call-site change to `verifySetup2FA()` — its body has the same shape (checks attempts first, records a failure on an invalid code, clears on success):
+Apply the identical three-call-site change to `verifySetup2FA()` — its body has the same shape (checks attempts first, records a failure on an invalid code, clears on success) — and it has the exact same redundant/broken `findActiveUserByEmail(user.email)` re-fetch at its tail, fixed the same way:
 
 ```ts
   async verifySetup2FA(
@@ -1783,8 +1833,41 @@ Apply the identical three-call-site change to `verifySetup2FA()` — its body ha
       );
     }
     await this.clearTotpAttempts(userId);
-    // The rest of the method (generating backup codes, enabling 2FA,
-    // building the AuthResponse) is unchanged by this task.
+
+    // Generate 8 backup codes
+    const plainCodes = Array.from({ length: 8 }, () =>
+      randomBytes(4).toString("hex").toUpperCase().match(/.{4}/g)!.join("-"),
+    );
+    const hashedCodes = plainCodes.map((c) =>
+      createHash("sha256").update(c).digest("hex"),
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true, twoFactorBackupCodes: hashedCodes },
+    });
+
+    // Same fix as completeTwoFactorLogin() above: use `user` directly
+    // instead of the old redundant/broken `findActiveUserByEmail(user.email)`
+    // re-fetch, which doesn't type-check for a nullable email and would
+    // throw at runtime for a phone-only user regardless.
+    const response = await this.buildAuthResponse(user, {
+      rememberMe: loginDto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(
+        loginDto.deviceFingerprint,
+        loginDto.ipAddress,
+      ),
+      sessionMetadata: loginDto.metadata,
+      userAgent: loginDto.userAgent,
+      ipAddress: loginDto.ipAddress,
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    return { ...response, backupCodes: plainCodes };
+  }
 ```
 
 - [ ] **Step 5: Fix `initSetup2FA()`'s TOTP QR label for phone-only users**
