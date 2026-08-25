@@ -8,14 +8,17 @@ import {
   MinLength,
 } from "class-validator";
 
+import { AtLeastOneIdentifier } from "../validators/at-least-one-identifier.validator";
+
 export class RegisterDto {
   @IsString()
   @MinLength(2)
   @MaxLength(120)
   name!: string;
 
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @IsString()
   @MinLength(8)
@@ -24,11 +27,12 @@ export class RegisterDto {
     message:
       "password must include upper and lower case letters, a number and a special character",
   })
+  @AtLeastOneIdentifier()
   password!: string;
 
   @IsOptional()
-  @IsPhoneNumber("ZA", {
-    message: "phone must be a valid international number",
+  @IsPhoneNumber(undefined, {
+    message: "phone must be a valid international number (e.g. +27821234567)",
   })
   phone?: string;
 }
