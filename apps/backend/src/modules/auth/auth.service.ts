@@ -68,43 +68,66 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterInput): Promise<{ message: string }> {
-    const normalizedEmail = this.normalizeEmail(dto.email);
-    const existing = await this.findActiveUserByEmail(normalizedEmail);
-    if (existing) {
-      throw new ConflictException("Email already registered");
+    if (!dto.email && !dto.phone) {
+      throw new BadRequestException("Provide an email or phone number");
+    }
+
+    const normalizedEmail = dto.email
+      ? this.normalizeEmail(dto.email)
+      : undefined;
+
+    if (normalizedEmail) {
+      const existingEmail = await this.findActiveUserByEmail(normalizedEmail);
+      if (existingEmail) {
+        throw new ConflictException("Email already registered");
+      }
+    }
+    if (dto.phone) {
+      const existingPhone = await this.findActiveUserByPhone(dto.phone);
+      if (existingPhone) {
+        throw new ConflictException("Phone number already registered");
+      }
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
-    const emailVerificationToken = randomBytes(32).toString("hex");
+    const emailVerificationToken = normalizedEmail
+      ? randomBytes(32).toString("hex")
+      : null;
 
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
-        email: normalizedEmail,
+        email: normalizedEmail ?? null,
         passwordHash,
-        phone: dto.phone,
+        phone: dto.phone ?? null,
         emailVerified: false,
         emailVerificationToken,
       },
     });
 
     await this.ensureUserProfile(user.id);
-    await this.sendVerificationEmailForUser(
-      user.email,
-      user.name,
-      emailVerificationToken,
-    );
 
+    if (normalizedEmail) {
+      await this.sendVerificationEmailForUser(
+        user.email!,
+        user.name,
+        emailVerificationToken!,
+      );
+      return {
+        message:
+          "Registration successful. Please check your email to verify your account.",
+      };
+    }
+
+    await this.issuePhoneVerificationOtp(user);
     return {
       message:
-        "Registration successful. Please check your email to verify your account.",
+        "Registration successful. Please check your phone for a verification code.",
     };
   }
 
   async login(dto: LoginInput): Promise<LoginResult> {
-    const normalizedEmail = this.normalizeEmail(dto.email);
-
-    const user = await this.findActiveUserByEmail(normalizedEmail);
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid credentials");
     }
@@ -644,7 +667,10 @@ export class AuthService {
     });
 
     await this.sendVerificationEmailForUser(
-      user.email,
+      // `user` was looked up by this exact `normalizedEmail`, so it is
+      // guaranteed non-null here even though `User.email` is nullable at
+      // the type level (phone-only accounts) since Task 1's schema change.
+      normalizedEmail,
       user.name,
       emailVerificationToken,
     );
@@ -672,6 +698,26 @@ export class AuthService {
 
   private async findActiveUserByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+  }
+
+  private async findActiveUserByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findFirst({ where: { phone, deletedAt: null } });
+  }
+
+  private classifyIdentifier(identifier: string): "email" | "phone" {
+    return identifier.includes("@") ? "email" : "phone";
+  }
+
+  private async findActiveUserByIdentifier(
+    identifier: string,
+  ): Promise<User | null> {
+    return this.classifyIdentifier(identifier) === "email"
+      ? this.findActiveUserByEmail(this.normalizeEmail(identifier))
+      : this.findActiveUserByPhone(identifier.trim());
+  }
+
+  private async issuePhoneVerificationOtp(_user: User): Promise<void> {
+    // Replaced in Task 6 with a real OTP-issuing implementation.
   }
 
   private async ensureUserProfile(userId: string): Promise<void> {

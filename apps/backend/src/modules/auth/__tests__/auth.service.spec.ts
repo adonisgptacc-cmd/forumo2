@@ -357,4 +357,54 @@ describe("AuthService OTP flows", () => {
       }),
     );
   });
+
+  describe("phone-primary register/login", () => {
+    it("registers a phone-only user without requiring an email", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        ...createUser(),
+        id: "user-2",
+        email: null,
+        phone: "+27821234567",
+        emailVerified: false,
+        phoneVerified: false,
+      });
+
+      const result = await service.register({
+        name: "Thabo",
+        password: "hunter2!Aa",
+        phone: "+27821234567",
+      } as never);
+
+      expect(result.message).toMatch(/phone/i);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ phone: "+27821234567" }),
+        }),
+      );
+    });
+
+    it("logs in by phone when the identifier is not email-shaped", async () => {
+      const user = { ...createUser(), phone: "+27821234567" };
+      prisma.user.findFirst.mockResolvedValue(user);
+
+      // `user.passwordHash` ("hashed") is not a real bcrypt hash, so
+      // bcrypt.compare resolves false and login() rejects with
+      // "Invalid credentials" — that's expected here. This test only
+      // verifies that login() classified the identifier as a phone number
+      // and looked the user up by `phone`, not that login succeeds.
+      await expect(
+        service.login({
+          identifier: "+27821234567",
+          password: "irrelevant",
+        } as never),
+      ).rejects.toThrow("Invalid credentials");
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ phone: "+27821234567" }),
+        }),
+      );
+    });
+  });
 });
