@@ -1307,7 +1307,13 @@ export class PasswordResetConfirmDto {
 
 In `apps/backend/src/modules/auth/auth.service.ts`:
 
-Replace the stub from Task 5 with a real `issuePhoneVerificationOtp`, right after `requestOtp()`'s body (near line 277) — reuses the exact same code/hash/deliver/create pattern `requestOtp()` already uses, minus the device-fingerprint rate-limiting (registration is already throttled at the controller level via `@Throttle({ auth: {} })`):
+Task 5 added a private stub method:
+```ts
+  private async issuePhoneVerificationOtp(_user: User): Promise<void> {
+    // Replaced in Task 6 with a real OTP-issuing implementation.
+  }
+```
+Find that exact method (search for `issuePhoneVerificationOtp` — do not search by line number, earlier tasks have shifted line numbers throughout this file) and **replace its whole body in place** — do not add a second method with the same name, which would be a duplicate-declaration compile error. It reuses the exact same code/hash/deliver/create pattern `requestOtp()` already uses, minus the device-fingerprint rate-limiting (registration is already throttled at the controller level via `@Throttle({ auth: {} })`):
 
 ```ts
   private async issuePhoneVerificationOtp(user: User): Promise<void> {
@@ -1646,7 +1652,12 @@ Replace the three lockout methods (lines 136–158):
   async completeTwoFactorLogin(
     userId: string,
     code: string,
-    dto: /* unchanged */,
+    dto: Partial<
+      Pick<
+        LoginInput,
+        "rememberMe" | "deviceFingerprint" | "ipAddress" | "userAgent"
+      >
+    > & { metadata?: Record<string, unknown> } = {},
   ): Promise<AuthResponse> {
     await this.checkTotpAttempts(userId);
     const user = await this.prisma.user.findUniqueOrThrow({
@@ -1674,10 +1685,47 @@ Replace the three lockout methods (lines 136–158):
     } else {
       await this.clearTotpAttempts(userId);
     }
-    // ... rest unchanged
+    // The rest of the method (building and returning the AuthResponse,
+    // updating lastLoginAt) is unchanged by this task — only the three
+    // lockout-method call sites above gain `await`.
 ```
 
-Apply the same `await` additions to the equivalent calls inside `verifySetup2FA()`.
+Apply the identical three-call-site change to `verifySetup2FA()` — its body has the same shape (checks attempts first, records a failure on an invalid code, clears on success):
+
+```ts
+  async verifySetup2FA(
+    userId: string,
+    code: string,
+    loginDto: Partial<
+      Pick<
+        LoginInput,
+        "rememberMe" | "deviceFingerprint" | "ipAddress" | "userAgent"
+      >
+    > & { metadata?: Record<string, unknown> } = {},
+  ): Promise<AuthResponse & { backupCodes: string[] }> {
+    await this.checkTotpAttempts(userId);
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    if (!user.twoFactorSecret)
+      throw new BadRequestException("2FA setup not initiated");
+    if (user.twoFactorEnabled)
+      throw new ForbiddenException("2FA already enabled");
+
+    const valid = authenticator.verify({
+      token: code,
+      secret: user.twoFactorSecret,
+    });
+    if (!valid) {
+      await this.recordTotpFailure(userId);
+      throw new UnauthorizedException(
+        "Invalid authentication code. Try again.",
+      );
+    }
+    await this.clearTotpAttempts(userId);
+    // The rest of the method (generating backup codes, enabling 2FA,
+    // building the AuthResponse) is unchanged by this task.
+```
 
 - [ ] **Step 5: Update `AuthModule`'s provider list if needed**
 
@@ -2316,11 +2364,22 @@ git rm apps/backend/src/modules/auth/guards/google-auth.guard.spec.ts
 
 - [ ] **Step 2: Remove `validateOrCreateGoogleUser` from `AuthService`**
 
-Delete lines 895–923 of `apps/backend/src/modules/auth/auth.service.ts` (the entire `validateOrCreateGoogleUser` method).
+Nine prior tasks have added methods to `apps/backend/src/modules/auth/auth.service.ts`, so line numbers from the original file no longer apply — locate by content instead. Find and delete the entire method, which starts with this signature and ends at its closing brace (originally in the file's later section, near `issueTwoFactorToken`/`initSetup2FA`):
+
+```ts
+  async validateOrCreateGoogleUser(profile: {
+    googleId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }): Promise<User> {
+```
+
+Delete that method in full, including its trailing blank line before the next method (`issueTwoFactorToken` or whichever method now follows it).
 
 - [ ] **Step 3: Remove the three Google endpoints from `AuthController`**
 
-Delete the `GET /auth/google`, `GET /auth/google/callback`, and `GET /auth/oauth/exchange` handlers (lines 261–312 of `apps/backend/src/modules/auth/auth.controller.ts`), and remove the now-unused `GoogleAuthGuard` import at the top of the file.
+Same caveat — locate by content, not line number. Delete the three handlers whose decorators are `@Get("google")`, `@Get("google/callback")`, and `@Get("oauth/exchange")` (the last one is named `exchangeOAuthCookie`), each including its full method body and the `// ─── ...` comment banner if one directly precedes only these three (do not delete a banner shared with unrelated code that follows). Remove the now-unused `GoogleAuthGuard` import at the top of the file (`import { GoogleAuthGuard } from "./guards/google-auth.guard";`).
 
 - [ ] **Step 4: Remove `GoogleStrategy` from `AuthModule`**
 
