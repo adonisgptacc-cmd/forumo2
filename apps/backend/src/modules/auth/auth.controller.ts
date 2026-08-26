@@ -10,6 +10,8 @@ import {
   Res,
   UnauthorizedException,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from "@nestjs/common";
 import { Response } from "express";
 import type { Request as ExpressRequest } from "express";
@@ -43,6 +45,7 @@ type AuthenticatedRequest = ExpressRequest & {
 
 @Controller("auth")
 @SkipTosCheck()
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

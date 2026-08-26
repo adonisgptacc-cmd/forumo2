@@ -400,6 +400,20 @@ describe("AuthModule HTTP flows", () => {
     }
   });
 
+  it("rejects registration with a password that fails complexity requirements", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", email: "zuri@example.com", password: "short" })
+      .expect(400);
+  });
+
+  it("rejects registration with neither email nor phone", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", password: "hunter2!Aa" })
+      .expect(400);
+  });
+
   it("prefers EMAIL when the user has both identifiers and channel is omitted", async () => {
     const user = await createUser(prisma, { phone: "+233550000001" });
     jest
@@ -468,7 +482,9 @@ describe("AuthModule HTTP flows", () => {
   });
 
   it("resets passwords with OTP and enforces the new secret", async () => {
-    const newPassword = ["new", "password", "123"].join("-");
+    // Must satisfy PasswordResetConfirmDto's complexity regex (upper + lower
+    // + digit + special char) now that ValidationPipe actually enforces it.
+    const newPassword = ["New", "password", "123!"].join("-");
     const user = await createUser(prisma);
     const originalHash = user.passwordHash;
     jest
