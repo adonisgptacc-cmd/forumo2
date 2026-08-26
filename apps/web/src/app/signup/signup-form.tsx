@@ -26,23 +26,39 @@ export function SignupForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    if (!form.email.trim() && !form.phone.trim()) {
+      setError("Provide an email or a phone number.");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await api.auth.register(form);
-      // Backend sends a verification email on registration. Redirect the user to the
-      // pending-verification page instead of attempting to sign in (which the backend
-      // blocks for unverified accounts).
-      router.push(
-        ("/verify-email?pending=true&email=" +
-          encodeURIComponent(form.email)) as any,
-      );
+      await api.auth.register({
+        name: form.name,
+        password: form.password,
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+      });
+      // The backend sends an email verification link (email signups) or an
+      // SMS verification code (phone-only signups). Route accordingly —
+      // login is blocked until whichever one completes.
+      if (form.email.trim()) {
+        router.push(
+          ("/verify-email?pending=true&email=" +
+            encodeURIComponent(form.email)) as any,
+        );
+      } else {
+        router.push(
+          ("/verify-phone?pending=true&phone=" +
+            encodeURIComponent(form.phone)) as any,
+        );
+      }
     } catch (err) {
       const apiErrorMessage = err instanceof ApiError ? err.message : null;
       const genericMessage = err instanceof Error ? err.message : null;
       setError(
         apiErrorMessage ||
           genericMessage ||
-          "Unable to create account. Try a different email.",
+          "Unable to create account. Try a different email or phone number.",
       );
     } finally {
       setIsSubmitting(false);
@@ -66,6 +82,7 @@ export function SignupForm() {
             className="input-forumo"
             value={form.phone}
             onChange={(event) => updateField("phone", event.target.value)}
+            placeholder="+27821234567"
           />
         </label>
       </div>
@@ -76,9 +93,9 @@ export function SignupForm() {
           className="input-forumo"
           value={form.email}
           onChange={(event) => updateField("email", event.target.value)}
-          required
         />
       </label>
+      <p className="text-xs muted">Provide at least one of email or phone.</p>
       <label className="space-y-1 text-sm">
         <span className="subtle">Password</span>
         <input
