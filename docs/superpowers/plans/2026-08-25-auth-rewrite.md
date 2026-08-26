@@ -2929,7 +2929,7 @@ git commit -m "feat(web): allow signup with email or phone"
 - Create: `apps/web/src/app/login/recover-account/recover-account-form.tsx`
 
 **Interfaces:**
-- Consumes: `ForumoApiClient.auth.recoverOAuthAccount.request(email)` / `.confirm({...})` (Task 2). Reads `token`/`email` query params set by Task 11's redirect.
+- Consumes: `ForumoApiClient.auth.recoverOAuthAccount.request(email)` / `.confirm({...})` (Task 2). Reads the recovery token/email from `apps/web/src/lib/recovery-store.ts` (an in-memory store, added by a Task 11 fix round — mirrors `2fa-store.ts`'s pattern of keeping a short-lived token out of the URL/browser history/server logs), NOT from `useSearchParams()`. Task 11's `signin-form.tsx` calls `setRecoveryToken(token, email)` before navigating here.
 
 - [ ] **Step 1: Write the page**
 
@@ -2959,18 +2959,18 @@ Create `apps/web/src/app/login/recover-account/recover-account-form.tsx`:
 ```tsx
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../../lib/api-client";
 import { set2FaToken } from "../../../lib/2fa-store";
+import { getRecoveryEmail } from "../../../lib/recovery-store";
 
 export function RecoverAccountForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams?.get("email") ?? "";
+  const email = getRecoveryEmail() ?? "";
   const api = createApiClient();
 
   const [step, setStep] = useState<"request" | "confirm">("request");
@@ -3080,7 +3080,7 @@ export function RecoverAccountForm() {
 
 - [ ] **Step 3: Manually verify in the browser**
 
-With `pnpm dev:web` and `pnpm dev:backend` running, navigate directly to `/login/recover-account?email=test@example.com`, confirm the "Send recovery code" step renders, and that submitting calls the backend endpoint (check the network tab) without a client-side crash. Full end-to-end verification (getting a real OAuth-sentinel account, receiving the code, completing the flow into 2FA setup) needs a seeded `passwordHash: ""` account — reasonable to defer to manual QA once Task 9's backend is live in a real environment rather than block this task on it.
+Since `email` now comes from the in-memory `recovery-store.ts` (Step 2's change, following Task 11's fix), not a URL query param, direct navigation to `/login/recover-account` alone will show an empty `email` and a disabled "Send recovery code" button — that's the correct, intended behavior (mirrors `2fa-store.ts`'s same navigate-from-login-only design), not a bug to route around. Verify the real path instead: with `pnpm dev:web` and `pnpm dev:backend` running, and a test account seeded with `passwordHash: ""`, attempt a normal login for that account — the login form should redirect here via `setRecoveryToken()` + `router.push()`, with `email` already populated. Confirm the "Send recovery code" step renders correctly and that submitting calls the backend endpoint (check the network tab) without a client-side crash. Full end-to-end verification (receiving the code, completing the flow into 2FA setup) needs a seeded `passwordHash: ""` account — reasonable to defer to manual QA once Task 9's backend is live in a real environment rather than block this task on it.
 
 - [ ] **Step 4: Commit**
 
