@@ -52,11 +52,11 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        identifier: { label: "Email or phone", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
-        if (!credentials?.email || !credentials.password) {
+        if (!credentials?.identifier || !credentials.password) {
           return null;
         }
         const fingerprint = deviceFingerprint(
@@ -65,13 +65,18 @@ export const authOptions: NextAuthOptions = {
         const api = createApiClient();
         try {
           const auth = await api.auth.login({
-            email: credentials.email,
+            identifier: credentials.identifier,
             password: credentials.password,
             deviceFingerprint: fingerprint,
           });
-          // 2FA responses are handled by the signin form directly; Credentials
-          // provider only completes login for full AuthResponse.
-          if ("twoFactorRequired" in auth || "twoFactorSetupRequired" in auth) {
+          // 2FA and OAuth-recovery responses are handled by the signin form
+          // directly; Credentials provider only completes login for full
+          // AuthResponse.
+          if (
+            "twoFactorRequired" in auth ||
+            "twoFactorSetupRequired" in auth ||
+            "passwordSetupRequired" in auth
+          ) {
             return null;
           }
           return {
@@ -86,7 +91,7 @@ export const authOptions: NextAuthOptions = {
           if (allowMockAuth) {
             return {
               id: "mock-user",
-              email: credentials.email,
+              email: credentials.identifier,
               name: "Mock Seller",
               role: "SELLER",
               accessToken: "mock-token",

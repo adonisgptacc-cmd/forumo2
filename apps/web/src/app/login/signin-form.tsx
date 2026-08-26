@@ -8,7 +8,6 @@ import { useState } from "react";
 import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../lib/api-client";
-import { GoogleSignInButton } from "../../components/google-signin-button";
 import { set2FaToken } from "../../lib/2fa-store";
 
 export function LoginForm() {
@@ -16,7 +15,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get("callbackUrl") ?? "/app";
   const api = createApiClient();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,7 +26,17 @@ export function LoginForm() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const result = await api.auth.login({ email, password });
+      const result = await api.auth.login({ identifier, password });
+
+      // ── OAuth-account recovery gate ──────────────────────────────────────
+      if ("passwordSetupRequired" in result) {
+        router.push(
+          (`/login/recover-account?token=${encodeURIComponent(
+            result.recoveryToken,
+          )}&email=${encodeURIComponent(identifier)}`) as any,
+        );
+        return;
+      }
 
       // ── 2FA gate ────────────────────────────────────────────────────────
       if ("twoFactorToken" in result) {
@@ -71,13 +80,13 @@ export function LoginForm() {
         </p>
       ) : null}
       <label className="space-y-2 text-sm">
-        <span className="subtle">Email</span>
+        <span className="subtle">Email or phone</span>
         <input
-          type="email"
+          type="text"
           className="input-forumo"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          value={identifier}
+          onChange={(event) => setIdentifier(event.target.value)}
+          placeholder="you@example.com or +27821234567"
           required
         />
       </label>
@@ -108,15 +117,6 @@ export function LoginForm() {
       >
         {isSubmitting ? "Signing in…" : "Sign in"}
       </button>
-      <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[color:var(--line)]" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-[color:var(--surface)] px-2 muted">or</span>
-        </div>
-      </div>
-      <GoogleSignInButton />
       <p className="text-center text-xs muted">
         Need an account?{" "}
         <a className="text-[color:var(--accent)]" href="/signup">
