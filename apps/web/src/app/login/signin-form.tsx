@@ -9,6 +9,7 @@ import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../lib/api-client";
 import { set2FaToken } from "../../lib/2fa-store";
+import { setRecoveryToken } from "../../lib/recovery-store";
 
 export function LoginForm() {
   const router = useRouter();
@@ -30,11 +31,8 @@ export function LoginForm() {
 
       // ── OAuth-account recovery gate ──────────────────────────────────────
       if ("passwordSetupRequired" in result) {
-        router.push(
-          (`/login/recover-account?token=${encodeURIComponent(
-            result.recoveryToken,
-          )}&email=${encodeURIComponent(identifier)}`) as any,
-        );
+        setRecoveryToken(result.recoveryToken, identifier);
+        router.push("/login/recover-account" as any);
         return;
       }
 
