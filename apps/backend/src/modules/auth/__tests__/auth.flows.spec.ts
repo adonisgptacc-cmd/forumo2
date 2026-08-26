@@ -334,7 +334,7 @@ describe("AuthModule HTTP flows", () => {
       deliver: jest.fn(async (user, dto) => ({
         channel:
           dto.channel ??
-          (user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL),
+          (user.email ? NotificationChannel.EMAIL : NotificationChannel.SMS),
         provider: "mailgun",
         deliveredAt: new Date("2024-01-01T00:00:00.000Z"),
         referenceId: "ref-otp",
@@ -383,7 +383,7 @@ describe("AuthModule HTTP flows", () => {
     const response = await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         deviceFingerprint: "device-sms",
       })
@@ -405,7 +405,7 @@ describe("AuthModule HTTP flows", () => {
     const issueResponse = await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "device-1",
@@ -424,7 +424,7 @@ describe("AuthModule HTTP flows", () => {
     const verifyResponse = await request(app.getHttpServer())
       .post("/auth/otp/verify")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         code: "135246",
         deviceFingerprint: "device-1",
@@ -452,7 +452,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/password/reset/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "reset-device",
       })
@@ -461,7 +461,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/password/reset/confirm")
       .send({
-        email: user.email,
+        identifier: user.email,
         code: "777888",
         newPassword,
         deviceFingerprint: "reset-device",
@@ -474,7 +474,7 @@ describe("AuthModule HTTP flows", () => {
 
     const loginResponse = await request(app.getHttpServer())
       .post("/auth/login")
-      .send({ email: user.email, password: newPassword })
+      .send({ identifier: user.email, password: newPassword })
       .expect(201);
 
     expect(loginResponse.body).toEqual({
@@ -494,7 +494,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "fingerprint-abc",
@@ -504,7 +504,7 @@ describe("AuthModule HTTP flows", () => {
     const verifyResponse = await request(app.getHttpServer())
       .post("/auth/otp/verify")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         code: "111222",
         deviceFingerprint: "fingerprint-abc",

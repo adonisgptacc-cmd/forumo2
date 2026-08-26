@@ -92,7 +92,7 @@ export class AuthController {
     await this.auditLog.record({
       action: "auth.otp.request",
       entityType: "user",
-      payload: { email: dto.email, purpose: dto.purpose },
+      payload: { identifier: dto.identifier, purpose: dto.purpose },
       ipAddress: req.ip ?? null,
       userAgent: req.headers?.["user-agent"] ?? null,
     });
@@ -144,7 +144,7 @@ export class AuthController {
     await this.auditLog.record({
       action: "auth.password.reset.request",
       entityType: "user",
-      payload: { email: dto.email },
+      payload: { identifier: dto.identifier },
       ipAddress: req.ip ?? null,
       userAgent: req.headers?.["user-agent"] ?? null,
     });
@@ -161,7 +161,7 @@ export class AuthController {
     await this.auditLog.record({
       action: "auth.password.reset.confirm",
       entityType: "user",
-      payload: { email: dto.email },
+      payload: { identifier: dto.identifier },
       ipAddress: req.ip ?? null,
       userAgent: req.headers?.["user-agent"] ?? null,
     });

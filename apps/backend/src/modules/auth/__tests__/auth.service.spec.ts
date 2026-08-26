@@ -49,6 +49,7 @@ type PrismaMock = {
   user: {
     findFirst: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
   };
   otpCode: {
     create: jest.Mock;
@@ -78,6 +79,7 @@ describe("AuthService OTP flows", () => {
       user: {
         findFirst: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       otpCode: {
         create: jest.fn(),
@@ -151,7 +153,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.create.mockImplementation(async (args) => args as never);
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
     const dto: RequestOtpDto = {
-      email: user.email!,
+      identifier: user.email!,
       purpose: OtpPurpose.LOGIN,
       deviceFingerprint: "fingerprint-123",
       ipAddress: "127.0.0.1",
@@ -210,7 +212,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.count.mockResolvedValue(5);
 
     const dto: RequestOtpDto = {
-      email: user.email,
+      identifier: user.email,
       purpose: OtpPurpose.LOGIN,
       deviceFingerprint: "fingerprint-123",
     } as RequestOtpDto;
@@ -242,7 +244,7 @@ describe("AuthService OTP flows", () => {
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
 
     const dto: VerifyOtpDto = {
-      email: user.email!,
+      identifier: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "654321",
       deviceFingerprint: "fingerprint-123",
@@ -292,7 +294,7 @@ describe("AuthService OTP flows", () => {
     prisma.deviceSession.upsert.mockResolvedValue({} as never);
 
     const dto: VerifyOtpDto = {
-      email: user.email!,
+      identifier: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "222333",
       deviceFingerprint: "fingerprint-xyz",
@@ -316,7 +318,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.count.mockResolvedValue(5);
 
     const dto: RequestOtpDto = {
-      email: user.email,
+      identifier: user.email,
       purpose: OtpPurpose.LOGIN,
       deviceFingerprint: "",
       ipAddress: "127.0.0.1",
@@ -339,7 +341,7 @@ describe("AuthService OTP flows", () => {
     prisma.otpCode.findFirst.mockResolvedValue(null);
 
     const dto: VerifyOtpDto = {
-      email: user.email!,
+      identifier: user.email!,
       purpose: OtpPurpose.LOGIN,
       code: "111111",
       deviceFingerprint: "different-device",
@@ -403,6 +405,89 @@ describe("AuthService OTP flows", () => {
       expect(prisma.user.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ phone: "+27821234567" }),
+        }),
+      );
+    });
+  });
+
+  describe("phone verification", () => {
+    it("blocks login for an unverified phone-only account", async () => {
+      // createUser()'s default passwordHash ("hashed") is not a real bcrypt
+      // hash of the password this test logs in with, so bcrypt.compare would
+      // resolve false and login() would reject with "Invalid credentials"
+      // before ever reaching the phoneVerified gate this test exercises.
+      // Override with a real hash of the password used below so the gate
+      // under test is actually the thing that rejects.
+      const passwordHash = await bcrypt.hash("hunter2!Aa", 10);
+      prisma.user.findFirst.mockResolvedValue({
+        ...createUser(),
+        email: null,
+        phone: "+27821234567",
+        phoneVerified: false,
+        passwordHash,
+      });
+
+      await expect(
+        service.login({
+          identifier: "+27821234567",
+          password: "hunter2!Aa",
+        } as never),
+      ).rejects.toThrow(/verify your phone/i);
+    });
+
+    it("issues a PHONE_VERIFICATION otp on phone-only registration", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      const created = {
+        ...createUser(),
+        id: "user-3",
+        email: null,
+        phone: "+27821234567",
+        phoneVerified: false,
+      };
+      prisma.user.create.mockResolvedValue(created);
+
+      await service.register({
+        name: "Thabo",
+        password: "hunter2!Aa",
+        phone: "+27821234567",
+      } as never);
+
+      expect(prisma.otpCode.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: "user-3",
+            purpose: "PHONE_VERIFICATION",
+          }),
+        }),
+      );
+    });
+
+    it("marks phoneVerified on successful PHONE_VERIFICATION otp consumption", async () => {
+      const user = {
+        ...createUser(),
+        email: null,
+        phone: "+27821234567",
+        phoneVerified: false,
+      };
+      prisma.user.findFirst.mockResolvedValue(user);
+      prisma.otpCode.findFirst.mockResolvedValue({
+        id: "otp-1",
+        codeHash: await bcrypt.hash("654321", 10),
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await service.verifyOtp({
+        identifier: "+27821234567",
+        purpose: "PHONE_VERIFICATION",
+        code: "654321",
+        deviceFingerprint: "fp-1",
+      } as never);
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: user.id },
+          data: expect.objectContaining({ phoneVerified: true }),
         }),
       );
     });

@@ -1,17 +1,18 @@
 import { NotificationChannel, OtpPurpose } from "@prisma/client";
 import {
-  IsEmail,
   IsEnum,
   IsIP,
   IsObject,
   IsOptional,
   IsString,
   Length,
+  MinLength,
 } from "class-validator";
 
 export class RequestOtpDto {
-  @IsEmail()
-  email!: string;
+  @IsString()
+  @MinLength(3)
+  identifier!: string;
 
   @IsEnum(OtpPurpose)
   purpose!: OtpPurpose;

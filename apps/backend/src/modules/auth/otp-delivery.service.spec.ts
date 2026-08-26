@@ -12,7 +12,7 @@ const configService = {
 } as unknown as ConfigService;
 
 const dtoWithoutChannel: RequestOtpDto = {
-  email: "zuri@example.com",
+  identifier: "zuri@example.com",
   purpose: "PASSWORD_RESET" as RequestOtpDto["purpose"],
   deviceFingerprint: "fp-1",
 };

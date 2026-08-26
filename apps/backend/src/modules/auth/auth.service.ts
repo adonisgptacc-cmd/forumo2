@@ -137,9 +137,14 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    if (!user.emailVerified) {
+    if (user.email && !user.emailVerified) {
       throw new UnauthorizedException(
         "Please verify your email before logging in. Check your inbox for the verification link.",
+      );
+    }
+    if (!user.email && user.phone && !user.phoneVerified) {
+      throw new UnauthorizedException(
+        "Please verify your phone before logging in. Check your messages for the verification code.",
       );
     }
 
@@ -244,14 +249,11 @@ export class AuthService {
   }
 
   async requestOtp(dto: RequestOtpInput): Promise<OtpIssueResponse> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       return {
         message: "If an account exists, an OTP has been sent",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
-        channel: "EMAIL" as any,
+        channel: NotificationChannel.EMAIL,
         deliveredAt: new Date(),
       };
     }
@@ -300,9 +302,7 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpInput): Promise<AuthResponse> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid code");
     }
@@ -317,6 +317,13 @@ export class AuthService {
       deviceFingerprint,
       channel,
     });
+
+    if (dto.purpose === OtpPurpose.PHONE_VERIFICATION && !user.phoneVerified) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { phoneVerified: true },
+      });
+    }
 
     if (deviceFingerprint) {
       await this.upsertDeviceSession(user.id, deviceFingerprint, dto, {
@@ -346,9 +353,7 @@ export class AuthService {
   async confirmPasswordReset(
     dto: PasswordResetConfirmInput,
   ): Promise<{ message: string }> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid code");
     }
@@ -362,7 +367,7 @@ export class AuthService {
     const consumedAt = await this.consumeOtp(
       user,
       {
-        email: dto.email,
+        identifier: dto.identifier,
         code: dto.code,
         deviceFingerprint: dto.deviceFingerprint,
         ipAddress: dto.ipAddress,
@@ -716,8 +721,37 @@ export class AuthService {
       : this.findActiveUserByPhone(identifier.trim());
   }
 
-  private async issuePhoneVerificationOtp(_user: User): Promise<void> {
-    // Replaced in Task 6 with a real OTP-issuing implementation.
+  private async issuePhoneVerificationOtp(user: User): Promise<void> {
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.phone!,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        deviceFingerprint: "registration",
+        channel: NotificationChannel.SMS,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint: null,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
   }
 
   private async ensureUserProfile(userId: string): Promise<void> {
