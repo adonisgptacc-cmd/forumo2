@@ -396,6 +396,54 @@ export class AuthController {
     return result;
   }
 
+  @Post("2fa/otp/request")
+  @UseGuards(TwoFactorPendingGuard)
+  @Throttle({ "auth-otp": {} })
+  async twoFactorOtpRequest(@Req() req: AuthenticatedRequest) {
+    if (req.twoFactorSetupRequired) {
+      throw new BadRequestException(
+        "2FA not set up yet; use /auth/2fa/setup-init first",
+      );
+    }
+    return this.authService.requestTwoFactorOtp(req.twoFactorUserId!);
+  }
+
+  @Post("2fa/otp/verify")
+  @UseGuards(TwoFactorPendingGuard)
+  @Throttle({ "auth-otp": {} })
+  async twoFactorOtpVerify(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: { code: string; rememberMe?: boolean; deviceFingerprint?: string },
+  ) {
+    if (req.twoFactorSetupRequired) {
+      throw new BadRequestException(
+        "2FA not set up yet; use /auth/2fa/setup-init first",
+      );
+    }
+    const result = await this.authService.completeTwoFactorOtpLogin(
+      req.twoFactorUserId!,
+      body.code,
+      {
+        rememberMe: body.rememberMe,
+        deviceFingerprint: body.deviceFingerprint,
+        ipAddress: req.ip ?? undefined,
+        userAgent:
+          (req.headers?.["user-agent"] as string | undefined) ?? undefined,
+      },
+    );
+    await this.auditLog.record({
+      actorId: result.user.id,
+      action: "auth.login",
+      entityType: "user",
+      entityId: result.user.id,
+      payload: { via: "2fa-otp" },
+      ipAddress: req.ip ?? null,
+      userAgent: req.headers?.["user-agent"] ?? null,
+    });
+    return result;
+  }
+
   @Post("2fa/disable")
   @UseGuards(JwtAuthGuard)
   @Throttle({ auth: {} })

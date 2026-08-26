@@ -56,6 +56,9 @@ type UserRecord = {
   kycStatus: string;
   emailVerified: boolean;
   emailVerificationToken: string | null;
+  twoFactorEnabled: boolean;
+  twoFactorSecret: string | null;
+  twoFactorBackupCodes: string[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -113,6 +116,11 @@ class InMemoryPrismaService {
       }
       return null;
     },
+    findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
+      const record = this.users.get(where.id);
+      if (!record) throw new Error("User not found");
+      return record;
+    },
     create: async ({ data }: { data: Partial<UserRecord> }) => {
       const id = data.id ?? randomUUID();
       const now = new Date();
@@ -134,6 +142,12 @@ class InMemoryPrismaService {
         emailVerified: (data as any).emailVerified ?? true,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         emailVerificationToken: (data as any).emailVerificationToken ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorEnabled: (data as any).twoFactorEnabled ?? false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorSecret: (data as any).twoFactorSecret ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorBackupCodes: (data as any).twoFactorBackupCodes ?? [],
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
@@ -533,5 +547,46 @@ describe("AuthModule HTTP flows", () => {
 
     expect(Array.isArray(sessionsResponse.body)).toBe(true);
     expect(sessionsResponse.body[0].fingerprint).toBe("fingerprint-abc");
+  });
+
+  describe("POST /auth/2fa/otp/request and /auth/2fa/otp/verify", () => {
+    it("rejects the OTP fallback during 2FA setup (not yet enrolled)", async () => {
+      const user = await createUser(prisma, { twoFactorEnabled: false });
+      const setupToken = await authService.issueTwoFactorToken(user.id, true);
+
+      const res = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/request")
+        .set("Authorization", `Bearer ${setupToken}`)
+        .expect(400);
+      expect(res.body.message).toMatch(/setup/i);
+    });
+
+    it("completes login via SMS/email OTP after TOTP is already enrolled", async () => {
+      const user = await createUser(prisma, {
+        twoFactorEnabled: true,
+        twoFactorSecret: "JBSWY3DPEHPK3PXP",
+      });
+      jest
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        .spyOn<any, string>(authService as any, "generateOtpCode")
+        .mockReturnValue("222444");
+      const pendingToken = await authService.issueTwoFactorToken(
+        user.id,
+        false,
+      );
+
+      const requestRes = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/request")
+        .set("Authorization", `Bearer ${pendingToken}`)
+        .expect(201);
+      expect(requestRes.body.channel).toBeDefined();
+
+      const verifyRes = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/verify")
+        .set("Authorization", `Bearer ${pendingToken}`)
+        .send({ code: "222444" })
+        .expect(201);
+      expect(verifyRes.body.accessToken).toBeDefined();
+    });
   });
 });

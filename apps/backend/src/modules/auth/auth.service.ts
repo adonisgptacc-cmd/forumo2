@@ -1118,6 +1118,116 @@ export class AuthService {
     return { ...response, backupCodes: plainCodes };
   }
 
+  /**
+   * SMS/email OTP fallback for a user who already completed TOTP enrollment
+   * but doesn't have their authenticator handy. Delivery target is derived
+   * from the guard-verified `userId` (looked up from the pending 2FA token),
+   * never from a client-supplied identifier — this avoids turning the
+   * endpoint into an enumeration/probing vector.
+   */
+  async requestTwoFactorOtp(userId: string): Promise<OtpIssueResponse> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const deviceFingerprint = "2fa-fallback";
+    await this.enforceDeviceRateLimit(user.id, deviceFingerprint);
+    await this.enforceOtpCooldown(user.id, OtpPurpose.MFA, deviceFingerprint);
+
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.email ?? user.phone!,
+        purpose: OtpPurpose.MFA,
+        deviceFingerprint,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.MFA,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
+
+    return {
+      message: "OTP issued",
+      channel: delivery.channel,
+      deliveredAt: delivery.deliveredAt,
+    };
+  }
+
+  /** Complete login via the SMS/email OTP fallback (verified against `OtpCode` purpose MFA, not TOTP). */
+  async completeTwoFactorOtpLogin(
+    userId: string,
+    code: string,
+    dto: Partial<
+      Pick<
+        LoginInput,
+        "rememberMe" | "deviceFingerprint" | "ipAddress" | "userAgent"
+      >
+    > = {},
+  ): Promise<AuthResponse> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: OtpPurpose.MFA,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!otpRecord || otpRecord.attempts >= 3) {
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    const matches = await bcrypt.compare(code, otpRecord.codeHash);
+    if (!matches) {
+      await this.prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { consumedAt: new Date() },
+    });
+
+    const response = await this.buildAuthResponse(user, {
+      rememberMe: dto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(
+        dto.deviceFingerprint,
+        dto.ipAddress,
+      ),
+      userAgent: dto.userAgent,
+      ipAddress: dto.ipAddress,
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    return response;
+  }
+
   async disable2FA(
     userId: string,
     code: string,
