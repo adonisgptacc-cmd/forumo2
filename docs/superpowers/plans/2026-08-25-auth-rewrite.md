@@ -3262,6 +3262,88 @@ git commit -m "fix: guard email-only notifications and widen admin schemas for n
 
 ---
 
+### Task 15: Enforce `class-validator` DTOs on `AuthController` (pre-existing gap, unrelated to identifiers)
+
+**Added after Task 9's review.** While fixing Task 9's password-complexity finding, the implementer discovered — and the controller independently verified by reading `nestjs-zod`'s source — that this backend has exactly one global validation pipe (`app.useGlobalPipes(new ZodValidationPipe())` in `apps/backend/src/main.ts:84`). `ZodValidationPipe.transform()` returns the request body **unchanged, unvalidated** for any DTO that isn't a Zod DTO (`createZodDto(schema)`-based). The entire auth module uses plain `class-validator` decorators instead (`@IsEmail`, `@MinLength`, `@Matches`, the `AtLeastOneIdentifier` constraint from Task 4, and now `RecoverOAuthAccountConfirmDto` from Task 9) — this is itself a pre-existing violation of this backend's own documented convention (`apps/backend/CLAUDE.md`: "Never use plain `class-validator` decorators"). Since no `class-validator` `ValidationPipe` is registered anywhere, **every one of those decorators has been silently inert at the HTTP layer since before this plan started** — a `POST /auth/register` with a one-character password currently succeeds.
+
+This predates every task in this plan and isn't scoped to identifiers/2FA/OAuth-removal — it's flagged here rather than silently left broken because this plan has spent nine tasks adding and relying on `class-validator` rules (`AtLeastOneIdentifier`, `LoginDto.identifier`'s shape, every password-complexity rule) that would otherwise ship non-functional.
+
+**Files:**
+- Modify: `apps/backend/src/modules/auth/auth.controller.ts`
+- Test: `apps/backend/src/modules/auth/__tests__/auth.flows.spec.ts` (or a new focused test file — implementer's choice, per Step 2 below)
+
+**Interfaces:**
+- Consumes: nothing from other tasks. Produces: `AuthController`'s routes now actually reject invalid bodies per their DTOs' `class-validator` decorators. No other task depends on this directly, but it makes every DTO-level validation this plan already wrote (Tasks 4, 6, 9) real instead of decorative.
+
+- [ ] **Step 1: Scope the fix to `AuthController` only, not a second global pipe**
+
+A second **global** `class-validator` `ValidationPipe` was considered and rejected: it would run on every request across all 27 backend modules, a blast radius far beyond this plan's scope, for a gap that's currently confirmed only in the auth module. Instead, add a **controller-scoped** pipe via NestJS's `@UsePipes()` decorator at the class level on `AuthController` — it runs after the existing global `ZodValidationPipe` (global pipes run before controller-level ones), so Zod-DTO'd routes elsewhere are completely unaffected, and within `AuthController` itself, routes using a plain inline body type (e.g. `verifyEmail(@Body() body: { token: string })`) are also unaffected — NestJS's built-in `ValidationPipe` skips primitive/plain-`Object`-typed parameters automatically (no class metadata to validate against), it only activates for parameters typed as an actual class (i.e. every `class-validator`-decorated DTO this plan and its predecessors added).
+
+In `apps/backend/src/modules/auth/auth.controller.ts`, add to the imports:
+```ts
+import { UsePipes, ValidationPipe } from "@nestjs/common";
+```
+(merge into the existing `@nestjs/common` import line rather than adding a second one, matching this file's existing style)
+
+Add the decorator to the controller class, alongside the existing `@Controller("auth")` and `@SkipTosCheck()`:
+```ts
+@Controller("auth")
+@SkipTosCheck()
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+export class AuthController {
+```
+
+`whitelist: true` strips any request-body properties not declared on the DTO (standard hardening, matches what a `ValidationPipe` is normally configured with elsewhere in the NestJS ecosystem); `transform: true` lets `class-transformer` construct a real DTO instance from the plain JSON body before validation runs (required for `class-validator` to see the decorators at all — without it, `validate()` receives a plain object with no attached metadata and silently reports zero errors regardless of input).
+
+- [ ] **Step 2: Write a failing test proving the gap, then the fix**
+
+Add to `apps/backend/src/modules/auth/__tests__/auth.flows.spec.ts`, inside `describe("AuthModule HTTP flows", ...)`:
+
+```ts
+  it("rejects registration with a password that fails complexity requirements", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", email: "zuri@example.com", password: "short" })
+      .expect(400);
+  });
+
+  it("rejects registration with neither email nor phone", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", password: "hunter2!Aa" })
+      .expect(400);
+  });
+```
+
+Run (from `apps/backend`):
+```bash
+npx jest auth.flows.spec.ts -t "rejects registration"
+```
+Expected: FAIL — both currently return 201 (or whatever the unvalidated path produces), not 400, since neither `RegisterDto`'s password-complexity `@Matches` nor the `AtLeastOneIdentifier` constraint currently run at the HTTP boundary. (The second test may already incidentally pass due to Task 5's service-layer defense-in-depth check for "neither identifier" — if so, that's fine and expected; the first test, password complexity, has no such backup anywhere and must fail before this task's fix.)
+
+Apply Step 1's fix, then re-run:
+```bash
+npx jest auth.flows.spec.ts -t "rejects registration"
+```
+Expected: PASS, both tests, now genuinely enforced at the HTTP layer.
+
+- [ ] **Step 3: Run the full auth suite and confirm no regression**
+
+```bash
+npx jest auth
+npx tsc --noEmit
+```
+Expected: all auth tests still pass — in particular, every existing test in `auth.flows.spec.ts` that POSTs a *valid* body to any `AuthController` route must still succeed once `ValidationPipe` is active, since a `whitelist`/`transform`-enabled pipe can occasionally reject something that was previously silently accepted (e.g. an extra property in a test's request body, or a value in a shape the DTO's decorators don't quite expect). If any previously-passing test now fails, that's a genuine finding to investigate and fix — either the test's request body needs correcting to match the DTO, or the DTO's validation is stricter than intended and needs adjusting. Do not weaken `whitelist`/`transform` to make a failing test pass without first checking which one is actually wrong.
+
+`npx tsc --noEmit` should remain fully clean (this task adds no new types, just decorator wiring).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add apps/backend/src/modules/auth/auth.controller.ts apps/backend/src/modules/auth/__tests__/auth.flows.spec.ts
+git commit -m "fix(auth): enforce class-validator DTOs on AuthController (were silently inert)"
+```
+
 ## Plan Self-Review
 
 **Spec coverage:**
