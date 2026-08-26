@@ -10,7 +10,6 @@ import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { TwoFactorPendingGuard } from "./guards/two-factor-pending.guard";
 import { JwtStrategy } from "./strategies/jwt.strategy";
-import { GoogleStrategy } from "./strategies/google.strategy";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { ObservabilityModule } from "../observability/observability.module";
@@ -43,7 +42,6 @@ import { CacheModule } from "../../common/services/cache.module";
   providers: [
     AuthService,
     JwtStrategy,
-    GoogleStrategy,
     JwtAuthGuard,
     TwoFactorPendingGuard,
     OtpDeliveryService,

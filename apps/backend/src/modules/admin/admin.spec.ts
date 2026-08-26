@@ -138,8 +138,6 @@ const prismaMock = {
 
 async function createApp(role: string): Promise<INestApplication> {
   process.env.JWT_SECRET = process.env.JWT_SECRET ?? "test-secret";
-  process.env.GOOGLE_CLIENT_ID = "test-google-id";
-  process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
 
   const moduleRef = await Test.createTestingModule({
     imports: [

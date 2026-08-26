@@ -52,8 +52,6 @@ describe("OrdersModule flows", () => {
     MockGuard.currentId = BUYER_ID;
     MockGuard.currentRole = "BUYER";
     process.env.JWT_SECRET = "test-jwt-secret";
-    process.env.GOOGLE_CLIENT_ID = "test-google-id";
-    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
     delete process.env.STRIPE_SECRET_KEY;
     delete process.env.PAYSTACK_SECRET_KEY;
 

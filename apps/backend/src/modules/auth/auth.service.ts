@@ -1097,35 +1097,6 @@ export class AuthService {
     return user.email ? NotificationChannel.EMAIL : NotificationChannel.SMS;
   }
 
-  async validateOrCreateGoogleUser(profile: {
-    googleId: string;
-    email: string;
-    name: string;
-    avatarUrl?: string;
-  }): Promise<User> {
-    const normalizedEmail = this.normalizeEmail(profile.email);
-
-    let user = await this.findActiveUserByEmail(normalizedEmail);
-
-    if (user) {
-      return user;
-    }
-
-    user = await this.prisma.user.create({
-      data: {
-        name: profile.name,
-        email: normalizedEmail,
-        passwordHash: "",
-        avatarUrl: profile.avatarUrl,
-        kycStatus: "NOT_REQUIRED",
-        emailVerified: true,
-      },
-    });
-
-    await this.ensureUserProfile(user.id);
-
-    return user;
-  }
   // ─── Two-Factor Authentication ───────────────────────────────────────────────
 
   async issueTwoFactorToken(

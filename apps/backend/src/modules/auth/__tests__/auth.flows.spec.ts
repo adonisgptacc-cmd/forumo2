@@ -25,9 +25,6 @@ class FakeConfigService {
     OTP_TTL: "300",
     OTP_DEVICE_RATE_LIMIT: "5",
     OTP_DEVICE_RATE_WINDOW: "300",
-    GOOGLE_CLIENT_ID: "test-google-id",
-    GOOGLE_CLIENT_SECRET: "test-google-secret",
-    GOOGLE_CALLBACK_URL: "http://localhost/callback",
   };
 
   get<T = string>(key: string): T | undefined {
@@ -339,10 +336,7 @@ describe("AuthModule HTTP flows", () => {
   let authService: AuthService;
 
   beforeEach(async () => {
-    // Set environment variables for OAuth strategy
     process.env.JWT_SECRET = "test-jwt-secret";
-    process.env.GOOGLE_CLIENT_ID = "test-google-id";
-    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
 
     prisma = new InMemoryPrismaService();
     otpDelivery = {
