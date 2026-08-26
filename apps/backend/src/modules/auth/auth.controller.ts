@@ -128,6 +128,32 @@ export class AuthController {
     return this.authService.resendVerification(body.email);
   }
 
+  @Post("recover-oauth-account/request")
+  @Throttle({ "auth-password-reset": {} })
+  async recoverOAuthAccountRequest(@Body() body: { email: string }) {
+    if (!body.email) throw new BadRequestException("email is required");
+    return this.authService.requestOAuthAccountRecovery(body.email);
+  }
+
+  @Post("recover-oauth-account/confirm")
+  @Throttle({ "auth-password-reset": {} })
+  async recoverOAuthAccountConfirm(
+    @Body()
+    body: {
+      email: string;
+      code: string;
+      newPassword: string;
+      phone?: string;
+    },
+  ) {
+    return this.authService.confirmOAuthAccountRecovery(
+      body.email,
+      body.code,
+      body.newPassword,
+      body.phone,
+    );
+  }
+
   @Get("me")
   @UseGuards(JwtAuthGuard)
   me(@Req() req: AuthenticatedRequest) {

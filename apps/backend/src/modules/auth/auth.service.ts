@@ -47,6 +47,7 @@ interface OtpIssueResponse {
 export type LoginResult =
   | { twoFactorRequired: true; twoFactorToken: string }
   | { twoFactorSetupRequired: true; twoFactorToken: string }
+  | { passwordSetupRequired: true; recoveryToken: string }
   | AuthResponse;
 
 @Injectable()
@@ -128,6 +129,17 @@ export class AuthService {
     const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (user.passwordHash === "") {
+      const recoveryToken = await this.jwtService.signAsync(
+        { sub: user.id, accountRecoveryPending: true },
+        {
+          secret: this.configService.getOrThrow<string>("JWT_SECRET"),
+          expiresIn: 300,
+        },
+      );
+      return { passwordSetupRequired: true, recoveryToken };
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -417,6 +429,108 @@ export class AuthService {
     ]);
 
     return { message: "Password reset successful" };
+  }
+
+  /**
+   * Lets a user who signed up via the old Google OAuth flow (sentinel
+   * `passwordHash === ""`) set a real password and enroll in 2FA, so they
+   * aren't locked out once Google login is removed. Returns a generic
+   * response regardless of whether the account exists / needs recovery, to
+   * avoid enumeration — same pattern as `resendVerification`.
+   */
+  async requestOAuthAccountRecovery(
+    email: string,
+  ): Promise<{ message: string }> {
+    const user = await this.findActiveUserByEmail(this.normalizeEmail(email));
+    const generic = {
+      message: "If an account exists and needs recovery, a code has been sent.",
+    };
+    if (!user || user.passwordHash !== "") {
+      return generic;
+    }
+
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.email!,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        deviceFingerprint: "oauth-recovery",
+        channel: NotificationChannel.EMAIL,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint: null,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
+
+    return generic;
+  }
+
+  async confirmOAuthAccountRecovery(
+    email: string,
+    code: string,
+    newPassword: string,
+    phone?: string,
+  ): Promise<{ twoFactorSetupRequired: true; twoFactorToken: string }> {
+    const user = await this.findActiveUserByEmail(this.normalizeEmail(email));
+    if (!user || user.passwordHash !== "") {
+      throw new UnauthorizedException("Invalid code");
+    }
+
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!otpRecord || otpRecord.attempts >= 3) {
+      throw new UnauthorizedException("Invalid code");
+    }
+    const matches = await bcrypt.compare(code, otpRecord.codeHash);
+    if (!matches) {
+      await this.prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException("Invalid code");
+    }
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { consumedAt: new Date() },
+    });
+
+    const passwordHash = await bcrypt.hash(newPassword, this.saltRounds);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        phone: phone ?? user.phone,
+        tokenVersion: { increment: 1 },
+      },
+    });
+
+    const twoFactorToken = await this.issueTwoFactorToken(user.id, true);
+    return { twoFactorSetupRequired: true, twoFactorToken };
   }
 
   async changePassword(

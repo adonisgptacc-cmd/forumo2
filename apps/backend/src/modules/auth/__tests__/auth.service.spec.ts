@@ -599,4 +599,22 @@ describe("AuthService OTP flows", () => {
       );
     });
   });
+
+  describe("OAuth account recovery", () => {
+    it("returns passwordSetupRequired instead of the normal 2FA gate for passwordHash === ''", async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        ...createUser(),
+        passwordHash: "",
+      });
+
+      const result = await service.login({
+        identifier: "zuri@example.com",
+        password: "anything",
+      } as never);
+
+      expect(result).toEqual(
+        expect.objectContaining({ passwordSetupRequired: true }),
+      );
+    });
+  });
 });

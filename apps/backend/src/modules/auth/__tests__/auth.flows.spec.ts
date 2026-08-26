@@ -589,4 +589,39 @@ describe("AuthModule HTTP flows", () => {
       expect(verifyRes.body.accessToken).toBeDefined();
     });
   });
+
+  describe("POST /auth/recover-oauth-account", () => {
+    it("returns a generic message whether or not the account exists", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/request")
+        .send({ email: "nobody@example.com" })
+        .expect(201);
+      expect(res.body.message).toMatch(/if an account exists/i);
+    });
+
+    it("confirms recovery, sets a password, and routes into 2FA setup", async () => {
+      const user = await createUser(prisma, { passwordHash: "" });
+      jest
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        .spyOn<any, string>(authService as any, "generateOtpCode")
+        .mockReturnValue("555666");
+
+      await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/request")
+        .send({ email: user.email })
+        .expect(201);
+
+      const confirmRes = await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/confirm")
+        .send({
+          email: user.email,
+          code: "555666",
+          newPassword: "NewHunter2!Aa",
+        })
+        .expect(201);
+
+      expect(confirmRes.body.twoFactorSetupRequired).toBe(true);
+      expect(prisma.users.get(user.id)?.passwordHash).not.toBe("");
+    });
+  });
 });
