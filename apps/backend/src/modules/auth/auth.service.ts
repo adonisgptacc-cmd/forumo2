@@ -36,6 +36,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { CacheService } from "../../common/services/cache.service";
 
 interface OtpIssueResponse {
   message: string;
@@ -51,10 +52,6 @@ export type LoginResult =
 @Injectable()
 export class AuthService {
   private readonly saltRounds = 10;
-  private readonly totpAttempts = new Map<
-    string,
-    { count: number; lockedUntil: number | null }
-  >();
   private readonly TOTP_MAX_ATTEMPTS = 5;
   private readonly TOTP_LOCK_MS = 15 * 60 * 1000;
 
@@ -65,6 +62,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CacheService,
   ) {}
 
   async register(dto: RegisterInput): Promise<{ message: string }> {
@@ -161,28 +159,37 @@ export class AuthService {
   }
 
   /** Complete login after 2FA TOTP verification. */
-  private checkTotpAttempts(userId: string): void {
-    const entry = this.totpAttempts.get(userId);
+  private totpLockKey(userId: string): string {
+    return `auth:totp-lock:${userId}`;
+  }
+
+  private async checkTotpAttempts(userId: string): Promise<void> {
+    const entry = await this.cache.get<{
+      count: number;
+      lockedUntil: number | null;
+    }>(this.totpLockKey(userId));
     if (entry?.lockedUntil && Date.now() < entry.lockedUntil) {
       throw new UnauthorizedException(
         "Too many failed attempts — try again later",
       );
     }
   }
-  private recordTotpFailure(userId: string): void {
-    const entry = this.totpAttempts.get(userId) ?? {
-      count: 0,
-      lockedUntil: null,
-    };
+
+  private async recordTotpFailure(userId: string): Promise<void> {
+    const entry = (await this.cache.get<{
+      count: number;
+      lockedUntil: number | null;
+    }>(this.totpLockKey(userId))) ?? { count: 0, lockedUntil: null };
     entry.count += 1;
     if (entry.count >= this.TOTP_MAX_ATTEMPTS) {
       entry.lockedUntil = Date.now() + this.TOTP_LOCK_MS;
       entry.count = 0;
     }
-    this.totpAttempts.set(userId, entry);
+    await this.cache.set(this.totpLockKey(userId), entry, this.TOTP_LOCK_MS);
   }
-  private clearTotpAttempts(userId: string): void {
-    this.totpAttempts.delete(userId);
+
+  private async clearTotpAttempts(userId: string): Promise<void> {
+    await this.cache.delete(this.totpLockKey(userId));
   }
 
   async completeTwoFactorLogin(
@@ -195,7 +202,7 @@ export class AuthService {
       >
     > & { metadata?: Record<string, unknown> } = {},
   ): Promise<AuthResponse> {
-    this.checkTotpAttempts(userId);
+    await this.checkTotpAttempts(userId);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
@@ -210,7 +217,7 @@ export class AuthService {
         (h) => h === createHash("sha256").update(code).digest("hex"),
       );
       if (idx === -1) {
-        this.recordTotpFailure(userId);
+        await this.recordTotpFailure(userId);
         throw new UnauthorizedException("Invalid authentication code");
       }
       // Consume the backup code (one-time use)
@@ -221,11 +228,15 @@ export class AuthService {
         data: { twoFactorBackupCodes: remaining },
       });
     } else {
-      this.clearTotpAttempts(userId);
+      await this.clearTotpAttempts(userId);
     }
 
-    const fullUser = await this.findActiveUserByEmail(user.email);
-    const response = await this.buildAuthResponse(fullUser!, {
+    // `user` (fetched above via findUniqueOrThrow) is already the full
+    // record — the old redundant re-fetch via
+    // `this.findActiveUserByEmail(user.email)` is unnecessary and, since
+    // `User.email` is nullable as of Task 1, broken outright for a
+    // phone-only user. Use `user` directly instead.
+    const response = await this.buildAuthResponse(user, {
       rememberMe: dto.rememberMe,
       sessionFingerprint: this.resolveDeviceIdentifier(
         dto.deviceFingerprint,
@@ -1028,7 +1039,8 @@ export class AuthService {
       throw new ForbiddenException("2FA already enabled");
 
     const secret = authenticator.generateSecret();
-    const otpAuthUrl = authenticator.keyuri(user.email, "Forumo", secret);
+    const accountLabel = user.email ?? user.phone ?? user.id;
+    const otpAuthUrl = authenticator.keyuri(accountLabel, "Forumo", secret);
     const qrCode = await QRCode.toDataURL(otpAuthUrl);
 
     // Store secret temporarily (not yet enabled)
@@ -1050,7 +1062,7 @@ export class AuthService {
       >
     > & { metadata?: Record<string, unknown> } = {},
   ): Promise<AuthResponse & { backupCodes: string[] }> {
-    this.checkTotpAttempts(userId);
+    await this.checkTotpAttempts(userId);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
@@ -1064,12 +1076,12 @@ export class AuthService {
       secret: user.twoFactorSecret,
     });
     if (!valid) {
-      this.recordTotpFailure(userId);
+      await this.recordTotpFailure(userId);
       throw new UnauthorizedException(
         "Invalid authentication code. Try again.",
       );
     }
-    this.clearTotpAttempts(userId);
+    await this.clearTotpAttempts(userId);
 
     // Generate 8 backup codes
     const plainCodes = Array.from({ length: 8 }, () =>
@@ -1084,8 +1096,11 @@ export class AuthService {
       data: { twoFactorEnabled: true, twoFactorBackupCodes: hashedCodes },
     });
 
-    const fullUser = await this.findActiveUserByEmail(user.email);
-    const response = await this.buildAuthResponse(fullUser!, {
+    // Same fix as completeTwoFactorLogin() above: use `user` directly
+    // instead of the old redundant/broken `findActiveUserByEmail(user.email)`
+    // re-fetch, which doesn't type-check for a nullable email and would
+    // throw at runtime for a phone-only user regardless.
+    const response = await this.buildAuthResponse(user, {
       rememberMe: loginDto.rememberMe,
       sessionFingerprint: this.resolveDeviceIdentifier(
         loginDto.deviceFingerprint,

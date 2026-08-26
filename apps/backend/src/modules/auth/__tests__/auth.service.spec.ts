@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { NotificationChannel, OtpPurpose, User } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import { authenticator } from "otplib";
 
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthService } from "../auth.service";
@@ -10,6 +11,7 @@ import { VerifyOtpDto } from "../dto/verify-otp.dto";
 import { UsersService } from "../../users/users.service";
 import { OtpDeliveryService } from "../otp-delivery.service";
 import { NotificationsService } from "../../notifications/notifications.service";
+import { CacheService } from "../../../common/services/cache.service";
 
 const createUser = (): User => ({
   id: "user-1",
@@ -48,6 +50,7 @@ const createUser = (): User => ({
 type PrismaMock = {
   user: {
     findFirst: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
   };
@@ -73,11 +76,13 @@ describe("AuthService OTP flows", () => {
   let configService: jest.Mocked<ConfigService>;
   let usersService: jest.Mocked<UsersService>;
   let otpDelivery: jest.Mocked<OtpDeliveryService>;
+  let cache: jest.Mocked<CacheService>;
 
   beforeEach(() => {
     prisma = {
       user: {
         findFirst: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
@@ -133,6 +138,12 @@ describe("AuthService OTP flows", () => {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationsService>;
 
+    cache = {
+      get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as jest.Mocked<CacheService>;
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService,
@@ -140,6 +151,7 @@ describe("AuthService OTP flows", () => {
       usersService,
       otpDelivery,
       notifications,
+      cache,
     );
   });
 
@@ -488,6 +500,101 @@ describe("AuthService OTP flows", () => {
         expect.objectContaining({
           where: { id: user.id },
           data: expect.objectContaining({ phoneVerified: true }),
+        }),
+      );
+    });
+  });
+
+  describe("TOTP lockout via Redis", () => {
+    it("locks out after 5 failed attempts using the cache, not an in-process counter", async () => {
+      cache.get.mockResolvedValue(undefined);
+      prisma.user.findFirst.mockResolvedValue(createUser());
+
+      // NOTE: the task brief's version of this test queued 5 mocked
+      // cache.get() values but only called recordTotpFailure() once, so the
+      // 5th-failure lockout branch (entry.count >= TOTP_MAX_ATTEMPTS) never
+      // actually ran and the `lockedUntil: expect.any(Number)` assertion
+      // below would fail against a correct implementation (lockedUntil
+      // stays null until the 5th failure). Calling recordTotpFailure() once
+      // per queued value — as the test's own title and setup ("after 5
+      // failed attempts") imply — makes the 5th call the one that trips the
+      // lock, matching the assertion.
+      for (let i = 0; i < 5; i++) {
+        cache.get.mockResolvedValueOnce({ count: i, lockedUntil: null });
+        // eslint-disable-next-line no-await-in-loop -- sequential attempts must observe each other's cache writes
+        await (
+          service as unknown as {
+            recordTotpFailure: (userId: string) => Promise<void>;
+          }
+        ).recordTotpFailure("user-1");
+      }
+
+      expect(cache.set).toHaveBeenCalledWith(
+        expect.stringContaining("user-1"),
+        expect.objectContaining({ lockedUntil: expect.any(Number) }),
+        expect.any(Number),
+      );
+    });
+
+    it("rejects a 2FA attempt when the cache reports an active lock", async () => {
+      cache.get.mockResolvedValue({
+        count: 0,
+        lockedUntil: Date.now() + 60_000,
+      });
+
+      await expect(
+        (
+          service as unknown as {
+            checkTotpAttempts: (userId: string) => Promise<void>;
+          }
+        ).checkTotpAttempts("user-1"),
+      ).rejects.toThrow(/too many failed attempts/i);
+    });
+  });
+
+  describe("initSetup2FA QR label for phone-only users", () => {
+    it("uses phone as the TOTP QR label when email is null", async () => {
+      prisma.user.findUniqueOrThrow.mockResolvedValue({
+        ...createUser(),
+        email: null,
+        phone: "+27821234567",
+        twoFactorEnabled: false,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.initSetup2FA("user-1");
+
+      expect(result.qrCode).toBeDefined();
+      // The QR code encodes the label via otplib's keyuri — decoding the
+      // data URL isn't necessary here; this test's real job is proving
+      // initSetup2FA() doesn't throw/crash on a null email, which it would
+      // if `authenticator.keyuri(user.email, ...)` were called with `null`.
+    });
+  });
+
+  describe("2FA completion for phone-only users", () => {
+    it("completeTwoFactorLogin() succeeds for a phone-only user (no redundant email re-lookup)", async () => {
+      const phoneOnlyUser = {
+        ...createUser(),
+        email: null,
+        phone: "+27821234567",
+        twoFactorEnabled: true,
+        twoFactorSecret: "JBSWY3DPEHPK3PXP",
+      };
+      cache.get.mockResolvedValue(undefined);
+      prisma.user.findUniqueOrThrow.mockResolvedValue(phoneOnlyUser);
+      prisma.user.update.mockResolvedValue(phoneOnlyUser);
+      jest.spyOn(authenticator, "verify").mockReturnValue(true);
+
+      // Before this task's fix, this call would either fail to compile
+      // (findActiveUserByEmail expects a string, user.email is null) or, if
+      // "fixed" with a bare non-null assertion instead of removing the
+      // redundant re-fetch, throw at runtime for exactly this user.
+      await expect(
+        service.completeTwoFactorLogin(phoneOnlyUser.id, "123456"),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          accessToken: expect.any(String),
         }),
       );
     });

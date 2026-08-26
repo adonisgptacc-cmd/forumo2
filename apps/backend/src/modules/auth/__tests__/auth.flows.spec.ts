@@ -16,6 +16,7 @@ import { AuthModule } from "../auth.module";
 import { AuthService } from "../auth.service";
 import { OtpDeliveryService } from "../otp-delivery.service";
 import { RequestOtpDto } from "../dto/request-otp.dto";
+import { CacheService } from "../../../common/services/cache.service";
 
 class FakeConfigService {
   private readonly values: Record<string, string> = {
@@ -351,6 +352,18 @@ describe("AuthModule HTTP flows", () => {
       .useValue(otpDelivery)
       .overrideProvider(ConfigService)
       .useValue(new FakeConfigService())
+      // Avoid a real Redis connection in this HTTP-flow test: AuthModule now
+      // imports CacheModule (needed because this module tree doesn't go
+      // through the global-provider root), and without this override Jest
+      // leaves an ioredis client open, causing a "worker process failed to
+      // exit gracefully" warning. None of the flows exercised here hit the
+      // TOTP-lockout paths that use CacheService, so a no-op mock suffices.
+      .overrideProvider(CacheService)
+      .useValue({
+        get: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue(0),
+      })
       .compile();
 
     app = moduleRef.createNestApplication();

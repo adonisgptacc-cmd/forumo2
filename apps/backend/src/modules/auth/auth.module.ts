@@ -15,6 +15,7 @@ import { OtpDeliveryService } from "./otp-delivery.service";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { ObservabilityModule } from "../observability/observability.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { CacheModule } from "../../common/services/cache.module";
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
     UsersModule,
     ObservabilityModule,
     NotificationsModule,
+    CacheModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
