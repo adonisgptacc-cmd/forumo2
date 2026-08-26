@@ -24,6 +24,7 @@ import { AuthService } from "./auth.service";
 import {
   LoginDto,
   PasswordResetConfirmDto,
+  RecoverOAuthAccountConfirmDto,
   RegisterDto,
   RequestOtpDto,
   RequestPasswordResetDto,
@@ -137,20 +138,12 @@ export class AuthController {
 
   @Post("recover-oauth-account/confirm")
   @Throttle({ "auth-password-reset": {} })
-  async recoverOAuthAccountConfirm(
-    @Body()
-    body: {
-      email: string;
-      code: string;
-      newPassword: string;
-      phone?: string;
-    },
-  ) {
+  async recoverOAuthAccountConfirm(@Body() dto: RecoverOAuthAccountConfirmDto) {
     return this.authService.confirmOAuthAccountRecovery(
-      body.email,
-      body.code,
-      body.newPassword,
-      body.phone,
+      dto.email,
+      dto.code,
+      dto.newPassword,
+      dto.phone,
     );
   }
 
