@@ -575,6 +575,62 @@ describe("AuthModule HTTP flows", () => {
     expect(setupVerifyResponse.body.accessToken).toBeDefined();
   });
 
+  it("lets a phone-only registrant verify a *resent* code, not just the original registration code", async () => {
+    // Regression test for a follow-on bug in the fix above: the first
+    // PHONE_VERIFICATION code is issued automatically by register() with
+    // deviceFingerprint: null (see issuePhoneVerificationOtp), but a
+    // resent code — requested afterwards via the ordinary
+    // POST /auth/otp/request endpoint (e.g. a "resend code" button) —
+    // stores whatever real deviceFingerprint that later request sends, via
+    // the normal requestOtp()/enforceDeviceRateLimit() path. verifyOtp()
+    // must be able to consume either shape for PHONE_VERIFICATION, so it
+    // omits the deviceFingerprint filter entirely for this purpose rather
+    // than pinning it to null — otherwise a resent code would be exactly
+    // as unverifiable as the original bug, just for a different reason.
+    const phone = "+27821234568";
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("531246");
+
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Resend Phone", phone, password: "Hunter2!Aa" })
+      .expect(201);
+
+    // Issue a *second* (resent) code via the ordinary request endpoint —
+    // unlike the registration-issued code, this one goes through
+    // requestOtp() and stores a real deviceFingerprint.
+    await request(app.getHttpServer())
+      .post("/auth/otp/request")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        deviceFingerprint: "resend-device-xyz",
+      })
+      .expect(201);
+
+    const verifyResponse = await request(app.getHttpServer())
+      .post("/auth/otp/verify")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        code: "531246",
+        // Deliberately a *different* fingerprint than the resend request
+        // used above — proving the lookup really doesn't filter on it for
+        // this purpose, the same way it never could have known the
+        // original registration-issued code's fingerprint either.
+        deviceFingerprint: "verifying-device-abc",
+      })
+      .expect(201);
+
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+  });
+
   it("resets passwords with OTP and enforces the new secret", async () => {
     // Must satisfy PasswordResetConfirmDto's complexity regex (upper + lower
     // + digit + special char) now that ValidationPipe actually enforces it.

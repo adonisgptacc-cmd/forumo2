@@ -348,15 +348,22 @@ export class AuthService {
     // caller's resolved deviceFingerprint at issuance time and expects the
     // same caller to supply the same fingerprint here — that's how
     // consumeOtp's lookup is meant to bind an OTP to the device that
-    // requested it. PHONE_VERIFICATION is different: its OTP is issued
-    // automatically inside register() (see issuePhoneVerificationOtp),
-    // before any client-supplied device fingerprint exists to bind to, so
-    // that row is always written with deviceFingerprint: null. VerifyOtpDto
-    // requires a real fingerprint from the caller, so matching against the
-    // resolved value here can never find that row — filter on the same
-    // null value it was stored with instead, scoped to this purpose only.
+    // requested it. PHONE_VERIFICATION doesn't fit that model at all: the
+    // *first* code is issued automatically inside register() (see
+    // issuePhoneVerificationOtp), before any client-supplied fingerprint
+    // exists to bind to, so that row is always written with
+    // deviceFingerprint: null — but a *resent* code (requested afterwards
+    // via the ordinary requestOtp() endpoint, e.g. a "resend code" button)
+    // stores whatever real fingerprint that later request happened to send.
+    // There's no single stored value to match against, so don't filter on
+    // deviceFingerprint at all for this purpose: pass `undefined`, which
+    // Prisma (and the in-memory test double) treat as "omit this filter"
+    // rather than `null`'s "column IS NULL" — every other OtpPurpose is
+    // unaffected and still binds to the caller's real fingerprint.
     const consumeFingerprint =
-      dto.purpose === OtpPurpose.PHONE_VERIFICATION ? null : deviceFingerprint;
+      dto.purpose === OtpPurpose.PHONE_VERIFICATION
+        ? undefined
+        : deviceFingerprint;
 
     const consumedAt = await this.consumeOtp(user, dto, {
       deviceFingerprint: consumeFingerprint,
@@ -973,7 +980,10 @@ export class AuthService {
   private async consumeOtp(
     user: User,
     dto: VerifyOtpInput,
-    context: { deviceFingerprint: string | null; channel: NotificationChannel },
+    context: {
+      deviceFingerprint: string | null | undefined;
+      channel: NotificationChannel;
+    },
   ): Promise<Date> {
     const otpRecord = await this.prisma.otpCode.findFirst({
       where: {
