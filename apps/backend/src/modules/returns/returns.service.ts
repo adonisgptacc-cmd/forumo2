@@ -34,8 +34,8 @@ type ReturnWithRelations = Return & {
     currency: string;
     escrow: { id: string; amountCents: number } | null;
   };
-  buyer: { id: string; name: string; email: string };
-  seller: { id: string; name: string; email: string };
+  buyer: { id: string; name: string; email: string | null };
+  seller: { id: string; name: string; email: string | null };
 };
 
 @Injectable()
@@ -133,13 +133,15 @@ export class ReturnsService {
       include: this.defaultInclude,
     })) as ReturnWithRelations;
 
-    this.notifications
-      .sendEmail(
-        updated.buyer.email,
-        `Return approved — Order ${updated.order.orderNumber}`,
-        `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been approved. Please ship the item(s) back and update your tracking number.</p>`,
-      )
-      .catch(() => {});
+    if (updated.buyer.email) {
+      this.notifications
+        .sendEmail(
+          updated.buyer.email,
+          `Return approved — Order ${updated.order.orderNumber}`,
+          `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been approved. Please ship the item(s) back and update your tracking number.</p>`,
+        )
+        .catch(() => {});
+    }
 
     this.notifications
       .createInApp(updated.buyerId, "RETURN_APPROVED", {
@@ -178,13 +180,15 @@ export class ReturnsService {
       include: this.defaultInclude,
     })) as ReturnWithRelations;
 
-    this.notifications
-      .sendEmail(
-        updated.buyer.email,
-        `Return declined — Order ${updated.order.orderNumber}`,
-        `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been declined.</p><p>Reason: <em>${escapeHtml(dto.reason)}</em></p><p>If you believe this decision is incorrect, you can <a href="https://forumo.app/returns/${escapeHtml(updated.id)}">escalate to a dispute</a>.</p>`,
-      )
-      .catch(() => {});
+    if (updated.buyer.email) {
+      this.notifications
+        .sendEmail(
+          updated.buyer.email,
+          `Return declined — Order ${updated.order.orderNumber}`,
+          `<p>Hi ${escapeHtml(updated.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(updated.order.orderNumber)}</strong> has been declined.</p><p>Reason: <em>${escapeHtml(dto.reason)}</em></p><p>If you believe this decision is incorrect, you can <a href="https://forumo.app/returns/${escapeHtml(updated.id)}">escalate to a dispute</a>.</p>`,
+        )
+        .catch(() => {});
+    }
 
     this.notifications
       .createInApp(updated.buyerId, "RETURN_REJECTED", {
@@ -293,13 +297,15 @@ export class ReturnsService {
           data: { status: ReturnStatus.approved },
         });
 
-        this.notifications
-          .sendEmail(
-            ret.buyer.email,
-            `Return auto-approved — Order ${ret.order.orderNumber}`,
-            `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> was automatically approved because the seller did not respond within 48 hours. Please ship the item(s) back and update your tracking number.</p>`,
-          )
-          .catch(() => {});
+        if (ret.buyer.email) {
+          this.notifications
+            .sendEmail(
+              ret.buyer.email,
+              `Return auto-approved — Order ${ret.order.orderNumber}`,
+              `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your return request for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> was automatically approved because the seller did not respond within 48 hours. Please ship the item(s) back and update your tracking number.</p>`,
+            )
+            .catch(() => {});
+        }
 
         this.notifications
           .createInApp(ret.buyerId, "RETURN_AUTO_APPROVED", {
@@ -341,13 +347,15 @@ export class ReturnsService {
       data: { status: ReturnStatus.refunded, resolvedAt: new Date() },
     });
 
-    this.notifications
-      .sendEmail(
-        ret.buyer.email,
-        `Refund issued — Order ${ret.order.orderNumber}`,
-        `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your refund of <strong>${escapeHtml(ret.order.currency.toUpperCase())} ${escapeHtml((ret.refundAmount / 100).toFixed(2))}</strong> for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> has been processed and will appear on your original payment method within 5–10 business days.</p>`,
-      )
-      .catch(() => {});
+    if (ret.buyer.email) {
+      this.notifications
+        .sendEmail(
+          ret.buyer.email,
+          `Refund issued — Order ${ret.order.orderNumber}`,
+          `<p>Hi ${escapeHtml(ret.buyer.name)},</p><p>Your refund of <strong>${escapeHtml(ret.order.currency.toUpperCase())} ${escapeHtml((ret.refundAmount / 100).toFixed(2))}</strong> for order <strong>${escapeHtml(ret.order.orderNumber)}</strong> has been processed and will appear on your original payment method within 5–10 business days.</p>`,
+        )
+        .catch(() => {});
+    }
 
     this.notifications
       .createInApp(ret.buyerId, "RETURN_REFUNDED", {
@@ -364,11 +372,15 @@ export class ReturnsService {
     ret: ReturnWithRelations,
   ): Promise<void> {
     await Promise.all([
-      this.notifications.sendEmail(
-        ret.seller.email,
-        `New return request — Order ${ret.order.orderNumber}`,
-        `<p>Hi ${escapeHtml(ret.seller.name)},</p><p>A return has been requested for order <strong>${escapeHtml(ret.order.orderNumber)}</strong>.</p><p>Reason: <em>${escapeHtml(ret.reason.replace(/_/g, " "))}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
-      ),
+      ...(ret.seller.email
+        ? [
+            this.notifications.sendEmail(
+              ret.seller.email,
+              `New return request — Order ${ret.order.orderNumber}`,
+              `<p>Hi ${escapeHtml(ret.seller.name)},</p><p>A return has been requested for order <strong>${escapeHtml(ret.order.orderNumber)}</strong>.</p><p>Reason: <em>${escapeHtml(ret.reason.replace(/_/g, " "))}</em></p><p>You have <strong>48 hours</strong> to approve or decline. If no action is taken the return will be auto-approved.</p><p><a href="https://forumo.app/dashboard/returns">Review return request</a></p>`,
+            ),
+          ]
+        : []),
       this.notifications.createInApp(ret.sellerId, "RETURN_REQUESTED", {
         returnId: ret.id,
         orderId: ret.orderId,

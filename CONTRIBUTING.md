@@ -67,6 +67,16 @@ pnpm test:e2e
 
 The backend test suite uses an in-memory SQLite database via Prisma — no running PostgreSQL needed for unit tests.
 
+## Working with Prisma
+
+`pnpm install` and `pnpm --filter backend typecheck`/`test`/`build` all regenerate the Prisma client automatically (via `postinstall`/`pretypecheck`/`pretest`/`prebuild` hooks), so you rarely need to run it by hand. The one case that needs a manual regenerate: switching branches where `apps/backend/prisma/schema.prisma` changed but you don't reinstall dependencies — the client in `node_modules` will be stale until you run:
+
+```bash
+pnpm --filter backend prisma:generate
+```
+
+CI fails the `pnpm test:prisma-drift` check if the generated client and `schema.prisma` fall out of sync.
+
 ## Running the linter
 
 ```bash

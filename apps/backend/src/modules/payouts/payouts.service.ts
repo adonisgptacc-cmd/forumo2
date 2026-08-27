@@ -11,6 +11,8 @@ import Stripe from "stripe";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PaystackService } from "../orders/paystack.service";
+import { AuditLogService } from "../observability/audit-log.service";
+import { metrics } from "../../telemetry/metrics";
 
 // Stripe Connect is not available in all African markets.
 // Paystack Transfers is used for ZAR/NGN/GHS/KES payouts.
@@ -36,6 +38,7 @@ export class PayoutsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly paystackService: PaystackService,
+    private readonly auditLog: AuditLogService,
   ) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
     if (apiKey) {
@@ -251,12 +254,20 @@ export class PayoutsService {
         this.logger.warn(
           `schedulePayouts: withholding order ${escrow.orderId}; a matching legacy payout requires reconciliation`,
         );
+        metrics.backgroundJobsProcessed.inc({
+          job: "payout_schedule",
+          status: "skipped_legacy_conflict",
+        });
         continue;
       }
       if (netAmount < MINIMUM_PAYOUT_CENTS) {
         this.logger.warn(
           `schedulePayouts: skipping seller ${sellerId} — net amount ${netAmount} below minimum`,
         );
+        metrics.backgroundJobsProcessed.inc({
+          job: "payout_schedule",
+          status: "skipped_below_minimum",
+        });
         continue;
       }
 
@@ -267,6 +278,10 @@ export class PayoutsService {
         currency: currency.toLowerCase(),
         status: PayoutStatus.PENDING,
         scheduledAt: new Date(),
+      });
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_schedule",
+        status: "created",
       });
     }
 
@@ -378,11 +393,18 @@ export class PayoutsService {
       );
     }
 
-    // Mark PROCESSING before calling provider to prevent double-processing
-    await this.prisma.payout.update({
-      where: { id: payoutId },
+    // Atomic conditional update — only one concurrent caller can claim this
+    // payout; the loser gets a clean rejection instead of both proceeding
+    // to call the payment provider.
+    const claimed = await this.prisma.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.PENDING },
       data: { status: PayoutStatus.PROCESSING },
     });
+    if (claimed.count === 0) {
+      throw new BadRequestException(
+        `Payout ${payoutId} is not PENDING (already claimed by a concurrent call)`,
+      );
+    }
 
     try {
       if (PAYSTACK_CURRENCIES.has(payout.currency.toUpperCase())) {
@@ -390,6 +412,10 @@ export class PayoutsService {
       } else {
         await this.processStripePayout(payoutId, payout);
       }
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_process",
+        status: "succeeded",
+      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Transfer error";
       await this.prisma.payout.update({
@@ -397,8 +423,49 @@ export class PayoutsService {
         data: { status: PayoutStatus.FAILED, failureReason: reason },
       });
       this.logger.error(`processPayout: failed for ${payoutId}: ${reason}`);
+      metrics.backgroundJobsProcessed.inc({
+        job: "payout_process",
+        status: "failed",
+      });
       throw err;
     }
+  }
+
+  // ─── Admin: Retry a permanently failed payout ─────────────────────────────
+
+  async retryFailedPayout(payoutId: string, actorId: string): Promise<void> {
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+    });
+    if (!payout) {
+      throw new NotFoundException(`Payout ${payoutId} not found`);
+    }
+    if (payout.status !== PayoutStatus.FAILED) {
+      throw new BadRequestException(
+        `Payout ${payoutId} is not FAILED (currently ${payout.status})`,
+      );
+    }
+
+    await this.prisma.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.FAILED },
+      data: { status: PayoutStatus.PENDING, failureReason: null },
+    });
+
+    await this.auditLog.record({
+      actorId,
+      action: "payout.retry",
+      entityType: "payout",
+      entityId: payoutId,
+    });
+
+    metrics.backgroundJobsProcessed.inc({
+      job: "payout_process",
+      status: "retried",
+    });
+
+    this.logger.log(
+      `retryFailedPayout: payout ${payoutId} reset to PENDING by ${actorId}`,
+    );
   }
 
   // Bridges schedulePayouts() (which only creates PENDING rows) to actual money
@@ -599,13 +666,15 @@ export class PayoutsService {
     });
 
     const amount = (payout.amount / 100).toFixed(2);
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> has been successfully transferred to your bank account.</p>
        <p>Transfer reference: <code>${stripeTransferId}</code></p>`,
-    );
+      );
+    }
 
     this.logger.log(`handleTransferPaid: payout ${payout.id} marked PAID`);
   }
@@ -648,15 +717,17 @@ export class PayoutsService {
     const bankDetailsUrl = `${frontendUrl}/dashboard/payouts/bank-details`;
     const amount = (payout.amount / 100).toFixed(2);
 
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Unfortunately your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> could not be completed.</p>
        <p><strong>Reason:</strong> ${failureReason}</p>
        ${shouldRetry ? "<p>We will automatically retry in 24 hours.</p>" : ""}
        <p>Please <a href="${bankDetailsUrl}">update your bank details</a> to ensure future payouts succeed.</p>`,
-    );
+      );
+    }
 
     this.logger.warn(
       `handleTransferFailed: payout ${payout.id} failed — retry=${shouldRetry}`,
@@ -700,13 +771,15 @@ export class PayoutsService {
     });
 
     const amount = (payout.amount / 100).toFixed(2);
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Your payout of ${payout.currency.toUpperCase()} ${amount} has been sent`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> has been successfully transferred to your bank account.</p>
        <p>Transfer reference: <code>${transferCode}</code></p>`,
-    );
+      );
+    }
 
     this.logger.log(
       `handlePaystackTransferSuccess: payout ${payout.id} marked PAID`,
@@ -751,15 +824,17 @@ export class PayoutsService {
     const bankDetailsUrl = `${frontendUrl}/dashboard/payouts/bank-details`;
     const amount = (payout.amount / 100).toFixed(2);
 
-    await this.notifications.sendEmail(
-      payout.seller.email,
-      `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
-      `<p>Hi ${payout.seller.name},</p>
+    if (payout.seller.email) {
+      await this.notifications.sendEmail(
+        payout.seller.email,
+        `Payout failed — ${payout.currency.toUpperCase()} ${amount}`,
+        `<p>Hi ${payout.seller.name},</p>
        <p>Unfortunately your payout of <strong>${payout.currency.toUpperCase()} ${amount}</strong> could not be completed.</p>
        <p><strong>Reason:</strong> ${failureReason}</p>
        ${shouldRetry ? "<p>We will automatically retry in 24 hours.</p>" : ""}
        <p>Please <a href="${bankDetailsUrl}">update your bank details</a> to ensure future payouts succeed.</p>`,
-    );
+      );
+    }
 
     this.logger.warn(
       `handlePaystackTransferFailed: payout ${payout.id} failed — retry=${shouldRetry}`,

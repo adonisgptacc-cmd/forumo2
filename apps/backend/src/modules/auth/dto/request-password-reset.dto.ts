@@ -1,15 +1,16 @@
 import {
-  IsEmail,
   IsIP,
   IsObject,
   IsOptional,
   IsString,
   Length,
+  MinLength,
 } from "class-validator";
 
 export class RequestPasswordResetDto {
-  @IsEmail()
-  email!: string;
+  @IsString()
+  @MinLength(3)
+  identifier!: string;
 
   @IsString()
   @Length(8, 256)

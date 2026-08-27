@@ -116,13 +116,13 @@ test("pnpm applies an explicit dependency build-script policy", () => {
   assert.equal(allowBuilds.protobufjs, false);
 });
 
-test("workspace installs generate the backend Prisma client explicitly", () => {
+test("workspace installs build @forumo/shared and generate the backend Prisma client explicitly", () => {
   const rootPackage = JSON.parse(read("package.json"));
   const backendPackage = JSON.parse(read("apps/backend/package.json"));
 
   assert.equal(
     rootPackage.scripts.postinstall,
-    "pnpm --filter backend prisma:generate",
+    "pnpm --filter @forumo/shared build && pnpm --filter backend prisma:generate",
   );
   assert.equal(
     backendPackage.scripts["prisma:generate"],

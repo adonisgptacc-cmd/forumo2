@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
+import { authenticator } from "otplib";
 import request from "supertest";
 
 import { PrismaService } from "../../../prisma/prisma.service";
@@ -16,6 +17,7 @@ import { AuthModule } from "../auth.module";
 import { AuthService } from "../auth.service";
 import { OtpDeliveryService } from "../otp-delivery.service";
 import { RequestOtpDto } from "../dto/request-otp.dto";
+import { CacheService } from "../../../common/services/cache.service";
 
 class FakeConfigService {
   private readonly values: Record<string, string> = {
@@ -24,9 +26,6 @@ class FakeConfigService {
     OTP_TTL: "300",
     OTP_DEVICE_RATE_LIMIT: "5",
     OTP_DEVICE_RATE_WINDOW: "300",
-    GOOGLE_CLIENT_ID: "test-google-id",
-    GOOGLE_CLIENT_SECRET: "test-google-secret",
-    GOOGLE_CALLBACK_URL: "http://localhost/callback",
   };
 
   get<T = string>(key: string): T | undefined {
@@ -48,12 +47,16 @@ type UserRecord = {
   email: string;
   passwordHash: string;
   phone: string | null;
+  phoneVerified: boolean;
   avatarUrl: string | null;
   role: UserRole;
   trustScore: number;
   kycStatus: string;
   emailVerified: boolean;
   emailVerificationToken: string | null;
+  twoFactorEnabled: boolean;
+  twoFactorSecret: string | null;
+  twoFactorBackupCodes: string[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -106,10 +109,22 @@ class InMemoryPrismaService {
           ) ?? null
         );
       }
+      if (where?.phone) {
+        return (
+          Array.from(this.users.values()).find(
+            (user) => user.phone === where.phone && user.deletedAt === null,
+          ) ?? null
+        );
+      }
       if (where?.id) {
         return this.users.get(where.id) ?? null;
       }
       return null;
+    },
+    findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
+      const record = this.users.get(where.id);
+      if (!record) throw new Error("User not found");
+      return record;
     },
     create: async ({ data }: { data: Partial<UserRecord> }) => {
       const id = data.id ?? randomUUID();
@@ -121,6 +136,7 @@ class InMemoryPrismaService {
         passwordHash: data.passwordHash!,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         phone: (data as any).phone ?? null,
+        phoneVerified: (data as any).phoneVerified ?? false,
         avatarUrl: null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         role: (data as any).role ?? UserRole.BUYER,
@@ -131,6 +147,12 @@ class InMemoryPrismaService {
         emailVerified: (data as any).emailVerified ?? true,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
         emailVerificationToken: (data as any).emailVerificationToken ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorEnabled: (data as any).twoFactorEnabled ?? false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorSecret: (data as any).twoFactorSecret ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        twoFactorBackupCodes: (data as any).twoFactorBackupCodes ?? [],
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
@@ -322,17 +344,14 @@ describe("AuthModule HTTP flows", () => {
   let authService: AuthService;
 
   beforeEach(async () => {
-    // Set environment variables for OAuth strategy
     process.env.JWT_SECRET = "test-jwt-secret";
-    process.env.GOOGLE_CLIENT_ID = "test-google-id";
-    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
 
     prisma = new InMemoryPrismaService();
     otpDelivery = {
       deliver: jest.fn(async (user, dto) => ({
         channel:
           dto.channel ??
-          (user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL),
+          (user.email ? NotificationChannel.EMAIL : NotificationChannel.SMS),
         provider: "mailgun",
         deliveredAt: new Date("2024-01-01T00:00:00.000Z"),
         referenceId: "ref-otp",
@@ -349,6 +368,18 @@ describe("AuthModule HTTP flows", () => {
       .useValue(otpDelivery)
       .overrideProvider(ConfigService)
       .useValue(new FakeConfigService())
+      // Avoid a real Redis connection in this HTTP-flow test: AuthModule now
+      // imports CacheModule (needed because this module tree doesn't go
+      // through the global-provider root), and without this override Jest
+      // leaves an ioredis client open, causing a "worker process failed to
+      // exit gracefully" warning. None of the flows exercised here hit the
+      // TOTP-lockout paths that use CacheService, so a no-op mock suffices.
+      .overrideProvider(CacheService)
+      .useValue({
+        get: jest.fn().mockResolvedValue(undefined),
+        set: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn().mockResolvedValue(0),
+      })
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -371,7 +402,21 @@ describe("AuthModule HTTP flows", () => {
     }
   });
 
-  it("prefers SMS when the user has a phone and channel is omitted", async () => {
+  it("rejects registration with a password that fails complexity requirements", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", email: "zuri@example.com", password: "short" })
+      .expect(400);
+  });
+
+  it("rejects registration with neither email nor phone", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Zuri", password: "hunter2!Aa" })
+      .expect(400);
+  });
+
+  it("prefers EMAIL when the user has both identifiers and channel is omitted", async () => {
     const user = await createUser(prisma, { phone: "+233550000001" });
     jest
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
@@ -381,16 +426,16 @@ describe("AuthModule HTTP flows", () => {
     const response = await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         deviceFingerprint: "device-sms",
       })
       .expect(201);
 
-    expect(response.body.channel).toBe(NotificationChannel.SMS);
+    expect(response.body.channel).toBe(NotificationChannel.EMAIL);
     const [, deliveredDto] = otpDelivery.deliver.mock.calls[0];
     expect((deliveredDto as RequestOtpDto).channel).toBeUndefined();
-    expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.SMS);
+    expect(prisma.otpCodes[0].channel).toBe(NotificationChannel.EMAIL);
   });
 
   it("issues and verifies OTP codes while recording device sessions", async () => {
@@ -403,7 +448,7 @@ describe("AuthModule HTTP flows", () => {
     const issueResponse = await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "device-1",
@@ -422,7 +467,7 @@ describe("AuthModule HTTP flows", () => {
     const verifyResponse = await request(app.getHttpServer())
       .post("/auth/otp/verify")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         code: "135246",
         deviceFingerprint: "device-1",
@@ -430,7 +475,13 @@ describe("AuthModule HTTP flows", () => {
       })
       .expect(201);
 
-    expect(verifyResponse.body.accessToken).toBeDefined();
+    // verifyOtp() must never mint a session directly — consuming an OTP
+    // only proves the user controls the identifier, so it has to route
+    // through the same 2FA gate login() uses.
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
     const [session] = await prisma.deviceSession.findMany({
       where: { userId: user.id },
     });
@@ -438,8 +489,152 @@ describe("AuthModule HTTP flows", () => {
     expect(session.lastVerifiedAt).toBeDefined();
   });
 
+  it("lets a phone-only registrant verify their phone but does not grant a session without 2FA enrollment", async () => {
+    // Regression test for the bug where issuePhoneVerificationOtp() always
+    // wrote deviceFingerprint: null on the OtpCode row, while verifyOtp()
+    // matched consumeOtp's lookup against the caller's real (now-mandatory)
+    // deviceFingerprint — the two could never agree, so a phone-only
+    // registrant could never consume their own verification code and was
+    // permanently locked out. See auth.service.ts verifyOtp().
+    //
+    // Also a regression test for the more serious bug where verifyOtp()
+    // minted a full session for ANY OtpPurpose (including
+    // PHONE_VERIFICATION) with no 2FA check at all, letting a phone-only
+    // user obtain a working session having never enrolled in TOTP —
+    // breaking the mandatory-2FA invariant this app is built around.
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("246810");
+
+    const phone = "+27821234567";
+    const password = "Hunter2!Aa";
+
+    const registerResponse = await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Phone Only", phone, password })
+      .expect(201);
+    expect(registerResponse.body.message).toMatch(/check your phone/i);
+
+    const verifyResponse = await request(app.getHttpServer())
+      .post("/auth/otp/verify")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        code: "246810",
+        deviceFingerprint: "phone-verify-device",
+      })
+      .expect(201);
+
+    // No access token — just a pending 2FA-setup token, exactly like a
+    // brand-new login() would return.
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+
+    const createdUser = Array.from(prisma.users.values()).find(
+      (u) => u.phone === phone,
+    );
+    expect(createdUser?.phoneVerified).toBe(true);
+
+    // The twoFactorToken must not work as a real session token: any
+    // protected route has to reject it (JwtStrategy rejects
+    // `twoFactorPending` payloads outright).
+    await request(app.getHttpServer())
+      .get("/auth/sessions")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .expect(401);
+
+    // A subsequent login must no longer be blocked by the
+    // "verify your phone" gate in login() — but it still has to go through
+    // 2FA setup, never straight to a session.
+    const loginResponse = await request(app.getHttpServer())
+      .post("/auth/login")
+      .send({ identifier: phone, password })
+      .expect(201);
+
+    expect(loginResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+
+    // Only completing 2FA enrollment actually grants a session.
+    const setupInitResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-init")
+      .set("Authorization", `Bearer ${loginResponse.body.twoFactorToken}`)
+      .expect(201);
+
+    const totpCode = authenticator.generate(setupInitResponse.body.secret);
+    const setupVerifyResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-verify")
+      .set("Authorization", `Bearer ${loginResponse.body.twoFactorToken}`)
+      .send({ code: totpCode })
+      .expect(201);
+
+    expect(setupVerifyResponse.body.accessToken).toBeDefined();
+  });
+
+  it("lets a phone-only registrant verify a *resent* code, not just the original registration code", async () => {
+    // Regression test for a follow-on bug in the fix above: the first
+    // PHONE_VERIFICATION code is issued automatically by register() with
+    // deviceFingerprint: null (see issuePhoneVerificationOtp), but a
+    // resent code — requested afterwards via the ordinary
+    // POST /auth/otp/request endpoint (e.g. a "resend code" button) —
+    // stores whatever real deviceFingerprint that later request sends, via
+    // the normal requestOtp()/enforceDeviceRateLimit() path. verifyOtp()
+    // must be able to consume either shape for PHONE_VERIFICATION, so it
+    // omits the deviceFingerprint filter entirely for this purpose rather
+    // than pinning it to null — otherwise a resent code would be exactly
+    // as unverifiable as the original bug, just for a different reason.
+    const phone = "+27821234568";
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("531246");
+
+    await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Resend Phone", phone, password: "Hunter2!Aa" })
+      .expect(201);
+
+    // Issue a *second* (resent) code via the ordinary request endpoint —
+    // unlike the registration-issued code, this one goes through
+    // requestOtp() and stores a real deviceFingerprint.
+    await request(app.getHttpServer())
+      .post("/auth/otp/request")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        deviceFingerprint: "resend-device-xyz",
+      })
+      .expect(201);
+
+    const verifyResponse = await request(app.getHttpServer())
+      .post("/auth/otp/verify")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        code: "531246",
+        // Deliberately a *different* fingerprint than the resend request
+        // used above — proving the lookup really doesn't filter on it for
+        // this purpose, the same way it never could have known the
+        // original registration-issued code's fingerprint either.
+        deviceFingerprint: "verifying-device-abc",
+      })
+      .expect(201);
+
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+  });
+
   it("resets passwords with OTP and enforces the new secret", async () => {
-    const newPassword = ["new", "password", "123"].join("-");
+    // Must satisfy PasswordResetConfirmDto's complexity regex (upper + lower
+    // + digit + special char) now that ValidationPipe actually enforces it.
+    const newPassword = ["New", "password", "123!"].join("-");
     const user = await createUser(prisma);
     const originalHash = user.passwordHash;
     jest
@@ -450,7 +645,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/password/reset/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "reset-device",
       })
@@ -459,7 +654,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/password/reset/confirm")
       .send({
-        email: user.email,
+        identifier: user.email,
         code: "777888",
         newPassword,
         deviceFingerprint: "reset-device",
@@ -472,7 +667,7 @@ describe("AuthModule HTTP flows", () => {
 
     const loginResponse = await request(app.getHttpServer())
       .post("/auth/login")
-      .send({ email: user.email, password: newPassword })
+      .send({ identifier: user.email, password: newPassword })
       .expect(201);
 
     expect(loginResponse.body).toEqual({
@@ -492,7 +687,7 @@ describe("AuthModule HTTP flows", () => {
     await request(app.getHttpServer())
       .post("/auth/otp/request")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         channel: NotificationChannel.EMAIL,
         deviceFingerprint: "fingerprint-abc",
@@ -502,7 +697,7 @@ describe("AuthModule HTTP flows", () => {
     const verifyResponse = await request(app.getHttpServer())
       .post("/auth/otp/verify")
       .send({
-        email: user.email,
+        identifier: user.email,
         purpose: OtpPurpose.LOGIN,
         code: "111222",
         deviceFingerprint: "fingerprint-abc",
@@ -510,7 +705,21 @@ describe("AuthModule HTTP flows", () => {
       })
       .expect(201);
 
-    const token = verifyResponse.body.accessToken as string;
+    // verifyOtp() only proves identifier ownership — completing 2FA
+    // enrollment is what actually grants a usable session token.
+    const setupInitResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-init")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .expect(201);
+
+    const totpCode = authenticator.generate(setupInitResponse.body.secret);
+    const setupVerifyResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-verify")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .send({ code: totpCode, deviceFingerprint: "fingerprint-abc" })
+      .expect(201);
+
+    const token = setupVerifyResponse.body.accessToken as string;
     const sessionsResponse = await request(app.getHttpServer())
       .get("/auth/sessions")
       .set("Authorization", `Bearer ${token}`)
@@ -518,5 +727,81 @@ describe("AuthModule HTTP flows", () => {
 
     expect(Array.isArray(sessionsResponse.body)).toBe(true);
     expect(sessionsResponse.body[0].fingerprint).toBe("fingerprint-abc");
+  });
+
+  describe("POST /auth/2fa/otp/request and /auth/2fa/otp/verify", () => {
+    it("rejects the OTP fallback during 2FA setup (not yet enrolled)", async () => {
+      const user = await createUser(prisma, { twoFactorEnabled: false });
+      const setupToken = await authService.issueTwoFactorToken(user.id, true);
+
+      const res = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/request")
+        .set("Authorization", `Bearer ${setupToken}`)
+        .expect(400);
+      expect(res.body.message).toMatch(/setup/i);
+    });
+
+    it("completes login via SMS/email OTP after TOTP is already enrolled", async () => {
+      const user = await createUser(prisma, {
+        twoFactorEnabled: true,
+        twoFactorSecret: "JBSWY3DPEHPK3PXP",
+      });
+      jest
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        .spyOn<any, string>(authService as any, "generateOtpCode")
+        .mockReturnValue("222444");
+      const pendingToken = await authService.issueTwoFactorToken(
+        user.id,
+        false,
+      );
+
+      const requestRes = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/request")
+        .set("Authorization", `Bearer ${pendingToken}`)
+        .expect(201);
+      expect(requestRes.body.channel).toBeDefined();
+
+      const verifyRes = await request(app.getHttpServer())
+        .post("/auth/2fa/otp/verify")
+        .set("Authorization", `Bearer ${pendingToken}`)
+        .send({ code: "222444" })
+        .expect(201);
+      expect(verifyRes.body.accessToken).toBeDefined();
+    });
+  });
+
+  describe("POST /auth/recover-oauth-account", () => {
+    it("returns a generic message whether or not the account exists", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/request")
+        .send({ email: "nobody@example.com" })
+        .expect(201);
+      expect(res.body.message).toMatch(/if an account exists/i);
+    });
+
+    it("confirms recovery, sets a password, and routes into 2FA setup", async () => {
+      const user = await createUser(prisma, { passwordHash: "" });
+      jest
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+        .spyOn<any, string>(authService as any, "generateOtpCode")
+        .mockReturnValue("555666");
+
+      await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/request")
+        .send({ email: user.email })
+        .expect(201);
+
+      const confirmRes = await request(app.getHttpServer())
+        .post("/auth/recover-oauth-account/confirm")
+        .send({
+          email: user.email,
+          code: "555666",
+          newPassword: "NewHunter2!Aa",
+        })
+        .expect(201);
+
+      expect(confirmRes.body.twoFactorSetupRequired).toBe(true);
+      expect(prisma.users.get(user.id)?.passwordHash).not.toBe("");
+    });
   });
 });

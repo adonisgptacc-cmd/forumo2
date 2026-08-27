@@ -48,8 +48,9 @@ export class AccountDeletionService {
     this.logger.log(`Executing account deletion for user ${userId}`);
 
     const anonymisedEmail =
-      createHash("sha256").update(user.email).digest("hex") +
-      "@deleted.forumo.app";
+      createHash("sha256")
+        .update(user.email ?? user.phone ?? user.id)
+        .digest("hex") + "@deleted.forumo.app";
     const adminEmail = this.config.get<string>("ADMIN_NOTIFICATION_EMAIL");
 
     // Check for pending payouts that need admin attention
@@ -131,14 +132,16 @@ export class AccountDeletionService {
     });
 
     // Send confirmation to original email before anonymising
-    try {
-      await this.notifications.sendEmail(
-        user.email,
-        "Your Forumo account has been deleted",
-        `<p>Hi ${user.name ?? "there"},</p><p>Your Forumo account has been permanently deleted as requested.</p><p>Your personal information has been removed from our systems. Financial records have been anonymised and retained for 7 years as required by law.</p><p>We're sorry to see you go. If you ever wish to return, you're welcome to create a new account at any time.</p>`,
-      );
-    } catch {
-      // email already anonymised, ignore send failures
+    if (user.email) {
+      try {
+        await this.notifications.sendEmail(
+          user.email,
+          "Your Forumo account has been deleted",
+          `<p>Hi ${user.name ?? "there"},</p><p>Your Forumo account has been permanently deleted as requested.</p><p>Your personal information has been removed from our systems. Financial records have been anonymised and retained for 7 years as required by law.</p><p>We're sorry to see you go. If you ever wish to return, you're welcome to create a new account at any time.</p>`,
+        );
+      } catch {
+        // email already anonymised, ignore send failures
+      }
     }
 
     this.logger.log(`Account deletion completed for user ${userId}`);

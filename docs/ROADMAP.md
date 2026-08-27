@@ -68,11 +68,11 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 #### RR-001 — Enforce the supported Node and pnpm toolchain (P0)
 
 - [x] Migrate the repository to pnpm `11.19.0` so local, CI, container, and Codex verification use the same package-manager major.
-- [ ] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
-- [ ] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
-- [ ] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored.
+- [x] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images. (`.nvmrc` pins Node `22`. It was initially set to `20` to match the then-current Dockerfiles, but that combination was never actually verified — a real `docker compose up --build` later revealed pnpm `11.19.0` hard-requires Node ≥22.13 (`node:sqlite` built-in, added in Node 22.5), crashing under Node 20 in Docker with `ERR_UNKNOWN_BUILTIN_MODULE`. Corrected to Node `22`, and `apps/backend/Dockerfile`/`apps/web/Dockerfile` bumped from `node:20-slim` to `node:22-slim` to match (approved change, see RR-012).)
+- [x] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
+- [x] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored. (N/A — repository is on pnpm 11.)
 - [x] Migrate overrides and patched dependencies to `pnpm-workspace.yaml`, the supported pnpm 11 configuration surface.
-- [ ] Add a CI preflight that prints and validates Node/pnpm versions before installation.
+- [x] Add a CI preflight that prints and validates Node/pnpm versions before installation.
 
 Dependencies: none.
 
@@ -94,11 +94,11 @@ pnpm list --depth 0
 
 #### RR-002 — Make Prisma generation deterministic (P0)
 
-- [ ] Confirm `prisma` and `@prisma/client` use compatible, intentionally pinned versions.
-- [ ] Run generation from `apps/backend/prisma/schema.prisma` and confirm the generated client exports all schema models and enums.
-- [ ] Add or repair a package lifecycle/CI step so a clean install cannot type-check or build against an ungenerated client.
-- [ ] Add a CI drift check that fails when the schema and generated client are inconsistent.
-- [ ] Document when developers must run `prisma generate`, including after branch switches that change the schema.
+- [x] Confirm `prisma` and `@prisma/client` use compatible, intentionally pinned versions. (Both caret-pinned to `^5.20.0`, verified they resolve to the same `5.22.0` and typecheck cleanly.)
+- [x] Run generation from `apps/backend/prisma/schema.prisma` and confirm the generated client exports all schema models and enums. (Verified via `tests/prisma-drift.test.mjs`.)
+- [x] Add or repair a package lifecycle/CI step so a clean install cannot type-check or build against an ungenerated client. (`pretypecheck`/`pretest`/`prebuild` hooks in `apps/backend/package.json` already run `prisma:generate` first; confirmed working from a clean install.)
+- [x] Add a CI drift check that fails when the schema and generated client are inconsistent. (`tests/prisma-drift.test.mjs`, run via `pnpm test:prisma-drift` in the CI `lint` job.)
+- [x] Document when developers must run `prisma generate`, including after branch switches that change the schema.
 
 Dependencies: RR-001.
 
@@ -118,9 +118,9 @@ pnpm --filter backend test
 
 #### RR-003 — Repair the design-system type boundary (P1)
 
-- [ ] Decide whether Storybook stories are part of the package type-check or have a separate Storybook tsconfig.
-- [ ] Add the correct direct Storybook type dependency or update story imports to the supported package API.
-- [ ] Add design-system `typecheck`, `test`, and Storybook build tasks to Turbo/CI if they are intended release surfaces.
+- [x] Decide whether Storybook stories are part of the package type-check or have a separate Storybook tsconfig. (Kept in the existing single `tsconfig.json` — stories were already included via `src/**/*`; no split needed.)
+- [x] Add the correct direct Storybook type dependency or update story imports to the supported package API. (Added `@storybook/react` as an explicit devDependency; it was only a transitive dep of `@storybook/react-vite`, which pnpm's strict linking hid from `tsc`.)
+- [x] Add design-system `typecheck`, `test`, and Storybook build tasks to Turbo/CI if they are intended release surfaces. (Added `typecheck` script; it's picked up automatically by the existing `turbo run typecheck` used in root `pnpm typecheck`/CI `lint` job — no `turbo.json` change needed. The package has no test suite or release-surface Storybook build requirement yet, so those are left out of scope.)
 
 Dependencies: RR-001.
 
@@ -133,11 +133,11 @@ Acceptance criteria:
 
 #### RR-010 — Normalize the web API base URL contract (P0)
 
-- [ ] Define one canonical meaning for `NEXT_PUBLIC_API_BASE_URL`: either origin-only or already versioned with `/api/v1`.
-- [ ] Centralize URL joining so callers cannot duplicate or omit the version prefix.
-- [ ] Fix NextAuth token refresh, which currently combines the documented `/api/v1` base with another `/api/v1/auth/refresh` suffix.
-- [ ] Audit OAuth, server actions, shared client creation, WebSocket setup, and admin client construction for the same class of duplication.
-- [ ] Reject malformed base URLs at startup/build time with a clear error.
+- [x] Define one canonical meaning for `NEXT_PUBLIC_API_BASE_URL`: either origin-only or already versioned with `/api/v1`. (`getApiBaseUrl()` in `packages/shared/src/api-client.ts` accepts either form and normalizes idempotently; both accepted forms are now unit-tested.)
+- [x] Centralize URL joining so callers cannot duplicate or omit the version prefix. (`apps/admin` was constructing its own `ForumoApiClient` base URL directly from `process.env` with a different hardcoded default than `apps/web`, bypassing the shared helper — the one real duplication found. Fixed in `apps/admin/src/lib/api-client.ts` and `apps/admin/src/lib/auth.ts` to call `getApiBaseUrl()`.)
+- [x] Fix NextAuth token refresh, which currently combines the documented `/api/v1` base with another `/api/v1/auth/refresh` suffix. (Verified this is already correct in the current tree — `apps/web/src/lib/auth.ts` builds `${getApiBaseUrl()}/auth/refresh`, which does not double the prefix. Likely already fixed by an earlier commit; the roadmap text describes the risk pattern, not a live bug.)
+- [x] Audit OAuth, server actions, shared client creation, WebSocket setup, and admin client construction for the same class of duplication. (OAuth button, `messaging-layer.ts` WebSocket base, and web server actions (`apps/web/src/app/(admin)/admin/*/actions.ts`) all already route through `getApiBaseUrl()`/`getGatewayBaseUrl()` via `createApiClient()`. Admin client construction was the one gap; fixed above.)
+- [ ] Reject malformed base URLs at startup/build time with a clear error. (Not done — `getApiBaseUrl()` silently normalizes any string rather than validating it's a well-formed URL. Left for a follow-up; out of scope for this bounded pass.)
 
 Dependencies: RR-001.
 
@@ -155,10 +155,10 @@ Tests:
 
 #### RR-011 — Correct Google OAuth routing and fallbacks (P0)
 
-- [ ] Replace the web Google sign-in fallback from admin port `3001` to the canonical backend OAuth endpoint.
-- [ ] Prefer the normalized API URL helper from RR-010 over a component-local fallback.
-- [ ] Validate local and production callback URLs against the Google provider configuration.
-- [ ] Confirm failure/cancellation redirects return to a safe web route with a user-facing error.
+- [x] Replace the web Google sign-in fallback from admin port `3001` to the canonical backend OAuth endpoint. (Verified: no port-3001 fallback exists in the current tree — `google-signin-button.tsx` links straight to the backend's `/auth/google`. Already fixed, likely by an earlier commit.)
+- [x] Prefer the normalized API URL helper from RR-010 over a component-local fallback. (Verified: it already calls `getApiBaseUrl()`, no local fallback logic.)
+- [ ] Validate local and production callback URLs against the Google provider configuration. (Requires comparing against the real Google Cloud Console OAuth client config, which needs operator access to actual credentials — out of scope for this pass.)
+- [x] Confirm failure/cancellation redirects return to a safe web route with a user-facing error. (This was the real, verified bug: `GoogleAuthGuard` had no failure handling, so cancellation/failure produced a raw JSON 401 on the backend's own origin instead of a redirect. Fixed via `handleRequest` override in `apps/backend/src/modules/auth/guards/google-auth.guard.ts`, redirecting to `${FRONTEND_URL}/login?error=oauth_failed` — the same error param the frontend's `OAuthCallback` component already checks for. Added a `response.headersSent` guard in `all-exceptions.filter.ts` to prevent a double-response crash. Covered by `google-auth.guard.spec.ts`.)
 
 Dependencies: RR-010.
 
@@ -170,26 +170,33 @@ Acceptance criteria:
 
 #### RR-012 — Make the Docker development stack bootable and honest (P0)
 
-- [ ] Reconcile backend environment validation with the values supplied by `docker-compose.yml`.
-- [ ] Remove hard-coded reusable secrets from Compose; load development-only values through a git-ignored `.env` or an explicit safe bootstrap path.
+- [x] Reconcile backend environment validation with the values supplied by `docker-compose.yml`. (`apps/backend/Dockerfile` bakes `ENV NODE_ENV=production`, which activates strict production secret checks in `config.schema.ts` that Compose never supplied — `docker compose up` could not previously reach a running backend. Fixed by having the `backend` service explicitly set `NODE_ENV=${NODE_ENV:-development}`, overriding the image default.)
+- [x] Remove hard-coded reusable secrets from Compose; load development-only values through a git-ignored `.env` or an explicit safe bootstrap path. (Every dev credential in `docker-compose.yml` and `docker-compose.override.yml` — Postgres, MinIO, JWT, moderation token, pgadmin — now uses `${VAR:-default}` substitution; Compose auto-loads a git-ignored root `.env` if present. Verified via `tests/docker-compose.test.mjs`.)
 - [ ] Decide which integrations are mandatory for local startup and which may be disabled behind explicit feature/config flags.
 - [ ] Make disabled Stripe, Paystack, Shippo, email, SMS, and OAuth capabilities visible in health/readiness output.
 - [ ] Never silently return payment success from mock providers unless an explicit development mock flag is enabled.
-- [ ] Add Compose health checks that prove backend readiness, not merely that the container process exists.
+- [x] Add Compose health checks that prove backend readiness, not merely that the container process exists. (`backend`/`web`/`moderation` had no healthchecks at all. Added real ones — backend hits its existing `/api/v1/health/ready` endpoint (DB/Redis/MinIO/moderation-queue checks), web hits `/`, moderation hits its existing `/healthz`. `depends_on` upgraded to `condition: service_healthy` throughout.)
 
 Dependencies: RR-001, RR-002.
 
+Additional pre-existing, previously-undiscovered bugs found and fixed while getting a real `docker compose up --build` to succeed (none of this was RR-012 scope going in, but `docker compose up` could not reach a running state without them — see the RR-001 `.nvmrc` note above for the Node version correction):
+
+- `apps/backend/Dockerfile` and `apps/web/Dockerfile` used `node:20-slim`, but pnpm `11.19.0` hard-requires Node ≥22.13 (`node:sqlite` built-in). Bumped both to `node:22-slim` (approved protected-path change).
+- `packages/shared` had no `build` script (`main`/`types` pointed at raw `src/index.ts`), so `RUN pnpm --filter @forumo/shared build` in both Dockerfiles always failed. Worse: `apps/backend` imports real runtime values (Zod schemas) from `@forumo/shared` without declaring it as a dependency — it only "worked" via a `tsconfig.base.json` path alias that affects type-checking only, not the compiled runtime. `node dist/apps/backend/src/main.js` (exactly what the backend image runs) would have crashed on startup with `Cannot find module '@forumo/shared'`. Fixed by giving `@forumo/shared` a real `tsc` build to `dist/`, declaring it as a proper `workspace:*` dependency in `apps/backend/package.json`, and building it in the root `postinstall` step. Added a regression test (`tests/repository-hygiene.test.mjs`) that fails if backend ever imports an undeclared `@forumo/*` package again.
+
 Acceptance criteria:
 
-- `docker compose up` reaches healthy state using documented development configuration.
-- Production configuration still fails fast when required payment/webhook secrets are missing.
-- A developer can tell from logs and health output which external integrations are disabled.
-- No real or reusable provider secret is committed.
+- [x] `docker compose up` reaches healthy state using documented development configuration. (Verified live: built all three custom images and ran the full stack — `backend`, `web`, `moderation`, `postgres`, `redis`, `minio`, `mailpit` all reported `healthy`; hit `/api/v1/health/ready` and got `{"status":"ok",...}` with database/redis/minio all `up`, and `web` returned HTTP 200. `pgadmin`, extra dev tooling from the override file and not part of this roadmap item, has a pre-existing, unrelated crash — see note below.)
+- Production configuration still fails fast when required payment/webhook secrets are missing. (Unchanged — `config.schema.ts`'s production `superRefine` checks were not touched.)
+- A developer can tell from logs and health output which external integrations are disabled. (Not addressed — remaining work.)
+- [x] No real or reusable provider secret is committed. (For the credentials this pass touched — see above. Provider API keys are unaffected/still absent from Compose, as before.)
 
 Tests:
 
-- Config-schema tests for development, test, and production matrices.
-- Compose smoke test for Postgres, Redis, MinIO, moderation service, backend, web, and admin health.
+- Config-schema tests for development, test, and production matrices. (Not added — remaining work.)
+- Compose smoke test for Postgres, Redis, MinIO, moderation service, backend, web, and admin health. (`tests/docker-compose.test.mjs` covers the static config; the live smoke test was run manually this session, not automated into CI — remaining work. No `admin` service exists in `docker-compose.yml` today.)
+
+Known pre-existing issue found, not fixed (out of this item's scope): `docker-compose.override.yml`'s `pgadmin` service crash-loops — pgadmin4 v8 rejects the default `PGADMIN_DEFAULT_EMAIL` value (`admin@local.test`) as an invalid address. Predates this session; the default value itself wasn't changed, only made overridable.
 
 #### RR-013 — Implement safe escrow auto-release execution (P0, protected workflow)
 

@@ -73,10 +73,7 @@ describe("MessagingModule (integration)", () => {
   let threadId: string;
 
   beforeEach(async () => {
-    // Set environment variables for OAuth and JWT
     process.env.JWT_SECRET = "test-jwt-secret";
-    process.env.GOOGLE_CLIENT_ID = "test-google-id";
-    process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
 
     prisma = new InMemoryPrismaService();
     server = new RecordingServer();

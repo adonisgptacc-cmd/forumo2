@@ -100,8 +100,6 @@ describe("PaymentsController — webhook integration", () => {
   beforeEach(async () => {
     MockAuthGuard.currentUserId = BUYER_ID;
     process.env.JWT_SECRET = "test-jwt-secret";
-    process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
-    process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
     // Stripe: both keys must be set so PaymentsService creates a Stripe instance
     // and validateStripeEvent exercises the real HMAC path.
     process.env.STRIPE_SECRET_KEY = STRIPE_TEST_API_KEY;

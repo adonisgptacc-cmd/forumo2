@@ -140,7 +140,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const response = await apiClient.auth.login({ email, password });
+      const response = await apiClient.auth.login({
+        identifier: email,
+        password,
+      });
       if (!("accessToken" in response)) {
         throw new Error(
           "Two-factor authentication must be completed before signing in.",

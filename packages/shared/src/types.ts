@@ -21,7 +21,7 @@ export type DisputeStatus = z.infer<typeof disputeStatusSchema>;
 
 export const safeUserSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
+  email: z.string().email().nullable().optional(),
   name: z.string().nullable().optional(),
   role: userRoleSchema,
   avatarUrl: z.string().nullable().optional(),
@@ -476,15 +476,17 @@ export const messageThreadSchema = z.object({
 });
 export type SafeMessageThread = z.infer<typeof messageThreadSchema>;
 
-export const loginPayloadSchema = z.object({
-  email: z.string().email(),
+export const identifierLoginPayloadSchema = z.object({
+  identifier: z.string().min(1),
   password: z.string(),
 });
-export type LoginPayload = z.infer<typeof loginPayloadSchema>;
+export type IdentifierLoginPayload = z.infer<
+  typeof identifierLoginPayloadSchema
+>;
 
 export const registerPayloadSchema = z.object({
   name: z.string(),
-  email: z.string().email(),
+  email: z.string().email().optional(),
   password: z.string().min(8),
   phone: z.string().optional(),
 });
@@ -509,12 +511,20 @@ export type TwoFactorSetupRequired = z.infer<
   typeof twoFactorSetupRequiredSchema
 >;
 
+export const passwordSetupRequiredSchema = z.object({
+  passwordSetupRequired: z.literal(true),
+  recoveryToken: z.string(),
+});
+export type PasswordSetupRequired = z.infer<
+  typeof passwordSetupRequiredSchema
+>;
+
 export const authResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string().optional(),
   user: z.object({
     id: z.string().uuid(),
-    email: z.string().email(),
+    email: z.string().email().nullable().optional(),
     name: z.string().nullable().optional(),
     role: z.string().optional(),
     avatarUrl: z.string().nullable().optional(),
@@ -626,7 +636,7 @@ export interface UploadResult {
 
 export const adminUserSummarySchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email(),
+  email: z.string().email().nullable(),
   name: z.string().nullable().optional(),
 });
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
@@ -700,7 +710,7 @@ export type AccountStatus = z.infer<typeof accountStatusSchema>;
 export const adminUserDetailSchema = z.object({
   id: z.string().uuid(),
   name: z.string().nullable(),
-  email: z.string().email(),
+  email: z.string().email().nullable(),
   role: z.string(),
   accountStatus: accountStatusSchema,
   kycStatus: z.string(),

@@ -36,6 +36,8 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { CacheService } from "../../common/services/cache.service";
+import { normalizePhoneNumber } from "./utils/phone.util";
 
 interface OtpIssueResponse {
   message: string;
@@ -46,15 +48,12 @@ interface OtpIssueResponse {
 export type LoginResult =
   | { twoFactorRequired: true; twoFactorToken: string }
   | { twoFactorSetupRequired: true; twoFactorToken: string }
+  | { passwordSetupRequired: true; recoveryToken: string }
   | AuthResponse;
 
 @Injectable()
 export class AuthService {
   private readonly saltRounds = 10;
-  private readonly totpAttempts = new Map<
-    string,
-    { count: number; lockedUntil: number | null }
-  >();
   private readonly TOTP_MAX_ATTEMPTS = 5;
   private readonly TOTP_LOCK_MS = 15 * 60 * 1000;
 
@@ -65,48 +64,86 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly otpDeliveryService: OtpDeliveryService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CacheService,
   ) {}
 
   async register(dto: RegisterInput): Promise<{ message: string }> {
-    const normalizedEmail = this.normalizeEmail(dto.email);
-    const existing = await this.findActiveUserByEmail(normalizedEmail);
-    if (existing) {
-      throw new ConflictException("Email already registered");
+    if (!dto.email && !dto.phone) {
+      throw new BadRequestException("Provide an email or phone number");
+    }
+
+    const normalizedEmail = dto.email
+      ? this.normalizeEmail(dto.email)
+      : undefined;
+    const normalizedPhone = dto.phone
+      ? normalizePhoneNumber(dto.phone)
+      : undefined;
+
+    if (normalizedEmail) {
+      const existingEmail = await this.findActiveUserByEmail(normalizedEmail);
+      if (existingEmail) {
+        throw new ConflictException("Email already registered");
+      }
+    }
+    if (normalizedPhone) {
+      const existingPhone = await this.findActiveUserByPhone(normalizedPhone);
+      if (existingPhone) {
+        throw new ConflictException("Phone number already registered");
+      }
     }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
-    const emailVerificationToken = randomBytes(32).toString("hex");
+    const emailVerificationToken = normalizedEmail
+      ? randomBytes(32).toString("hex")
+      : null;
 
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
-        email: normalizedEmail,
+        email: normalizedEmail ?? null,
         passwordHash,
-        phone: dto.phone,
+        phone: normalizedPhone ?? null,
         emailVerified: false,
         emailVerificationToken,
       },
     });
 
     await this.ensureUserProfile(user.id);
-    await this.sendVerificationEmailForUser(
-      user.email,
-      user.name,
-      emailVerificationToken,
-    );
 
+    if (normalizedEmail) {
+      await this.sendVerificationEmailForUser(
+        user.email!,
+        user.name,
+        emailVerificationToken!,
+      );
+      return {
+        message:
+          "Registration successful. Please check your email to verify your account.",
+      };
+    }
+
+    await this.issuePhoneVerificationOtp(user);
     return {
       message:
-        "Registration successful. Please check your email to verify your account.",
+        "Registration successful. Please check your phone for a verification code.",
     };
   }
 
   async login(dto: LoginInput): Promise<LoginResult> {
-    const normalizedEmail = this.normalizeEmail(dto.email);
-
-    const user = await this.findActiveUserByEmail(normalizedEmail);
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (user.passwordHash === "") {
+      const recoveryToken = await this.jwtService.signAsync(
+        { sub: user.id, accountRecoveryPending: true },
+        {
+          secret: this.configService.getOrThrow<string>("JWT_SECRET"),
+          expiresIn: 300,
+        },
+      );
+      return { passwordSetupRequired: true, recoveryToken };
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -114,9 +151,14 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    if (!user.emailVerified) {
+    if (user.email && !user.emailVerified) {
       throw new UnauthorizedException(
         "Please verify your email before logging in. Check your inbox for the verification link.",
+      );
+    }
+    if (!user.email && user.phone && !user.phoneVerified) {
+      throw new UnauthorizedException(
+        "Please verify your phone before logging in. Check your messages for the verification code.",
       );
     }
 
@@ -133,28 +175,37 @@ export class AuthService {
   }
 
   /** Complete login after 2FA TOTP verification. */
-  private checkTotpAttempts(userId: string): void {
-    const entry = this.totpAttempts.get(userId);
+  private totpLockKey(userId: string): string {
+    return `auth:totp-lock:${userId}`;
+  }
+
+  private async checkTotpAttempts(userId: string): Promise<void> {
+    const entry = await this.cache.get<{
+      count: number;
+      lockedUntil: number | null;
+    }>(this.totpLockKey(userId));
     if (entry?.lockedUntil && Date.now() < entry.lockedUntil) {
       throw new UnauthorizedException(
         "Too many failed attempts — try again later",
       );
     }
   }
-  private recordTotpFailure(userId: string): void {
-    const entry = this.totpAttempts.get(userId) ?? {
-      count: 0,
-      lockedUntil: null,
-    };
+
+  private async recordTotpFailure(userId: string): Promise<void> {
+    const entry = (await this.cache.get<{
+      count: number;
+      lockedUntil: number | null;
+    }>(this.totpLockKey(userId))) ?? { count: 0, lockedUntil: null };
     entry.count += 1;
     if (entry.count >= this.TOTP_MAX_ATTEMPTS) {
       entry.lockedUntil = Date.now() + this.TOTP_LOCK_MS;
       entry.count = 0;
     }
-    this.totpAttempts.set(userId, entry);
+    await this.cache.set(this.totpLockKey(userId), entry, this.TOTP_LOCK_MS);
   }
-  private clearTotpAttempts(userId: string): void {
-    this.totpAttempts.delete(userId);
+
+  private async clearTotpAttempts(userId: string): Promise<void> {
+    await this.cache.delete(this.totpLockKey(userId));
   }
 
   async completeTwoFactorLogin(
@@ -167,7 +218,7 @@ export class AuthService {
       >
     > & { metadata?: Record<string, unknown> } = {},
   ): Promise<AuthResponse> {
-    this.checkTotpAttempts(userId);
+    await this.checkTotpAttempts(userId);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
@@ -182,7 +233,7 @@ export class AuthService {
         (h) => h === createHash("sha256").update(code).digest("hex"),
       );
       if (idx === -1) {
-        this.recordTotpFailure(userId);
+        await this.recordTotpFailure(userId);
         throw new UnauthorizedException("Invalid authentication code");
       }
       // Consume the backup code (one-time use)
@@ -193,11 +244,15 @@ export class AuthService {
         data: { twoFactorBackupCodes: remaining },
       });
     } else {
-      this.clearTotpAttempts(userId);
+      await this.clearTotpAttempts(userId);
     }
 
-    const fullUser = await this.findActiveUserByEmail(user.email);
-    const response = await this.buildAuthResponse(fullUser!, {
+    // `user` (fetched above via findUniqueOrThrow) is already the full
+    // record — the old redundant re-fetch via
+    // `this.findActiveUserByEmail(user.email)` is unnecessary and, since
+    // `User.email` is nullable as of Task 1, broken outright for a
+    // phone-only user. Use `user` directly instead.
+    const response = await this.buildAuthResponse(user, {
       rememberMe: dto.rememberMe,
       sessionFingerprint: this.resolveDeviceIdentifier(
         dto.deviceFingerprint,
@@ -221,14 +276,11 @@ export class AuthService {
   }
 
   async requestOtp(dto: RequestOtpInput): Promise<OtpIssueResponse> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       return {
         message: "If an account exists, an OTP has been sent",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
-        channel: "EMAIL" as any,
+        channel: NotificationChannel.EMAIL,
         deliveredAt: new Date(),
       };
     }
@@ -276,10 +328,16 @@ export class AuthService {
     };
   }
 
-  async verifyOtp(dto: VerifyOtpInput): Promise<AuthResponse> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+  /**
+   * Consuming any OTP purpose here (LOGIN, PHONE_VERIFICATION, ...) proves
+   * the user controls the identifier — it must never mint a session on its
+   * own. Every path to a session has to pass through the same 2FA gate
+   * login() uses, or e.g. a phone-only user could finish registration via
+   * PHONE_VERIFICATION and land with a working session having never
+   * enrolled in TOTP, breaking the mandatory-2FA invariant.
+   */
+  async verifyOtp(dto: VerifyOtpInput): Promise<LoginResult> {
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid code");
     }
@@ -290,10 +348,38 @@ export class AuthService {
     );
     const channel = this.resolveChannel(dto.channel, user);
 
+    // Every other OtpPurpose is issued via requestOtp(), which stores the
+    // caller's resolved deviceFingerprint at issuance time and expects the
+    // same caller to supply the same fingerprint here — that's how
+    // consumeOtp's lookup is meant to bind an OTP to the device that
+    // requested it. PHONE_VERIFICATION doesn't fit that model at all: the
+    // *first* code is issued automatically inside register() (see
+    // issuePhoneVerificationOtp), before any client-supplied fingerprint
+    // exists to bind to, so that row is always written with
+    // deviceFingerprint: null — but a *resent* code (requested afterwards
+    // via the ordinary requestOtp() endpoint, e.g. a "resend code" button)
+    // stores whatever real fingerprint that later request happened to send.
+    // There's no single stored value to match against, so don't filter on
+    // deviceFingerprint at all for this purpose: pass `undefined`, which
+    // Prisma (and the in-memory test double) treat as "omit this filter"
+    // rather than `null`'s "column IS NULL" — every other OtpPurpose is
+    // unaffected and still binds to the caller's real fingerprint.
+    const consumeFingerprint =
+      dto.purpose === OtpPurpose.PHONE_VERIFICATION
+        ? undefined
+        : deviceFingerprint;
+
     const consumedAt = await this.consumeOtp(user, dto, {
-      deviceFingerprint,
+      deviceFingerprint: consumeFingerprint,
       channel,
     });
+
+    if (dto.purpose === OtpPurpose.PHONE_VERIFICATION && !user.phoneVerified) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { phoneVerified: true },
+      });
+    }
 
     if (deviceFingerprint) {
       await this.upsertDeviceSession(user.id, deviceFingerprint, dto, {
@@ -301,12 +387,14 @@ export class AuthService {
       });
     }
 
-    return this.buildAuthResponse(user, {
-      sessionFingerprint: deviceFingerprint,
-      userAgent: dto.userAgent,
-      ipAddress: dto.ipAddress,
-      sessionMetadata: dto.metadata,
-    });
+    const twoFactorToken = await this.issueTwoFactorToken(
+      user.id,
+      !user.twoFactorEnabled,
+    );
+    if (user.twoFactorEnabled) {
+      return { twoFactorRequired: true, twoFactorToken };
+    }
+    return { twoFactorSetupRequired: true, twoFactorToken };
   }
 
   async requestPasswordReset(
@@ -323,9 +411,7 @@ export class AuthService {
   async confirmPasswordReset(
     dto: PasswordResetConfirmInput,
   ): Promise<{ message: string }> {
-    const user = await this.findActiveUserByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid code");
     }
@@ -339,7 +425,7 @@ export class AuthService {
     const consumedAt = await this.consumeOtp(
       user,
       {
-        email: dto.email,
+        identifier: dto.identifier,
         code: dto.code,
         deviceFingerprint: dto.deviceFingerprint,
         ipAddress: dto.ipAddress,
@@ -378,6 +464,108 @@ export class AuthService {
     ]);
 
     return { message: "Password reset successful" };
+  }
+
+  /**
+   * Lets a user who signed up via the old Google OAuth flow (sentinel
+   * `passwordHash === ""`) set a real password and enroll in 2FA, so they
+   * aren't locked out once Google login is removed. Returns a generic
+   * response regardless of whether the account exists / needs recovery, to
+   * avoid enumeration — same pattern as `resendVerification`.
+   */
+  async requestOAuthAccountRecovery(
+    email: string,
+  ): Promise<{ message: string }> {
+    const user = await this.findActiveUserByEmail(this.normalizeEmail(email));
+    const generic = {
+      message: "If an account exists and needs recovery, a code has been sent.",
+    };
+    if (!user || user.passwordHash !== "") {
+      return generic;
+    }
+
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.email!,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        deviceFingerprint: "oauth-recovery",
+        channel: NotificationChannel.EMAIL,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint: null,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
+
+    return generic;
+  }
+
+  async confirmOAuthAccountRecovery(
+    email: string,
+    code: string,
+    newPassword: string,
+    phone?: string,
+  ): Promise<{ twoFactorSetupRequired: true; twoFactorToken: string }> {
+    const user = await this.findActiveUserByEmail(this.normalizeEmail(email));
+    if (!user || user.passwordHash !== "") {
+      throw new UnauthorizedException("Invalid code");
+    }
+
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: OtpPurpose.ACCOUNT_RECOVERY,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!otpRecord || otpRecord.attempts >= 3) {
+      throw new UnauthorizedException("Invalid code");
+    }
+    const matches = await bcrypt.compare(code, otpRecord.codeHash);
+    if (!matches) {
+      await this.prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException("Invalid code");
+    }
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { consumedAt: new Date() },
+    });
+
+    const passwordHash = await bcrypt.hash(newPassword, this.saltRounds);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        phone: phone ? normalizePhoneNumber(phone) : user.phone,
+        tokenVersion: { increment: 1 },
+      },
+    });
+
+    const twoFactorToken = await this.issueTwoFactorToken(user.id, true);
+    return { twoFactorSetupRequired: true, twoFactorToken };
   }
 
   async changePassword(
@@ -644,7 +832,10 @@ export class AuthService {
     });
 
     await this.sendVerificationEmailForUser(
-      user.email,
+      // `user` was looked up by this exact `normalizedEmail`, so it is
+      // guaranteed non-null here even though `User.email` is nullable at
+      // the type level (phone-only accounts) since Task 1's schema change.
+      normalizedEmail,
       user.name,
       emailVerificationToken,
     );
@@ -672,6 +863,61 @@ export class AuthService {
 
   private async findActiveUserByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+  }
+
+  // Normalizing here (rather than trusting each caller to pre-normalize)
+  // means every phone lookup — register()'s duplicate check, login,
+  // OTP request/verify, password reset — agrees on the same canonical form
+  // that register() stores, regardless of how the identifier was typed.
+  private async findActiveUserByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { phone: normalizePhoneNumber(phone), deletedAt: null },
+    });
+  }
+
+  private classifyIdentifier(identifier: string): "email" | "phone" {
+    return identifier.includes("@") ? "email" : "phone";
+  }
+
+  private async findActiveUserByIdentifier(
+    identifier: string,
+  ): Promise<User | null> {
+    return this.classifyIdentifier(identifier) === "email"
+      ? this.findActiveUserByEmail(this.normalizeEmail(identifier))
+      : this.findActiveUserByPhone(identifier);
+  }
+
+  private async issuePhoneVerificationOtp(user: User): Promise<void> {
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.phone!,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        deviceFingerprint: "registration",
+        channel: NotificationChannel.SMS,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint: null,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
   }
 
   private async ensureUserProfile(userId: string): Promise<void> {
@@ -744,7 +990,10 @@ export class AuthService {
   private async consumeOtp(
     user: User,
     dto: VerifyOtpInput,
-    context: { deviceFingerprint: string | null; channel: NotificationChannel },
+    context: {
+      deviceFingerprint: string | null | undefined;
+      channel: NotificationChannel;
+    },
   ): Promise<Date> {
     const otpRecord = await this.prisma.otpCode.findFirst({
       where: {
@@ -889,38 +1138,9 @@ export class AuthService {
       return requestedChannel;
     }
 
-    return user.phone ? NotificationChannel.SMS : NotificationChannel.EMAIL;
+    return user.email ? NotificationChannel.EMAIL : NotificationChannel.SMS;
   }
 
-  async validateOrCreateGoogleUser(profile: {
-    googleId: string;
-    email: string;
-    name: string;
-    avatarUrl?: string;
-  }): Promise<User> {
-    const normalizedEmail = this.normalizeEmail(profile.email);
-
-    let user = await this.findActiveUserByEmail(normalizedEmail);
-
-    if (user) {
-      return user;
-    }
-
-    user = await this.prisma.user.create({
-      data: {
-        name: profile.name,
-        email: normalizedEmail,
-        passwordHash: "",
-        avatarUrl: profile.avatarUrl,
-        kycStatus: "NOT_REQUIRED",
-        emailVerified: true,
-      },
-    });
-
-    await this.ensureUserProfile(user.id);
-
-    return user;
-  }
   // ─── Two-Factor Authentication ───────────────────────────────────────────────
 
   async issueTwoFactorToken(
@@ -948,7 +1168,8 @@ export class AuthService {
       throw new ForbiddenException("2FA already enabled");
 
     const secret = authenticator.generateSecret();
-    const otpAuthUrl = authenticator.keyuri(user.email, "Forumo", secret);
+    const accountLabel = user.email ?? user.phone ?? user.id;
+    const otpAuthUrl = authenticator.keyuri(accountLabel, "Forumo", secret);
     const qrCode = await QRCode.toDataURL(otpAuthUrl);
 
     // Store secret temporarily (not yet enabled)
@@ -970,7 +1191,7 @@ export class AuthService {
       >
     > & { metadata?: Record<string, unknown> } = {},
   ): Promise<AuthResponse & { backupCodes: string[] }> {
-    this.checkTotpAttempts(userId);
+    await this.checkTotpAttempts(userId);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
@@ -984,12 +1205,12 @@ export class AuthService {
       secret: user.twoFactorSecret,
     });
     if (!valid) {
-      this.recordTotpFailure(userId);
+      await this.recordTotpFailure(userId);
       throw new UnauthorizedException(
         "Invalid authentication code. Try again.",
       );
     }
-    this.clearTotpAttempts(userId);
+    await this.clearTotpAttempts(userId);
 
     // Generate 8 backup codes
     const plainCodes = Array.from({ length: 8 }, () =>
@@ -1004,8 +1225,11 @@ export class AuthService {
       data: { twoFactorEnabled: true, twoFactorBackupCodes: hashedCodes },
     });
 
-    const fullUser = await this.findActiveUserByEmail(user.email);
-    const response = await this.buildAuthResponse(fullUser!, {
+    // Same fix as completeTwoFactorLogin() above: use `user` directly
+    // instead of the old redundant/broken `findActiveUserByEmail(user.email)`
+    // re-fetch, which doesn't type-check for a nullable email and would
+    // throw at runtime for a phone-only user regardless.
+    const response = await this.buildAuthResponse(user, {
       rememberMe: loginDto.rememberMe,
       sessionFingerprint: this.resolveDeviceIdentifier(
         loginDto.deviceFingerprint,
@@ -1021,6 +1245,116 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
     return { ...response, backupCodes: plainCodes };
+  }
+
+  /**
+   * SMS/email OTP fallback for a user who already completed TOTP enrollment
+   * but doesn't have their authenticator handy. Delivery target is derived
+   * from the guard-verified `userId` (looked up from the pending 2FA token),
+   * never from a client-supplied identifier — this avoids turning the
+   * endpoint into an enumeration/probing vector.
+   */
+  async requestTwoFactorOtp(userId: string): Promise<OtpIssueResponse> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const deviceFingerprint = "2fa-fallback";
+    await this.enforceDeviceRateLimit(user.id, deviceFingerprint);
+    await this.enforceOtpCooldown(user.id, OtpPurpose.MFA, deviceFingerprint);
+
+    const code = this.generateOtpCode();
+    const secret = this.generateOtpSecret();
+    const codeHash = await bcrypt.hash(code, this.saltRounds);
+    const expiresAt = this.getOtpExpirationDate();
+    const delivery = await this.otpDeliveryService.deliver(
+      user,
+      {
+        identifier: user.email ?? user.phone!,
+        purpose: OtpPurpose.MFA,
+        deviceFingerprint,
+      },
+      code,
+    );
+
+    await this.prisma.otpCode.create({
+      data: {
+        userId: user.id,
+        purpose: OtpPurpose.MFA,
+        secret,
+        codeHash,
+        expiresAt,
+        channel: delivery.channel,
+        deviceFingerprint,
+        deliveryProvider: delivery.provider,
+        deliveryReference: delivery.referenceId,
+        deliveryMetadata: this.buildMetadata(delivery.metadata),
+        deliveredAt: delivery.deliveredAt,
+      },
+    });
+
+    return {
+      message: "OTP issued",
+      channel: delivery.channel,
+      deliveredAt: delivery.deliveredAt,
+    };
+  }
+
+  /** Complete login via the SMS/email OTP fallback (verified against `OtpCode` purpose MFA, not TOTP). */
+  async completeTwoFactorOtpLogin(
+    userId: string,
+    code: string,
+    dto: Partial<
+      Pick<
+        LoginInput,
+        "rememberMe" | "deviceFingerprint" | "ipAddress" | "userAgent"
+      >
+    > = {},
+  ): Promise<AuthResponse> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: {
+        userId: user.id,
+        purpose: OtpPurpose.MFA,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!otpRecord || otpRecord.attempts >= 3) {
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    const matches = await bcrypt.compare(code, otpRecord.codeHash);
+    if (!matches) {
+      await this.prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new UnauthorizedException("Invalid or expired code");
+    }
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { consumedAt: new Date() },
+    });
+
+    const response = await this.buildAuthResponse(user, {
+      rememberMe: dto.rememberMe,
+      sessionFingerprint: this.resolveDeviceIdentifier(
+        dto.deviceFingerprint,
+        dto.ipAddress,
+      ),
+      userAgent: dto.userAgent,
+      ipAddress: dto.ipAddress,
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    return response;
   }
 
   async disable2FA(

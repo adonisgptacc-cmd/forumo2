@@ -1,13 +1,18 @@
-
+# Local development stack only — never used for production deployment.
+# Every credential below is a placeholder default, overridable without
+# editing this tracked file by creating a git-ignored `.env` in the repo
+# root (Compose loads it automatically), e.g.:
+#   POSTGRES_PASSWORD=something-else
+#   JWT_SECRET=something-else
 services:
   # --- Infrastructure ---
   postgres:
     image: postgres:16-alpine
     container_name: forumo-postgres
     environment:
-      - POSTGRES_USER=forumo
-      - POSTGRES_PASSWORD=forumo
-      - POSTGRES_DB=forumo
+      - POSTGRES_USER=${POSTGRES_USER:-forumo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-forumo}
+      - POSTGRES_DB=${POSTGRES_DB:-forumo}
     ports:
       - "5432:5432"
     volumes:
@@ -35,8 +40,8 @@ services:
     image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
     container_name: forumo-minio
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     command: server /data --console-address :9001
     ports:
       - "9000:9000"
@@ -62,9 +67,9 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
 
   # --- Applications ---
   moderation:
@@ -73,7 +78,16 @@ services:
       dockerfile: Dockerfile
     container_name: forumo-moderation
     environment:
-      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
+      - MODERATION_INTERNAL_TOKEN=${MODERATION_INTERNAL_TOKEN:-dev-moderation-token}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:5005/healthz'')"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -81,15 +95,20 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: forumo-backend
     environment:
-      - DATABASE_URL=postgresql://forumo:forumo@postgres:5432/forumo?schema=public
+      # Overrides the image's baked-in NODE_ENV=production default (see
+      # apps/backend/Dockerfile) — that value activates strict production
+      # secret validation in apps/backend/src/config/config.schema.ts that
+      # this dev stack intentionally does not supply.
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-forumo}:${POSTGRES_PASSWORD:-forumo}@postgres:5432/${POSTGRES_DB:-forumo}?schema=public
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=dev-super-secret-key-change-in-prod
+      - JWT_SECRET=${JWT_SECRET:-dev-super-secret-key-change-in-prod}
       - MODERATION_SERVICE_URL=http://moderation:5005
-      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
+      - MODERATION_INTERNAL_TOKEN=${MODERATION_INTERNAL_TOKEN:-dev-moderation-token}
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - UPLOADS_BUCKET=forumo-uploads
       - PORT=4000
     ports:
@@ -102,7 +121,17 @@ services:
       minio:
         condition: service_healthy
       moderation:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:4000/api/v1/health/ready'', r => process.exit(r.statusCode === 200 ? 0 : 1)).on(''error'', () => process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   web:
     build:
@@ -114,7 +143,18 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:3000/'', r => process.exit(r.statusCode < 500 ? 0 : 1)).on(''error'', () => process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
 volumes:
   postgres_data:

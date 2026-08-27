@@ -10,11 +10,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EscrowStatus, OrderStatus, ShipmentStatus } from "@prisma/client";
+import { OrderStatus, ShipmentStatus } from "@prisma/client";
 import type { Request } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { EscrowService } from "../escrow/escrow.service";
 
 interface ShippoTrackingLocation {
   city?: string;
@@ -76,6 +77,7 @@ export class ShippoWebhookController {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly escrowService: EscrowService,
   ) {}
 
   /**
@@ -180,8 +182,7 @@ export class ShippoWebhookController {
     );
 
     if (currentStatus.toUpperCase() === SHIPPO_DELIVERED_STATUS) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Shippo webhook payload requires flexible any for provider verification
-      await this.handleDelivered(shipment.order as any, orderId);
+      await this.handleDelivered(shipment.order, orderId);
     }
 
     return { received: true };
@@ -193,7 +194,7 @@ export class ShippoWebhookController {
       status: string;
       buyerId: string;
       orderNumber: string;
-      buyer: { id: string; email: string; name: string } | null;
+      buyer: { id: string; email: string | null; name: string } | null;
       escrow: { id: string; status: string; releaseAfter: Date | null } | null;
     },
     orderId: string,
@@ -220,41 +221,26 @@ export class ShippoWebhookController {
       });
     }
 
-    // Set escrow auto-release countdown (buyer has N days to dispute before funds auto-release)
-    if (
-      order.escrow &&
-      order.escrow.status === EscrowStatus.HOLDING &&
-      !order.escrow.releaseAfter
-    ) {
-      const releaseDays =
-        this.config.get<number>("ESCROW_AUTO_RELEASE_DAYS") ?? 5;
-      const releaseAfter = new Date();
-      releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
-
-      await this.prisma.escrowHolding.update({
-        where: { id: order.escrow.id },
-        data: { releaseAfter },
-      });
-
-      this.logger.log(
-        `Escrow release countdown started for order ${orderId}: auto-releases at ${releaseAfter.toISOString()}`,
-      );
-      // TODO: register a scheduled job to auto-release escrow when releaseAfter is reached
+    // Start the auto-release countdown now that delivery is carrier-confirmed.
+    if (order.escrow) {
+      await this.escrowService.startReleaseCountdown(orderId);
     }
 
     // Notify buyer to confirm delivery
     if (order.buyer) {
       const orderUrl = `${process.env.APP_URL ?? ""}/app/orders/${orderId}`;
-      void this.notifications
-        .sendEmail(
-          order.buyer.email,
-          `Your order has been delivered — ${order.orderNumber}`,
-          `<p>Hi ${order.buyer.name},</p>` +
-            `<p>Your order <strong>${order.orderNumber}</strong> has been delivered!</p>` +
-            `<p>Please <a href="${orderUrl}">confirm receipt</a> to release payment to the seller. ` +
-            `If you have any issues, open a dispute within 5 days.</p>`,
-        )
-        .catch(() => undefined);
+      if (order.buyer.email) {
+        void this.notifications
+          .sendEmail(
+            order.buyer.email,
+            `Your order has been delivered — ${order.orderNumber}`,
+            `<p>Hi ${order.buyer.name},</p>` +
+              `<p>Your order <strong>${order.orderNumber}</strong> has been delivered!</p>` +
+              `<p>Please <a href="${orderUrl}">confirm receipt</a> to release payment to the seller. ` +
+              `If you have any issues, open a dispute within 5 days.</p>`,
+          )
+          .catch(() => undefined);
+      }
 
       void this.notifications
         .createInApp(order.buyer.id, "order.delivered", {

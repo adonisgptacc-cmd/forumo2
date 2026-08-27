@@ -46,7 +46,11 @@ export class EscrowController {
       Record<string, unknown> & { user: { id: string; role: string } },
     @Body() body: { note?: string },
   ) {
-    return this.escrowService.releaseEscrow(orderId, req.user.id, body.note);
+    return this.escrowService.releaseEscrowAsAdmin(
+      orderId,
+      req.user.id,
+      body.note,
+    );
   }
 
   @Post("order/:orderId/refund")

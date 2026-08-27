@@ -55,6 +55,8 @@ class InMemoryPrismaService {
   disputeMessages = new Map<string, any>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
   orders = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+  orderTimelineEvents: any[] = [];
 
   constructor() {
     // Seed escrow in HOLDING for release/refund/dispute tests
@@ -90,13 +92,17 @@ class InMemoryPrismaService {
       id: ORDER_ID,
       buyerId: BUYER_ID,
       sellerId: SELLER_ID,
+      status: "DELIVERED",
       seller: { email: "seller@test.com", name: "Seller" },
       buyer: { email: "buyer@test.com", name: "Buyer" },
     });
+    // The disputed order sits at DISPUTED — the state that made a
+    // RELEASE-resolved dispute strand the payout before the fix.
     this.orders.set(ORDER_ID_2, {
       id: ORDER_ID_2,
       buyerId: BUYER_ID,
       sellerId: SELLER_ID,
+      status: "DISPUTED",
       seller: { email: "seller@test.com", name: "Seller" },
       buyer: { email: "buyer@test.com", name: "Buyer" },
     });
@@ -156,7 +162,9 @@ class InMemoryPrismaService {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       updateMany: async ({ where, data }: any) => {
-        const h = this.escrowHoldings.get(where.orderId);
+        const h =
+          (where.orderId && this.escrowHoldings.get(where.orderId)) ||
+          (where.id && this.escrowHoldingsById.get(where.id));
         if (!h || (where.status && h.status !== where.status)) {
           return { count: 0 };
         }
@@ -175,6 +183,15 @@ class InMemoryPrismaService {
         const tx = { id: randomUUID(), ...data, createdAt: new Date() };
         this.escrowTransactions.set(tx.id, tx);
         return tx;
+      },
+    };
+  }
+
+  get auditLog() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data }: any) => {
+        return { id: randomUUID(), ...data, createdAt: new Date() };
       },
     };
   }
@@ -252,7 +269,39 @@ class InMemoryPrismaService {
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
       findUnique: async ({ where }: any) => this.orders.get(where.id) ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      update: async ({ where, data }: any) => {
+        const o = this.orders.get(where.id);
+        if (!o) throw new Error("Order not found");
+        Object.assign(o, { status: data.status ?? o.status });
+        return o;
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      updateMany: async ({ where, data }: any) => {
+        const o = this.orders.get(where.id);
+        if (!o) return { count: 0 };
+        if (where.status?.not && o.status === where.status.not) {
+          return { count: 0 };
+        }
+        Object.assign(o, { status: data.status ?? o.status });
+        return { count: 1 };
+      },
     };
+  }
+
+  get orderTimelineEvent() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      create: async ({ data }: any) => {
+        const event = { id: randomUUID(), ...data, createdAt: new Date() };
+        this.orderTimelineEvents.push(event);
+        return event;
+      },
+    };
+  }
+
+  async $transaction<T>(fn: (tx: this) => Promise<T>): Promise<T> {
+    return fn(this);
   }
 }
 
@@ -395,6 +444,27 @@ describe("EscrowModule", () => {
       expect(transactions[0].type).toBe("RELEASE");
       expect(transactions[0].amountCents).toBe(10000);
     });
+
+    it("advances the order to COMPLETED so payouts can be scheduled", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      // PayoutsService.schedulePayouts() only picks up RELEASED escrows whose
+      // order is DELIVERED or COMPLETED — DELIVERED already qualifies, but a
+      // manual release must still advance the order so it can't strand a
+      // payout for an order sitting in any other pre-COMPLETED state.
+      expect(prismaMock.orders.get(ORDER_ID)!.status).toBe("DELIVERED");
+
+      await request(app.getHttpServer())
+        .post(`/escrow/order/${ORDER_ID}/release`)
+        .send({ note: "Order completed" })
+        .expect(201);
+
+      expect(prismaMock.orders.get(ORDER_ID)!.status).toBe("COMPLETED");
+      const completionEvent = prismaMock.orderTimelineEvents.find(
+        (event) => event.orderId === ORDER_ID && event.status === "COMPLETED",
+      );
+      expect(completionEvent).toBeDefined();
+      expect(completionEvent.actorId).toBe(ADMIN_ID);
+    });
   });
 
   // ── POST /escrow/order/:orderId/refund ──
@@ -467,6 +537,56 @@ describe("EscrowModule", () => {
       expect(prismaMock.escrowDisputes.get(DISPUTE_ID)!.status).toBe(
         "RESOLVED",
       );
+    });
+
+    it("resolves a dispute with RELEASE action and releases the DISPUTED escrow", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      const res = await request(app.getHttpServer())
+        .patch(`/escrow/disputes/${DISPUTE_ID}/resolve`)
+        .send({ resolution: "Seller proved delivery", action: "RELEASE" })
+        .expect(200);
+
+      expect(res.body.status).toBe("RELEASED");
+      // The dispute itself should be marked RESOLVED
+      expect(prismaMock.escrowDisputes.get(DISPUTE_ID)!.status).toBe(
+        "RESOLVED",
+      );
+      // The escrow (previously DISPUTED) must end up RELEASED, not stuck
+      // DISPUTED and not throwing — this is the dispute-release deadlock fix.
+      expect(prismaMock.escrowHoldings.get(ORDER_ID_2)!.status).toBe(
+        "RELEASED",
+      );
+    });
+
+    it("advances the order to COMPLETED on RELEASE so payouts can be scheduled", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      // The order starts at DISPUTED — PayoutsService.schedulePayouts() only
+      // picks up RELEASED escrows whose order is DELIVERED or COMPLETED, so
+      // leaving it at DISPUTED silently strands the seller's money.
+      expect(prismaMock.orders.get(ORDER_ID_2)!.status).toBe("DISPUTED");
+
+      await request(app.getHttpServer())
+        .patch(`/escrow/disputes/${DISPUTE_ID}/resolve`)
+        .send({ resolution: "Seller proved delivery", action: "RELEASE" })
+        .expect(200);
+
+      expect(prismaMock.orders.get(ORDER_ID_2)!.status).toBe("COMPLETED");
+      const completionEvent = prismaMock.orderTimelineEvents.find(
+        (event) => event.orderId === ORDER_ID_2 && event.status === "COMPLETED",
+      );
+      expect(completionEvent).toBeDefined();
+      expect(completionEvent.note).toContain("dispute resolution");
+      expect(completionEvent.actorId).toBe(ADMIN_ID);
+    });
+
+    it("does not advance the order to COMPLETED on REFUND", async () => {
+      await buildApp(ADMIN_ID, "ADMIN");
+      await request(app.getHttpServer())
+        .patch(`/escrow/disputes/${DISPUTE_ID}/resolve`)
+        .send({ resolution: "Buyer proved non-delivery", action: "REFUND" })
+        .expect(200);
+
+      expect(prismaMock.orders.get(ORDER_ID_2)!.status).toBe("DISPUTED");
     });
 
     it("returns 400 when dispute is already resolved", async () => {

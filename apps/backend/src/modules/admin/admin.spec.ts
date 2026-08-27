@@ -70,6 +70,8 @@ const DISPUTE_RECORD = {
   messages: [{ id: "msg-1" }],
   openedBy: { id: "buyer-1", email: "buyer@example.com", name: "Buyer" },
   escrow: {
+    id: "escrow-1",
+    status: "DISPUTED",
     order: {
       id: "order-1",
       orderNumber: "F-100",
@@ -121,6 +123,9 @@ const prismaMock = {
         Promise.resolve({ ...DISPUTE_RECORD, ...data }),
       ),
   },
+  escrowHolding: {
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+  },
   user: {
     count: jest.fn().mockResolvedValue(0),
     findMany: jest.fn().mockResolvedValue([USER_RECORD]),
@@ -133,8 +138,6 @@ const prismaMock = {
 
 async function createApp(role: string): Promise<INestApplication> {
   process.env.JWT_SECRET = process.env.JWT_SECRET ?? "test-secret";
-  process.env.GOOGLE_CLIENT_ID = "test-google-id";
-  process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
 
   const moduleRef = await Test.createTestingModule({
     imports: [
@@ -252,6 +255,62 @@ describe("AdminModule RBAC", () => {
       .send({ status: "UNDER_REVIEW" })
       .expect(200);
     expect(res.body.status).toBe("UNDER_REVIEW");
+  });
+
+  it("PATCH /admin/disputes/:id — un-sticks the DISPUTED escrow back to HOLDING on RESOLVED", async () => {
+    // Closing the dispute record without touching the escrow left it at
+    // DISPUTED forever: every release path (cron, buyer, admin manual
+    // release) requires HOLDING, and EscrowService.resolveDispute() refuses
+    // an already-resolved dispute. This endpoint's body carries no
+    // release-vs-refund direction, so it only un-sticks — it moves no money.
+    prismaMock.escrowDispute.update.mockResolvedValueOnce({
+      ...DISPUTE_RECORD,
+      status: "RESOLVED",
+      resolution: "Buyer confirmed receipt",
+    });
+    app = await createApp("ADMIN");
+    const res = await request(app.getHttpServer())
+      .patch("/admin/disputes/dispute-1")
+      .send({ status: "RESOLVED", resolution: "Buyer confirmed receipt" })
+      .expect(200);
+
+    expect(res.body.status).toBe("RESOLVED");
+    expect(prismaMock.escrowHolding.updateMany).toHaveBeenCalledWith({
+      where: { id: "escrow-1", status: "DISPUTED" },
+      data: { status: "HOLDING" },
+    });
+  });
+
+  it("PATCH /admin/disputes/:id — does not touch the escrow for a non-RESOLVED status", async () => {
+    prismaMock.escrowDispute.update.mockResolvedValueOnce({
+      ...DISPUTE_RECORD,
+      status: "UNDER_REVIEW",
+    });
+    app = await createApp("ADMIN");
+    await request(app.getHttpServer())
+      .patch("/admin/disputes/dispute-1")
+      .send({ status: "UNDER_REVIEW" })
+      .expect(200);
+
+    expect(prismaMock.escrowHolding.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /admin/disputes/:id — still succeeds when the escrow was not DISPUTED", async () => {
+    // Best-effort side effect: count === 0 (already HOLDING/RELEASED/
+    // REFUNDED, or a lost race) must not fail the request — closing the
+    // dispute record is this endpoint's primary job.
+    prismaMock.escrowHolding.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.escrowDispute.update.mockResolvedValueOnce({
+      ...DISPUTE_RECORD,
+      status: "RESOLVED",
+    });
+    app = await createApp("ADMIN");
+    const res = await request(app.getHttpServer())
+      .patch("/admin/disputes/dispute-1")
+      .send({ status: "RESOLVED", resolution: "Already settled" })
+      .expect(200);
+
+    expect(res.body.status).toBe("RESOLVED");
   });
 
   it("PATCH /admin/disputes/:id — returns 404 for unknown dispute", async () => {

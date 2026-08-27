@@ -169,7 +169,7 @@ export class AuctionEndProcessor {
             }),
           ]);
 
-          if (winner) {
+          if (winner?.email) {
             await this.notifications.notifyAuctionWon(
               winner.email,
               winner.name ?? "Winner",
@@ -179,7 +179,7 @@ export class AuctionEndProcessor {
               auction.currency,
             );
           }
-          if (seller) {
+          if (seller?.email) {
             await this.notifications.notifyAuctionSold(
               seller.email,
               seller.name ?? "Seller",

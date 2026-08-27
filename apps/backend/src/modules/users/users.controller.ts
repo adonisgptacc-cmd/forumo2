@@ -16,7 +16,7 @@ import {
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
-import type { SafeUser } from "@forumo/shared";
+import type { SafeUser } from "./user.serializer";
 
 import {
   CreateTrustSeedDto,

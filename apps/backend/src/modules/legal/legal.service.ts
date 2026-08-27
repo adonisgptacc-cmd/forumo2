@@ -74,10 +74,11 @@ export class LegalService {
     const cancelUrl = `${frontendUrl}/settings/account?action=cancel-deletion`;
     const deletionDate = scheduledAt.toDateString();
 
-    await this.notifications.sendEmail(
-      user.email,
-      "Your Forumo account is scheduled for deletion",
-      `<p>Hi ${user.name ?? "there"},</p>
+    if (user.email) {
+      await this.notifications.sendEmail(
+        user.email,
+        "Your Forumo account is scheduled for deletion",
+        `<p>Hi ${user.name ?? "there"},</p>
 <p>We have received a request to permanently delete your Forumo account.</p>
 <p><strong>Your account will be deleted on ${deletionDate}.</strong></p>
 <p>The following data will be permanently removed:</p>
@@ -91,7 +92,8 @@ export class LegalService {
 <p>If you changed your mind, you can cancel this request within 30 days:</p>
 <p><a href="${cancelUrl}">Cancel account deletion</a></p>
 <p>If you did not request this, please contact support immediately at support@forumo.app</p>`,
-    );
+      );
+    }
 
     return { scheduledAt };
   }
@@ -113,11 +115,13 @@ export class LegalService {
       data: { deletionScheduledAt: null },
     });
 
-    await this.notifications.sendEmail(
-      user.email,
-      "Your account deletion has been cancelled",
-      `<p>Hi ${user.name ?? "there"},</p><p>Your Forumo account deletion request has been successfully cancelled. Your account is now active and nothing will be deleted.</p>`,
-    );
+    if (user.email) {
+      await this.notifications.sendEmail(
+        user.email,
+        "Your account deletion has been cancelled",
+        `<p>Hi ${user.name ?? "there"},</p><p>Your Forumo account deletion request has been successfully cancelled. Your account is now active and nothing will be deleted.</p>`,
+      );
+    }
   }
 
   async exportData(userId: string): Promise<Record<string, unknown>> {

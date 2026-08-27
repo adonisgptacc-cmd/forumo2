@@ -25,6 +25,8 @@ enum OtpPurpose {
   LOGIN
   PASSWORD_RESET
   MFA
+  PHONE_VERIFICATION
+  ACCOUNT_RECOVERY
 }
 
 enum AccountStatus {
@@ -229,9 +231,10 @@ enum ReturnStatus {
 model User {
   id             String          @id @default(uuid())
   name           String
-  email          String          @unique
+  email          String?         @unique
   passwordHash   String
-  phone          String?
+  phone          String?         @unique
+  phoneVerified  Boolean         @default(false)
   avatarUrl      String?
   role           UserRole        @default(BUYER)
   trustScore     Int             @default(0)

@@ -30,6 +30,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    // A guard or interceptor may have already written a response (e.g. a
+    // redirect on OAuth failure) before this exception propagated. Writing
+    // again would throw "Cannot set headers after they are sent".
+    if (response.headersSent) {
+      return;
+    }
+
     const status =
       exception instanceof HttpException
         ? exception.getStatus()

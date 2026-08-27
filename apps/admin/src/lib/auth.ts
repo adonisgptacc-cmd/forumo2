@@ -1,12 +1,11 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-import { ForumoApiClient } from "@forumo/shared";
+import { ForumoApiClient, getApiBaseUrl } from "@forumo/shared";
 
 function createApiClient(token?: string) {
   return new ForumoApiClient({
-    baseUrl:
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1",
+    baseUrl: getApiBaseUrl(),
     getAccessToken: token ? () => token : undefined,
   });
 }
@@ -25,7 +24,7 @@ export const authOptions: NextAuthOptions = {
         const api = createApiClient();
         try {
           const auth = await api.auth.login({
-            email: credentials.email,
+            identifier: credentials.email,
             password: credentials.password,
           });
           if (!("user" in auth) || !("accessToken" in auth)) {

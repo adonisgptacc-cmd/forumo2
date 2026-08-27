@@ -35,6 +35,7 @@ import { TaxService, TaxReceiptResult } from "./tax.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { FeeService } from "../fees/fee.service";
 import { ShippingService } from "../shipping/shipping.service";
+import { EscrowService } from "../escrow/escrow.service";
 
 /**
  * Canonical order state machine. Only these transitions are valid for
@@ -98,6 +99,16 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   [OrderStatus.REFUNDED]: [],
 };
 
+/**
+ * Everything needed to tell the seller their escrow was released, carried out
+ * of a transaction so the email can be sent only after that transaction has
+ * actually committed.
+ */
+type EscrowReleaseNotice = {
+  amountCents: number;
+  currency: string;
+};
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -110,6 +121,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly feeService: FeeService,
     private readonly shippingService: ShippingService,
+    private readonly escrowService: EscrowService,
   ) {}
 
   async findAll(
@@ -145,6 +157,61 @@ export class OrdersService {
       throw new ForbiddenException("Access denied");
     }
     return serializeOrder(order);
+  }
+
+  /**
+   * POST /orders/:id/confirm-delivery
+   * Buyer self-reports delivery when there is no carrier tracking. Starts
+   * the escrow auto-release countdown (the Shippo webhook is the other
+   * trigger for the same countdown — see EscrowService.startReleaseCountdown).
+   */
+  async confirmDelivery(orderId: string, buyerId: string): Promise<SafeOrder> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { buyerId: true, status: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if (order.buyerId !== buyerId) {
+      throw new ForbiddenException("Only the buyer can confirm delivery");
+    }
+
+    if (
+      order.status !== OrderStatus.FULFILLED &&
+      order.status !== OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        `Cannot confirm delivery for an order in status ${order.status}`,
+      );
+    }
+
+    await this.escrowService.startReleaseCountdown(orderId);
+
+    // Distinct, attributed record of the buyer's own confirmation. Written
+    // unconditionally: startReleaseCountdown's note is generic (it is shared
+    // with the Shippo carrier webhook) and its order-update block is skipped
+    // entirely when the order is already DELIVERED, which would otherwise
+    // leave no trace at all that the buyer confirmed anything.
+    const updated = (await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        timeline: {
+          create: [
+            {
+              status: OrderStatus.DELIVERED,
+              note: "Delivery confirmed by buyer",
+              actorId: buyerId,
+            },
+          ],
+        },
+      },
+      include: this.defaultInclude,
+    })) as OrderWithRelations;
+
+    return serializeOrder(updated);
   }
 
   async create(dto: CreateOrderInput): Promise<SafeOrder> {
@@ -519,7 +586,7 @@ export class OrdersService {
     dto: UpdateOrderStatusInput,
     eventTime?: Date,
   ): Promise<SafeOrder> {
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       const order = (await tx.order.findUnique({
         where: { id },
         include: {
@@ -557,7 +624,11 @@ export class OrdersService {
           where: { id },
           include: this.defaultInclude,
         })) as OrderWithRelations;
-        return serializeOrder(current);
+        return {
+          order: serializeOrder(current),
+          applied: false,
+          escrowRelease: null as EscrowReleaseNotice | null,
+        };
       }
 
       if (!isStaff && !ORDER_TRANSITIONS[order.status]?.includes(dto.status)) {
@@ -589,6 +660,7 @@ export class OrdersService {
       };
 
       const providerStatus = dto.providerStatus ?? undefined;
+      let escrowRelease: EscrowReleaseNotice | null = null;
 
       switch (dto.status) {
         case OrderStatus.PAID:
@@ -599,10 +671,6 @@ export class OrdersService {
           );
           await this.ensureEscrowHolding(tx, order);
           data.paymentStatus = PaymentStatus.CAPTURED;
-          // Record actual Stripe Tax details — non-blocking, runs after transaction commits
-          void this.taxService
-            .recordTaxTransaction(order.id)
-            .catch(() => undefined);
           break;
         case OrderStatus.CANCELLED:
           await tx.paymentTransaction.updateMany({
@@ -653,7 +721,7 @@ export class OrdersService {
           data.paymentStatus = PaymentStatus.REFUND_FAILED;
           break;
         case OrderStatus.COMPLETED:
-          await this.handleEscrowRelease(tx, order, dto);
+          escrowRelease = await this.handleEscrowRelease(tx, order, dto);
           break;
         default:
           break;
@@ -665,15 +733,63 @@ export class OrdersService {
         include: this.defaultInclude,
       })) as OrderWithRelations;
 
-      const serialized = serializeOrder(updated);
+      return { order: serializeOrder(updated), applied: true, escrowRelease };
+    });
 
-      // Fire email notifications outside the transaction (non-blocking, non-fatal)
-      void this.fireOrderNotifications(serialized, dto.status).catch(
+    // Side effects that must never run against uncommitted state are fired
+    // here, after $transaction has actually resolved — non-blocking and
+    // non-fatal. A rolled-back transaction throws instead of reaching this
+    // point, so no email can announce a release that did not happen.
+    if (outcome.applied) {
+      void this.fireOrderNotifications(outcome.order, dto.status).catch(
         () => undefined,
       );
+      if (outcome.escrowRelease) {
+        void this.fireEscrowReleaseNotification(
+          outcome.order,
+          outcome.escrowRelease,
+        ).catch(() => undefined);
+      }
+      if (dto.status === OrderStatus.PAID) {
+        // Records actual Stripe Tax details. Reads the order via `this.prisma`
+        // (not `tx`), so it must not fire until the transaction has committed.
+        void this.taxService
+          .recordTaxTransaction(outcome.order.id)
+          .catch(() => undefined);
+      }
+    }
 
-      return serialized;
-    });
+    return outcome.order;
+  }
+
+  /**
+   * Tells the seller their escrow was released. EscrowService.releaseEscrow()
+   * deliberately does NOT send this when it is handed an external transaction
+   * client, so the caller owning the transaction sends it post-commit.
+   * Never throws.
+   */
+  private async fireEscrowReleaseNotification(
+    order: SafeOrder,
+    release: EscrowReleaseNotice,
+  ): Promise<void> {
+    try {
+      const seller = await this.prisma.user.findUnique({
+        where: { id: order.sellerId },
+        select: { email: true, name: true },
+      });
+      if (!seller?.email) return;
+      await this.notifications.notifyEscrowReleased(
+        seller.email,
+        seller.name ?? "Seller",
+        order.id,
+        release.amountCents,
+        release.currency,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Escrow release notification failed for order ${order.id}: ${this.getErrorMessage(error)}`,
+      );
+    }
   }
 
   async requestRefund(
@@ -827,16 +943,24 @@ export class OrdersService {
       switch (status) {
         case OrderStatus.CONFIRMED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order confirmed — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been confirmed by the seller. Total: ${total}.</p><p><a href="${orderUrl}">View your order</a></p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `New order received — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>You have a new confirmed order <strong>${ref}</strong>. Total: ${total}.</p><p><a href="${orderUrl}">Manage this order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order confirmed — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been confirmed by the seller. Total: ${total}.</p><p><a href="${orderUrl}">View your order</a></p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `New order received — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>You have a new confirmed order <strong>${ref}</strong>. Total: ${total}.</p><p><a href="${orderUrl}">Manage this order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.confirmed", {
               orderId: order.id,
               ref,
@@ -849,21 +973,29 @@ export class OrdersService {
             ? `<tr><td style="padding:4px 0">Tax (${order.taxJurisdiction ?? ""})</td><td style="padding:4px 0;text-align:right">${order.currency} ${(order.taxAmountCents / 100).toFixed(2)}</td></tr>`
             : "";
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Payment confirmed — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your payment for order <strong>${ref}</strong> has been received. Here is your receipt summary:</p>` +
-                `<table style="width:100%;border-collapse:collapse;font-size:14px">` +
-                `<tr><td style="padding:4px 0">Subtotal</td><td style="padding:4px 0;text-align:right">${order.currency} ${((order.totalItemCents + order.shippingCents + order.feeCents) / 100).toFixed(2)}</td></tr>` +
-                taxLine +
-                `</table>` +
-                `<p><a href="${orderUrl}">View your order</a></p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `Payment received — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Payment confirmed — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your payment for order <strong>${ref}</strong> has been received. Here is your receipt summary:</p>` +
+                      `<table style="width:100%;border-collapse:collapse;font-size:14px">` +
+                      `<tr><td style="padding:4px 0">Subtotal</td><td style="padding:4px 0;text-align:right">${order.currency} ${((order.totalItemCents + order.shippingCents + order.feeCents) / 100).toFixed(2)}</td></tr>` +
+                      taxLine +
+                      `</table>` +
+                      `<p><a href="${orderUrl}">View your order</a></p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Payment received — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>Payment for order <strong>${ref}</strong> (${total}) has been captured and is held in escrow. Please ship the item and update tracking.</p><p><a href="${orderUrl}">View order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(seller.id, "order.paid", {
               orderId: order.id,
               ref,
@@ -878,11 +1010,15 @@ export class OrdersService {
 
         case OrderStatus.FULFILLED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Your order has shipped — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been shipped. Check your order page for tracking details.</p><p><a href="${orderUrl}">Track your order</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Your order has shipped — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been shipped. Check your order page for tracking details.</p><p><a href="${orderUrl}">Track your order</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.shipped", {
               orderId: order.id,
               ref,
@@ -892,11 +1028,15 @@ export class OrdersService {
 
         case OrderStatus.DELIVERED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Confirm delivery — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been marked as delivered. Please confirm receipt to release payment to the seller.</p><p><a href="${orderUrl}">Confirm delivery</a></p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Confirm delivery — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been marked as delivered. Please confirm receipt to release payment to the seller.</p><p><a href="${orderUrl}">Confirm delivery</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(buyer.id, "order.delivered", {
               orderId: order.id,
               ref,
@@ -906,41 +1046,61 @@ export class OrdersService {
 
         case OrderStatus.COMPLETED:
           await Promise.all([
-            this.notifications.sendEmail(
-              seller.email,
-              `Funds released — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>The buyer has confirmed delivery for order <strong>${ref}</strong>. ${total} has been released from escrow to your account.</p>`,
-            ),
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order complete — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> is complete. Thank you for shopping on Forumo!</p>`,
-            ),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Funds released — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>The buyer has confirmed delivery for order <strong>${ref}</strong>. ${total} has been released from escrow to your account.</p>`,
+                  ),
+                ]
+              : []),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order complete — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> is complete. Thank you for shopping on Forumo!</p>`,
+                  ),
+                ]
+              : []),
           ]);
           break;
 
         case OrderStatus.CANCELLED:
           await Promise.all([
-            this.notifications.sendEmail(
-              buyer.email,
-              `Order cancelled — ${ref}`,
-              `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been cancelled. Any payment will be refunded shortly.</p>`,
-            ),
-            this.notifications.sendEmail(
-              seller.email,
-              `Order cancelled — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>Order <strong>${ref}</strong> has been cancelled.</p>`,
-            ),
+            ...(buyer.email
+              ? [
+                  this.notifications.sendEmail(
+                    buyer.email,
+                    `Order cancelled — ${ref}`,
+                    `<p>Hi ${buyer.name},</p><p>Your order <strong>${ref}</strong> has been cancelled. Any payment will be refunded shortly.</p>`,
+                  ),
+                ]
+              : []),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Order cancelled — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>Order <strong>${ref}</strong> has been cancelled.</p>`,
+                  ),
+                ]
+              : []),
           ]);
           break;
 
         case OrderStatus.DISPUTED:
           await Promise.all([
-            this.notifications.sendEmail(
-              seller.email,
-              `Dispute opened — ${ref}`,
-              `<p>Hi ${seller.name},</p><p>A dispute has been raised for order <strong>${ref}</strong>. An admin will review shortly. <a href="${orderUrl}">View dispute</a></p>`,
-            ),
+            ...(seller.email
+              ? [
+                  this.notifications.sendEmail(
+                    seller.email,
+                    `Dispute opened — ${ref}`,
+                    `<p>Hi ${seller.name},</p><p>A dispute has been raised for order <strong>${ref}</strong>. An admin will review shortly. <a href="${orderUrl}">View dispute</a></p>`,
+                  ),
+                ]
+              : []),
             this.notifications.createInApp(seller.id, "order.disputed", {
               orderId: order.id,
               ref,
@@ -1224,57 +1384,23 @@ export class OrdersService {
       } | null;
     },
     dto: UpdateOrderStatusInput,
-  ): Promise<void> {
-    const escrow =
-      order.escrow ??
-      (await tx.escrowHolding.findUnique({ where: { orderId: order.id } })) ??
-      null;
-    if (!escrow) {
-      return;
+  ): Promise<EscrowReleaseNotice | null> {
+    if (!order.escrow) {
+      return null;
     }
-    // Atomic conditional update — only a HOLDING or DISPUTED escrow can be
-    // released. Prevents releasing the same escrow twice and prevents
-    // releasing funds that were already refunded.
-    const releasedAt = new Date();
-    const result = await tx.escrowHolding.updateMany({
-      where: {
-        orderId: order.id,
-        status: { in: [EscrowStatus.HOLDING, EscrowStatus.DISPUTED] },
-      },
-      data: { status: EscrowStatus.RELEASED, releasedAt },
-    });
-
-    if (result.count === 0) {
-      throw new BadRequestException(
-        `Cannot release escrow with status: ${escrow.status}`,
-      );
-    }
-
-    await tx.escrowTransaction.create({
-      data: {
-        escrowId: escrow.id,
-        type: EscrowTransactionType.RELEASE,
-        amountCents: escrow.amountCents,
-        currency: escrow.currency,
-        note: "Escrow released to seller",
-        actorId: dto.actorId ?? null,
-        metadata: this.toJsonInput({ orderId: order.id }),
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        actorId: dto.actorId ?? null,
-        action: "order.escrow.release",
-        entityType: "order",
-        entityId: order.id,
-        payload:
-          this.toJsonInput({
-            amountCents: escrow.amountCents,
-            currency: escrow.currency,
-          }) ?? Prisma.JsonNull,
-      },
-    });
+    const released = await this.escrowService.releaseEscrow(
+      order.id,
+      dto.actorId ?? null,
+      dto.note,
+      tx,
+    );
+    // Returned, not sent: releaseEscrow() suppresses its own notification
+    // when handed an external transaction client. applyStatusUpdate() sends
+    // it once the surrounding transaction has committed.
+    return {
+      amountCents: released.amountCents,
+      currency: released.currency,
+    };
   }
 
   private async handleEscrowRefund(

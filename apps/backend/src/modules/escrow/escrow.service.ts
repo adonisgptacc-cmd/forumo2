@@ -6,10 +6,12 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../prisma/prisma.service";
-import { EscrowStatus } from "@prisma/client";
+import { EscrowStatus, Prisma } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeText } from "../../common/utils/sanitize";
+import { metrics } from "../../telemetry/metrics";
 
 @Injectable()
 export class EscrowService {
@@ -18,6 +20,7 @@ export class EscrowService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   async createEscrowHolding(
@@ -34,14 +37,14 @@ export class EscrowService {
       throw new BadRequestException("Escrow already exists for this order");
     }
 
-    // Create escrow holding
+    // Create escrow holding. releaseAfter is intentionally left unset here —
+    // it is only started once delivery is confirmed, via startReleaseCountdown().
     const escrow = await this.prisma.escrowHolding.create({
       data: {
         orderId,
         amountCents,
         currency,
         status: "HOLDING",
-        releaseAfter: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days default
       },
     });
 
@@ -119,8 +122,13 @@ export class EscrowService {
     return escrow;
   }
 
-  async releaseEscrow(orderId: string, actorId: string, note?: string) {
-    const escrow = await this.prisma.escrowHolding.findUnique({
+  async releaseEscrow(
+    orderId: string,
+    actorId: string | null,
+    note?: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const escrow = await client.escrowHolding.findUnique({
       where: { orderId },
     });
 
@@ -129,7 +137,7 @@ export class EscrowService {
     }
 
     // Atomic conditional update — prevents duplicate releases under concurrent requests
-    const result = await this.prisma.escrowHolding.updateMany({
+    const result = await client.escrowHolding.updateMany({
       where: { orderId, status: "HOLDING" },
       data: { status: "RELEASED", releasedAt: new Date() },
     });
@@ -140,13 +148,13 @@ export class EscrowService {
       );
     }
 
-    const updated = await this.prisma.escrowHolding.findUnique({
+    const updated = await client.escrowHolding.findUnique({
       where: { orderId },
     });
     if (!updated) throw new NotFoundException("Escrow not found after release");
 
     // Create transaction record
-    await this.prisma.escrowTransaction.create({
+    await client.escrowTransaction.create({
       data: {
         escrowId: escrow.id,
         type: "RELEASE",
@@ -157,27 +165,178 @@ export class EscrowService {
       },
     });
 
-    this.logger.warn(
-      `[PAYOUT PENDING] Escrow for order ${orderId} released. ` +
-        `Seller payout of ${escrow.amountCents} ${escrow.currency} must be triggered via payment provider. ` +
-        `Integrate Stripe Connect transfer or equivalent before going live.`,
+    await client.auditLog.create({
+      data: {
+        actorId,
+        action: "escrow.release",
+        entityType: "order",
+        entityId: orderId,
+        payload: {
+          amountCents: escrow.amountCents,
+          currency: escrow.currency,
+          note: note ?? null,
+        },
+      },
+    });
+
+    // Payout is scheduled and processed by PayoutsService's own cron chain
+    // (schedulePayouts -> processPendingPayouts), not synchronously here.
+    this.logger.log(
+      `Escrow for order ${orderId} released; payout will be scheduled by PayoutsService.`,
     );
 
-    const releaseOrder = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { seller: { select: { email: true, name: true } } },
-    });
-    if (releaseOrder?.seller) {
-      await this.notifications.notifyEscrowReleased(
-        releaseOrder.seller.email,
-        releaseOrder.seller.name ?? "Seller",
-        orderId,
-        escrow.amountCents,
-        escrow.currency,
-      );
+    // Only notify from here when this call owns its own write. When an
+    // external `client` (a live Prisma.TransactionClient) is passed in, our
+    // writes are part of a wider transaction that has NOT committed yet and
+    // may still roll back — dispatching a "funds released" email here would
+    // tell the seller about a release that never happened. In that case the
+    // caller is responsible for firing the notification once its own
+    // transaction resolves (see OrdersService.applyStatusUpdate).
+    if (client === this.prisma) {
+      const releaseOrder = await client.order.findUnique({
+        where: { id: orderId },
+        select: { seller: { select: { email: true, name: true } } },
+      });
+      if (releaseOrder?.seller?.email) {
+        // Non-blocking notification — the write above is already durable, and
+        // a notification failure must never fail the release.
+        void this.notifications
+          .notifyEscrowReleased(
+            releaseOrder.seller.email,
+            releaseOrder.seller.name ?? "Seller",
+            orderId,
+            escrow.amountCents,
+            escrow.currency,
+          )
+          .catch(() => undefined);
+      }
     }
 
     return updated;
+  }
+
+  /**
+   * Advances the order to COMPLETED after a release that happens outside
+   * the order's own status-transition transaction (dispute resolution,
+   * manual admin release). PayoutsService.schedulePayouts() only picks up
+   * RELEASED escrows whose order is DELIVERED or COMPLETED, so skipping
+   * this can strand a payout for an order sitting in any other status
+   * when it was released.
+   */
+  private async completeOrderAfterRelease(
+    orderId: string,
+    actorId: string | null,
+    note: string,
+  ): Promise<void> {
+    await this.prisma.order.updateMany({
+      where: { id: orderId, status: { not: "COMPLETED" } },
+      data: { status: "COMPLETED" },
+    });
+    await this.prisma.orderTimelineEvent.create({
+      data: {
+        orderId,
+        status: "COMPLETED",
+        note,
+        actorId,
+      },
+    });
+  }
+
+  /**
+   * Manual admin/moderator release (the standalone `/escrow/.../release`
+   * endpoint), as opposed to a release that happens as part of the order's
+   * own PATCH /orders/:id/status transition. That path already advances
+   * Order.status inside its own transaction; this one does not, so it must
+   * do so itself here — see completeOrderAfterRelease().
+   */
+  async releaseEscrowAsAdmin(orderId: string, actorId: string, note?: string) {
+    const updated = await this.releaseEscrow(orderId, actorId, note);
+    await this.completeOrderAfterRelease(
+      orderId,
+      actorId,
+      note ? `Escrow released by admin: ${note}` : "Escrow released by admin",
+    );
+    return updated;
+  }
+
+  /**
+   * Starts the auto-release countdown once delivery is confirmed, by either
+   * the Shippo carrier webhook or the buyer's self-report endpoint.
+   * Idempotent: safe to call from either trigger without double-counting.
+   */
+  async startReleaseCountdown(orderId: string): Promise<void> {
+    const escrow = await this.prisma.escrowHolding.findUnique({
+      where: { orderId },
+    });
+
+    if (!escrow || escrow.status !== "HOLDING" || escrow.releaseAfter) {
+      return;
+    }
+
+    const releaseDays =
+      this.config.get<number>("ESCROW_AUTO_RELEASE_DAYS") ?? 5;
+    const releaseAfter = new Date();
+    releaseAfter.setDate(releaseAfter.getDate() + releaseDays);
+
+    // Both writes run inside ONE transaction. The countdown claim and the
+    // order's DELIVERED transition must commit or roll back together:
+    // because this method short-circuits when releaseAfter is already set,
+    // a half-applied state (releaseAfter set, order never DELIVERED) would
+    // be permanently unrecoverable — a retry would silently no-op and the
+    // cron's delivery-status filter would exclude the escrow forever.
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      // Atomic conditional update — claims the right to start the countdown.
+      // Prevents duplicate DELIVERED transitions / timeline entries when two
+      // callers race for the same order (e.g. a webhook retry racing the
+      // buyer's confirm-delivery endpoint). Mirrors releaseEscrow's pattern.
+      const result = await tx.escrowHolding.updateMany({
+        where: { orderId, status: "HOLDING", releaseAfter: null },
+        data: { releaseAfter },
+      });
+
+      if (result.count === 0) {
+        // Lost the race — another caller already claimed and started the
+        // countdown for this order. No-op.
+        return false;
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      });
+
+      if (
+        order &&
+        order.status !== "DELIVERED" &&
+        order.status !== "COMPLETED"
+      ) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: "DELIVERED",
+            deliveredAt: new Date(),
+            timeline: {
+              create: [
+                {
+                  status: "DELIVERED",
+                  note: "Delivered — escrow release countdown started",
+                },
+              ],
+            },
+          },
+        });
+      }
+
+      return true;
+    });
+
+    if (!claimed) {
+      return;
+    }
+
+    this.logger.log(
+      `Escrow release countdown started for order ${orderId}: auto-releases at ${releaseAfter.toISOString()}`,
+    );
   }
 
   async refundEscrow(
@@ -236,7 +395,7 @@ export class EscrowService {
       where: { id: orderId },
       select: { buyer: { select: { email: true, name: true } } },
     });
-    if (refundOrder?.buyer) {
+    if (refundOrder?.buyer?.email) {
       await this.notifications.notifyEscrowRefunded(
         refundOrder.buyer.email,
         refundOrder.buyer.name ?? "Buyer",
@@ -339,10 +498,38 @@ export class EscrowService {
 
     // Execute action
     if (action === "RELEASE") {
+      // releaseEscrow()'s atomic conditional update only claims escrows
+      // currently at status "HOLDING" (by design — this is what blocks a
+      // buyer from releasing a disputed escrow via the normal release path).
+      // A dispute resolved in the seller's favor is the one legitimate case
+      // where a DISPUTED escrow must still become RELEASED, so we perform
+      // the DISPUTED -> HOLDING transition atomically here, immediately
+      // before delegating to the still-strict releaseEscrow(). This keeps
+      // releaseEscrow()'s guard intact for every other caller (buyer path,
+      // auto-release cron).
+      const claimed = await this.prisma.escrowHolding.updateMany({
+        where: { id: dispute.escrow.id, status: "DISPUTED" },
+        data: { status: "HOLDING" },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Cannot release escrow: expected status DISPUTED, race or already resolved`,
+        );
+      }
       await this.releaseEscrow(
         dispute.escrow.orderId,
         actorId,
         `Dispute resolved: ${resolution}`,
+      );
+
+      // Advance the order too. PayoutsService.schedulePayouts() only picks up
+      // RELEASED escrows whose order is DELIVERED or COMPLETED — a disputed
+      // order normally sits at DISPUTED, so without this the escrow would be
+      // released but no Payout row would ever be created.
+      await this.completeOrderAfterRelease(
+        dispute.escrow.orderId,
+        actorId,
+        `Escrow released after dispute resolution: ${resolution}`,
       );
     } else if (action === "REFUND") {
       await this.refundEscrow(
@@ -464,6 +651,7 @@ export class EscrowService {
       where: {
         status: EscrowStatus.HOLDING,
         releaseAfter: { lte: now },
+        order: { status: { in: ["DELIVERED", "COMPLETED"] } },
         disputes: {
           none: { status: { in: ["OPEN", "UNDER_REVIEW", "ESCALATED"] } },
         },
@@ -479,9 +667,12 @@ export class EscrowService {
 
     for (const escrow of due) {
       try {
+        // actorId must be null, never a sentinel like "system":
+        // EscrowTransaction.actorId and AuditLog.actorId are real FKs to
+        // User.id, so any non-existent id raises a foreign-key violation.
         await this.releaseEscrow(
           escrow.orderId,
-          "system",
+          null,
           "Auto-released after buyer dispute window expired",
         );
 
@@ -500,11 +691,21 @@ export class EscrowService {
             actorId: null,
           },
         });
+
+        metrics.backgroundJobsProcessed.inc({
+          job: "escrow_auto_release",
+          status: "released",
+        });
       } catch (err) {
         this.logger.error(
           `autoReleaseExpiredEscrows: failed for order ${escrow.orderId}`,
           err,
         );
+
+        metrics.backgroundJobsProcessed.inc({
+          job: "escrow_auto_release",
+          status: "failed",
+        });
       }
     }
   }

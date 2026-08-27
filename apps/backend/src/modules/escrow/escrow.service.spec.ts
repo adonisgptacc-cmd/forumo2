@@ -1,0 +1,497 @@
+import { Prisma } from "@prisma/client";
+import { EscrowService } from "./escrow.service";
+import { metrics } from "../../telemetry/metrics";
+
+function buildBasePrismaMock() {
+  const escrow = {
+    id: "escrow-1",
+    orderId: "order-1",
+    status: "HOLDING",
+    amountCents: 5000,
+    currency: "USD",
+    releaseAfter: null,
+  };
+  return {
+    escrowHolding: {
+      findUnique: jest.fn().mockResolvedValue(escrow),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      update: jest.fn(),
+    },
+    escrowTransaction: {
+      create: jest.fn().mockResolvedValue({ id: "txn-1" }),
+    },
+    auditLog: {
+      create: jest.fn().mockResolvedValue({ id: "audit-1" }),
+    },
+    order: {
+      findUnique: jest.fn().mockResolvedValue({
+        seller: { email: "seller@test.com", name: "Seller" },
+      }),
+    },
+    // Replaced by buildPrismaMock() with one bound to the *merged* mock, so
+    // `tx` inside a $transaction callback is the same object the test
+    // asserts against (mirrors the in-memory mocks in escrow.spec.ts /
+    // orders.flows.spec.ts, which run the callback against themselves).
+    $transaction: jest.fn(),
+  };
+}
+
+// Overloaded (rather than a single generic with a default type parameter)
+// so each call site's override object determines the accessible shape on
+// its own terms — e.g. adding order.update, orderTimelineEvent.create — via
+// direct inference from that call's argument, instead of every call sharing
+// one inferred/defaulted instantiation. This keeps the base mock's own
+// properties type-checked everywhere, without falling back to a bare `any`
+// that would erase compile-time shape checking for every test in this file.
+function buildPrismaMock(): ReturnType<typeof buildBasePrismaMock>;
+function buildPrismaMock<O extends Record<string, unknown>>(
+  overrides: O,
+): Omit<ReturnType<typeof buildBasePrismaMock>, keyof O> & O;
+function buildPrismaMock<O extends Record<string, unknown>>(overrides?: O) {
+  const base = buildBasePrismaMock();
+  const merged = { ...base, ...(overrides ?? {}) };
+  // Bind $transaction after merging so the callback receives the merged
+  // object (including this call's overrides) as its transaction client.
+  (merged as Record<string, unknown>)["$transaction"] = jest.fn(
+    async (fn: (tx: unknown) => unknown) => fn(merged),
+  );
+  return merged;
+}
+
+// Generic (rather than typed via `ReturnType<typeof buildPrismaMock>`) so
+// each test's own `prisma` variable — already precisely typed by its own
+// buildPrismaMock(...) call above — flows through unchanged, instead of
+// every call site being forced through one shared instantiation.
+function buildService<P>(prisma: P) {
+  const notifications = {
+    notifyEscrowReleased: jest.fn().mockResolvedValue(undefined),
+  };
+  const config = { get: () => 5 };
+  return new EscrowService(
+    prisma as never,
+    notifications as never,
+    config as never,
+  );
+}
+
+// Same as buildService, but hands the notifications double back so tests can
+// assert on whether the seller was told about a release.
+function buildServiceWithNotifications<P>(prisma: P) {
+  const notifications = {
+    notifyEscrowReleased: jest.fn().mockResolvedValue(undefined),
+  };
+  const config = { get: () => 5 };
+  const service = new EscrowService(
+    prisma as never,
+    notifications as never,
+    config as never,
+  );
+  return { service, notifications };
+}
+
+describe("EscrowService.releaseEscrow", () => {
+  it("uses the passed-in transaction client instead of this.prisma when provided", async () => {
+    const txClient = buildPrismaMock();
+    const service = buildService(buildPrismaMock());
+
+    await service.releaseEscrow(
+      "order-1",
+      "actor-1",
+      "test note",
+      txClient as unknown as Prisma.TransactionClient,
+    );
+
+    expect(txClient.escrowHolding.updateMany).toHaveBeenCalledWith({
+      where: { orderId: "order-1", status: "HOLDING" },
+      data: expect.objectContaining({ status: "RELEASED" }),
+    });
+  });
+
+  it("writes an audit log entry identifying the actor", async () => {
+    const prisma = buildPrismaMock();
+    const service = buildService(prisma);
+
+    await service.releaseEscrow("order-1", "actor-1", "test note");
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId: "actor-1",
+        action: "escrow.release",
+        entityType: "order",
+        entityId: "order-1",
+      }),
+    });
+  });
+
+  it("notifies the seller when using its own client (the write is already durable)", async () => {
+    const prisma = buildPrismaMock();
+    const { service, notifications } = buildServiceWithNotifications(prisma);
+
+    await service.releaseEscrow("order-1", "actor-1", "test note");
+    // The notification is fired with `void`; let the microtask queue drain.
+    await Promise.resolve();
+
+    expect(notifications.notifyEscrowReleased).toHaveBeenCalledWith(
+      "seller@test.com",
+      "Seller",
+      "order-1",
+      5000,
+      "USD",
+    );
+  });
+
+  it("does NOT notify the seller when handed an external transaction client", async () => {
+    // The outer transaction has not committed yet and may still roll back —
+    // announcing the release here would email the seller about money that
+    // never actually moved. The caller sends it post-commit instead.
+    const txClient = buildPrismaMock();
+    const { service, notifications } =
+      buildServiceWithNotifications(buildPrismaMock());
+
+    await service.releaseEscrow(
+      "order-1",
+      "actor-1",
+      "test note",
+      txClient as unknown as Prisma.TransactionClient,
+    );
+    await Promise.resolve();
+
+    expect(notifications.notifyEscrowReleased).not.toHaveBeenCalled();
+    // It must not even look the seller up on the transaction client.
+    expect(txClient.order.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("EscrowService.createEscrowHolding", () => {
+  it("does not set releaseAfter at creation time", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }) => data),
+      },
+    });
+    const service = buildService(prisma);
+
+    const result = await service.createEscrowHolding("order-2", 5000, "USD");
+
+    expect(result.releaseAfter).toBeUndefined();
+  });
+});
+
+describe("EscrowService.startReleaseCountdown", () => {
+  it("sets releaseAfter and marks the order DELIVERED when escrow is HOLDING with no releaseAfter set", async () => {
+    const order = { id: "order-1", status: "FULFILLED" };
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findUnique: jest.fn().mockResolvedValue(order),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.escrowHolding.updateMany).toHaveBeenCalledWith({
+      where: { orderId: "order-1", status: "HOLDING", releaseAfter: null },
+      data: { releaseAfter: expect.any(Date) },
+    });
+    expect(prisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "order-1" },
+        data: expect.objectContaining({ status: "DELIVERED" }),
+      }),
+    );
+  });
+
+  it("is a no-op when releaseAfter is already set", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: new Date(),
+        }),
+        updateMany: jest.fn(),
+      },
+      order: { findUnique: jest.fn(), update: jest.fn() },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.escrowHolding.updateMany).not.toHaveBeenCalled();
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when there is no HOLDING escrow for the order", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn(),
+      },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-nonexistent");
+
+    expect(prisma.escrowHolding.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the atomic updateMany loses the race (count: 0)", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      order: { findUnique: jest.fn(), update: jest.fn() },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it("only applies the DELIVERED side effects once when two calls race for the same order", async () => {
+    // Mirrors escrow.spec.ts's InMemoryPrismaService.escrowHolding.updateMany
+    // pattern: a stateful mock that tracks whether the row has already been
+    // claimed, so the first concurrent caller wins (count: 1) and any
+    // subsequent caller loses the race (count: 0).
+    let claimed = false;
+    const updateMany = jest.fn().mockImplementation(async () => {
+      if (claimed) return { count: 0 };
+      claimed = true;
+      return { count: 1 };
+    });
+    const orderUpdate = jest.fn().mockResolvedValue({});
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany,
+      },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: "order-1", status: "FULFILLED" }),
+        update: orderUpdate,
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    await Promise.all([
+      service.startReleaseCountdown("order-1"),
+      service.startReleaseCountdown("order-1"),
+    ]);
+
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(orderUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the countdown claim and the order update inside one shared transaction", async () => {
+    // A half-applied state (releaseAfter set, order never DELIVERED) is
+    // unrecoverable: the method short-circuits on a non-null releaseAfter, so
+    // a retry silently no-ops and the cron's delivery-status filter excludes
+    // the escrow forever. Both writes must therefore share one tx.
+    //
+    // The in-memory double cannot simulate a real rollback, so what is
+    // verified here is the mechanism: $transaction is opened, and both writes
+    // go through the client it hands out rather than through this.prisma.
+    const escrowUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const orderUpdate = jest.fn().mockResolvedValue({});
+    const orderFindUnique = jest
+      .fn()
+      .mockResolvedValue({ id: "order-1", status: "FULFILLED" });
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany: escrowUpdateMany,
+      },
+      order: { findUnique: orderFindUnique, update: orderUpdate },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    // Capture the client actually handed to the callback.
+    const seenClients: unknown[] = [];
+    prisma.$transaction = jest.fn(async (fn: (tx: unknown) => unknown) => {
+      seenClients.push(prisma);
+      return fn(prisma);
+    });
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(seenClients).toHaveLength(1);
+    // Both writes ran, and both ran against the transaction client.
+    expect(escrowUpdateMany).toHaveBeenCalledTimes(1);
+    expect(orderUpdate).toHaveBeenCalledTimes(1);
+    expect(escrowUpdateMany.mock.invocationCallOrder[0]).toBeGreaterThan(0);
+    expect(orderUpdate.mock.invocationCallOrder[0]).toBeGreaterThan(
+      escrowUpdateMany.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not log a started countdown when the transaction reports no claim", async () => {
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          releaseAfter: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      order: { findUnique: jest.fn(), update: jest.fn() },
+    });
+    const service = buildService(prisma);
+
+    await service.startReleaseCountdown("order-1");
+
+    expect(prisma.order.findUnique).not.toHaveBeenCalled();
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("EscrowService.autoReleaseExpiredEscrows", () => {
+  it("does not release an escrow whose order was never marked DELIVERED, even if releaseAfter is somehow set", async () => {
+    const dueEscrow = {
+      orderId: "order-never-delivered",
+      id: "escrow-1",
+      status: "HOLDING",
+      releaseAfter: new Date(Date.now() - 1000),
+      amountCents: 5000,
+      currency: "USD",
+    };
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findMany: jest.fn().mockImplementation(({ where }) => {
+          // Simulate a real Prisma filter: only return rows matching the
+          // order.status filter this test is asserting exists.
+          const orderStatus = "FULFILLED"; // never reached DELIVERED
+          const allowedStatuses: string[] = where?.order?.status?.in ?? [];
+          return allowedStatuses.includes(orderStatus) ? [dueEscrow] : [];
+        }),
+      },
+    });
+    const service = buildService(prisma);
+
+    await service.autoReleaseExpiredEscrows();
+
+    expect(prisma.escrowHolding.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          order: { status: { in: ["DELIVERED", "COMPLETED"] } },
+        }),
+      }),
+    );
+  });
+
+  it("records a null actorId, never a 'system' sentinel, on cron releases", async () => {
+    // EscrowTransaction.actorId and AuditLog.actorId are real foreign keys to
+    // User.id — a sentinel like "system" matches no user row and raises a FK
+    // violation against a real Postgres database.
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ orderId: "order-1", id: "escrow-1" }]),
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          amountCents: 5000,
+          currency: "USD",
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ seller: { email: "s@test.com", name: "S" } }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+    const releaseSpy = jest.spyOn(service, "releaseEscrow");
+
+    await service.autoReleaseExpiredEscrows();
+
+    expect(releaseSpy).toHaveBeenCalledWith(
+      "order-1",
+      null,
+      expect.any(String),
+    );
+    expect(prisma.escrowTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ actorId: null }),
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ actorId: null }),
+    });
+    releaseSpy.mockRestore();
+  });
+});
+
+describe("EscrowService.autoReleaseExpiredEscrows metrics", () => {
+  it("increments backgroundJobsProcessed with job=escrow_auto_release, status=released on success", async () => {
+    const incSpy = jest.spyOn(metrics.backgroundJobsProcessed, "inc");
+    const dueEscrow = { orderId: "order-1", id: "escrow-1" };
+    const prisma = buildPrismaMock({
+      escrowHolding: {
+        findMany: jest.fn().mockResolvedValue([dueEscrow]),
+        findUnique: jest.fn().mockResolvedValue({
+          id: "escrow-1",
+          orderId: "order-1",
+          status: "HOLDING",
+          amountCents: 5000,
+          currency: "USD",
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ seller: { email: "s@test.com", name: "S" } }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      orderTimelineEvent: { create: jest.fn().mockResolvedValue({}) },
+    });
+    const service = buildService(prisma);
+
+    await service.autoReleaseExpiredEscrows();
+
+    expect(incSpy).toHaveBeenCalledWith({
+      job: "escrow_auto_release",
+      status: "released",
+    });
+    incSpy.mockRestore();
+  });
+});

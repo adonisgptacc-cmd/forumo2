@@ -13,6 +13,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { PayoutsModule } from "../payouts/payouts.module";
 import { FeesModule } from "../fees/fees.module";
 import { ShippingModule } from "../shipping/shipping.module";
+import { EscrowModule } from "../escrow/escrow.module";
 import { ShippoWebhookController } from "./shippo-webhook.controller";
 
 @Module({
@@ -24,6 +25,7 @@ import { ShippoWebhookController } from "./shippo-webhook.controller";
     PayoutsModule,
     FeesModule,
     ShippingModule,
+    EscrowModule,
   ],
   controllers: [OrdersController, PaymentsController, ShippoWebhookController],
   providers: [

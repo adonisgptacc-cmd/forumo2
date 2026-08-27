@@ -1,6 +1,79 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiError, ForumoApiClient } from "./api-client";
+import {
+  ApiError,
+  ForumoApiClient,
+  getApiBaseUrl,
+  getGatewayBaseUrl,
+} from "./api-client";
+import {
+  passwordSetupRequiredSchema,
+  identifierLoginPayloadSchema,
+  registerPayloadSchema,
+  safeUserSchema,
+} from "./types";
+
+describe("getApiBaseUrl", () => {
+  it("appends /api/v1 to an origin-only URL", () => {
+    expect(getApiBaseUrl("http://localhost:4000")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("appends /v1 to a URL that already ends in /api", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("leaves an already-versioned URL unchanged", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api/v1")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("strips a trailing slash before normalizing", () => {
+    expect(getApiBaseUrl("http://localhost:4000/api/v1/")).toBe(
+      "http://localhost:4000/api/v1",
+    );
+  });
+
+  it("falls back to the localhost default when nothing is provided", () => {
+    expect(getApiBaseUrl(null)).toBe("http://localhost:4000/api/v1");
+  });
+
+  it("rejects a value that is not a parseable URL", () => {
+    expect(() => getApiBaseUrl("not a url")).toThrow(/not a valid/i);
+  });
+
+  it("rejects an empty string (would resolve to a bare relative path)", () => {
+    expect(() => getApiBaseUrl("")).toThrow(/not a valid/i);
+  });
+
+  it("rejects a non-http(s) protocol", () => {
+    expect(() => getApiBaseUrl("ftp://files.example.com")).toThrow(
+      /not a valid/i,
+    );
+  });
+
+  it("includes the offending value in the error message", () => {
+    expect(() => getApiBaseUrl("not a url")).toThrow(/not a url/);
+  });
+});
+
+describe("getGatewayBaseUrl", () => {
+  it("strips the /api/v1 suffix for a non-versioned gateway (e.g. WebSocket) base", () => {
+    expect(getGatewayBaseUrl("http://localhost:4000")).toBe(
+      "http://localhost:4000",
+    );
+  });
+
+  it("strips /api/v1 from an already-versioned URL", () => {
+    expect(getGatewayBaseUrl("http://localhost:4000/api/v1")).toBe(
+      "http://localhost:4000",
+    );
+  });
+});
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
@@ -229,5 +302,60 @@ describe("ForumoApiClient", () => {
     await expect(client.listings.search()).rejects.toMatchObject({
       name: "ZodError",
     });
+  });
+});
+
+describe("passwordSetupRequiredSchema", () => {
+  it("parses the password-setup-required login response", () => {
+    const parsed = passwordSetupRequiredSchema.parse({
+      passwordSetupRequired: true,
+      recoveryToken: "a.b.c",
+    });
+    expect(parsed.passwordSetupRequired).toBe(true);
+  });
+});
+
+describe("identifierLoginPayloadSchema", () => {
+  it("accepts an email-shaped identifier", () => {
+    expect(() =>
+      identifierLoginPayloadSchema.parse({
+        identifier: "zuri@example.com",
+        password: "hunter2!Aa",
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a phone-shaped identifier", () => {
+    expect(() =>
+      identifierLoginPayloadSchema.parse({
+        identifier: "+27821234567",
+        password: "hunter2!Aa",
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("registerPayloadSchema", () => {
+  it("allows a phone-only registration with no email", () => {
+    expect(() =>
+      registerPayloadSchema.parse({
+        name: "Zuri",
+        password: "hunter2!Aa",
+        phone: "+27821234567",
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("safeUserSchema", () => {
+  it("allows a null email for phone-only accounts", () => {
+    expect(() =>
+      safeUserSchema.parse({
+        id: "user-1",
+        email: null,
+        phone: "+27821234567",
+        role: "BUYER",
+      }),
+    ).not.toThrow();
   });
 });
