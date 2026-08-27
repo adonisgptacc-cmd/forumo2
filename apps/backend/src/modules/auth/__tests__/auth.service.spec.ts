@@ -427,6 +427,52 @@ describe("AuthService OTP flows", () => {
         }),
       );
     });
+
+    it("normalizes a national-format phone number to E.164 before storing it on registration", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        ...createUser(),
+        id: "user-4",
+        email: null,
+        phone: "+27821234567",
+        emailVerified: false,
+        phoneVerified: false,
+      });
+
+      // "0821234567" is the same real number as "+27821234567" typed in
+      // South African national format — the shape most local users use.
+      await service.register({
+        name: "Thabo",
+        password: "hunter2!Aa",
+        phone: "0821234567",
+      } as never);
+
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ phone: "+27821234567" }),
+        }),
+      );
+    });
+
+    it("normalizes a differently-formatted phone identifier to the same canonical value used at registration, so lookup finds the existing account", async () => {
+      const user = { ...createUser(), phone: "+27821234567" };
+      prisma.user.findFirst.mockResolvedValue(user);
+
+      // Same number as the account was registered with, typed with spaces
+      // instead of the stored E.164 form — must resolve to the same lookup.
+      await expect(
+        service.login({
+          identifier: "+27 82 123 4567",
+          password: "irrelevant",
+        } as never),
+      ).rejects.toThrow("Invalid credentials");
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ phone: "+27821234567" }),
+        }),
+      );
+    });
   });
 
   describe("phone verification", () => {
@@ -633,6 +679,31 @@ describe("AuthService OTP flows", () => {
 
       expect(result).toEqual(
         expect.objectContaining({ passwordSetupRequired: true }),
+      );
+    });
+
+    it("normalizes a national-format phone override to E.164 before storing it", async () => {
+      const user = { ...createUser(), passwordHash: "" };
+      prisma.user.findFirst.mockResolvedValue(user);
+      prisma.otpCode.findFirst.mockResolvedValue({
+        id: "otp-recovery-1",
+        codeHash: await bcrypt.hash("112233", 10),
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await service.confirmOAuthAccountRecovery(
+        user.email!,
+        "112233",
+        "NewHunter2!Aa",
+        "0821234567",
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: user.id },
+          data: expect.objectContaining({ phone: "+27821234567" }),
+        }),
       );
     });
   });

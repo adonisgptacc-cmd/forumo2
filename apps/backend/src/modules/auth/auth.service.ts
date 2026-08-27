@@ -37,6 +37,7 @@ import { UsersService } from "../users/users.service";
 import { OtpDeliveryService } from "./otp-delivery.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { CacheService } from "../../common/services/cache.service";
+import { normalizePhoneNumber } from "./utils/phone.util";
 
 interface OtpIssueResponse {
   message: string;
@@ -74,6 +75,9 @@ export class AuthService {
     const normalizedEmail = dto.email
       ? this.normalizeEmail(dto.email)
       : undefined;
+    const normalizedPhone = dto.phone
+      ? normalizePhoneNumber(dto.phone)
+      : undefined;
 
     if (normalizedEmail) {
       const existingEmail = await this.findActiveUserByEmail(normalizedEmail);
@@ -81,8 +85,8 @@ export class AuthService {
         throw new ConflictException("Email already registered");
       }
     }
-    if (dto.phone) {
-      const existingPhone = await this.findActiveUserByPhone(dto.phone);
+    if (normalizedPhone) {
+      const existingPhone = await this.findActiveUserByPhone(normalizedPhone);
       if (existingPhone) {
         throw new ConflictException("Phone number already registered");
       }
@@ -98,7 +102,7 @@ export class AuthService {
         name: dto.name,
         email: normalizedEmail ?? null,
         passwordHash,
-        phone: dto.phone ?? null,
+        phone: normalizedPhone ?? null,
         emailVerified: false,
         emailVerificationToken,
       },
@@ -555,7 +559,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         passwordHash,
-        phone: phone ?? user.phone,
+        phone: phone ? normalizePhoneNumber(phone) : user.phone,
         tokenVersion: { increment: 1 },
       },
     });
@@ -861,8 +865,14 @@ export class AuthService {
     return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
   }
 
+  // Normalizing here (rather than trusting each caller to pre-normalize)
+  // means every phone lookup — register()'s duplicate check, login,
+  // OTP request/verify, password reset — agrees on the same canonical form
+  // that register() stores, regardless of how the identifier was typed.
   private async findActiveUserByPhone(phone: string): Promise<User | null> {
-    return this.prisma.user.findFirst({ where: { phone, deletedAt: null } });
+    return this.prisma.user.findFirst({
+      where: { phone: normalizePhoneNumber(phone), deletedAt: null },
+    });
   }
 
   private classifyIdentifier(identifier: string): "email" | "phone" {
@@ -874,7 +884,7 @@ export class AuthService {
   ): Promise<User | null> {
     return this.classifyIdentifier(identifier) === "email"
       ? this.findActiveUserByEmail(this.normalizeEmail(identifier))
-      : this.findActiveUserByPhone(identifier.trim());
+      : this.findActiveUserByPhone(identifier);
   }
 
   private async issuePhoneVerificationOtp(user: User): Promise<void> {

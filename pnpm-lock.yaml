@@ -238,6 +238,9 @@ importers:
       ioredis:
         specifier: ^5.8.2
         version: 5.8.2(supports-color@8.1.1)
+      libphonenumber-js:
+        specifier: ^1.12.26
+        version: 1.12.26
       mailtrap:
         specifier: ^4.6.1
         version: 4.6.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
