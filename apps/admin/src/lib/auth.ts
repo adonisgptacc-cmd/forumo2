@@ -24,7 +24,7 @@ export const authOptions: NextAuthOptions = {
         const api = createApiClient();
         try {
           const auth = await api.auth.login({
-            email: credentials.email,
+            identifier: credentials.email,
             password: credentials.password,
           });
           if (!("user" in auth) || !("accessToken" in auth)) {
