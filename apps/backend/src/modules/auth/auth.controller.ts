@@ -106,15 +106,20 @@ export class AuthController {
   @Throttle({ auth: {} })
   async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: AuthenticatedRequest) {
     const result = await this.authService.verifyOtp(dto);
-    await this.auditLog.record({
-      actorId: result.user.id,
-      action: "auth.otp.verify",
-      entityType: "user",
-      entityId: result.user.id,
-      payload: { purpose: dto.purpose },
-      ipAddress: req.ip ?? null,
-      userAgent: req.headers?.["user-agent"] ?? null,
-    });
+    // verifyOtp() always routes through the 2FA gate now (never mints a
+    // session directly), same as login() — mirror login()'s pattern of only
+    // auditing once a full session actually exists.
+    if ("user" in result) {
+      await this.auditLog.record({
+        actorId: result.user.id,
+        action: "auth.otp.verify",
+        entityType: "user",
+        entityId: result.user.id,
+        payload: { purpose: dto.purpose },
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers?.["user-agent"] ?? null,
+      });
+    }
     return result;
   }
 

@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
+import { authenticator } from "otplib";
 import request from "supertest";
 
 import { PrismaService } from "../../../prisma/prisma.service";
@@ -105,6 +106,13 @@ class InMemoryPrismaService {
         return (
           Array.from(this.users.values()).find(
             (user) => user.email === where.email && user.deletedAt === null,
+          ) ?? null
+        );
+      }
+      if (where?.phone) {
+        return (
+          Array.from(this.users.values()).find(
+            (user) => user.phone === where.phone && user.deletedAt === null,
           ) ?? null
         );
       }
@@ -467,12 +475,104 @@ describe("AuthModule HTTP flows", () => {
       })
       .expect(201);
 
-    expect(verifyResponse.body.accessToken).toBeDefined();
+    // verifyOtp() must never mint a session directly — consuming an OTP
+    // only proves the user controls the identifier, so it has to route
+    // through the same 2FA gate login() uses.
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
     const [session] = await prisma.deviceSession.findMany({
       where: { userId: user.id },
     });
     expect(session.lastIssuedAt).toBeDefined();
     expect(session.lastVerifiedAt).toBeDefined();
+  });
+
+  it("lets a phone-only registrant verify their phone but does not grant a session without 2FA enrollment", async () => {
+    // Regression test for the bug where issuePhoneVerificationOtp() always
+    // wrote deviceFingerprint: null on the OtpCode row, while verifyOtp()
+    // matched consumeOtp's lookup against the caller's real (now-mandatory)
+    // deviceFingerprint — the two could never agree, so a phone-only
+    // registrant could never consume their own verification code and was
+    // permanently locked out. See auth.service.ts verifyOtp().
+    //
+    // Also a regression test for the more serious bug where verifyOtp()
+    // minted a full session for ANY OtpPurpose (including
+    // PHONE_VERIFICATION) with no 2FA check at all, letting a phone-only
+    // user obtain a working session having never enrolled in TOTP —
+    // breaking the mandatory-2FA invariant this app is built around.
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      .spyOn<any, string>(authService as any, "generateOtpCode")
+      .mockReturnValue("246810");
+
+    const phone = "+27821234567";
+    const password = "Hunter2!Aa";
+
+    const registerResponse = await request(app.getHttpServer())
+      .post("/auth/register")
+      .send({ name: "Phone Only", phone, password })
+      .expect(201);
+    expect(registerResponse.body.message).toMatch(/check your phone/i);
+
+    const verifyResponse = await request(app.getHttpServer())
+      .post("/auth/otp/verify")
+      .send({
+        identifier: phone,
+        purpose: OtpPurpose.PHONE_VERIFICATION,
+        code: "246810",
+        deviceFingerprint: "phone-verify-device",
+      })
+      .expect(201);
+
+    // No access token — just a pending 2FA-setup token, exactly like a
+    // brand-new login() would return.
+    expect(verifyResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+
+    const createdUser = Array.from(prisma.users.values()).find(
+      (u) => u.phone === phone,
+    );
+    expect(createdUser?.phoneVerified).toBe(true);
+
+    // The twoFactorToken must not work as a real session token: any
+    // protected route has to reject it (JwtStrategy rejects
+    // `twoFactorPending` payloads outright).
+    await request(app.getHttpServer())
+      .get("/auth/sessions")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .expect(401);
+
+    // A subsequent login must no longer be blocked by the
+    // "verify your phone" gate in login() — but it still has to go through
+    // 2FA setup, never straight to a session.
+    const loginResponse = await request(app.getHttpServer())
+      .post("/auth/login")
+      .send({ identifier: phone, password })
+      .expect(201);
+
+    expect(loginResponse.body).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: expect.any(String),
+    });
+
+    // Only completing 2FA enrollment actually grants a session.
+    const setupInitResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-init")
+      .set("Authorization", `Bearer ${loginResponse.body.twoFactorToken}`)
+      .expect(201);
+
+    const totpCode = authenticator.generate(setupInitResponse.body.secret);
+    const setupVerifyResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-verify")
+      .set("Authorization", `Bearer ${loginResponse.body.twoFactorToken}`)
+      .send({ code: totpCode })
+      .expect(201);
+
+    expect(setupVerifyResponse.body.accessToken).toBeDefined();
   });
 
   it("resets passwords with OTP and enforces the new secret", async () => {
@@ -549,7 +649,21 @@ describe("AuthModule HTTP flows", () => {
       })
       .expect(201);
 
-    const token = verifyResponse.body.accessToken as string;
+    // verifyOtp() only proves identifier ownership — completing 2FA
+    // enrollment is what actually grants a usable session token.
+    const setupInitResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-init")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .expect(201);
+
+    const totpCode = authenticator.generate(setupInitResponse.body.secret);
+    const setupVerifyResponse = await request(app.getHttpServer())
+      .post("/auth/2fa/setup-verify")
+      .set("Authorization", `Bearer ${verifyResponse.body.twoFactorToken}`)
+      .send({ code: totpCode, deviceFingerprint: "fingerprint-abc" })
+      .expect(201);
+
+    const token = setupVerifyResponse.body.accessToken as string;
     const sessionsResponse = await request(app.getHttpServer())
       .get("/auth/sessions")
       .set("Authorization", `Bearer ${token}`)

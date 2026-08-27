@@ -324,7 +324,15 @@ export class AuthService {
     };
   }
 
-  async verifyOtp(dto: VerifyOtpInput): Promise<AuthResponse> {
+  /**
+   * Consuming any OTP purpose here (LOGIN, PHONE_VERIFICATION, ...) proves
+   * the user controls the identifier — it must never mint a session on its
+   * own. Every path to a session has to pass through the same 2FA gate
+   * login() uses, or e.g. a phone-only user could finish registration via
+   * PHONE_VERIFICATION and land with a working session having never
+   * enrolled in TOTP, breaking the mandatory-2FA invariant.
+   */
+  async verifyOtp(dto: VerifyOtpInput): Promise<LoginResult> {
     const user = await this.findActiveUserByIdentifier(dto.identifier);
     if (!user) {
       throw new UnauthorizedException("Invalid code");
@@ -336,8 +344,22 @@ export class AuthService {
     );
     const channel = this.resolveChannel(dto.channel, user);
 
+    // Every other OtpPurpose is issued via requestOtp(), which stores the
+    // caller's resolved deviceFingerprint at issuance time and expects the
+    // same caller to supply the same fingerprint here — that's how
+    // consumeOtp's lookup is meant to bind an OTP to the device that
+    // requested it. PHONE_VERIFICATION is different: its OTP is issued
+    // automatically inside register() (see issuePhoneVerificationOtp),
+    // before any client-supplied device fingerprint exists to bind to, so
+    // that row is always written with deviceFingerprint: null. VerifyOtpDto
+    // requires a real fingerprint from the caller, so matching against the
+    // resolved value here can never find that row — filter on the same
+    // null value it was stored with instead, scoped to this purpose only.
+    const consumeFingerprint =
+      dto.purpose === OtpPurpose.PHONE_VERIFICATION ? null : deviceFingerprint;
+
     const consumedAt = await this.consumeOtp(user, dto, {
-      deviceFingerprint,
+      deviceFingerprint: consumeFingerprint,
       channel,
     });
 
@@ -354,12 +376,14 @@ export class AuthService {
       });
     }
 
-    return this.buildAuthResponse(user, {
-      sessionFingerprint: deviceFingerprint,
-      userAgent: dto.userAgent,
-      ipAddress: dto.ipAddress,
-      sessionMetadata: dto.metadata,
-    });
+    const twoFactorToken = await this.issueTwoFactorToken(
+      user.id,
+      !user.twoFactorEnabled,
+    );
+    if (user.twoFactorEnabled) {
+      return { twoFactorRequired: true, twoFactorToken };
+    }
+    return { twoFactorSetupRequired: true, twoFactorToken };
   }
 
   async requestPasswordReset(

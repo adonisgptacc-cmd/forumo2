@@ -234,7 +234,11 @@ describe("AuthService OTP flows", () => {
     );
   });
 
-  it("verifies OTP codes and returns auth response", async () => {
+  it("verifies OTP codes but routes into the 2FA gate instead of minting a session", async () => {
+    // Consuming an OTP only proves the caller controls the identifier — it
+    // must never mint a session directly, or a user could skip 2FA
+    // enrollment entirely (see the PHONE_VERIFICATION variant of this bug
+    // covered by auth.flows.spec.ts).
     const user = createUser();
     const codeHash = await bcrypt.hash("654321", 10);
     prisma.user.findFirst.mockResolvedValue(user);
@@ -265,8 +269,11 @@ describe("AuthService OTP flows", () => {
 
     const response = await service.verifyOtp(dto);
 
-    expect(response.user.id).toEqual(user.id);
-    expect(response.accessToken).toEqual("signed.jwt.token");
+    expect(response).toEqual({
+      twoFactorSetupRequired: true,
+      twoFactorToken: "signed.jwt.token",
+    });
+    expect("accessToken" in response).toBe(false);
 
     expect(prisma.otpCode.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -474,12 +481,18 @@ describe("AuthService OTP flows", () => {
       );
     });
 
-    it("marks phoneVerified on successful PHONE_VERIFICATION otp consumption", async () => {
+    it("marks phoneVerified on successful PHONE_VERIFICATION otp consumption but does not grant a session", async () => {
+      // Regression test: verifyOtp() used to call buildAuthResponse() for
+      // ANY OtpPurpose (including PHONE_VERIFICATION) with no 2FA check,
+      // so a phone-only user could obtain a working session having never
+      // enrolled in TOTP. It must return the same pending-2FA shape
+      // login() does instead.
       const user = {
         ...createUser(),
         email: null,
         phone: "+27821234567",
         phoneVerified: false,
+        twoFactorEnabled: false,
       };
       prisma.user.findFirst.mockResolvedValue(user);
       prisma.otpCode.findFirst.mockResolvedValue({
@@ -489,7 +502,7 @@ describe("AuthService OTP flows", () => {
         expiresAt: new Date(Date.now() + 60_000),
       });
 
-      await service.verifyOtp({
+      const response = await service.verifyOtp({
         identifier: "+27821234567",
         purpose: "PHONE_VERIFICATION",
         code: "654321",
@@ -502,6 +515,12 @@ describe("AuthService OTP flows", () => {
           data: expect.objectContaining({ phoneVerified: true }),
         }),
       );
+
+      expect(response).toEqual({
+        twoFactorSetupRequired: true,
+        twoFactorToken: "signed.jwt.token",
+      });
+      expect("accessToken" in response).toBe(false);
     });
   });
 
