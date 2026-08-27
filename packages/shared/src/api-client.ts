@@ -322,6 +322,56 @@ export class ForumoApiClient {
         return passwordSetupRequiredSchema.parse(response);
       return authResponseSchema.parse(response);
     },
+    verifyOtp: async (payload: {
+      identifier: string;
+      purpose: "LOGIN" | "PASSWORD_RESET" | "MFA" | "PHONE_VERIFICATION" | "ACCOUNT_RECOVERY";
+      code: string;
+      deviceFingerprint: string;
+      userAgent?: string;
+      ipAddress?: string;
+      metadata?: Record<string, unknown>;
+      channel?: "EMAIL" | "SMS";
+    }): Promise<
+      | AuthResponse
+      | TwoFactorRequired
+      | TwoFactorSetupRequired
+      | PasswordSetupRequired
+    > => {
+      const response = await this.requestJson<
+        | AuthResponse
+        | TwoFactorRequired
+        | TwoFactorSetupRequired
+        | PasswordSetupRequired
+      >("/auth/otp/verify", {
+        method: "POST",
+        body: payload,
+      });
+      if (twoFactorRequiredSchema.safeParse(response).success)
+        return twoFactorRequiredSchema.parse(response);
+      if (twoFactorSetupRequiredSchema.safeParse(response).success)
+        return twoFactorSetupRequiredSchema.parse(response);
+      if (passwordSetupRequiredSchema.safeParse(response).success)
+        return passwordSetupRequiredSchema.parse(response);
+      return authResponseSchema.parse(response);
+    },
+    requestOtp: async (payload: {
+      identifier: string;
+      purpose: "LOGIN" | "PASSWORD_RESET" | "MFA" | "PHONE_VERIFICATION" | "ACCOUNT_RECOVERY";
+      deviceFingerprint: string;
+      userAgent?: string;
+      ipAddress?: string;
+      metadata?: Record<string, unknown>;
+      channel?: "EMAIL" | "SMS";
+    }): Promise<{ message: string; channel: string; deliveredAt: string }> => {
+      return this.requestJson<{
+        message: string;
+        channel: string;
+        deliveredAt: string;
+      }>("/auth/otp/request", {
+        method: "POST",
+        body: payload,
+      });
+    },
     refresh: async (
       refreshToken: string,
     ): Promise<{ accessToken: string; refreshToken: string }> => {
