@@ -27,8 +27,8 @@ A peer-to-peer marketplace with escrow-protected payments, seller verification, 
 
 ### Prerequisites
 
-- [Node.js 20+](https://nodejs.org)
-- [pnpm 9+](https://pnpm.io/installation)
+- [Node.js 22.23.2](https://nodejs.org) (see `.node-version`)
+- [pnpm 11.19.0](https://pnpm.io/installation) (activated from `packageManager`)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
 ### 1. Clone the repo
@@ -41,6 +41,7 @@ cd forumo2
 ### 2. Install dependencies
 
 ```bash
+corepack enable
 pnpm install
 ```
 

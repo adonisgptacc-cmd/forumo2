@@ -47,7 +47,7 @@ forumo2/
 | --------------- | --------------------- |
 | Package manager | pnpm 11.19.0          |
 | Task runner     | Turbo 2.x             |
-| Node version    | 20+                   |
+| Node version    | 22.23.2               |
 | Database        | PostgreSQL 16         |
 | Cache / queues  | Redis 7               |
 | Object storage  | MinIO (S3-compatible) |

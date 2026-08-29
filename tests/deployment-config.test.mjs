@@ -8,6 +8,27 @@ import { test } from "node:test";
 const read = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
+const actionBlocks = (workflow, action) => {
+  const lines = workflow.split(/\r?\n/);
+  const blocks = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(
+      new RegExp(`^(\\s*)- uses: ${action.replace("/", "\\/")}@`),
+    );
+    if (!match) continue;
+
+    const stepPrefix = `${match[1]}- `;
+    let end = index + 1;
+    while (end < lines.length && !lines[end].startsWith(stepPrefix)) {
+      end += 1;
+    }
+    blocks.push(lines.slice(index, end).join("\n"));
+  }
+
+  return blocks;
+};
+
 const runPnpm = (args) => {
   const options = {
     cwd: new URL("../", import.meta.url),
@@ -57,6 +78,56 @@ test("pnpm runtime matches the repository package-manager pin", () => {
 
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   assert.equal(`pnpm@${result.stdout.trim()}`, expected);
+});
+
+test("server toolchain pins stay aligned across local, CI, and container runtimes", () => {
+  const rootPackage = JSON.parse(read("package.json"));
+  const nodeVersionFile = new URL("../.node-version", import.meta.url);
+
+  assert.equal(
+    existsSync(nodeVersionFile),
+    true,
+    "the repository must publish its supported Node version",
+  );
+  const nodeVersion = read(".node-version").trim();
+  const workflow = read(".github/workflows/ci.yml");
+  const backendDockerfile = read("apps/backend/Dockerfile");
+  const webDockerfile = read("apps/web/Dockerfile");
+
+  assert.equal(rootPackage.engines.node, nodeVersion);
+  assert.match(rootPackage.packageManager, /^pnpm@\d+\.\d+\.\d+$/);
+
+  const pnpmSetupSteps = actionBlocks(workflow, "pnpm/action-setup");
+  const nodeSetupSteps = actionBlocks(workflow, "actions/setup-node");
+  const repositoryNodeSteps = nodeSetupSteps.filter((step) =>
+    /node-version-file: \.node-version/.test(step),
+  );
+  const mobileNodeSteps = nodeSetupSteps.filter((step) =>
+    /node-version: 18\.18\.0/.test(step),
+  );
+
+  assert.ok(pnpmSetupSteps.length > 0);
+  for (const step of pnpmSetupSteps) {
+    assert.doesNotMatch(
+      step,
+      /^\s+version:/m,
+      "CI must read pnpm from package.json instead of duplicating the version",
+    );
+  }
+  assert.equal(nodeSetupSteps.length, pnpmSetupSteps.length);
+  assert.equal(
+    repositoryNodeSteps.length + mobileNodeSteps.length,
+    nodeSetupSteps.length,
+    "every CI job must use the repository Node pin or the documented Expo/Detox exception",
+  );
+  assert.match(
+    backendDockerfile,
+    new RegExp(`^FROM node:${nodeVersion}-slim AS base$`, "m"),
+  );
+  assert.match(
+    webDockerfile,
+    new RegExp(`^FROM node:${nodeVersion}-slim AS base$`, "m"),
+  );
 });
 
 test("turbo supports pnpm 11 flat patch lockfiles", () => {

@@ -68,11 +68,11 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 #### RR-001 — Enforce the supported Node and pnpm toolchain (P0)
 
 - [x] Migrate the repository to pnpm `11.19.0` so local, CI, container, and Codex verification use the same package-manager major.
-- [ ] Add an enforceable Node version declaration (`.nvmrc`, `.node-version`, Volta, or equivalent) aligned with CI and deployment images.
-- [ ] Ensure Corepack or the repository bootstrap path activates the exact `packageManager` version.
-- [ ] If remaining on pnpm 9, verify `pnpm.overrides` and `patchedDependencies` are honored.
+- [x] Pin Node `22.23.2` in `.node-version` and align server/web CI and deployment images with it.
+- [x] Use the root `packageManager` declaration as the pnpm source for local Corepack and CI setup.
+- [x] Complete the pnpm 11 migration; the pnpm 9 compatibility branch is no longer applicable.
 - [x] Migrate overrides and patched dependencies to `pnpm-workspace.yaml`, the supported pnpm 11 configuration surface.
-- [ ] Add a CI preflight that prints and validates Node/pnpm versions before installation.
+- [x] Add a CI preflight that prints and validates Node/pnpm versions before installation.
 
 Dependencies: none.
 
