@@ -32,6 +32,7 @@ export class HealthService {
           : "degraded",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
+      integrations: this.getIntegrations(),
       checks: {
         database,
         redis,
@@ -39,6 +40,42 @@ export class HealthService {
         memory: this.getMemorySnapshot(),
         moderationQueue: queueMetrics,
       },
+    };
+  }
+
+  private getIntegrations() {
+    return {
+      stripe: {
+        enabled: !!(
+          this.configService.get<string>("STRIPE_SECRET_KEY") ??
+          process.env.STRIPE_SECRET_KEY
+        ),
+      },
+      paystack: {
+        enabled: !!(
+          process.env.PAYSTACK_SECRET_KEY ?? process.env.PAYSTACK_SECRET
+        ),
+      },
+      shippo: {
+        enabled: !!(
+          this.configService.get<string>("SHIPPO_API_KEY") ??
+          process.env.SHIPPO_API_KEY
+        ),
+      },
+      mailgun: {
+        enabled: !!(
+          this.configService.get<string>("MAILGUN_API_KEY") ??
+          process.env.MAILGUN_API_KEY
+        ),
+      },
+      sns: {
+        enabled: !!(
+          this.configService.get<string>("SNS_ACCESS_KEY_ID") ??
+          process.env.SNS_ACCESS_KEY_ID
+        ),
+      },
+      oauth: { enabled: false, reason: "Google OAuth removed — magic link" },
+      mocks: { enabled: process.env.NEXT_PUBLIC_USE_API_MOCKS === "true" },
     };
   }
 
