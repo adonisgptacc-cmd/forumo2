@@ -13,7 +13,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium-staging', use: { ...devices['Desktop Chrome'], baseURL: 'https://staging.forumo.dev' } },
+  ],
   webServer: {
     command: 'pnpm dev:web',
     url: 'http://localhost:3000',
