@@ -73,7 +73,7 @@ services:
       dockerfile: Dockerfile
     container_name: forumo-moderation
     environment:
-      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
+      - MODERATION_INTERNAL_TOKEN=dev-moderation-token # dev-only — override in prod
 
   backend:
     build:
@@ -83,9 +83,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://forumo:forumo@postgres:5432/forumo?schema=public
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=dev-super-secret-key-change-in-prod
+      - JWT_SECRET=dev-super-secret-key-change-in-prod # dev-only — override in prod
       - MODERATION_SERVICE_URL=http://moderation:5005
-      - MODERATION_INTERNAL_TOKEN=dev-moderation-token
+      - MODERATION_INTERNAL_TOKEN=dev-moderation-token # dev-only — override in prod
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=minioadmin

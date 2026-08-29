@@ -27,6 +27,12 @@ import type {
 import { ForumoApiClient, getApiBaseUrl } from "@forumo/shared";
 
 export const apiBaseUrl = getApiBaseUrl();
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PUBLIC_USE_API_MOCKS === "true"
+) {
+  throw new Error("Production cannot run with mocks");
+}
 const useMocks =
   process.env.NEXT_PUBLIC_USE_API_MOCKS === "true" &&
   process.env.NODE_ENV !== "production";

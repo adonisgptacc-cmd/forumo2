@@ -25,6 +25,16 @@ function validateEnv() {
     );
     process.exit(1);
   }
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.NEXT_PUBLIC_USE_API_MOCKS === "true")
+      throw new Error(
+        "Production cannot run with NEXT_PUBLIC_USE_API_MOCKS=true",
+      );
+    if (process.env.JWT_SECRET?.includes("dev-"))
+      throw new Error("Production JWT_SECRET must not contain dev-");
+    if (process.env.MODERATION_INTERNAL_TOKEN === "dev-moderation-token")
+      throw new Error("Production MODERATION_INTERNAL_TOKEN must be set");
+  }
 }
 
 async function bootstrap() {
