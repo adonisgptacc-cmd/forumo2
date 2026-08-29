@@ -1,0 +1,144 @@
+services:
+  # --- Infrastructure ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: forumo-postgres-staging
+    environment:
+      - POSTGRES_USER=forumo
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_STAGING}
+      - POSTGRES_DB=forumo_staging
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forumo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: forumo-redis-staging
+    command: redis-server --requirepass ${REDIS_PASSWORD_STAGING}
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_staging:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD_STAGING}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-08-17T01-24-54Z
+    container_name: forumo-minio-staging
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER_STAGING}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD_STAGING}
+    command: server /data --console-address :9001
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio_data_staging:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: forumo-mailpit-staging
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: forumo-jaeger-staging
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16687:16686"
+      - "4319:4317"
+      - "4320:4318"
+
+  # --- Applications ---
+  moderation:
+    build:
+      context: ./apps/moderation-service
+      dockerfile: Dockerfile
+    container_name: forumo-moderation-staging
+    environment:
+      - MODERATION_INTERNAL_TOKEN=${MODERATION_INTERNAL_TOKEN_STAGING}
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: forumo-backend-staging
+    environment:
+      - DATABASE_URL=postgresql://forumo:${POSTGRES_PASSWORD_STAGING}@postgres:5432/forumo_staging?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD_STAGING}@redis:6379
+      - JWT_SECRET=${JWT_SECRET_STAGING}
+      - MODERATION_SERVICE_URL=http://moderation:5005
+      - MODERATION_INTERNAL_TOKEN=${MODERATION_INTERNAL_TOKEN_STAGING}
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER_STAGING}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD_STAGING}
+      - UPLOADS_BUCKET=forumo-uploads-staging
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY_STAGING}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY_STAGING}
+      - SHIPPO_API_KEY=${SHIPPO_API_KEY_STAGING}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY_STAGING}
+      - SNS_ACCESS_KEY_ID=${SNS_ACCESS_KEY_ID_STAGING}
+      - SNS_SECRET_ACCESS_KEY=${SNS_SECRET_ACCESS_KEY_STAGING}
+      - PORT=4000
+    ports:
+      - "4001:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      moderation:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: forumo-web-staging
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL_STAGING}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET_STAGING}
+      - NEXTAUTH_URL=${NEXTAUTH_URL_STAGING}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_STAGING}
+    ports:
+      - "3001:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data_staging:
+  redis_data_staging:
+  minio_data_staging:

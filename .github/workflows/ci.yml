@@ -312,6 +312,58 @@ jobs:
           echo "### Preview deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "[$url]($url)" >> "$GITHUB_STEP_SUMMARY"
 
+  staging-deploy:
+    name: Staging Deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Deploy to staging
+        run: |
+          docker compose -f docker-compose.staging.yml up -d --build
+      - name: Wait for services to be healthy
+        run: |
+          sleep 30
+          for i in {1..10}; do
+            if curl -f http://localhost:4001/api/v1/healthz; then
+              echo "Backend is healthy"
+              break
+            fi
+            echo "Waiting for backend... attempt $i"
+            sleep 10
+          done
+          if curl -f http://localhost:3001/; then
+            echo "Web is healthy"
+          else
+            echo "Web health check failed"
+            exit 1
+          fi
+      - name: Run Playwright tests against staging
+        run: |
+          pnpm --filter web exec playwright install --with-deps chromium
+          pnpm test:e2e
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:4001/api/v1
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET_STAGING }}
+          NEXTAUTH_URL: http://localhost:3001
+      - name: Cleanup staging containers
+        if: always()
+        run: docker compose -f docker-compose.staging.yml down --volumes
+
   mobile-android-build:
     name: Mobile E2E (Android Emulator)
     runs-on: ubuntu-latest
