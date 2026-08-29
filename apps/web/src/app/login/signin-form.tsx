@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../lib/api-client";
-import { GoogleSignInButton } from "../../components/google-signin-button";
+import { getApiBaseUrl } from "@forumo/shared";
 import { set2FaToken } from "../../lib/2fa-store";
 
 export function LoginForm() {
@@ -16,18 +16,47 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get("callbackUrl") ?? "/app";
   const api = createApiClient();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [magicSent, setMagicSent] = useState(false);
   const resetSuccess = searchParams?.get("reset") === "success";
+
+  async function handleMagicLink() {
+    setError(null);
+    setMagicSent(false);
+    if (!identifier.trim()) {
+      setError("Enter your email or phone first");
+      return;
+    }
+    try {
+      const base = getApiBaseUrl();
+      const res = await fetch(`${base}/auth/magic-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim() }),
+      });
+      if (!res.ok) throw new Error("Unable to send magic link");
+      setMagicSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to send magic link",
+      );
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
-      const result = await api.auth.login({ email, password });
+      const id = identifier.trim();
+      const payload: Record<string, string> = { password };
+      if (id.includes("@")) payload.email = id;
+      else if (id.startsWith("+")) payload.phone = id;
+      else payload.identifier = id;
+      const result = await api.auth.login(payload as never);
 
       // ── 2FA gate ────────────────────────────────────────────────────────
       if ("twoFactorToken" in result) {
@@ -71,13 +100,13 @@ export function LoginForm() {
         </p>
       ) : null}
       <label className="space-y-2 text-sm">
-        <span className="subtle">Email</span>
+        <span className="subtle">Email or phone</span>
         <input
-          type="email"
+          type="text"
           className="input-forumo"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          value={identifier}
+          onChange={(event) => setIdentifier(event.target.value)}
+          placeholder="you@example.com or +1234567890"
           required
         />
       </label>
@@ -116,7 +145,19 @@ export function LoginForm() {
           <span className="bg-[color:var(--surface)] px-2 muted">or</span>
         </div>
       </div>
-      <GoogleSignInButton />
+      <button
+        type="button"
+        className="btn btn-block border border-slate-300 bg-white"
+        onClick={handleMagicLink}
+        disabled={!identifier.trim()}
+      >
+        Send magic link to email
+      </button>
+      {magicSent ? (
+        <p className="text-sm text-emerald-600">
+          If an account exists, a magic link has been sent. Check your email.
+        </p>
+      ) : null}
       <p className="text-center text-xs muted">
         Need an account?{" "}
         <a className="text-[color:var(--accent)]" href="/signup">

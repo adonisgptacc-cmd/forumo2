@@ -476,17 +476,42 @@ export const messageThreadSchema = z.object({
 });
 export type SafeMessageThread = z.infer<typeof messageThreadSchema>;
 
-export const loginPayloadSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-});
+export const loginPayloadSchema = z
+  .object({
+    identifier: z.string().min(3).optional(),
+    email: z.string().email().optional(),
+    phone: z
+      .string()
+      .regex(/^\+[1-9]\d{1,14}$/)
+      .optional(),
+    password: z.string().min(1),
+  })
+  .refine((d) => !!(d.identifier || d.email || d.phone), {
+    message: "identifier, email, or phone is required",
+  })
+  .transform((d) => ({
+    identifier: (d.identifier || d.email || d.phone)!,
+    password: d.password,
+  }));
 export type LoginPayload = z.infer<typeof loginPayloadSchema>;
+
+export const requestMagicLinkSchema = z.object({
+  identifier: z.string().min(3),
+});
+export type RequestMagicLinkDto = z.infer<typeof requestMagicLinkSchema>;
+
+export const verifyMagicLinkSchema = z.object({
+  token: z.string().min(10),
+});
+export type VerifyMagicLinkDto = z.infer<typeof verifyMagicLinkSchema>;
 
 export const registerPayloadSchema = z.object({
   name: z.string(),
   email: z.string().email(),
-  password: z.string().min(8),
-  phone: z.string().optional(),
+  password: z.string().min(8).max(128),
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{1,14}$/, "Invalid phone, use E.164 format"),
 });
 export type RegisterPayload = z.infer<typeof registerPayloadSchema>;
 

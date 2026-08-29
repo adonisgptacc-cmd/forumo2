@@ -73,6 +73,12 @@ export class AuthService {
     if (existing) {
       throw new ConflictException("Email already registered");
     }
+    const phone = (dto.phone ?? "").trim();
+    if (!phone) throw new BadRequestException("Phone is required");
+    const existingPhone = await this.findActiveUserByPhone(phone);
+    if (existingPhone) {
+      throw new ConflictException("Phone already registered");
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
     const emailVerificationToken = randomBytes(32).toString("hex");
@@ -102,9 +108,18 @@ export class AuthService {
   }
 
   async login(dto: LoginInput): Promise<LoginResult> {
-    const normalizedEmail = this.normalizeEmail(dto.email);
-
-    const user = await this.findActiveUserByEmail(normalizedEmail);
+    const rawIdentifier =
+      (
+        dto as unknown as {
+          identifier?: string;
+          email?: string;
+          phone?: string;
+        }
+      ).identifier ??
+      (dto as unknown as { email?: string }).email ??
+      (dto as unknown as { phone?: string }).phone;
+    if (!rawIdentifier) throw new UnauthorizedException("Invalid credentials");
+    const user = await this.findActiveUserByIdentifier(rawIdentifier);
     if (!user) {
       throw new UnauthorizedException("Invalid credentials");
     }
@@ -130,6 +145,72 @@ export class AuthService {
       return { twoFactorRequired: true, twoFactorToken };
     }
     return { twoFactorSetupRequired: true, twoFactorToken };
+  }
+
+  async requestMagicLink(identifier: string): Promise<{ message: string }> {
+    const user = await this.findActiveUserByIdentifier(identifier.trim());
+    if (!user) {
+      return { message: "If an account exists, a magic link has been sent" };
+    }
+    const token = this.jwtService.sign(
+      {
+        sub: user.id,
+        jti: randomBytes(16).toString("hex"),
+        purpose: "magic_link",
+      },
+      {
+        expiresIn:
+          this.configService.get<string>("MAGIC_LINK_TTL_SECONDS") ?? "900s",
+      },
+    );
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3000";
+    const link = `${frontendUrl}/auth/magic?token=${encodeURIComponent(token)}`;
+    try {
+      // Use notifications service if available, otherwise log
+      const notif = this.notifications as unknown as {
+        sendEmail?: (p: unknown) => Promise<void>;
+      };
+      if (notif?.sendEmail) {
+        await notif.sendEmail({
+          to: user.email,
+          subject: "Your Forumo magic link",
+          html: `<p>Click <a href="${link}">here</a> to sign in. Expires in 15 minutes. If you did not request this, ignore.</p>`,
+        } as unknown as never);
+      } else {
+        console.log(`[MagicLink] ${user.email}: ${link}`);
+      }
+    } catch {
+      console.log(`[MagicLink] ${user.email}: ${link}`);
+    }
+    return { message: "If an account exists, a magic link has been sent" };
+  }
+
+  async verifyMagicLink(token: string): Promise<LoginResult> {
+    let payload: { sub?: string; purpose?: string; jti?: string };
+    try {
+      payload = this.jwtService.verify(token) as typeof payload;
+    } catch {
+      throw new UnauthorizedException("Invalid or expired magic link");
+    }
+    if (payload.purpose !== "magic_link" || !payload.sub) {
+      throw new UnauthorizedException("Invalid magic link");
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { id: payload.sub, deletedAt: null },
+    });
+    if (!user) throw new UnauthorizedException("User not found");
+    // Magic link satisfies primary auth; if 2FA not yet enrolled, require setup
+    if (!user.twoFactorEnabled) {
+      const twoFactorToken = await this.issueTwoFactorToken(user.id, true);
+      // Still return setup required so frontend can show TOTP enrollment
+      // For users who opted for magic-link-only, frontend can skip this if desired
+      return { twoFactorSetupRequired: true, twoFactorToken } as LoginResult;
+    }
+    return this.buildAuthResponse(
+      user as unknown as Parameters<AuthService["buildAuthResponse"]>[0],
+      {},
+    );
   }
 
   /** Complete login after 2FA TOTP verification. */
@@ -672,6 +753,20 @@ export class AuthService {
 
   private async findActiveUserByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+  }
+
+  private async findActiveUserByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findFirst({ where: { phone, deletedAt: null } });
+  }
+
+  private async findActiveUserByIdentifier(
+    identifier: string,
+  ): Promise<User | null> {
+    const trimmed = identifier.trim();
+    if (trimmed.includes("@")) {
+      return this.findActiveUserByEmail(this.normalizeEmail(trimmed));
+    }
+    return this.findActiveUserByPhone(trimmed);
   }
 
   private async ensureUserProfile(userId: string): Promise<void> {

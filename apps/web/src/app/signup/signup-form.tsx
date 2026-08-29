@@ -6,7 +6,6 @@ import { useState } from "react";
 import { ApiError } from "@forumo/shared";
 
 import { createApiClient } from "../../lib/api-client";
-import { GoogleSignInButton } from "../../components/google-signin-button";
 
 export function SignupForm() {
   const router = useRouter();
@@ -62,11 +61,13 @@ export function SignupForm() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="subtle">Phone</span>
+          <span className="subtle">Phone (E.164)</span>
           <input
             className="input-forumo"
             value={form.phone}
             onChange={(event) => updateField("phone", event.target.value)}
+            placeholder="+1234567890"
+            required
           />
         </label>
       </div>
@@ -98,15 +99,6 @@ export function SignupForm() {
       >
         {isSubmitting ? "Creating account…" : "Create account"}
       </button>
-      <div className="relative my-1">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[color:var(--line)]" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-[color:var(--surface)] px-2 muted">or</span>
-        </div>
-      </div>
-      <GoogleSignInButton />
     </form>
   );
 }

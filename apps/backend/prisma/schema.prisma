@@ -231,7 +231,7 @@ model User {
   name           String
   email          String          @unique
   passwordHash   String
-  phone          String?
+  phone          String? @unique
   avatarUrl      String?
   role           UserRole        @default(BUYER)
   trustScore     Int             @default(0)

@@ -19,7 +19,6 @@ import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { TwoFactorPendingGuard } from "./guards/two-factor-pending.guard";
 import { SkipTosCheck } from "../../common/decorators/skip-tos-check.decorator";
-import { GoogleAuthGuard } from "./guards/google-auth.guard";
 import { AuthService } from "./auth.service";
 import {
   LoginDto,
@@ -29,6 +28,8 @@ import {
   RequestPasswordResetDto,
   VerifyOtpDto,
 } from "../../common/dtos/auth.dto";
+import { RequestMagicLinkDto } from "./dto/request-magic-link.dto";
+import { VerifyMagicLinkDto } from "./dto/verify-magic-link.dto";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { AuditLogService } from "../observability/audit-log.service";
@@ -258,57 +259,16 @@ export class AuthController {
     return this.authService.listDeviceSessions(userId);
   }
 
-  @Get("google")
-  @UseGuards(GoogleAuthGuard)
-  async googleAuth() {
-    // Initiates Google OAuth flow
+  @Post("magic-link")
+  @Throttle({ auth: {} })
+  async requestMagicLink(@Body() dto: RequestMagicLinkDto) {
+    return this.authService.requestMagicLink(dto.identifier);
   }
 
-  @Get("google/callback")
-  @UseGuards(GoogleAuthGuard)
-  async googleAuthCallback(
-    @Req() req: AuthenticatedRequest,
-    @Res() res: Response,
-  ) {
-    const user = req.user as unknown as import("@prisma/client").User;
-    const result = await this.authService.buildAuthResponse(
-      user as unknown as Parameters<AuthService["buildAuthResponse"]>[0],
-      {},
-    );
-
-    await this.auditLog.record({
-      actorId: user.id,
-      action: "auth.google.login",
-      entityType: "user",
-      entityId: user.id,
-      payload: { email: user.email },
-      ipAddress: req.ip ?? null,
-      userAgent: req.headers?.["user-agent"] ?? null,
-    });
-
-    const frontendUrl =
-      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
-    const isProd = this.configService.get<string>("NODE_ENV") === "production";
-    res.cookie("oauth_token", result.accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "strict" : "lax",
-      maxAge: 5 * 60 * 1000,
-    });
-    res.redirect(`${frontendUrl}/auth/callback`);
-  }
-
-  /** Exchange the short-lived oauth_token cookie for a bearer token (one-time use). */
-  @Get("oauth/exchange")
-  exchangeOAuthCookie(
-    @Req() req: AuthenticatedRequest,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const token = (req.cookies as Record<string, string>)?.["oauth_token"];
-    if (!token) throw new UnauthorizedException("No OAuth token cookie found");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: External SDK or dynamic payload requires flexible typing, TODO: refine to specific type
-    (res as any).clearCookie("oauth_token");
-    return { accessToken: token };
+  @Post("magic/verify")
+  @Throttle({ auth: {} })
+  async verifyMagicLink(@Body() dto: VerifyMagicLinkDto) {
+    return this.authService.verifyMagicLink(dto.token);
   }
   // ─── Two-Factor Authentication ─────────────────────────────────────────────
 

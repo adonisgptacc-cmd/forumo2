@@ -1,7 +1,5 @@
 import {
   IsEmail,
-  IsOptional,
-  IsPhoneNumber,
   IsString,
   Matches,
   MaxLength,
@@ -26,9 +24,9 @@ export class RegisterDto {
   })
   password!: string;
 
-  @IsOptional()
-  @IsPhoneNumber("ZA", {
-    message: "phone must be a valid international number",
+  @IsString()
+  @Matches(/^\+[1-9]\d{1,14}$/, {
+    message: "phone must be E.164 format (+123...)",
   })
-  phone?: string;
+  phone!: string;
 }

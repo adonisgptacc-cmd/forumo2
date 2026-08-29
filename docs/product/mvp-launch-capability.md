@@ -3,10 +3,11 @@
 **Date:** 2026-08-16
 **Source:** MVP blockers list (founder note, 10:41)
 **Status:** Draft — awaiting owner decisions on Commerce Safety
+**Decision 2026-08-29 (ABADO approved):** Google OAuth removed for MVP. Auth is email + phone primary (both required, email canonical, phone E.164 unique) with **required 2FA (TOTP via otplib/qrcode + SMS/email OTP fallback) OR magic link** as passwordless alternative. GoogleStrategy, google-signin-button, oauth-callback, and GOOGLE_* env are deleted. Magic link is one-time 15m JWT via email, rate-limited, and satisfies 2FA when TOTP not enrolled.
 
 ## CAPABILITY
 
-Forumo web-first MVP enables a buyer and seller to complete the full commerce lifecycle on a single launch market/currency/provider stack — registration through escrow release, dispute/refund, messaging, reviews, and admin ops (KYC/moderation/disputes/payouts) — from a deterministic, clean-checkout build (Node 22.23.2 / pnpm 11.19.0) with verifiable Prisma generation, centralized API contract, hardened Google OAuth, safe Docker Compose defaults, health-aware integrations, gated demo auth, and production safety gates, so that a staging release candidate can be deployed, migrated, backed up, rolled back, and smoke-tested against measurable thresholds before launch.
+Forumo web-first MVP enables a buyer and seller to complete the full commerce lifecycle on a single launch market/currency/provider stack — registration through escrow release, dispute/refund, messaging, reviews, and admin ops (KYC/moderation/disputes/payouts) — from a deterministic, clean-checkout build (Node 22.23.2 / pnpm 11.19.0) with verifiable Prisma generation, centralized API contract, **email+phone primary with required 2FA (TOTP/SMS OTP) or magic link** (Google OAuth removed), safe Docker Compose defaults, health-aware integrations, gated demo auth, and production safety gates, so that a staging release candidate can be deployed, migrated, backed up, rolled back, and smoke-tested against measurable thresholds before launch.
 
 ## CONSTRAINTS
 

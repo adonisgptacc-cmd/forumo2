@@ -10,11 +10,21 @@ import {
 } from "class-validator";
 
 export class LoginDto {
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 254)
+  identifier?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(1)
   password!: string;
 
   @IsOptional()
