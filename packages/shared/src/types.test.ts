@@ -30,12 +30,13 @@ describe("shared domain schemas", () => {
   });
 
   it("enforces registration password and email boundaries", () => {
-    const validPassword = ["eight", "characters"].join("-");
+    const validPassword = ["Valid", "Password", "123!"].join("-");
     expect(
       registerPayloadSchema.safeParse({
         name: "Ada",
         email: "ada@example.com",
         password: validPassword,
+        phone: "+27123456789",
       }).success,
     ).toBe(true);
     expect(
@@ -43,6 +44,7 @@ describe("shared domain schemas", () => {
         name: "Ada",
         email: "ada.example.com",
         password: "short",
+        phone: "+27123456789",
       }).success,
     ).toBe(false);
   });

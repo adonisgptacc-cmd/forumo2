@@ -40,6 +40,13 @@ web_build.log
 # Turbo cache & daemon
 .turbo/
 
+# Local runtime secrets, root-level worktree checkouts, and generated test reports
+/.superpowers/brainstorm/.last-token
+/.worktrees/
+/playwright-report/
+/test-results/
+/blob-report/
+
 # Project-local developer tools and cxpak generated indexes
 .tools/
 .cxpak/

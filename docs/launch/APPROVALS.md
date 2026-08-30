@@ -7,6 +7,7 @@ Each phase required explicit, scoped approval from the project owner (ABADO) bef
 ---
 
 ### Phase 1: Foundations
+
 - **Scope**: Monorepo setup, shared TypeScript packages, Prisma schema, CI pipeline, base NestJS/Next.js apps
 - **Approval**: ✅ **Granted**
 - **Approver**: ABADO
@@ -17,6 +18,7 @@ Each phase required explicit, scoped approval from the project owner (ABADO) bef
 ---
 
 ### Phase 2: Docker & Health
+
 - **Scope**: Multi-service Docker Compose, healthchecks for all services, Pino logging, Prometheus metrics, Grafana dashboards
 - **Approval**: ✅ **Granted**
 - **Approver**: ABADO
@@ -27,6 +29,7 @@ Each phase required explicit, scoped approval from the project owner (ABADO) bef
 ---
 
 ### Phase 3: E2E & Provider Contracts
+
 - **Scope**: Stripe, Paystack, Shippo, SNS/Mailgun integration tests; webhook idempotency; contract test suites
 - **Approval**: ✅ **Granted**
 - **Approver**: ABADO
@@ -37,6 +40,7 @@ Each phase required explicit, scoped approval from the project owner (ABADO) bef
 ---
 
 ### Commerce Safety (Defaults)
+
 - **Scope**: Payment idempotency keys, webhook signature verification, escrow hold/release, payout scheduling, refund flows
 - **Approval**: ✅ **Granted**
 - **Approver**: ABADO
@@ -47,6 +51,7 @@ Each phase required explicit, scoped approval from the project owner (ABADO) bef
 ---
 
 ### Phase 4: Staging Deploy
+
 - **Scope**: Infrastructure provisioning (VPS, PostgreSQL, Redis), secret rotation, database migrations, smoke tests, rollback procedure
 - **Approval**: ✅ **Granted**
 - **Approver**: ABADO
@@ -63,6 +68,7 @@ Per `AGENTS.md` § Approval Authority:
 > **Project owner (ABADO)** is the sole person who may approve protected changes.
 >
 > Obtain explicit, scoped approval before changing or executing:
+>
 > - Payment, payout, escrow, auction settlement, billing, or payment-webhook behavior.
 > - Database schema or data migrations, including destructive backfills and production migration execution.
 > - Production deployments, rollbacks, infrastructure, secrets, credentials, or production data mutations.
@@ -76,12 +82,12 @@ All approvals above were granted explicitly by ABADO for the described scope and
 
 If staging deployment reveals critical issues, the following rollback actions are pre-authorized:
 
-| Action | Authorized By | Conditions |
-|--------|---------------|------------|
-| Revert Docker Compose to previous image tags | ABADO | Any P0/P1 regression |
-| Rollback database migration (down) | ABADO | Schema incompatibility or data corruption |
-| Disable feature flags (`NEXT_PUBLIC_ENABLE_AUCTIONS`, etc.) | ABADO | Runtime errors in new features |
-| Revert DNS to previous staging endpoint | ABADO | Network/SSL failures |
+| Action                                                      | Authorized By | Conditions                                |
+| ----------------------------------------------------------- | ------------- | ----------------------------------------- |
+| Revert Docker Compose to previous image tags                | ABADO         | Any P0/P1 regression                      |
+| Rollback database migration (down)                          | ABADO         | Schema incompatibility or data corruption |
+| Disable feature flags (`NEXT_PUBLIC_ENABLE_AUCTIONS`, etc.) | ABADO         | Runtime errors in new features            |
+| Revert DNS to previous staging endpoint                     | ABADO         | Network/SSL failures                      |
 
 Rollback execution must be recorded in this file with timestamp and reason.
 
@@ -89,14 +95,14 @@ Rollback execution must be recorded in this file with timestamp and reason.
 
 ## Audit Trail
 
-| Timestamp | Action | Actor | Notes |
-|-----------|--------|-------|-------|
-| 2026-08-16 | Phase 1 approval | ABADO | Initial scaffold complete |
-| 2026-08-22 | Phase 2 approval | ABADO | Docker healthchecks passing |
-| 2026-08-27 | Phase 3 approval | ABADO | All provider webhooks verified |
-| 2026-08-28 | Commerce Safety approval | ABADO | Idempotency, escrow, payouts defaulted |
-| 2026-08-29 | Phase 4 approval | ABADO | Staging infra ready, migrations applied |
-| 2026-08-29 | Evidence bundle created | AI Agent | Commit `10a9a998b` |
+| Timestamp  | Action                   | Actor    | Notes                                   |
+| ---------- | ------------------------ | -------- | --------------------------------------- |
+| 2026-08-16 | Phase 1 approval         | ABADO    | Initial scaffold complete               |
+| 2026-08-22 | Phase 2 approval         | ABADO    | Docker healthchecks passing             |
+| 2026-08-27 | Phase 3 approval         | ABADO    | All provider webhooks verified          |
+| 2026-08-28 | Commerce Safety approval | ABADO    | Idempotency, escrow, payouts defaulted  |
+| 2026-08-29 | Phase 4 approval         | ABADO    | Staging infra ready, migrations applied |
+| 2026-08-29 | Evidence bundle created  | AI Agent | Commit `10a9a998b`                      |
 
 ---
 

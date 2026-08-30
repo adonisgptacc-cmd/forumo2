@@ -17,6 +17,11 @@ const runGit = (args) => {
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim().split(/\r?\n/).filter(Boolean);
 };
+const gitCheckIgnoreStatus = (path) =>
+  spawnSync("git", ["check-ignore", "--no-index", path], {
+    cwd: rootPath,
+    encoding: "utf8",
+  }).status;
 
 test("generated build metadata stays ignored", () => {
   const generatedArtifacts = [
@@ -52,6 +57,33 @@ test("generated build metadata stays ignored", () => {
       config.compilerOptions.tsBuildInfoFile,
       "./.next/cache/tsconfig.tsbuildinfo",
       `${configPath} must write incremental metadata inside its ignored Next.js cache`,
+    );
+  }
+});
+
+test("local runtime secrets and generated browser reports stay ignored", () => {
+  const localArtifacts = [
+    ".superpowers/brainstorm/.last-token",
+    ".worktrees/local-feature/.git",
+    "playwright-report/index.html",
+    "test-results/results.json",
+    "blob-report/report.zip",
+  ];
+
+  assert.deepEqual(
+    runGit(["check-ignore", "--no-index", ...localArtifacts]).sort(),
+    localArtifacts.sort(),
+  );
+
+  for (const sourceLikePath of [
+    ".superpowers/SKILL.md",
+    "packages/example/playwright-report/index.ts",
+    "packages/example/test-results/results.ts",
+  ]) {
+    assert.equal(
+      gitCheckIgnoreStatus(sourceLikePath),
+      1,
+      `${sourceLikePath} must remain visible to Git`,
     );
   }
 });
