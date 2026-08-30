@@ -28,5 +28,5 @@ module.exports = {
   transformIgnorePatterns: [
     "node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@react-navigation|@react-native-async-storage)/)",
   ],
-  testPathIgnorePatterns: ["<rootDir>/e2e/"],
+  testPathIgnorePatterns: ["/e2e/"],
 };

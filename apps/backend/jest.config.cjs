@@ -19,7 +19,7 @@ module.exports = {
       },
     ],
   },
-  testMatch: ["<rootDir>/src/**/*.spec.ts", "<rootDir>/src/**/*.test.ts"],
+  testMatch: ["**/src/**/*.spec.ts", "**/src/**/*.test.ts"],
   collectCoverageFrom: ["<rootDir>/src/**/*.ts", "!<rootDir>/src/main.ts"],
   coverageReporters: ["text", "lcov"],
   coverageThreshold: {
