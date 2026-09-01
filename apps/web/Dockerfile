@@ -1,5 +1,5 @@
 # Base image
-FROM node:22.23.2-slim AS base
+FROM node:26.8.1-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
