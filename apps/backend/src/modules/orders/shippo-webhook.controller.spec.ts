@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- test mocks require flexible any for provider verification */
 import { createHmac } from "node:crypto";
 
 import { PrismaService } from "../../prisma/prisma.service";
