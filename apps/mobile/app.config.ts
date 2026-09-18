@@ -7,6 +7,9 @@ const apiBaseUrls: Record<string, string> = {
   preview: "https://api-preview.forumo.app/api/v1",
   production: "https://api.forumo.app/api/v1",
 };
+// Device-safe configuration: development localhost only works on simulators/emulators.
+// Physical devices use the preview or production URL via EAS environment.
+// Override via API_BASE_URL env var or EXPO_PUBLIC_API_BASE_URL at runtime.
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
