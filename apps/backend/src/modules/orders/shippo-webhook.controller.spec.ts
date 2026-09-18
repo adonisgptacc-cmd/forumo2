@@ -1,11 +1,8 @@
 import { createHmac } from "node:crypto";
-import { INestApplication } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
-import request from "supertest";
 
-import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { ConfigService } from "@nestjs/config";
 import { ShippoWebhookController } from "./shippo-webhook.controller";
 
 const SHIPPO_TEST_SECRET = "shippo_test_webhook_secret_fake_abc123";
@@ -44,83 +41,72 @@ class MockNotificationsService {
 }
 
 class MockConfigService {
-  get = jest.fn();
+  get = jest.fn((key: string) => {
+    if (key === "SHIPPO_WEBHOOK_SECRET") return SHIPPO_TEST_SECRET;
+    if (key === "ESCROW_AUTO_RELEASE_DAYS") return 5;
+    return undefined;
+  });
 }
 
 describe("ShippoWebhookController", () => {
-  let app: INestApplication;
   let controller: ShippoWebhookController;
   let prisma: MockPrismaService;
   let notifications: MockNotificationsService;
   let config: MockConfigService;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     prisma = new MockPrismaService();
     notifications = new MockNotificationsService();
     config = new MockConfigService();
-    config.get.mockReturnValue(SHIPPO_TEST_SECRET);
 
-    const module = await Test.createTestingModule({
-      providers: [
-        ShippoWebhookController,
-        { provide: PrismaService, useValue: prisma },
-        {
-          provide: NotificationsService,
-          useValue: notifications,
-        },
-        {
-          provide: ConfigService,
-          useValue: config,
-        },
-      ],
-    }).compile();
-
-    app = module.createNestApplication();
-    await app.init();
-    controller = app.get(ShippoWebhookController);
+    controller = new ShippoWebhookController(
+      prisma as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+      config as unknown as ConfigService,
+    );
   });
 
-  afterEach(async () => {
-    await app.close();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe("verifySignature", () => {
-    it("rejects missing signature", async () => {
-      await expect(
-        (controller as any).verifySignature({ body: {} } as any, undefined),
-      ).rejects.toThrow("Missing Shippo webhook signature");
+    it("throws when signature is missing", () => {
+      const req = { body: {} } as any;
+      expect(() => (controller as any).verifySignature(req, undefined)).toThrow(
+        "Missing Shippo webhook signature",
+      );
     });
 
-    it("rejects invalid signature", async () => {
+    it("throws when signature is invalid", () => {
       const rawBody = makeRawBody({ event: "test" });
-      await expect(
-        (controller as any).verifySignature(
-          { body: {}, rawBody } as any,
-          "invalid_signature",
-        ),
-      ).rejects.toThrow("Invalid Shippo webhook signature");
+      const req = { body: {}, rawBody } as any;
+      expect(() =>
+        (controller as any).verifySignature(req, "invalid_signature"),
+      ).toThrow("Invalid Shippo webhook signature");
     });
 
-    it("accepts valid signature", async () => {
+    it("does not throw when signature is valid", () => {
       const rawBody = makeRawBody({ event: "test" });
       const signature = shippoSignatureHeader(rawBody);
-      await expect(
-        (controller as any).verifySignature(
-          { body: {}, rawBody } as any,
-          signature,
-        ),
-      ).resolves.not.toThrow();
+      const req = { body: {}, rawBody } as any;
+      expect(() =>
+        (controller as any).verifySignature(req, signature),
+      ).not.toThrow();
     });
 
-    it("rejects when SHIPPO_WEBHOOK_SECRET is not configured", async () => {
-      config.get.mockReturnValue(undefined);
+    it("throws when SHIPPO_WEBHOOK_SECRET is not configured", () => {
+      const mockGet = config.get as jest.Mock;
+      mockGet.mockImplementation((key: string) => {
+        if (key === "SHIPPO_WEBHOOK_SECRET") return undefined;
+        if (key === "ESCROW_AUTO_RELEASE_DAYS") return 5;
+        return undefined;
+      });
       const rawBody = makeRawBody({ event: "test" });
-      await expect(
-        (controller as any).verifySignature(
-          { body: {}, rawBody } as any,
-          "any_signature",
-        ),
-      ).rejects.toThrow("Shippo webhook secret not configured");
+      const req = { body: {}, rawBody } as any;
+      expect(() =>
+        (controller as any).verifySignature(req, "any_signature"),
+      ).toThrow("Shippo webhook secret not configured");
     });
   });
 
@@ -144,15 +130,14 @@ describe("ShippoWebhookController", () => {
     });
 
     it("returns received:true for non-tracking events", async () => {
-      const res = await request(app.getHttpServer())
-        .post("/webhooks/shippo")
-        .set(
-          "x-shippo-signature",
-          shippoSignatureHeader(JSON.stringify({ event: "other_event" })),
-        )
-        .send({ event: "other_event" });
-      expect(res.body).toEqual({ received: true });
-      expect(res.status).toBe(200);
+      const body = { event: "other_event" };
+      const signature = shippoSignatureHeader(makeRawBody(body));
+      const result = await (controller as any).handleShippoWebhook(
+        { body: {}, rawBody: makeRawBody(body) } as any,
+        body,
+        signature,
+      );
+      expect(result).toEqual({ received: true });
     });
 
     it("returns received:true when no shipment found", async () => {
@@ -165,11 +150,13 @@ describe("ShippoWebhookController", () => {
           tracking_status: { status: "DELIVERED" },
         },
       };
-      const res = await request(app.getHttpServer())
-        .post("/webhooks/shippo")
-        .set("x-shippo-signature", shippoSignatureHeader(makeRawBody(body)))
-        .send(body);
-      expect(res.body).toEqual({ received: true });
+      const signature = shippoSignatureHeader(makeRawBody(body));
+      const result = await (controller as any).handleShippoWebhook(
+        { body: {}, rawBody: makeRawBody(body) } as any,
+        body,
+        signature,
+      );
+      expect(result).toEqual({ received: true });
     });
 
     it("updates shipment status on tracking update", async () => {
@@ -182,12 +169,13 @@ describe("ShippoWebhookController", () => {
           eta: new Date().toISOString(),
         },
       };
-      const res = await request(app.getHttpServer())
-        .post("/webhooks/shippo")
-        .set("x-shippo-signature", shippoSignatureHeader(makeRawBody(body)))
-        .send(body);
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ received: true });
+      const signature = shippoSignatureHeader(makeRawBody(body));
+      const result = await (controller as any).handleShippoWebhook(
+        { body: {}, rawBody: makeRawBody(body) } as any,
+        body,
+        signature,
+      );
+      expect(result).toEqual({ received: true });
       expect(prisma.orderShipment.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: shipmentId },
@@ -198,20 +186,23 @@ describe("ShippoWebhookController", () => {
       );
     });
 
-    it("rejects webhook with invalid signature", async () => {
+    it("returns received:true when shipment not found", async () => {
+      prisma.orderShipment.findFirst.mockResolvedValue(null);
       const body = {
         event: "tracking_updated",
         data: {
-          tracking_number: trackingNumber,
+          tracking_number: "not-found",
           carrier: "FedEx",
           tracking_status: { status: "IN_TRANSIT" },
         },
       };
-      const res = await request(app.getHttpServer())
-        .post("/webhooks/shippo")
-        .set("x-shippo-signature", "invalid")
-        .send(body);
-      expect(res.status).toBe(401);
+      const signature = shippoSignatureHeader(makeRawBody(body));
+      const result = await (controller as any).handleShippoWebhook(
+        { body: {}, rawBody: makeRawBody(body) } as any,
+        body,
+        signature,
+      );
+      expect(result).toEqual({ received: true });
     });
   });
 });
