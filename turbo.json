@@ -60,13 +60,6 @@
     "storybook": {
       "cache": false,
       "persistent": true
-    },
-    "@forumo/design-system": {
-      "typecheck": { "cache": false },
-      "test": { "outputs": ["coverage/**"], "cache": false },
-      "test:coverage": { "outputs": ["coverage/**"], "cache": false },
-      "storybook": { "cache": false, "persistent": true },
-      "build-storybook": { "outputs": ["storybook-static/**"], "cache": false }
     }
   }
 }
