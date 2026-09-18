@@ -24,27 +24,27 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 #### Ordered launch todo list (sequential phases)
 
 **Phase 0** (RR-002 → RR-003):
-1. [ ] Add Prisma lifecycle/CI drift check (RR-002).
-2. [ ] Fix design-system Storybook type boundary (RR-003).
+1. [x] Add Prisma lifecycle/CI drift check (RR-002). ✅ Done
+2. [x] Fix design-system Storybook type boundary (RR-003). ✅ Done
 
 **Phase 1** (RR-010 → RR-011 → RR-012 → RR-013):
-3. [ ] Normalize web API base URL via canonical helper (RR-010).
-4. [ ] Fix Google OAuth routing — always start on backend (RR-011).
-5. [ ] Make Docker stack bootable with health checks and graceful disabled integrations (RR-012).
-6. [ ] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window).
+3. [x] Normalize web API base URL via canonical helper (RR-010). ✅ Done
+4. [x] Fix Google OAuth routing — Google OAuth removed, replaced with magic link (RR-011). ✅ Done
+5. [x] Make Docker stack bootable with env var secrets (RR-012). ✅ Done
+6. [ ] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window) — **BLOCKED**
 
 **Phase 2** (RR-020 → RR-021 → RR-022 → RR-023):
-7. [ ] Remove mobile demo auth completely (RR-020).
-8. [ ] Make mobile API configuration device-safe (RR-021).
-9. [ ] Verify all supported payment/shipping providers in sandbox (RR-022).
-10. [ ] Test mobile critical paths against live backend (RR-023).
+7. [ ] Remove mobile demo auth completely (RR-020)
+8. [ ] Make mobile API configuration device-safe (RR-021)
+9. [ ] Verify all supported payment/shipping providers in sandbox (RR-022)
+10. [ ] Test mobile critical paths against live backend (RR-023)
 
 **Phase 3** (RR-030 → RR-031 → RR-032 → RR-033):
-11. [ ] Full automated verification pipeline — all root commands pass (RR-030).
-12. [ ] Burn down lint warnings to zero (RR-031).
-13. [ ] Add release smoke tests and operational evidence (RR-032).
-14. [ ] Reconcile documentation with verified behavior (RR-033).
-15. [ ] Produce release-candidate evidence bundle with commit SHA, test results, provider runs, and named approvers.
+11. [ ] Full automated verification pipeline — all root commands pass (RR-030)
+12. [ ] Burn down lint warnings to zero (RR-031)
+13. [ ] Add release smoke tests and operational evidence (RR-032)
+14. [ ] Reconcile documentation with verified behavior (RR-033)
+15. [ ] Produce release-candidate evidence bundle with commit SHA, test results, provider runs, and named approvers
 
 #### Product and operating decisions (all resolved 2026-09-18)
 
