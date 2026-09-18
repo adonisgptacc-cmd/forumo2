@@ -31,7 +31,7 @@ For this roadmap, **viable** means a web-first public beta can accept real users
 3. [x] Normalize web API base URL via canonical helper (RR-010). ✅ Done
 4. [x] Fix Google OAuth routing — Google OAuth removed, replaced with magic link (RR-011). ✅ Done
 5. [x] Make Docker stack bootable with env var secrets (RR-012). ✅ Done
-6. [ ] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window) — **BLOCKED**
+6. [x] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window). ✅ Done — cron-based processor with eligibility checks, reconciliation, audit trail, concurrency safety
 
 **Phase 2** (RR-020 → RR-021 → RR-022 → RR-023):
 7. [ ] Remove mobile demo auth completely (RR-020)
