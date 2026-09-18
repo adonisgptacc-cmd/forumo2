@@ -17,43 +17,6 @@ import type { MainStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Notifications">;
 
-const DEMO_NOTIFICATIONS: SafeNotification[] = [
-  {
-    id: "notif-1",
-    userId: "demo",
-    channel: "IN_APP",
-    template: "AUCTION_OUTBID",
-    payload: {
-      message: "You have been outbid on Vintage Camera. Current bid: $95.00",
-    },
-    status: "SENT",
-    sentAt: new Date(Date.now() - 600000).toISOString(),
-    readAt: null,
-    createdAt: new Date(Date.now() - 600000).toISOString(),
-  },
-  {
-    id: "notif-2",
-    userId: "demo",
-    channel: "IN_APP",
-    template: "ORDER_STATUS",
-    payload: { message: "Your order #ORD-001 has been shipped." },
-    status: "SENT",
-    sentAt: new Date(Date.now() - 3600000).toISOString(),
-    readAt: new Date(Date.now() - 1800000).toISOString(),
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "notif-3",
-    userId: "demo",
-    channel: "IN_APP",
-    template: "NEW_MESSAGE",
-    payload: { message: "Alice sent you a message about your listing." },
-    status: "SENT",
-    sentAt: new Date(Date.now() - 7200000).toISOString(),
-    readAt: null,
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
 
 const TEMPLATE_ICONS: Record<string, string> = {
   ORDER_STATUS: "📦",
@@ -130,7 +93,7 @@ export const NotificationsScreen: React.FC<Props> = () => {
       const data = await apiClient.notifications.list();
       setNotifications(Array.isArray(data) ? data : []);
     } catch {
-      setNotifications(DEMO_NOTIFICATIONS);
+      setNotifications([]);
     }
   }, [apiClient]);
 

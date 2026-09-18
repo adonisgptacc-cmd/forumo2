@@ -17,38 +17,6 @@ import type { MainStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Offers">;
 
-const DEMO_OFFERS: SafeOffer[] = [
-  {
-    id: "offer-1",
-    listingId: "listing-1",
-    buyerId: "demo-buyer",
-    sellerId: "demo-seller",
-    amountCents: 9500,
-    currency: "USD",
-    message: "Would you accept this price?",
-    status: "PENDING",
-    expiresAt: new Date(Date.now() + 86400000).toISOString(),
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    listing: { id: "listing-1", title: "Vintage Camera" },
-    buyer: { id: "demo-buyer", name: "Demo Buyer" },
-    seller: { id: "demo-seller", name: "Demo Seller" },
-  },
-  {
-    id: "offer-2",
-    listingId: "listing-2",
-    buyerId: "buyer-2",
-    sellerId: "demo-seller",
-    amountCents: 4500,
-    currency: "USD",
-    status: "ACCEPTED",
-    expiresAt: null,
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    listing: { id: "listing-2", title: "Leather Bag" },
-    buyer: { id: "buyer-2", name: "Alice" },
-    seller: { id: "demo-seller", name: "Demo Seller" },
-  },
-];
-
 const OFFER_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: "#fef9c3", text: "#854d0e" },
   ACCEPTED: { bg: "#dcfce7", text: "#15803d" },
@@ -177,8 +145,7 @@ export const OffersScreen: React.FC<Props> = () => {
       const data = await apiClient.offers.list();
       setOffers(Array.isArray(data) ? data : []);
     } catch {
-      setOffers(DEMO_OFFERS);
-      setError("Showing demo offers.");
+      setError("Unable to load offers.");
     }
   }, [apiClient]);
 

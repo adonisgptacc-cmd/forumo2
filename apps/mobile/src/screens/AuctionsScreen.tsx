@@ -15,68 +15,6 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { MainStackParamList } from "../navigation/types";
 
-const DEMO_AUCTIONS: Auction[] = [
-  {
-    id: "demo-1",
-    listingId: "listing-1",
-    sellerId: "seller-1",
-    status: "ACTIVE",
-    startingBidCents: 5000,
-    currency: "USD",
-    reserveCents: null,
-    buyNowCents: 20000,
-    startAt: new Date(Date.now() - 3600000).toISOString(),
-    endAt: new Date(Date.now() + 7200000).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    currentBidCents: 8500,
-    bidCount: 5,
-    listing: {
-      id: "listing-1",
-      title: "Vintage Mechanical Watch",
-      description: "Rare 1960s automatic dress watch",
-      priceCents: 20000,
-      currency: "USD",
-      status: "PUBLISHED",
-      sellerId: "seller-1",
-      moderationStatus: "APPROVED",
-      images: [],
-      variants: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: "demo-2",
-    listingId: "listing-2",
-    sellerId: "seller-2",
-    status: "ACTIVE",
-    startingBidCents: 2000,
-    currency: "USD",
-    reserveCents: null,
-    buyNowCents: null,
-    startAt: new Date(Date.now() - 1800000).toISOString(),
-    endAt: new Date(Date.now() + 3600000).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    currentBidCents: 3200,
-    bidCount: 2,
-    listing: {
-      id: "listing-2",
-      title: "Signed Sports Memorabilia",
-      description: "Authenticated signed jersey",
-      priceCents: 10000,
-      currency: "USD",
-      status: "PUBLISHED",
-      sellerId: "seller-2",
-      moderationStatus: "APPROVED",
-      images: [],
-      variants: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  },
-];
 
 function formatCents(cents: number, currency = "USD") {
   return `${currency} ${(cents / 100).toFixed(2)}`;
@@ -178,15 +116,15 @@ export const AuctionsTab: React.FC = () => {
         });
         const items: Auction[] = Array.isArray(response?.data)
           ? response.data
-          : DEMO_AUCTIONS;
+          : [];
         const total = response?.pageCount ?? 1;
         setHasMore(pageToLoad < total);
         setAuctions((prev) => (append ? [...prev, ...items] : items));
         setPage(pageToLoad);
       } catch {
         if (!append) {
-          setAuctions(DEMO_AUCTIONS);
-          setError("Showing demo auctions.");
+          setAuctions([]);
+          setError("Unable to load auctions.");
         }
         setHasMore(false);
       } finally {

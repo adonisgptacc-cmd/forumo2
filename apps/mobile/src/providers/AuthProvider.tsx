@@ -51,7 +51,6 @@ interface AuthContextValue {
     phone?: string,
   ) => Promise<void>;
   logout: () => void;
-  enterDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -160,23 +159,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const logout = useCallback(() => persistAuth(undefined), [persistAuth]);
 
-  const enterDemo = useCallback(() => {
-    if (!__DEV__) {
-      throw new Error("Demo login is only available in development builds");
-    }
-    const demoId = `demo-${Math.random().toString(36).slice(2, 10)}`;
-    persistAuth({
-      accessToken: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      refreshToken: `demo-refresh-${Date.now()}`,
-      user: {
-        id: demoId,
-        email: "demo@forumo.test",
-        name: "Demo User",
-        role: "BUYER",
-      },
-    } as AuthResponse);
-  }, [persistAuth]);
-
   const value = useMemo(
     () => ({
       apiClient,
@@ -186,7 +168,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       login,
       register,
       logout,
-      enterDemo,
     }),
     [
       apiClient,
@@ -196,7 +177,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       login,
       register,
       logout,
-      enterDemo,
     ],
   );
 

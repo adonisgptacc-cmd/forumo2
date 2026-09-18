@@ -15,63 +15,6 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { MainStackParamList } from "../navigation/types";
 
-const DEMO_ORDERS: SafeOrder[] = [
-  {
-    id: "demo-order-1",
-    orderNumber: "ORD-001",
-    buyerId: "demo-buyer",
-    sellerId: "demo-seller",
-    status: "PAID",
-    paymentStatus: "CAPTURED",
-    totalItemCents: 15000,
-    shippingCents: 500,
-    feeCents: 450,
-    feePercent: 3,
-    currency: "USD",
-    placedAt: new Date(Date.now() - 86400000).toISOString(),
-    timeline: [],
-    items: [
-      {
-        id: "item-1",
-        listingId: "l-1",
-        listingTitle: "Demo Product",
-        unitPriceCents: 15000,
-        quantity: 1,
-        currency: "USD",
-      },
-    ],
-    shipments: [],
-    payments: [],
-  },
-  {
-    id: "demo-order-2",
-    orderNumber: "ORD-002",
-    buyerId: "demo-buyer",
-    sellerId: "demo-seller-2",
-    status: "COMPLETED",
-    paymentStatus: "SETTLED",
-    totalItemCents: 8000,
-    shippingCents: 0,
-    feeCents: 240,
-    feePercent: 3,
-    currency: "USD",
-    placedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    timeline: [],
-    items: [
-      {
-        id: "item-2",
-        listingId: "l-2",
-        listingTitle: "Another Item",
-        unitPriceCents: 8000,
-        quantity: 1,
-        currency: "USD",
-      },
-    ],
-    shipments: [],
-    payments: [],
-  },
-];
-
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: "#fef9c3", text: "#854d0e" },
   CONFIRMED: { bg: "#dbeafe", text: "#1d4ed8" },
@@ -163,8 +106,7 @@ export const OrdersTab: React.FC = () => {
       const data = await apiClient.orders.list();
       setOrders(Array.isArray(data) ? data : []);
     } catch {
-      setOrders(DEMO_ORDERS);
-      setError("Showing demo orders.");
+      setError("Unable to load orders.");
     } finally {
       setLoading(false);
     }
