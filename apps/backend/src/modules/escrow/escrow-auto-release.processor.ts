@@ -73,11 +73,15 @@ export class EscrowAutoReleaseProcessor implements OnModuleInit {
     orderId: string;
     amountCents: number;
     currency: string;
-    releaseAfter: Date;
+    releaseAfter: Date | null;
     order: { id: string; status: string; buyerId: string; sellerId: string };
     disputes: { id: string; status: string }[];
   }) {
     const { orderId, order, disputes, amountCents, currency } = escrow;
+
+    if (!escrow.releaseAfter || escrow.releaseAfter > new Date()) {
+      return;
+    }
 
     if (order.status !== "DELIVERED" && order.status !== "FULFILLED") {
       this.logger.log(

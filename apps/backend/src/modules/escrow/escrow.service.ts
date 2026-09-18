@@ -78,7 +78,7 @@ export class EscrowService {
       };
     }
 
-    if (escrow.releaseAfter > new Date()) {
+    if (!escrow.releaseAfter || escrow.releaseAfter > new Date()) {
       return {
         eligible: false,
         reason: "Release date not yet reached",
