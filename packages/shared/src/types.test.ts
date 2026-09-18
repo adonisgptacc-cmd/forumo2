@@ -36,6 +36,7 @@ describe("shared domain schemas", () => {
         name: "Ada",
         email: "ada@example.com",
         password: validPassword,
+        phone: "+15551234567",
       }).success,
     ).toBe(true);
     expect(
