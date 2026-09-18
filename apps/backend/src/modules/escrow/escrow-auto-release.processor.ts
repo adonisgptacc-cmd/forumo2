@@ -16,9 +16,15 @@ export class EscrowAutoReleaseProcessor implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    this.logger.log("Starting escrow auto-release reconciliation...");
-    await this.reconcileMissedReleases();
-    this.logger.log("Escrow auto-release reconciliation complete");
+    try {
+      this.logger.log("Starting escrow auto-release reconciliation...");
+      await this.reconcileMissedReleases();
+      this.logger.log("Escrow auto-release reconciliation complete");
+    } catch (error) {
+      this.logger.error(
+        `Reconciliation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @Cron("*/5 * * * *")
@@ -26,32 +32,42 @@ export class EscrowAutoReleaseProcessor implements OnModuleInit {
     const now = new Date();
     this.logger.log(`Processing auto-releases at ${now.toISOString()}`);
 
-    const holdings = await this.prisma.escrowHolding.findMany({
-      where: {
-        status: EscrowStatus.HOLDING,
-        releaseAfter: { lte: now },
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            status: true,
-            buyerId: true,
-            sellerId: true,
+    let holdings: Awaited<
+      ReturnType<typeof this.prisma.escrowHolding.findMany>
+    > = [];
+    try {
+      holdings = await this.prisma.escrowHolding.findMany({
+        where: {
+          status: EscrowStatus.HOLDING,
+          releaseAfter: { lte: now },
+        },
+        include: {
+          order: {
+            select: {
+              id: true,
+              status: true,
+              buyerId: true,
+              sellerId: true,
+            },
+          },
+          disputes: {
+            where: { status: "OPEN" },
+            select: { id: true, status: true },
           },
         },
-        disputes: {
-          where: { status: "OPEN" },
-          select: { id: true, status: true },
-        },
-      },
-    });
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch holdings for auto-release: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return;
+    }
 
     this.logger.log(`Found ${holdings.length} eligible escrow holdings`);
 
     for (const escrow of holdings) {
       try {
-        await this.processSingleAutoRelease(escrow);
+        await this.processSingleAutoRelease(escrow as any);
       } catch (error) {
         this.logger.error(
           `Failed to auto-release escrow for order ${escrow.orderId}: ${error instanceof Error ? error.message : String(error)}`,
