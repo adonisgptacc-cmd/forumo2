@@ -63,18 +63,33 @@ export class EscrowService {
     });
 
     if (!escrow) {
-      return { eligible: false, reason: "Escrow not found", hasOpenDisputes: false };
+      return {
+        eligible: false,
+        reason: "Escrow not found",
+        hasOpenDisputes: false,
+      };
     }
 
     if (escrow.status !== EscrowStatus.HOLDING) {
-      return { eligible: false, reason: `Status is ${escrow.status}`, hasOpenDisputes: false };
+      return {
+        eligible: false,
+        reason: `Status is ${escrow.status}`,
+        hasOpenDisputes: false,
+      };
     }
 
     if (escrow.releaseAfter > new Date()) {
-      return { eligible: false, reason: "Release date not yet reached", hasOpenDisputes: false };
+      return {
+        eligible: false,
+        reason: "Release date not yet reached",
+        hasOpenDisputes: false,
+      };
     }
 
-    if (escrow.order.status !== "DELIVERED" && escrow.order.status !== "FULFILLED") {
+    if (
+      escrow.order.status !== "DELIVERED" &&
+      escrow.order.status !== "FULFILLED"
+    ) {
       return {
         eligible: false,
         reason: `Order status ${escrow.order.status} requires DELIVERED or FULFILLED`,
@@ -90,7 +105,11 @@ export class EscrowService {
       };
     }
 
-    return { eligible: true, reason: "All eligibility criteria met", hasOpenDisputes: false };
+    return {
+      eligible: true,
+      reason: "All eligibility criteria met",
+      hasOpenDisputes: false,
+    };
   }
 
   async getEscrowByOrderId(

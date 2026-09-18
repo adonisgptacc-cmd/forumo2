@@ -15,9 +15,7 @@ function api(): ForumoApiClient {
   return new ForumoApiClient({ baseUrl: getApiBaseUrl() });
 }
 
-async function createUser(
-  prefix: string,
-): Promise<{
+async function createUser(prefix: string): Promise<{
   email: string;
   password: string;
   token: string;

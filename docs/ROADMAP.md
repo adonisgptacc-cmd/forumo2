@@ -10,41 +10,29 @@ Target capability: a reproducible, bootable, transaction-safe Forumo release who
 
 For this roadmap, **viable** means a web-first public beta can accept real users and money without relying on demo authentication, silent provider mocks, unverified fund movement, or operator guesswork. Native mobile availability is a separate launch-scope decision: it is not required for a web-first beta, but it becomes a blocker if mobile is advertised at launch.
 
-| Gate                                  | Current evidence                                                                                                                                      | Work still required before launch                                                                                                                                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reproducible engineering baseline | pnpm `11.19.0`, frozen-lockfile installation, root verification, deterministic Prisma postinstall, Node `22.23.2` pinned. RR-001 complete. | RR-002: Add Prisma lifecycle/CI drift check. RR-003: Fix design-system Storybook type boundary. |
-| Authentication and environment safety | Backend authentication tests and builds pass. RR-010 through RR-012 not started. | RR-010: Normalize web API base URL. RR-011: Fix Google OAuth routing. RR-012: Make Docker stack bootable and honest. RR-020: Remove mobile demo auth. |
-| Money movement and order lifecycle | Unit/integration suites cover payments, payouts, escrow, orders, auctions, and webhook rejection paths. Escrow auto-release uses `@nestjs/schedule` cron, 14-day default. | RR-013: Safe escrow auto-release (requires ABADO approval, 5-day window). RR-022: Provider sandbox verification (Stripe, Paystack, Shippo). |
-| Buyer/seller web journey | Web type-check, tests, and production build pass. | Browser E2E for auth, checkout, disputes, reviews, seller payout, session refresh. |
-| Admin and trust operations | Admin type-check and production build pass; 6 pages wired (KYC, moderation, users, listings, disputes, analytics). | Role/authorization E2E tests, operational owners, SLAs, escalation procedures. |
-| Production deployment and recovery | Kubernetes deployment, rollback, monitoring, and environment guidance is documented. | Staging deployment rehearsal, migration rehearsal, backup/restore, readiness/rollback smoke test, alert verification, secret/config review. |
-| Security and compliance | Two upstream-unfixed `image-size` advisories locally patched and regression-tested. | Triage remaining 9 low / 24 moderate advisories. Secret scanning, SAST, container scans, CI enforcement. |
-| Mobile launch path | 27 screens implemented and navigation-wired. Direct API calls, no tests, unverified E2E. | RR-020: Remove demo auth. RR-021: Device-safe API config. RR-023: Mobile critical paths against live backend. Not required for web-first beta. |
+| Gate                                  | Current evidence                                                                                                                                                          | Work still required before launch                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reproducible engineering baseline     | pnpm `11.19.0`, frozen-lockfile installation, root verification, deterministic Prisma postinstall, Node `22.23.2` pinned. RR-001 complete.                                | RR-002: Add Prisma lifecycle/CI drift check. RR-003: Fix design-system Storybook type boundary.                                                       |
+| Authentication and environment safety | Backend authentication tests and builds pass. RR-010 through RR-012 not started.                                                                                          | RR-010: Normalize web API base URL. RR-011: Fix Google OAuth routing. RR-012: Make Docker stack bootable and honest. RR-020: Remove mobile demo auth. |
+| Money movement and order lifecycle    | Unit/integration suites cover payments, payouts, escrow, orders, auctions, and webhook rejection paths. Escrow auto-release uses `@nestjs/schedule` cron, 14-day default. | RR-013: Safe escrow auto-release (requires ABADO approval, 5-day window). RR-022: Provider sandbox verification (Stripe, Paystack, Shippo).           |
+| Buyer/seller web journey              | Web type-check, tests, and production build pass.                                                                                                                         | Browser E2E for auth, checkout, disputes, reviews, seller payout, session refresh.                                                                    |
+| Admin and trust operations            | Admin type-check and production build pass; 6 pages wired (KYC, moderation, users, listings, disputes, analytics).                                                        | Role/authorization E2E tests, operational owners, SLAs, escalation procedures.                                                                        |
+| Production deployment and recovery    | Kubernetes deployment, rollback, monitoring, and environment guidance is documented.                                                                                      | Staging deployment rehearsal, migration rehearsal, backup/restore, readiness/rollback smoke test, alert verification, secret/config review.           |
+| Security and compliance               | Two upstream-unfixed `image-size` advisories locally patched and regression-tested.                                                                                       | Triage remaining 9 low / 24 moderate advisories. Secret scanning, SAST, container scans, CI enforcement.                                              |
+| Mobile launch path                    | 27 screens implemented and navigation-wired. Direct API calls, no tests, unverified E2E.                                                                                  | RR-020: Remove demo auth. RR-021: Device-safe API config. RR-023: Mobile critical paths against live backend. Not required for web-first beta.        |
 
 #### Ordered launch todo list (sequential phases)
 
 **Phase 0** (RR-002 → RR-003):
+
 1. [x] Add Prisma lifecycle/CI drift check (RR-002). ✅ Done
 2. [x] Fix design-system Storybook type boundary (RR-003). ✅ Done
 
-**Phase 1** (RR-010 → RR-011 → RR-012 → RR-013):
-3. [x] Normalize web API base URL via canonical helper (RR-010). ✅ Done
-4. [x] Fix Google OAuth routing — Google OAuth removed, replaced with magic link (RR-011). ✅ Done
-5. [x] Make Docker stack bootable with env var secrets (RR-012). ✅ Done
-6. [x] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window). ✅ Done — cron-based processor with eligibility checks, reconciliation, audit trail, concurrency safety
+**Phase 1** (RR-010 → RR-011 → RR-012 → RR-013): 3. [x] Normalize web API base URL via canonical helper (RR-010). ✅ Done 4. [x] Fix Google OAuth routing — Google OAuth removed, replaced with magic link (RR-011). ✅ Done 5. [x] Make Docker stack bootable with env var secrets (RR-012). ✅ Done 6. [x] Implement safe escrow auto-release with ABADO approval (RR-013, 5-day window). ✅ Done — cron-based processor with eligibility checks, reconciliation, audit trail, concurrency safety
 
-**Phase 2** (RR-020 → RR-021 → RR-022 → RR-023):
-7. [ ] Remove mobile demo auth completely (RR-020)
-8. [ ] Make mobile API configuration device-safe (RR-021)
-9. [ ] Verify all supported payment/shipping providers in sandbox (RR-022)
-10. [ ] Test mobile critical paths against live backend (RR-023)
+**Phase 2** (RR-020 → RR-021 → RR-022 → RR-023): 7. [ ] Remove mobile demo auth completely (RR-020) 8. [ ] Make mobile API configuration device-safe (RR-021) 9. [ ] Verify all supported payment/shipping providers in sandbox (RR-022) 10. [ ] Test mobile critical paths against live backend (RR-023)
 
-**Phase 3** (RR-030 → RR-031 → RR-032 → RR-033):
-11. [ ] Full automated verification pipeline — all root commands pass (RR-030)
-12. [ ] Burn down lint warnings to zero (RR-031)
-13. [ ] Add release smoke tests and operational evidence (RR-032)
-14. [ ] Reconcile documentation with verified behavior (RR-033)
-15. [ ] Produce release-candidate evidence bundle with commit SHA, test results, provider runs, and named approvers
+**Phase 3** (RR-030 → RR-031 → RR-032 → RR-033): 11. [ ] Full automated verification pipeline — all root commands pass (RR-030) 12. [ ] Burn down lint warnings to zero (RR-031) 13. [ ] Add release smoke tests and operational evidence (RR-032) 14. [ ] Reconcile documentation with verified behavior (RR-033) 15. [ ] Produce release-candidate evidence bundle with commit SHA, test results, provider runs, and named approvers
 
 #### Product and operating decisions (all resolved 2026-09-18)
 

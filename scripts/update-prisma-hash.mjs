@@ -9,7 +9,10 @@ const ROOT = join(__dirname, "..");
 const SCHEMA_PATH = join(ROOT, "apps/backend/prisma/schema.prisma");
 const HASH_FILE = join(ROOT, ".prisma-schema-hash");
 
-execSync("prisma generate --schema prisma/schema.prisma", { cwd: join(ROOT, "apps/backend"), stdio: "inherit" });
+execSync("prisma generate --schema prisma/schema.prisma", {
+  cwd: join(ROOT, "apps/backend"),
+  stdio: "inherit",
+});
 
 const schemaContent = readFileSync(SCHEMA_PATH, "utf8");
 const hash = createHash("sha256").update(schemaContent).digest("hex");

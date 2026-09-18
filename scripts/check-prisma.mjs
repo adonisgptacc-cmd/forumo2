@@ -5,7 +5,9 @@ import { join } from "node:path";
 const ROOT = join(process.cwd());
 const SCHEMA_PATH = join(ROOT, "apps/backend/prisma/schema.prisma");
 const HASH_FILE = join(ROOT, ".prisma-schema-hash");
-const SCHEMA_HASH = createHash("sha256").update(readFileSync(SCHEMA_PATH, "utf8")).digest("hex");
+const SCHEMA_HASH = createHash("sha256")
+  .update(readFileSync(SCHEMA_PATH, "utf8"))
+  .digest("hex");
 
 console.log(`Schema hash: ${SCHEMA_HASH.slice(0, 12)}`);
 
@@ -21,7 +23,9 @@ if (storedHash !== SCHEMA_HASH) {
   console.error(
     "Prisma schema drift detected — the schema has changed but the generated client may be out of sync.",
   );
-  console.error("Run: pnpm --filter backend prisma:generate && commit the updated .prisma-schema-hash");
+  console.error(
+    "Run: pnpm --filter backend prisma:generate && commit the updated .prisma-schema-hash",
+  );
   process.exit(1);
 }
 

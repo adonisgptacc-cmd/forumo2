@@ -10,18 +10,18 @@ Define the approach for bringing Forumo from current state to a reproducible, bo
 
 ## Current State Summary
 
-| Component | Status |
-|-----------|--------|
-| Backend (NestJS) | Production-ready, 26 modules, `tsc --noEmit` clean |
-| Web (Next.js 15) | Typecheck clean, auth + 6 pages wired |
-| Admin (Next.js 15) | Auth + 6 pages wired, typecheck clean |
-| Mobile (Expo 50) | Pre-alpha, 27 screens, no tests, direct API calls |
-| Shared | Production-ready (Zod schemas + ForumoApiClient) |
-| Moderation (FastAPI) | Production-ready |
-| Test coverage | ~15% |
-| CI pipeline | Exists but root commands fail from clean checkout |
-| Escrow auto-release | Cron-based via `@nestjs/schedule`, 14-day default |
-| BullMQ | Installed, used for Redis only (not queued jobs) |
+| Component            | Status                                             |
+| -------------------- | -------------------------------------------------- |
+| Backend (NestJS)     | Production-ready, 26 modules, `tsc --noEmit` clean |
+| Web (Next.js 15)     | Typecheck clean, auth + 6 pages wired              |
+| Admin (Next.js 15)   | Auth + 6 pages wired, typecheck clean              |
+| Mobile (Expo 50)     | Pre-alpha, 27 screens, no tests, direct API calls  |
+| Shared               | Production-ready (Zod schemas + ForumoApiClient)   |
+| Moderation (FastAPI) | Production-ready                                   |
+| Test coverage        | ~15%                                               |
+| CI pipeline          | Exists but root commands fail from clean checkout  |
+| Escrow auto-release  | Cron-based via `@nestjs/schedule`, 14-day default  |
+| BullMQ               | Installed, used for Redis only (not queued jobs)   |
 
 ## Open Decisions (resolved)
 

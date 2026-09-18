@@ -29,12 +29,14 @@
 ### Task 0.1: Add Prisma lifecycle/CI drift check (RR-002)
 
 **Files:**
+
 - Modify: `apps/backend/package.json`
 - Modify: `apps/backend/tsconfig.json`
 - Create: `scripts/check-prisma-drift.mjs`
 - Modify: `scripts/check-prisma.mjs`
 
 **Interfaces:**
+
 - Consumes: `apps/backend/prisma/schema.prisma`, generated Prisma client
 - Produces: CI step that fails when schema and generated client are inconsistent
 
@@ -45,6 +47,7 @@ Read `apps/backend/package.json` and confirm both `prisma` and `@prisma/client` 
 - [ ] **Step 2: Create Prisma drift check script**
 
 Create `scripts/check-prisma-drift.mjs` that:
+
 1. Runs `npx prisma generate --schema prisma/schema.prisma` in `apps/backend/`
 2. Runs `git diff --exit-code apps/backend/prisma/schema.prisma` to check if generated client changed
 3. Exits non-zero if drift detected
@@ -77,6 +80,7 @@ git commit -m "fix: add Prisma lifecycle hook and drift check (RR-002)"
 ### Task 0.2: Fix design-system type boundary (RR-003)
 
 **Files:**
+
 - Inspect: `packages/design-system/`
 - Modify: `packages/design-system/package.json`
 - Modify: `packages/design-system/tsconfig.json` (if needed)
@@ -123,6 +127,7 @@ git commit -m "fix: resolve design-system type boundary and add CI tasks (RR-003
 ### Task 1.1: Normalize web API base URL (RR-010)
 
 **Files:**
+
 - Create: `apps/web/src/lib/api-url.ts`
 - Modify: `apps/web/src/lib/react-query/hooks.ts` (or wherever `ForumoApiClient` is created)
 - Modify: `apps/web/src/app/(authenticated)/**/*.tsx` (all pages using API URLs)
@@ -130,6 +135,7 @@ git commit -m "fix: resolve design-system type boundary and add CI tasks (RR-003
 - Modify: `apps/web/src/config/**` (or wherever NextAuth config lives)
 
 **Interfaces:**
+
 - Consumes: `NEXT_PUBLIC_API_BASE_URL` env var
 - Produces: canonical `apiUrl(path: string): string` helper
 - Must be consumed by: NextAuth config, `ForumoApiClient`, WebSocket setup, admin client
@@ -158,10 +164,14 @@ import { apiUrl } from "./api-url";
 
 describe("apiUrl", () => {
   it("prepends /api/v1 to paths without it", () => {
-    expect(apiUrl("/auth/refresh")).toBe("http://localhost:4000/api/v1/auth/refresh");
+    expect(apiUrl("/auth/refresh")).toBe(
+      "http://localhost:4000/api/v1/auth/refresh",
+    );
   });
   it("does not duplicate /api/v1", () => {
-    expect(apiUrl("/api/v1/auth/refresh")).toBe("http://localhost:4000/api/v1/auth/refresh");
+    expect(apiUrl("/api/v1/auth/refresh")).toBe(
+      "http://localhost:4000/api/v1/auth/refresh",
+    );
   });
   it("handles trailing slash on base", () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000/";
@@ -179,6 +189,7 @@ Expected: FAIL (test file doesn't exist yet or assertions fail).
 - [ ] **Step 4: Replace all hardcoded URL construction**
 
 Find all instances of string concatenation that build API URLs. Replace with `apiUrl()`. Key files to check:
+
 - NextAuth config (`auth.ts` or similar)
 - `ForumoApiClient` instantiation
 - WebSocket URL setup
@@ -207,6 +218,7 @@ git commit -m "fix: normalize web API base URL via canonical helper (RR-010)"
 ### Task 1.2: Fix Google OAuth routing (RR-011)
 
 **Files:**
+
 - Modify: `apps/web/src/components/auth/google-signin.tsx` (or equivalent)
 - Modify: `apps/web/src/app/api/auth/[...nextauth]/route.ts`
 
@@ -244,6 +256,7 @@ git commit -m "fix: correct Google OAuth routing to backend (RR-011)"
 ### Task 1.3: Make Docker stack bootable and honest (RR-012)
 
 **Files:**
+
 - Modify: `docker-compose.yml`
 - Modify: `docker-compose.override.yml`
 - Modify: `apps/backend/src/main.ts` (backend env validation)
@@ -251,6 +264,7 @@ git commit -m "fix: correct Google OAuth routing to backend (RR-011)"
 - Create: `apps/backend/src/config/config.schema.ts` (or update existing)
 
 **Interfaces:**
+
 - Consumes: `.env` values for all external services
 - Produces: health endpoint that reports disabled integrations; Docker stack that boots without crashing on missing optional services
 
@@ -321,12 +335,14 @@ git commit -m "fix: make Docker stack bootable with honest health output (RR-012
 > **Protected change:** Modifying the escrow state machine requires explicit ABADO approval per `AGENTS.md` Section 3. Do not implement until approval is recorded.
 
 **Files:**
+
 - Modify: `apps/backend/src/modules/escrow/escrow.service.ts`
 - Modify: `apps/backend/src/modules/escrow/escrow.controller.ts`
 - Create: `apps/backend/src/modules/escrow/escrow-auto-release.processor.ts`
 - Create: `apps/backend/src/modules/escrow/escrow-auto-release.spec.ts`
 
 **Acceptance criteria:**
+
 - Every eligible expired hold processed exactly once
 - Disputed, refunded, already released holds never release
 - Idempotent and concurrency-safe
@@ -343,6 +359,7 @@ See `docs/ROADMAP.md` RR-013 for full specification.
 ### Task 2.1: Remove mobile demo auth (RR-020)
 
 **Files:**
+
 - Search: `apps/mobile/src/` for `demo-access-token`, `demo-login`, `demo` auth logic
 - Modify: `apps/mobile/src/auth/` (auth flow)
 - Create: `apps/mobile/src/auth/dev-auth-flag.ts` (dev-only feature flag)
@@ -392,6 +409,7 @@ git commit -m "fix: remove unsafe mobile demo auth (RR-020)"
 ### Task 2.2: Make mobile API configuration device-safe (RR-021)
 
 **Files:**
+
 - Search: `apps/mobile/src/` for `localhost`, `127.0.0.1`, `10.0.2.2`
 - Modify: `apps/mobile/src/config/api-config.ts` (or equivalent)
 
@@ -404,6 +422,7 @@ Document all hardcoded API base URLs.
 - [ ] **Step 2: Replace with environment/profile configuration**
 
 Create a configuration system that reads the API base URL from an environment variable, profile file, or development settings screen. Document the following base URLs:
+
 - Android emulator: `10.0.2.2:4000`
 - iOS simulator: `localhost:4000`
 - Physical LAN device: `<host-ip>:4000`
@@ -430,6 +449,7 @@ git commit -m "fix: make mobile API configuration device-safe (RR-021)"
 ### Task 2.3: Verify payment and shipping providers (RR-022)
 
 **Files:**
+
 - `apps/backend/src/modules/payments/` (Stripe and Paystack services)
 - `apps/backend/src/modules/payouts/` (Stripe Connect)
 - `apps/backend/src/modules/shipping/` (Shippo)
@@ -438,6 +458,7 @@ git commit -m "fix: make mobile API configuration device-safe (RR-021)"
 - [ ] **Step 1: Define supported currency/provider combinations**
 
 Create a configuration that maps currencies to providers:
+
 - USD/EUR/GBP → Stripe
 - NGN → Paystack
 - GHS/KES → Paystack (marked "unverified" for transfer-recipient types)
@@ -445,6 +466,7 @@ Create a configuration that maps currencies to providers:
 - [ ] **Step 2: Write provider sandbox tests**
 
 Create integration tests that exercise:
+
 - Stripe PaymentIntent creation and confirmation
 - Stripe Connect onboarding and payout
 - Paystack charge, verify, and transfer
@@ -467,6 +489,7 @@ Confirm all webhook controllers preserve the raw body for signature verification
 - [ ] **Step 4: Write reconciliation runbooks**
 
 Create `docs/operator-runbooks/provider-reconciliation.md` covering:
+
 - Provider success with local failure
 - Local success with delayed provider events
 - Webhook signature rotation procedures
@@ -483,6 +506,7 @@ git commit -m "test: verify all payment/shipping providers end-to-end (RR-022)"
 ### Task 2.4: Verify mobile critical path against live backend (RR-023)
 
 **Files:**
+
 - `apps/mobile/src/` — all screens
 - `apps/mobile/src/tests/` (new)
 
@@ -516,6 +540,7 @@ git commit -m "test: verify mobile critical paths against live backend (RR-023)"
 ### Task 3.1: Full automated verification pipeline (RR-030)
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`
 - Modify: `turbo.json`
 - Modify: root `package.json` scripts
@@ -570,6 +595,7 @@ git commit -m "ci: full automated verification pipeline (RR-030)"
 ### Task 3.2: Burn down warning debt (RR-031)
 
 **Files:**
+
 - `apps/backend/src/` — all files with lint warnings
 - `apps/web/src/` — all files with lint warnings
 - `apps/mobile/src/` — all files with lint warnings
@@ -612,6 +638,7 @@ git commit -m "refactor: zero lint warnings across all workspaces (RR-031)"
 ### Task 3.3: Add release smoke tests (RR-032)
 
 **Files:**
+
 - `tests/smoke/` (new)
 - `playwright.config.ts`
 - `monitoring/dashboards/` (update)
@@ -619,6 +646,7 @@ git commit -m "refactor: zero lint warnings across all workspaces (RR-031)"
 - [ ] **Step 1: Create deterministic smoke suite**
 
 Create Playwright smoke tests covering:
+
 - Health/readiness endpoint
 - Auth refresh flow
 - Listing browse
@@ -660,6 +688,7 @@ git commit -m "test: add release smoke tests and operational evidence (RR-032)"
 ### Task 3.4: Reconcile documentation with verified behavior (RR-033)
 
 **Files:**
+
 - Modify: `CLAUDE.md` (or `docs/ai/project-context.md`)
 - Modify: `docs/DEPLOYMENT.md`
 - Modify: `docs/API-GATEWAY.md`
