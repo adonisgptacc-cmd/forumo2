@@ -27,8 +27,6 @@ interface BidEntry {
   isAutoBid?: boolean;
 }
 
-
-
 function formatCents(cents: number, currency = "USD") {
   return `${currency} ${(cents / 100).toFixed(2)}`;
 }

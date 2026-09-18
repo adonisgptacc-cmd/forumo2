@@ -17,7 +17,6 @@ import type { MainStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Notifications">;
 
-
 const TEMPLATE_ICONS: Record<string, string> = {
   ORDER_STATUS: "📦",
   NEW_MESSAGE: "💬",

@@ -100,9 +100,7 @@ export const MessagingInboxScreen: React.FC = () => {
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {!user ? (
             <View style={styles.banner}>
-              <Text style={styles.subtitle}>
-                Sign in to reply.
-              </Text>
+              <Text style={styles.subtitle}>Sign in to reply.</Text>
               <Button
                 title="Go to login"
                 onPress={() => navigation.navigate("Login" as never)}

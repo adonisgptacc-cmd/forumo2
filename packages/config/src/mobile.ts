@@ -33,5 +33,3 @@ export const onboardingHighlights = [
   "Explore curated listings with pricing transparency and seller context.",
   "Chat with buyers and sellers to keep deals moving and disputes minimal.",
 ];
-
-
