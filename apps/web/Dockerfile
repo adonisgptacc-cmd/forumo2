@@ -15,7 +15,6 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 
 # Build packages in order
-RUN pnpm --filter @forumo/shared build
 RUN pnpm --filter @forumo/design-system build || true
 RUN pnpm --filter web build
 
