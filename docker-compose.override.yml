@@ -1,5 +1,15 @@
 
 services:
+  # Local dev: skip production-only env requirements (Stripe/Mailgun/SNS/Shippo/metrics keys).
+  backend:
+    environment:
+      NODE_ENV: development
+      PAYMENT_MOCK_ENABLED: "true"
+
+  web:
+    ports: !override
+      - "3001:3000" # 3000 is often taken by other local containers
+
   postgres:
     image: postgres:16
     container_name: forumo-postgres
@@ -20,7 +30,7 @@ services:
     container_name: forumo-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local.test
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: password
     ports:
       - "5050:80"

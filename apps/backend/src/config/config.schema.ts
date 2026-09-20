@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const optionalString = z.string().min(1).optional();
+// Treat blank env values (e.g. `KEY=` in .env / compose) as unset.
+const optionalString = z.preprocess(v => (v === "" ? undefined : v), z.string().min(1).optional());
 
 export const configSchema = z
   .object({

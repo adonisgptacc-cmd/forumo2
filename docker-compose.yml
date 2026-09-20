@@ -1,4 +1,4 @@
-
+name: forumo2
 services:
   # --- Infrastructure ---
   postgres:
