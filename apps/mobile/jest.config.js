@@ -28,5 +28,7 @@ module.exports = {
   transformIgnorePatterns: [
     "node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@react-navigation|@react-native-async-storage)/)",
   ],
-  testPathIgnorePatterns: ["<rootDir>/e2e/"],
+  // Detox specs run via `detox test`. Not `<rootDir>/e2e/`: on Windows jest mangles that
+  // when the repo path has a dot-directory (e.g. .claude/worktrees).
+  testPathIgnorePatterns: ["[\\\\/]e2e[\\\\/]"],
 };
