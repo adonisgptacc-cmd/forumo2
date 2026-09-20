@@ -165,6 +165,41 @@ class InMemoryPrismaService {
         this.escrowHoldingsById.set(h.id, updated);
         return { count: 1 };
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: Prisma mock requires flexible typing, refine to specific Prisma types when schema stabilizes
+      findMany: async ({ where, include }: any) => {
+        let holdings = Array.from(this.escrowHoldings.values());
+        if (where?.status) {
+          holdings = holdings.filter((h) => h.status === where.status);
+        }
+        if (where?.releaseAfter?.lte) {
+          const lte = new Date(where.releaseAfter.lte);
+          holdings = holdings.filter(
+            (h) => h.releaseAfter && new Date(h.releaseAfter) <= lte,
+          );
+        }
+        if (!include) return holdings;
+        return holdings.map((h) => {
+          const order = this.orders.get(h.orderId) ?? {
+            id: h.orderId,
+            status: "DELIVERED",
+            buyerId: BUYER_ID,
+            sellerId: SELLER_ID,
+          };
+          const disputes = Array.from(this.escrowDisputes.values())
+            .filter((d) => d.escrowId === h.id)
+            .filter(
+              (d) =>
+                !include.disputes?.where?.status ||
+                d.status === include.disputes.where.status,
+            )
+            .map((d) => ({ id: d.id, status: d.status }));
+          return {
+            ...h,
+            order: include.order ? order : undefined,
+            disputes: include.disputes ? disputes : undefined,
+          };
+        });
+      },
     };
   }
 

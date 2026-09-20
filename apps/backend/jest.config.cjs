@@ -19,7 +19,9 @@ module.exports = {
       },
     ],
   },
-  testMatch: ["<rootDir>/src/**/*.spec.ts", "<rootDir>/src/**/*.test.ts"],
+  // Regex (not glob) so tests are found even when the repo path has a dot-directory
+  // such as .claude/worktrees, which globs skip.
+  testRegex: "[\\/]src[\\/].*\\.(spec|test)\\.ts$",
   collectCoverageFrom: ["<rootDir>/src/**/*.ts", "!<rootDir>/src/main.ts"],
   coverageReporters: ["text", "lcov"],
   coverageThreshold: {

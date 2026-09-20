@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { SafeMessageThread } from "@forumo/shared";
-import { demoThreads } from "@forumo/config";
 import { MainStackParamList } from "../navigation/types";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -58,15 +57,11 @@ export const MessageThreadScreen: React.FC = () => {
         );
         setThread(result);
       } else {
-        const fallback = demoThreads.find(
-          (t) => t.id === route.params.threadId,
-        );
-        setThread(fallback);
+        setThread(undefined);
       }
     } catch {
-      setError("Unable to load thread right now. Showing demo content.");
-      const fallback = demoThreads.find((t) => t.id === route.params.threadId);
-      setThread(fallback);
+      setError("Unable to load thread.");
+      setThread(undefined);
     } finally {
       setLoading(false);
     }

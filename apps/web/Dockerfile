@@ -1,5 +1,6 @@
 # Base image
 FROM node:22.23.2-slim AS base
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -15,7 +16,6 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 
 # Build packages in order
-RUN pnpm --filter @forumo/shared build
 RUN pnpm --filter @forumo/design-system build || true
 RUN pnpm --filter web build
 

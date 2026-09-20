@@ -15,7 +15,7 @@
     "pretest:coverage": "pnpm run prisma:generate",
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage",
-    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:generate": "node ../../scripts/update-prisma-hash.mjs",
     "migrate": "prisma migrate deploy --schema prisma/schema.prisma",
     "seed": "ts-node --transpile-only prisma/seed.ts",
     "create-admin": "ts-node --transpile-only scripts/create-admin.ts",

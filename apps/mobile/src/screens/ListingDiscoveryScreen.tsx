@@ -13,7 +13,7 @@ import {
   Modal,
 } from "react-native";
 import type { SafeListing, ListingCategory } from "@forumo/shared";
-import { brandColors, demoListings, spacing } from "@forumo/config";
+import { brandColors, spacing } from "@forumo/config";
 import { useAuth } from "../providers/AuthProvider";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -295,8 +295,8 @@ export const ListingDiscoveryScreen: React.FC = () => {
         setPage(pageToLoad);
       } catch {
         setHasMore(false);
-        setListings(demoListings);
-        setError("Using demo listings while we reconnect.");
+        setListings([]);
+        setError("Unable to load listings.");
       } finally {
         setLoading(false);
       }

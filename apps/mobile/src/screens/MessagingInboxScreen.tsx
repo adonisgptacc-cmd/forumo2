@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { SafeMessageThread } from "@forumo/shared";
-import { brandColors, demoThreads } from "@forumo/config";
+import { brandColors } from "@forumo/config";
 import { useAuth } from "../providers/AuthProvider";
 import { MainStackParamList } from "../navigation/types";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -51,14 +51,14 @@ export const MessagingInboxScreen: React.FC = () => {
     setError(undefined);
     try {
       if (!user) {
-        setThreads(demoThreads);
+        setThreads([]);
       } else {
         const response = await apiClient.messaging.listThreads();
         setThreads(response.data);
       }
     } catch {
-      setError("Unable to sync inbox. Showing cached demo threads.");
-      setThreads(demoThreads);
+      setError("Unable to sync inbox.");
+      setThreads([]);
     } finally {
       setLoading(false);
     }
@@ -100,9 +100,7 @@ export const MessagingInboxScreen: React.FC = () => {
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {!user ? (
             <View style={styles.banner}>
-              <Text style={styles.subtitle}>
-                Sign in to reply or continue with demo threads.
-              </Text>
+              <Text style={styles.subtitle}>Sign in to reply.</Text>
               <Button
                 title="Go to login"
                 onPress={() => navigation.navigate("Login" as never)}

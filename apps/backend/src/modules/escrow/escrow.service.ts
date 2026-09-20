@@ -41,11 +41,75 @@ export class EscrowService {
         amountCents,
         currency,
         status: "HOLDING",
-        releaseAfter: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days default
+        releaseAfter: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days default
       },
     });
 
     return escrow;
+  }
+
+  async isEligibleForAutoRelease(orderId: string): Promise<{
+    eligible: boolean;
+    reason: string;
+    orderStatus?: string;
+    hasOpenDisputes: boolean;
+  }> {
+    const escrow = await this.prisma.escrowHolding.findUnique({
+      where: { orderId },
+      include: {
+        order: { select: { id: true, status: true } },
+        disputes: { where: { status: "OPEN" }, select: { id: true } },
+      },
+    });
+
+    if (!escrow) {
+      return {
+        eligible: false,
+        reason: "Escrow not found",
+        hasOpenDisputes: false,
+      };
+    }
+
+    if (escrow.status !== EscrowStatus.HOLDING) {
+      return {
+        eligible: false,
+        reason: `Status is ${escrow.status}`,
+        hasOpenDisputes: false,
+      };
+    }
+
+    if (!escrow.releaseAfter || escrow.releaseAfter > new Date()) {
+      return {
+        eligible: false,
+        reason: "Release date not yet reached",
+        hasOpenDisputes: false,
+      };
+    }
+
+    if (
+      escrow.order.status !== "DELIVERED" &&
+      escrow.order.status !== "FULFILLED"
+    ) {
+      return {
+        eligible: false,
+        reason: `Order status ${escrow.order.status} requires DELIVERED or FULFILLED`,
+        hasOpenDisputes: false,
+      };
+    }
+
+    if (escrow.disputes.length > 0) {
+      return {
+        eligible: false,
+        reason: `${escrow.disputes.length} open dispute(s)`,
+        hasOpenDisputes: true,
+      };
+    }
+
+    return {
+      eligible: true,
+      reason: "All eligibility criteria met",
+      hasOpenDisputes: false,
+    };
   }
 
   async getEscrowByOrderId(

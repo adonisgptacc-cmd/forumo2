@@ -1,4 +1,4 @@
-
+name: forumo2
 services:
   # --- Infrastructure ---
   postgres:
@@ -62,9 +62,9 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
 
   # --- Applications ---
   moderation:
@@ -83,15 +83,20 @@ services:
     environment:
       - DATABASE_URL=postgresql://forumo:forumo@postgres:5432/forumo?schema=public
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=dev-super-secret-key-change-in-prod # dev-only — override in prod
+      - JWT_SECRET=${JWT_SECRET}
       - MODERATION_SERVICE_URL=http://moderation:5005
-      - MODERATION_INTERNAL_TOKEN=dev-moderation-token # dev-only — override in prod
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - UPLOADS_BUCKET=forumo-uploads
+      - MODERATION_INTERNAL_TOKEN=${MODERATION_INTERNAL_TOKEN}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio}
+      - MINIO_PORT=${MINIO_PORT:-9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - UPLOADS_BUCKET=${UPLOADS_BUCKET:-forumo-uploads}
       - PORT=4000
+      - NEXT_PUBLIC_USE_API_MOCKS=${NEXT_PUBLIC_USE_API_MOCKS:-false}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY:-}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY:-}
+      - SNS_ACCESS_KEY_ID=${SNS_ACCESS_KEY_ID:-}
     ports:
       - "4000:4000"
     depends_on:

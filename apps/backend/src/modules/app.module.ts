@@ -33,6 +33,7 @@ import { AnalyticsModule } from "./analytics/analytics.module";
 import { LegalModule } from "./legal/legal.module";
 import { TosInterceptor } from "../common/interceptors/tos.interceptor";
 import { ThrottlerStorageRedis } from "../common/services/throttler-redis.storage";
+import { skipUnlessOptedIn } from "../common/utils/throttle-opt-in";
 
 @Module({
   imports: [
@@ -81,18 +82,54 @@ import { ThrottlerStorageRedis } from "../common/services/throttler-redis.storag
         return {
           throttlers: [
             { ttl: 60, limit: 100 },
-            { name: "auth", ttl: authWindowSec, limit: authLimit },
-            { name: "auth-login", ttl: loginWindowSec, limit: loginLimit },
-            { name: "auth-otp", ttl: otpWindowSec, limit: otpLimit },
-            { name: "auth-resend", ttl: resendWindowSec, limit: resendLimit },
             {
-              name: "auth-password-reset",
+              name: "auth",
+              skipIf: skipUnlessOptedIn("auth"),
+              ttl: authWindowSec,
+              limit: authLimit,
+            },
+            {
+              name: "auth-login",
+              skipIf: skipUnlessOptedIn("auth-login"),
               ttl: loginWindowSec,
               limit: loginLimit,
             },
-            { name: "payments", ttl: paymentWindowSec, limit: paymentLimit },
-            { name: "notifications-list", ttl: 60, limit: 60 },
-            { name: "notifications-mark", ttl: 60, limit: 30 },
+            {
+              name: "auth-otp",
+              skipIf: skipUnlessOptedIn("auth-otp"),
+              ttl: otpWindowSec,
+              limit: otpLimit,
+            },
+            {
+              name: "auth-resend",
+              skipIf: skipUnlessOptedIn("auth-resend"),
+              ttl: resendWindowSec,
+              limit: resendLimit,
+            },
+            {
+              name: "auth-password-reset",
+              skipIf: skipUnlessOptedIn("auth-password-reset"),
+              ttl: loginWindowSec,
+              limit: loginLimit,
+            },
+            {
+              name: "payments",
+              skipIf: skipUnlessOptedIn("payments"),
+              ttl: paymentWindowSec,
+              limit: paymentLimit,
+            },
+            {
+              name: "notifications-list",
+              skipIf: skipUnlessOptedIn("notifications-list"),
+              ttl: 60,
+              limit: 60,
+            },
+            {
+              name: "notifications-mark",
+              skipIf: skipUnlessOptedIn("notifications-mark"),
+              ttl: 60,
+              limit: 30,
+            },
           ],
           storage: new ThrottlerStorageRedis(new IORedis(redisUrl)),
         };

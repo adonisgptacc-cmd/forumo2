@@ -27,30 +27,6 @@ interface BidEntry {
   isAutoBid?: boolean;
 }
 
-const DEMO_BIDS: BidEntry[] = [
-  {
-    id: "1",
-    bidderName: "user_alpha",
-    amountCents: 15000,
-    currency: "USD",
-    createdAt: new Date(Date.now() - 60000).toISOString(),
-  },
-  {
-    id: "2",
-    bidderName: "user_beta",
-    amountCents: 12500,
-    currency: "USD",
-    createdAt: new Date(Date.now() - 180000).toISOString(),
-  },
-  {
-    id: "3",
-    bidderName: "user_gamma",
-    amountCents: 10000,
-    currency: "USD",
-    createdAt: new Date(Date.now() - 360000).toISOString(),
-  },
-];
-
 function formatCents(cents: number, currency = "USD") {
   return `${currency} ${(cents / 100).toFixed(2)}`;
 }
@@ -125,35 +101,21 @@ export const AuctionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       if (!auction) {
         setAuction({
           id: auctionId,
-          listingId: "demo",
-          sellerId: "demo-seller",
+          listingId: auctionId,
+          sellerId: "",
           status: "ACTIVE",
-          startingBidCents: 10000,
+          startingBidCents: 0,
           currency: "USD",
           reserveCents: null,
-          buyNowCents: 25000,
-          startAt: new Date(Date.now() - 3600000).toISOString(),
+          buyNowCents: 0,
+          startAt: new Date().toISOString(),
           endAt: new Date(Date.now() + 7200000).toISOString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          currentBidCents: 15000,
-          bidCount: 3,
-          listing: {
-            id: "demo",
-            title: "Demo Auction Item",
-            description: "A demo item for the auction",
-            priceCents: 25000,
-            currency: "USD",
-            status: "PUBLISHED",
-            sellerId: "demo-seller",
-            moderationStatus: "APPROVED",
-            images: [],
-            variants: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
+          currentBidCents: 0,
+          bidCount: 0,
         });
-        setBids(DEMO_BIDS);
+        setBids([]);
       }
     }
   }, [apiClient, auctionId, auction, navigation]);

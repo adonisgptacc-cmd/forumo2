@@ -1,7 +1,10 @@
 import { Controller, Get } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { HealthService } from "./health.service";
 
+// Probes are polled by Docker/k8s; rate limiting them marks healthy services unhealthy.
+@SkipThrottle()
 @ApiTags("health")
 @Controller()
 export class HealthController {
